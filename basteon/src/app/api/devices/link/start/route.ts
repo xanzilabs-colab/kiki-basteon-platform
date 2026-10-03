@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-const inputSchema = z.object({ device_id: z.string().trim().min(1).max(64), nickname: z.string().trim().min(1).max(100).optional() });
+const inputSchema = z.object({ device_id: z.string().trim().min(1).max(64), nickname: z.string().optional() });
 
 export async function POST(request: Request) {
   const input = inputSchema.safeParse(await request.json());
@@ -29,7 +29,8 @@ export async function POST(request: Request) {
   const token = randomBytes(16).toString("hex");
   const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
   const tokenHash = createHash("sha256").update(token).digest("hex");
-  const { error } = await db.from("device_link_tokens").insert({ user_id: user.id, device_id: device.device_id, token_hash: tokenHash, nickname: input.data.nickname, expires_at: expiresAt });
+  const nickname = input.data.nickname?.trim().slice(0, 40) || null;
+  const { error } = await db.from("device_link_tokens").insert({ user_id: user.id, device_id: device.device_id, token_hash: tokenHash, nickname, expires_at: expiresAt });
   if (error) return NextResponse.json({ error: "could_not_start_link" }, { status: 500 });
   return NextResponse.json({ token, expires_at: expiresAt });
 }

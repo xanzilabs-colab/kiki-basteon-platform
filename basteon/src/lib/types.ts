@@ -14,5 +14,6 @@ export interface AlertLocation {
   loc_source: LocationSource; fix_age_s: number | null; battery: number | null; ctr: number; recorded_at: string;
 }
 export interface AlertEvent { id: string; alert_id: string; actor_id: string | null; from_status: AlertStatus | null; to_status: AlertStatus; note: string | null; created_at: string; actor?: { full_name: string | null } | null; }
-export interface Profile { id: string; full_name: string | null; phone?: string | null; home_address?: string | null; emergency_contact_name?: string | null; emergency_contact_phone?: string | null; consented_at?: string | null; role: "admin" | "responder" | "user"; created_at: string; email?: string; linked_device_count?: number; }
-export interface Device { id: string; device_id: string; device_name: string; user_id: string | null; active: boolean; last_ctr: number; last_seen_at: string | null; linked_at?: string | null; created_at: string; owner?: { full_name: string | null } | null; }
+export interface DeviceOwner { id: string; full_name: string | null; phone: string | null; email: string | null; }
+export interface Profile { id: string; full_name: string | null; phone?: string | null; home_address?: string | null; emergency_contact_name?: string | null; emergency_contact_phone?: string | null; consented_at?: string | null; role: "admin" | "responder" | "user"; created_at: string; email?: string; linked_device_count?: number; devices?: Device[]; }
+export interface Device { id: string; device_id: string; device_name: string; user_id: string | null; active: boolean; last_ctr: number; last_seen_at: string | null; linked_at?: string | null; created_at: string; owner?: DeviceOwner | null; }
