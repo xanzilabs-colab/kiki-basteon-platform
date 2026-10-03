@@ -61,6 +61,47 @@
 .account-desktop-call { justify-content: center; }
 .account-mobile-call { color: #756b7d; }
 .account-mobile-call:hover { background: #e9e2f5; color: #54256f; }
+.account-mobile-more { color: #756b7d; }
+.account-mobile-more:hover { background: #e9e2f5; color: #54256f; }
+.account-more-scrim { position: fixed; z-index: 110; inset: 0; display: flex; align-items: end; background: rgba(50, 24, 63, .35); }
+.account-more-sheet { width: 100%; border-radius: 20px 20px 0 0; background: #fff; padding: 12px 16px max(20px, env(safe-area-inset-bottom)); box-shadow: 0 -12px 32px rgba(50, 24, 63, .18); }
+.account-more-option { display: flex; width: 100%; flex-direction: column; gap: 4px; border: 0; border-bottom: 1px solid #eee8f3; background: transparent; padding: 17px 8px; color: #32183f; text-align: left; }
+.account-more-option span { display: flex; align-items: center; gap: 10px; font-weight: 800; }
+.account-more-option small { color: #756b7d; font-size: 12px; }
+.account-more-sheet .btn { margin-top: 14px; }
+.hamba-page { max-width: 820px; }
+.hamba-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.hamba-heading p { margin: 6px 0 0; color: #756b7d; font-size: 13px; }
+.hamba-engine { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; border-radius: 999px; background: #e9e2f5; color: #54256f; padding: 8px 10px; font-size: 12px; font-weight: 800; }
+.hamba-planner, .hamba-active-card { border: 1px solid #ded6e7; border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgba(50, 24, 63, .07); padding: 18px; }
+.hamba-search { display: flex; align-items: center; gap: 10px; border: 1px solid #ded6e7; border-radius: 12px; background: #fff; padding: 0 12px; color: #54256f; }
+.hamba-search input { width: 100%; height: 48px; border: 0; outline: 0; color: #29212f; }
+.hamba-suggestions { overflow: hidden; border: 1px solid #ded6e7; border-top: 0; border-radius: 0 0 12px 12px; }
+.hamba-suggestions button { display: block; width: 100%; border: 0; border-bottom: 1px solid #eee8f3; background: #fff; padding: 12px; color: #29212f; font-size: 13px; text-align: left; }
+.hamba-suggestions button:hover { background: #fcf9f3; }
+.hamba-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 16px 0; border-radius: 10px; background: #f5f0fa; padding: 4px; }
+.hamba-mode button { height: 38px; border: 0; border-radius: 7px; background: transparent; color: #756b7d; font-weight: 800; }
+.hamba-mode button.active { background: #54256f; color: #fff; }
+.hamba-preview, .hamba-active { overflow: hidden; border-radius: 14px; }
+.hamba-map { height: 280px; width: 100%; background: #e9e2f5; }
+.hamba-map-loading { display: grid; place-items: center; color: #756b7d; font-size: 13px; }
+.hamba-route-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+.hamba-route-summary div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.hamba-route-summary b { color: #32183f; font-size: 18px; }
+.hamba-route-summary span { color: #756b7d; font-size: 11px; }
+.hamba-start { width: 100%; }
+.hamba-note, .hamba-message { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; color: #756b7d; font-size: 12px; }
+.hamba-active { position: relative; border: 1px solid #ded6e7; background: #fff; }
+.hamba-active .hamba-map { height: 390px; }
+.hamba-active-card { position: relative; margin: -16px 12px 12px; }
+.hamba-active-card h2 { margin: 9px 0; color: #32183f; font-size: 20px; }
+.hamba-live { display: inline-flex; align-items: center; gap: 6px; color: #4b8d6c; font-size: 12px; font-weight: 800; }
+.hamba-live i { width: 8px; height: 8px; border-radius: 50%; background: #4fa77a; }
+.hamba-trip-stats, .hamba-actions { display: flex; gap: 10px; }
+.hamba-trip-stats { color: #5f5467; font-size: 12px; }
+.hamba-trip-stats span { display: inline-flex; align-items: center; gap: 5px; }
+.hamba-active-card > p { color: #756b7d; font-size: 12px; }
+.hamba-actions .btn { flex: 1; }
 .account-desktop-sos .kiki-mark { filter: brightness(0) invert(1); }
 .account-mobile-sos { position: relative; z-index: 1; display: flex; width: 78px; min-width: 78px; height: 78px; margin: -30px 2px 0; align-items: center; justify-content: center; overflow: hidden; border: 4px solid #fcf9f3; border-radius: 50%; background: #d94362; box-shadow: 0 8px 18px rgba(217, 67, 98, .28); }
 .account-mobile-sos .kiki-mark { filter: brightness(0) invert(1); }
@@ -133,6 +174,11 @@
   .account-desktop-call { display: none; }
   .kiki-loader { padding: 24px; text-align: center; }
   .kiki-loader-orbit { width: 150px; height: 150px; }
+  .hamba-heading { align-items: start; }
+  .hamba-heading .page-title { font-size: 27px; }
+  .hamba-engine { margin-top: 2px; }
+  .hamba-map { height: 240px; }
+  .hamba-active .hamba-map { height: 330px; }
 }
 
 @media (max-width: 360px) {

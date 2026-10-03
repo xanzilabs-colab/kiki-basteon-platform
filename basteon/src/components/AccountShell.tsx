@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { House, LogOut, PhoneCall, PhoneOff, ShieldAlert, Smartphone, UserRound } from "lucide-react";
+import { House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, Smartphone, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -20,6 +20,7 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [sosError, setSosError] = useState("");
   const [safetyCall, setSafetyCall] = useState<"idle" | "arming" | "incoming" | "active">("idle");
   const [callSeconds, setCallSeconds] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
   async function signOut() { await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
 
   useEffect(() => {
@@ -92,6 +93,7 @@ export function AccountShell({ name, children }: { name: string; children: React
               {link.label}
             </Link>
           ))}
+          <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" ? "page" : undefined}>Trips</Link>
         </nav>
         <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={() => setSosOpen(true)}>
           <KikiMark size={48} /> Send SOS
@@ -128,9 +130,9 @@ export function AccountShell({ name, children }: { name: string; children: React
         <button className="account-mobile-sos" title="Send SOS" aria-label="Send SOS" onClick={() => setSosOpen(true)}>
           <KikiMark size={108} />
         </button>
-        <button className="account-mobile-call nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px]" title="Safety call" aria-label="Start safety call" onClick={startSafetyCall}>
-          <PhoneCall size={18} strokeWidth={2.2} aria-hidden="true" />
-          <span>Call</span>
+        <button className="account-mobile-more nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px]" title="More options" aria-label="Open more options" onClick={() => setMoreOpen(true)}>
+          <Menu size={20} strokeWidth={2.2} aria-hidden="true" />
+          <span>More</span>
         </button>
         {links.slice(2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px] aria-[current=page]:border-t-[var(--text)]" aria-current={pathname === link.href ? "page" : undefined}>
@@ -139,6 +141,15 @@ export function AccountShell({ name, children }: { name: string; children: React
           </Link>
         ))}
       </nav>
+      {moreOpen && (
+        <div className="account-more-scrim" role="presentation" onClick={() => setMoreOpen(false)}>
+          <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
+            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/trips"); }}><span><Route size={20} /> Trips</span><small>Hamba travel safety</small></button>
+            <button className="account-more-option" onClick={() => { setMoreOpen(false); startSafetyCall(); }}><span><PhoneCall size={20} /> Safety call</span><small>Start a discreet in-app call</small></button>
+            <button className="btn w-full" onClick={() => setMoreOpen(false)}>Close</button>
+          </section>
+        </div>
+      )}
       {sosOpen && (
         <div className="account-sos-scrim" role="presentation">
           <section className="account-sos-dialog" role="dialog" aria-modal="true" aria-labelledby="sos-title">

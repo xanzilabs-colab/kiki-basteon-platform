@@ -13,9 +13,6 @@ export async function POST(request: Request) {
   const { data: { user } } = await client.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const { data: profile } = await client.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || profile.role === "user") return NextResponse.json({ error: "forbidden" }, { status: 403 });
-
   const input = subscriptionSchema.safeParse(await request.json());
   if (!input.success) return NextResponse.json({ error: "invalid_subscription" }, { status: 400 });
 
