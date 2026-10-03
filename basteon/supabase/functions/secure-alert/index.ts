@@ -84,10 +84,12 @@ function parseTrackingPayload(value: unknown): TrackingPayload | null {
   return { status, ctr, ref, lat, lng, src, age, battery };
 }
 
-const dispatchPush = async (deviceId: string) => {
+const dispatchPush = async (deviceId: string, deviceName: string | null, ownerName: string | null) => {
   const url = Deno.env.get("PUSH_DISPATCH_URL");
   const secret = Deno.env.get("PUSH_DISPATCH_SECRET");
   if (!url || !secret) return;
+
+  const recipientName = ownerName?.trim() || deviceName?.trim() || deviceId;
 
   try {
     await fetch(url, {
@@ -95,7 +97,7 @@ const dispatchPush = async (deviceId: string) => {
       headers: { "Content-Type": "application/json", "x-push-dispatch-secret": secret },
       body: JSON.stringify({
         title: "New panic alert",
-        body: `${deviceId} needs assistance.`,
+        body: `${recipientName} needs assistance.`,
         tag: `basteon-alert-${deviceId}-${Date.now()}`,
         url: "/responder",
       }),
@@ -122,7 +124,7 @@ Deno.serve(async (request) => {
   if (deviceId.length > 64 || iv.length > 32 || tag.length > 32 || ciphertext.length > 2048) return json({ error: "too_large" }, 413);
 
   const [{ data: device }, { data: secret }] = await Promise.all([
-    supabase.from("devices").select("active,last_ctr").eq("device_id", deviceId).maybeSingle(),
+    supabase.from("devices").select("active,last_ctr,device_name,user_id").eq("device_id", deviceId).maybeSingle(),
     supabase.from("device_secrets").select("key_b64").eq("device_id", deviceId).maybeSingle(),
   ]);
   if (!device || !secret || !device.active) return json({ error: "unknown_device" }, 403);
@@ -183,7 +185,10 @@ Deno.serve(async (request) => {
       .lt("last_ctr", tracking.ctr);
     if (counterError) return json({ error: "db_error" }, 500);
 
-    void dispatchPush(deviceId);
+    const { data: owner } = device.user_id
+      ? await supabase.from("profiles").select("full_name").eq("id", device.user_id).maybeSingle()
+      : { data: null };
+    void dispatchPush(deviceId, device.device_name, owner?.full_name ?? null);
     return json({ ok: true }, 201);
   }
 
