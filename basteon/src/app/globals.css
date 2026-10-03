@@ -110,3 +110,4 @@ button { cursor: pointer; }
 .mk-me { --c: var(--ok); }
 .mk-new { --c: var(--crit); } .mk-ack { --c: var(--warn); } .mk-enr { --c: var(--accent); } .mk-sce { --c: var(--violet); }
 @keyframes ring { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }

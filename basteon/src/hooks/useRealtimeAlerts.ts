@@ -58,7 +58,7 @@ export function useRealtimeAlerts() {
 
 			const ownerIds = [...new Set((devices ?? []).map((device) => device.user_id).filter((id): id is string => Boolean(id)))];
 			const { data: owners, error: ownerError } = ownerIds.length
-				? await supabase.from("profiles").select("id,full_name,phone").in("id", ownerIds)
+				? await supabase.from("profiles").select("id,full_name,phone,home_address,emergency_contact_name,emergency_contact_phone").in("id", ownerIds)
 				: { data: [], error: null };
 			if (!active) return;
 			if (ownerError) { setError(ownerError.message); return; }

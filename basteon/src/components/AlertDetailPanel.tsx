@@ -1,5 +1,5 @@
 "use client";
-import { Copy, ExternalLink, Phone } from "lucide-react";
+import { Copy, ExternalLink, Phone, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Alert, AlertEvent } from "@/lib/types";
@@ -9,7 +9,7 @@ import { LocationSourceBadge } from "./LocationSourceBadge";
 import { StatusActions } from "./StatusActions";
 import { AlertTimeline } from "./AlertTimeline";
 
-export function AlertDetailPanel({ alert, events, admin, refresh }: { alert: Alert | null; events: AlertEvent[]; admin?: boolean; refresh(): void }) {
+export function AlertDetailPanel({ alert, events, admin, refresh, onViewProfile }: { alert: Alert | null; events: AlertEvent[]; admin?: boolean; refresh(): void; onViewProfile?(alert: Alert): void }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -34,6 +34,7 @@ export function AlertDetailPanel({ alert, events, admin, refresh }: { alert: Ale
             <Phone size={13} /><span className="data">{alert.device.owner.phone}</span>
           </a>
         )}
+        {alert.device?.owner && onViewProfile && <button className="btn mt-3 flex w-full items-center justify-center gap-2" onClick={() => onViewProfile(alert)}><UserRound size={14} />View user profile</button>}
       </div>
 
       <div className="section space-y-2">

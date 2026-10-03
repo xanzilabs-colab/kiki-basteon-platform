@@ -11,7 +11,8 @@ import { AlertBanner } from "@/components/AlertBanner";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Navbar } from "@/components/Navbar";
-import type { Alert } from "@/lib/types";
+import { UserProfileDrawer } from "@/components/UserProfileDrawer";
+import type { Alert, ProfileContact } from "@/lib/types";
 
 const AlertMap = dynamic(() => import("@/components/AlertMap"), {
   ssr: false,
@@ -23,6 +24,7 @@ export default function ResponderPage() {
   const { position, error } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "all">("active");
+  const [profile, setProfile] = useState<ProfileContact | null>(null);
 
   const active = useMemo(() => alerts.filter((a) => activeStatuses.includes(a.status)), [alerts]);
   const unacked = useMemo(
@@ -72,8 +74,9 @@ export default function ResponderPage() {
 
         {/* Incident detail: right card on desktop, bottom sheet on small screens */}
         <aside className="absolute z-[1000] glass overflow-y-auto bottom-0 left-0 right-0 max-h-[52%] rounded-b-none lg:rounded-b-[4px] lg:top-3 lg:bottom-3 lg:left-auto lg:right-3 lg:w-[360px] lg:max-h-none">
-          <AlertDetailPanel alert={selected} events={events} refresh={refresh} />
+          <AlertDetailPanel alert={selected} events={events} refresh={refresh} onViewProfile={(alert) => setProfile(alert.device?.owner ?? null)} />
         </aside>
+        <UserProfileDrawer profile={profile} onClose={() => setProfile(null)} />
       </main>
     </div>
   );
