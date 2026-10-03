@@ -25,6 +25,21 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
   async function signOut() { await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
 
+  async function loadRingtone() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("ringtone_path,ringtone_id").eq("id", user.id).single();
+    let storagePath = profile?.ringtone_path;
+    if (!storagePath && profile?.ringtone_id) {
+      const { data: ringtone } = await supabase.from("ringtones").select("storage_path").eq("id", profile.ringtone_id).maybeSingle();
+      storagePath = ringtone?.storage_path;
+    }
+    if (!storagePath) return setRingtoneUrl(null);
+    const { data } = await supabase.storage.from("kiki-ringtones").createSignedUrl(storagePath, 3_600);
+    setRingtoneUrl(data?.signedUrl ?? null);
+  }
+
   useEffect(() => {
     if (safetyCall !== "arming") return;
     const timer = window.setTimeout(() => {
@@ -35,17 +50,7 @@ export function AccountShell({ name, children }: { name: string; children: React
   }, [safetyCall]);
 
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("ringtone_path").eq("id", user.id).single();
-      if (!profile?.ringtone_path) return;
-      const { data } = await supabase.storage.from("kiki-ringtones").createSignedUrl(profile.ringtone_path, 3_600);
-      if (active) setRingtoneUrl(data?.signedUrl ?? null);
-    })();
-    return () => { active = false; };
+    void loadRingtone();
   }, []);
 
   useEffect(() => {
@@ -91,9 +96,10 @@ export function AccountShell({ name, children }: { name: string; children: React
     setSosError(result.error === "no_active_device" ? "Link an active Kiki device before sending an SOS." : "SOS could not be sent. Please try again or call emergency services.");
   }
 
-  function startSafetyCall() {
+  async function startSafetyCall() {
     if (safetyCall === "idle") {
       primeRingtone();
+      await loadRingtone();
       setSafetyCall("arming");
     }
   }
@@ -122,7 +128,7 @@ export function AccountShell({ name, children }: { name: string; children: React
         <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={() => setSosOpen(true)}>
           <KikiMark size={48} /> Send SOS
         </button>
-        <button className="account-desktop-call btn mx-3 mt-2" onClick={startSafetyCall}>
+        <button className="account-desktop-call btn mx-3 mt-2" onClick={() => void startSafetyCall()}>
           <PhoneCall size={18} /> Safety call
         </button>
         <button className="btn btn-ghost m-3 mt-2" onClick={() => void signOut()}>
@@ -172,7 +178,7 @@ export function AccountShell({ name, children }: { name: string; children: React
         <div className="account-more-scrim" role="presentation" onClick={() => setMoreOpen(false)}>
           <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/trips"); }}><span><Route size={20} /> Trips</span><small>Hamba travel safety</small></button>
-            <button className="account-more-option" onClick={() => { setMoreOpen(false); startSafetyCall(); }}><span><PhoneCall size={20} /> Safety call</span><small>Start a discreet in-app call</small></button>
+            <button className="account-more-option" onClick={() => { setMoreOpen(false); void startSafetyCall(); }}><span><PhoneCall size={20} /> Safety call</span><small>Start a discreet in-app call</small></button>
             <button className="btn w-full" onClick={() => setMoreOpen(false)}>Close</button>
           </section>
         </div>

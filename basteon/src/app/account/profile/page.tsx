@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Check, Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile } from "@/lib/types";
+import type { Profile, Ringtone } from "@/lib/types";
 
 const phoneValid = (value: string) =>
   !value || /^(?:\+27|0)[1-9]\d{8}$/.test(value.replace(/[\s-]/g, ""));
@@ -12,6 +13,9 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [ringtoneBusy, setRingtoneBusy] = useState(false);
+  const [ringtones, setRingtones] = useState<Ringtone[]>([]);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const previewAudio = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -20,11 +24,14 @@ export default function ProfilePage() {
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("full_name,phone,home_address,emergency_contact_name,emergency_contact_phone,consented_at,ringtone_path")
+        .select("full_name,phone,home_address,emergency_contact_name,emergency_contact_phone,consented_at,ringtone_path,ringtone_id")
         .eq("id", user.id)
         .single();
       setProfile(data ?? {});
+      const { data: ringtoneCatalog } = await supabase.from("ringtones").select("id,name,storage_path,is_stock").eq("is_stock", true).order("name");
+      setRingtones(ringtoneCatalog ?? []);
     })();
+    return () => previewAudio.current?.pause();
   }, []);
 
   const field = (name: keyof Profile) => ({
@@ -71,11 +78,47 @@ export default function ProfilePage() {
     const path = `${user.id}/ringtone.${extension}`;
     if (profile.ringtone_path) await supabase.storage.from("kiki-ringtones").remove([profile.ringtone_path]);
     const { error: uploadError } = await supabase.storage.from("kiki-ringtones").upload(path, file, { upsert: true, contentType: file.type });
-    const { error: profileError } = uploadError ? { error: uploadError } : await supabase.from("profiles").update({ ringtone_path: path }).eq("id", user.id);
+    const { error: profileError } = uploadError ? { error: uploadError } : await supabase.from("profiles").update({ ringtone_path: path, ringtone_id: null }).eq("id", user.id);
     setRingtoneBusy(false);
     if (profileError) return setMessage(profileError.message);
-    setProfile((current) => ({ ...current, ringtone_path: path }));
+    setProfile((current) => ({ ...current, ringtone_path: path, ringtone_id: null }));
     setMessage("Ringtone saved for your in-app safety call.");
+  }
+
+  function stopPreview() {
+    previewAudio.current?.pause();
+    previewAudio.current = null;
+    setPreviewingId(null);
+  }
+
+  async function previewRingtone(ringtone: Ringtone) {
+    if (previewingId === ringtone.id) return stopPreview();
+    stopPreview();
+    const supabase = createClient();
+    const { data, error } = await supabase.storage.from("kiki-ringtones").createSignedUrl(ringtone.storage_path, 60);
+    if (error || !data?.signedUrl) return setMessage(error?.message ?? "Ringtone preview could not be loaded.");
+    const audio = new Audio(data.signedUrl);
+    previewAudio.current = audio;
+    audio.addEventListener("ended", stopPreview, { once: true });
+    try {
+      await audio.play();
+      setPreviewingId(ringtone.id);
+    } catch {
+      setMessage("Ringtone preview could not play in this browser.");
+    }
+  }
+
+  async function selectRingtone(ringtone: Ringtone) {
+    setRingtoneBusy(true);
+    stopPreview();
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setRingtoneBusy(false); return; }
+    const { error } = await supabase.from("profiles").update({ ringtone_id: ringtone.id, ringtone_path: null }).eq("id", user.id);
+    setRingtoneBusy(false);
+    if (error) return setMessage(error.message);
+    setProfile((current) => ({ ...current, ringtone_id: ringtone.id, ringtone_path: null }));
+    setMessage(`${ringtone.name} selected for your in-app safety call.`);
   }
 
   return (
@@ -123,11 +166,26 @@ export default function ProfilePage() {
               : "during account setup"}.
           </p>
 
-          <label className="block">
+          <div className="account-ringtone-settings">
             <span className="label">Safety call ringtone</span>
+            <p className="account-ringtone-caption">Choose a Kiki tone or upload your own. Safety calls ring for up to 20 seconds.</p>
+            <div className="account-ringtone-grid">
+              {ringtones.map((ringtone) => {
+                const selected = profile.ringtone_id === ringtone.id;
+                const previewing = previewingId === ringtone.id;
+                return <div className={`account-ringtone-option${selected ? " is-selected" : ""}`} key={ringtone.id}>
+                  <span className="account-ringtone-name">{ringtone.name}</span>
+                  <div className="account-ringtone-actions">
+                    <button className="account-ringtone-icon" type="button" title={previewing ? `Stop ${ringtone.name} preview` : `Preview ${ringtone.name}`} onClick={() => void previewRingtone(ringtone)}>{previewing ? <Pause size={16} /> : <Play size={16} />}</button>
+                    <button className="account-ringtone-select" type="button" disabled={ringtoneBusy || selected} onClick={() => void selectRingtone(ringtone)}>{selected ? <><Check size={15} /> Selected</> : "Select"}</button>
+                  </div>
+                </div>;
+              })}
+            </div>
+
             <input className="mt-2 block w-full text-[12px]" type="file" accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav" disabled={ringtoneBusy} onChange={(event) => void uploadRingtone(event.target.files?.[0])} />
             <span className="muted mt-1 block text-[11px]">Optional MP3, M4A, OGG, or WAV file, up to 5 MB.</span>
-          </label>
+          </div>
 
           {message && (
             <p role="status" className="text-[12px] text-[var(--ok)]">{message}</p>

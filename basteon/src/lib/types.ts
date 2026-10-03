@@ -1,6 +1,7 @@
 export type AlertStatus = "new" | "acknowledged" | "enroute" | "on_scene" | "resolved" | "false_alarm";
 export type LocationSource = "gps" | "stale" | "cached" | "dev" | null;
 export interface ProfileContact { full_name: string | null; phone?: string | null; home_address?: string | null; emergency_contact_name?: string | null; emergency_contact_phone?: string | null; email?: string | null; }
+export interface Ringtone { id: string; name: string; storage_path: string; is_stock: boolean; }
 
 export interface Alert {
   id: string; device_id: string; ctr: number; status: AlertStatus; lat: number | null; lng: number | null;
@@ -16,5 +17,5 @@ export interface AlertLocation {
 }
 export interface AlertEvent { id: string; alert_id: string; actor_id: string | null; from_status: AlertStatus | null; to_status: AlertStatus; note: string | null; created_at: string; actor?: { full_name: string | null } | null; }
 export interface DeviceOwner { id: string; full_name: string | null; phone: string | null; email: string | null; }
-export interface Profile extends ProfileContact { id: string; consented_at?: string | null; ringtone_path?: string | null; role: "admin" | "responder" | "user"; created_at: string; linked_device_count?: number; devices?: Device[]; }
+export interface Profile extends ProfileContact { id: string; consented_at?: string | null; ringtone_path?: string | null; ringtone_id?: string | null; role: "admin" | "responder" | "user"; created_at: string; linked_device_count?: number; devices?: Device[]; }
 export interface Device { id: string; device_id: string; device_name: string; user_id: string | null; active: boolean; last_ctr: number; last_seen_at: string | null; linked_at?: string | null; created_at: string; owner?: DeviceOwner | null; }

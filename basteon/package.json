@@ -8,6 +8,7 @@
     "start": "next start",
     "seed:users": "tsx scripts/seed-users.ts",
     "test:link-device": "tsx scripts/send-link-device.ts",
+    "upload:stock-ringtones": "tsx scripts/upload-stock-ringtones.ts",
     "test:trips": "vitest run src/lib/hamba/__tests__"
   },
   "dependencies": {

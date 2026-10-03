@@ -12,6 +12,7 @@ export function primeRingtone() {
 function defaultRingtone() {
   const audio = context();
   let timer: number | undefined;
+  let maximum: number | undefined;
   const ring = () => {
     [0, 0.23].forEach((offset) => {
       const oscillator = audio.createOscillator();
@@ -27,7 +28,12 @@ function defaultRingtone() {
   };
   ring();
   timer = window.setInterval(ring, 2_200);
-  return () => { if (timer) window.clearInterval(timer); };
+  const stop = () => {
+    if (timer) window.clearInterval(timer);
+    if (maximum) window.clearTimeout(maximum);
+  };
+  maximum = window.setTimeout(stop, 20_000);
+  return stop;
 }
 
 export function startRingtone(url?: string | null) {
@@ -39,7 +45,16 @@ export function startRingtone(url?: string | null) {
     const fallback = window.setTimeout(() => {
       if (audio.paused) stopFallback = defaultRingtone();
     }, 400);
-    return () => { window.clearTimeout(fallback); stopFallback?.(); audio.pause(); audio.currentTime = 0; };
+    let maximum: number | undefined;
+    const stop = () => {
+      window.clearTimeout(fallback);
+      if (maximum) window.clearTimeout(maximum);
+      stopFallback?.();
+      audio.pause();
+      audio.currentTime = 0;
+    };
+    maximum = window.setTimeout(stop, 20_000);
+    return stop;
   }
   return defaultRingtone();
 }
