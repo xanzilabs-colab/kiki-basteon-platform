@@ -11,6 +11,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Partial<Profile>>({});
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [ringtoneBusy, setRingtoneBusy] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -19,7 +20,7 @@ export default function ProfilePage() {
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("full_name,phone,home_address,emergency_contact_name,emergency_contact_phone,consented_at")
+        .select("full_name,phone,home_address,emergency_contact_name,emergency_contact_phone,consented_at,ringtone_path")
         .eq("id", user.id)
         .single();
       setProfile(data ?? {});
@@ -57,6 +58,24 @@ export default function ProfilePage() {
       .eq("id", user!.id);
     setSaving(false);
     setMessage(error ? error.message : "Profile saved.");
+  }
+
+  async function uploadRingtone(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("audio/") || file.size > 5 * 1024 * 1024) return setMessage("Choose an audio file smaller than 5 MB.");
+    setRingtoneBusy(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setRingtoneBusy(false); return; }
+    const extension = file.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "") || "audio";
+    const path = `${user.id}/ringtone.${extension}`;
+    if (profile.ringtone_path) await supabase.storage.from("kiki-ringtones").remove([profile.ringtone_path]);
+    const { error: uploadError } = await supabase.storage.from("kiki-ringtones").upload(path, file, { upsert: true, contentType: file.type });
+    const { error: profileError } = uploadError ? { error: uploadError } : await supabase.from("profiles").update({ ringtone_path: path }).eq("id", user.id);
+    setRingtoneBusy(false);
+    if (profileError) return setMessage(profileError.message);
+    setProfile((current) => ({ ...current, ringtone_path: path }));
+    setMessage("Ringtone saved for your in-app safety call.");
   }
 
   return (
@@ -103,6 +122,12 @@ export default function ProfilePage() {
               ? new Date(profile.consented_at).toLocaleString()
               : "during account setup"}.
           </p>
+
+          <label className="block">
+            <span className="label">Safety call ringtone</span>
+            <input className="mt-2 block w-full text-[12px]" type="file" accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav" disabled={ringtoneBusy} onChange={(event) => void uploadRingtone(event.target.files?.[0])} />
+            <span className="muted mt-1 block text-[11px]">Optional MP3, M4A, OGG, or WAV file, up to 5 MB.</span>
+          </label>
 
           {message && (
             <p role="status" className="text-[12px] text-[var(--ok)]">{message}</p>

@@ -6,6 +6,7 @@ import { House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, Smartphon
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
+import { primeRingtone, startRingtone } from "@/lib/ringtone";
 
 const links = [
   { href: "/account", label: "Overview", icon: House },
@@ -21,6 +22,7 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [safetyCall, setSafetyCall] = useState<"idle" | "arming" | "incoming" | "active">("idle");
   const [callSeconds, setCallSeconds] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
   async function signOut() { await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
 
   useEffect(() => {
@@ -31,6 +33,25 @@ export function AccountShell({ name, children }: { name: string; children: React
     }, 5_000);
     return () => window.clearTimeout(timer);
   }, [safetyCall]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("ringtone_path").eq("id", user.id).single();
+      if (!profile?.ringtone_path) return;
+      const { data } = await supabase.storage.from("kiki-ringtones").createSignedUrl(profile.ringtone_path, 3_600);
+      if (active) setRingtoneUrl(data?.signedUrl ?? null);
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (safetyCall !== "incoming") return;
+    return startRingtone(ringtoneUrl);
+  }, [ringtoneUrl, safetyCall]);
 
   useEffect(() => {
     if (safetyCall !== "active") {
@@ -71,7 +92,10 @@ export function AccountShell({ name, children }: { name: string; children: React
   }
 
   function startSafetyCall() {
-    if (safetyCall === "idle") setSafetyCall("arming");
+    if (safetyCall === "idle") {
+      primeRingtone();
+      setSafetyCall("arming");
+    }
   }
 
   const callDuration = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
@@ -112,7 +136,10 @@ export function AccountShell({ name, children }: { name: string; children: React
             <KikiMark size={92} />
             <span>KIKI CONNECT</span>
           </div>
-          <span className="muted account-user-name truncate text-xs" title={name}>{name}</span>
+          <div className="account-user-summary" title={name}>
+            <span className="account-user-label">Signed in as</span>
+            <span className="account-user-name">{name}</span>
+          </div>
           <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
             <LogOut size={17} aria-hidden="true" />
           </button>

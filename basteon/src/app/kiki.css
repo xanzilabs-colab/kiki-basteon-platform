@@ -54,7 +54,9 @@
 .account-shell .nav-link:hover, .account-shell .nav-link[aria-current="page"] { background: #e9e2f5; color: #54256f; }
 .account-mobile-brand { display: flex; align-items: center; min-width: 0; gap: 6px; color: #32183f; font-size: 11px; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
 .account-mobile-brand .kiki-mark { flex: 0 0 auto; }
-.account-user-name { color: #5f5467; font-weight: 600; }
+.account-user-summary { display: flex; min-width: 0; margin-left: auto; flex-direction: column; justify-content: center; padding: 0 22px; border-left: 1px solid #ded6e7; text-align: right; }
+.account-user-label { color: #756b7d; font-size: 10px; font-weight: 800; letter-spacing: .08em; line-height: 1.2; text-transform: uppercase; }
+.account-user-name { overflow: hidden; color: #32183f; font-size: 13px; font-weight: 800; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .account-sign-out { min-width: 42px; padding: 0; }
 .account-mobile-nav .nav-link { display: flex; align-items: center; }
 .account-desktop-sos { justify-content: center; }
@@ -163,9 +165,11 @@
 
 @media (max-width: 767px) {
   .account-shell .sidebar { display: none; }
-  .account-shell .account-mobile-appbar { display: grid; height: 96px; grid-template-columns: minmax(0, 1fr) 42px; grid-template-rows: 64px 32px; column-gap: 10px; padding-inline: 16px; }
+  .account-shell .account-mobile-appbar { display: grid; height: 104px; grid-template-columns: minmax(0, 1fr) 42px; grid-template-rows: 60px 44px; column-gap: 10px; padding-inline: 16px; }
   .account-shell .account-mobile-brand { grid-column: 1; grid-row: 1; }
-  .account-shell .account-user-name { grid-column: 1 / -1; grid-row: 2; width: 100%; align-self: start; border-top: 1px solid #ded6e7; padding-top: 7px; font-size: 12px; }
+  .account-shell .account-user-summary { grid-column: 1 / -1; grid-row: 2; width: 100%; align-self: center; margin: 0; border: 0; border-radius: 9px; background: #f4eff8; padding: 6px 10px; text-align: left; }
+  .account-shell .account-user-label { font-size: 9px; }
+  .account-shell .account-user-name { font-size: 12px; }
   .account-shell .account-sign-out { grid-column: 2; grid-row: 1; margin: 0; }
   .account-shell .page-title { font-size: 29px; }
   .account-shell .pane-head { min-height: 58px; padding: 12px 16px; }
