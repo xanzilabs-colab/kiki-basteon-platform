@@ -81,8 +81,8 @@ export function AccountShell({ name, children }: { name: string; children: React
             <KikiMark size={92} />
             <span>KIKI CONNECT</span>
           </div>
-          <span className="muted account-user-name ml-auto truncate text-xs" title={name}>{name}</span>
-          <button className="btn btn-ghost account-sign-out ml-3 md:hidden" title="Sign out" onClick={() => void signOut()}>
+          <span className="muted account-user-name truncate text-xs" title={name}>{name}</span>
+          <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
             <LogOut size={17} aria-hidden="true" />
           </button>
         </header>
