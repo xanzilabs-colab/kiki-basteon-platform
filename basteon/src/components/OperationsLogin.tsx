@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { KikiMark } from "@/components/KikiMark";
 import { createClient } from "@/lib/supabase/client";
 
 type OperationsLoginProps = {
@@ -48,9 +47,9 @@ export function OperationsLogin({ consoleName, destination, allowedRoles }: Oper
     <main className="ops-login">
       <form className="ops-login-card" onSubmit={signIn}>
         <div className="ops-login-brand">
-          <KikiMark size={116} />
+          <span className="mark">B</span>
           <div>
-            <span>KIKI CONNECT</span>
+            <span>BASTEON</span>
             <strong>{consoleName}</strong>
           </div>
         </div>

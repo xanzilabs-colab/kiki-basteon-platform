@@ -30,12 +30,11 @@ export default function AdminPage() {
   const max = Math.max(alerts.length, 1);
 
   return (
-    <div className="admin-overview mx-auto max-w-[1320px] space-y-8">
-      <div className="admin-overview-head flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-5 max-w-[1280px]">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <p className="eyebrow">Kiki Connect · Command centre</p>
-          <h1 className="page-title mt-2">Emergency operations</h1>
-          <p className="admin-intro mt-2">A clear view of every Kiki member who may need support.</p>
+          <p className="eyebrow">Command overview</p>
+          <h1 className="page-title mt-1">Emergency operations</h1>
         </div>
         <Link className="btn btn-primary" href="/responder">Open response console</Link>
       </div>
@@ -63,14 +62,11 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px] items-start">
-        <section className="panel admin-alerts-panel">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] items-start">
+        <section className="panel">
           <div className="pane-head">
-            <div>
-              <span>Latest alerts</span>
-              <p className="pane-subtitle">Most recent requests for support</p>
-            </div>
-            <span className="count-pill">{alerts.length} total</span>
+            <span>Latest alerts</span>
+            <span className="data">{alerts.length} total</span>
           </div>
           <AlertList
             alerts={alerts.slice(0, 8)}
@@ -80,30 +76,23 @@ export default function AdminPage() {
           />
         </section>
 
-        <section className="panel status-panel">
-          <div className="pane-head">
-            <div>
-              <span>Alerts by status</span>
-              <p className="pane-subtitle">Current distribution</p>
-            </div>
-          </div>
-          <div className="status-breakdown">
-            {STAGES.map((s) => {
-              const n = alerts.filter((a) => a.status === s.key).length;
-              return (
-                <div key={s.key} className="bd-row">
-                  <div className="bd-label"><i style={{ background: s.color }} /><span>{s.label}</span></div>
-                  <div className="bd-track" aria-hidden="true">
-                    <span
-                      className="bd-fill"
-                      style={{ width: `${(n / max) * 100}%`, ["--c" as string]: s.color }}
-                    />
-                  </div>
-                  <span className="bd-num">{n}</span>
-                </div>
-              );
-            })}
-          </div>
+        <section className="panel">
+          <div className="pane-head"><span>Alerts by status</span></div>
+          {STAGES.map((s) => {
+            const n = alerts.filter((a) => a.status === s.key).length;
+            return (
+              <div key={s.key} className="bd-row">
+                <span>{s.label}</span>
+                <span className="bd-track">
+                  <span
+                    className="bd-fill block"
+                    style={{ width: `${(n / max) * 100}%`, ["--c" as string]: s.color }}
+                  />
+                </span>
+                <span className="bd-num">{n}</span>
+              </div>
+            );
+          })}
         </section>
       </div>
     </div>
