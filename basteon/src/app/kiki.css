@@ -58,6 +58,9 @@
 .account-sign-out { min-width: 42px; padding: 0; }
 .account-mobile-nav .nav-link { display: flex; align-items: center; }
 .account-desktop-sos { justify-content: center; }
+.account-desktop-call { justify-content: center; }
+.account-mobile-call { color: #756b7d; }
+.account-mobile-call:hover { background: #e9e2f5; color: #54256f; }
 .account-desktop-sos .kiki-mark { filter: brightness(0) invert(1); }
 .account-mobile-sos { position: relative; z-index: 1; display: flex; width: 78px; min-width: 78px; height: 78px; margin: -30px 2px 0; align-items: center; justify-content: center; overflow: hidden; border: 4px solid #fcf9f3; border-radius: 50%; background: #d94362; box-shadow: 0 8px 18px rgba(217, 67, 98, .28); }
 .account-mobile-sos .kiki-mark { filter: brightness(0) invert(1); }
@@ -69,6 +72,20 @@
 .account-sos-dialog > p { margin: 0; color: #756b7d; font-size: 13px; line-height: 1.55; }
 .account-sos-error { margin-top: 14px !important; color: #b92b49 !important; font-weight: 700; }
 .account-sos-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+.safety-call-screen { position: fixed; z-index: 120; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: max(54px, env(safe-area-inset-top)) 28px max(52px, env(safe-area-inset-bottom)); background: #32183f; color: #fff; text-align: center; }
+.safety-call-screen::before { position: absolute; inset: 0; background: radial-gradient(circle at 50% 26%, rgba(231, 90, 155, .34), transparent 32%); content: ""; }
+.safety-call-caller, .safety-call-actions { position: relative; z-index: 1; }
+.safety-call-caller { display: flex; flex-direction: column; align-items: center; }
+.safety-call-avatar { display: grid; width: 92px; height: 92px; place-items: center; border: 1px solid rgba(255, 255, 255, .35); border-radius: 50%; background: #e75a9b; box-shadow: 0 0 0 14px rgba(231, 90, 155, .13); }
+.safety-call-caller p { margin: 28px 0 8px; color: #f8d6e6; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+.safety-call-caller h2 { margin: 0; font-size: 33px; letter-spacing: 0; }
+.safety-call-caller span:last-child { margin-top: 6px; color: rgba(255, 255, 255, .7); font-size: 14px; }
+.safety-call-actions { display: grid; width: min(100%, 330px); grid-template-columns: 1fr 1fr; gap: 58px; }
+.safety-call-decline, .safety-call-answer { display: flex; flex-direction: column; align-items: center; gap: 9px; border: 0; background: transparent; color: #fff; font-size: 13px; }
+.safety-call-decline svg, .safety-call-answer svg { width: 58px; height: 58px; padding: 16px; border-radius: 50%; background: #d94362; }
+.safety-call-answer svg { background: #4fa77a; }
+.safety-call-active { justify-content: space-between; }
+.safety-call-active .safety-call-decline { position: relative; z-index: 1; }
 .auth-shell { background: radial-gradient(circle at 15% 15%, #f8d6e6 0, transparent 22rem), #fcf9f3; }
 .auth-card { border: 1px solid #ded6e7; border-top: 4px solid #54256f; border-radius: 20px; box-shadow: 0 12px 36px rgba(50, 24, 63, .09); }
 .auth-head { padding: 28px 28px 22px; border-bottom-color: #ded6e7; }
@@ -113,6 +130,7 @@
   .account-shell .pane-head { min-height: 58px; padding: 12px 16px; }
   .account-shell .panel > .p-6 { padding: 20px; }
   .account-desktop-sos { display: none; }
+  .account-desktop-call { display: none; }
   .kiki-loader { padding: 24px; text-align: center; }
   .kiki-loader-orbit { width: 150px; height: 150px; }
 }
