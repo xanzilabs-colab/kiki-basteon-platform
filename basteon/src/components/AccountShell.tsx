@@ -10,7 +10,7 @@ export function AccountShell({ name, children }: { name: string; children: React
   const pathname = usePathname(); const router = useRouter();
   async function signOut() { await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
   return (
-    <div className="min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[216px_1fr] md:overflow-hidden">
+    <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[216px_1fr] md:overflow-hidden">
       <aside className="sidebar hidden md:flex md:min-h-0 md:flex-col">
         <div className="sidebar-head">
           <span className="mark">B</span>
