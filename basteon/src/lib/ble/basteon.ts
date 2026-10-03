@@ -15,9 +15,20 @@ export type BasteonBleDevice = {
   onStatus(listener: (status: string) => void): () => void;
 };
 
+export type ConnectOptions = {
+  /** Show every nearby Bluetooth device in Chrome's chooser instead of only Kiki bands. */
+  showAll?: boolean;
+};
+
 type Stage = "choose" | "connect" | "discover" | "read";
 
 const CONNECT_TIMEOUT_MS = 20_000;
+
+// Web Bluetooth rejects UUIDs that contain uppercase letters.
+const SERVICE_UUID = BASTEON_SERVICE_UUID.toLowerCase();
+const INFO_UUID = BASTEON_INFO_UUID.toLowerCase();
+const TOKEN_UUID = BASTEON_TOKEN_UUID.toLowerCase();
+const STATUS_UUID = BASTEON_STATUS_UUID.toLowerCase();
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -33,7 +44,7 @@ function friendlyError(error: unknown, stage: Stage): string {
   if (error instanceof DOMException) {
     if (error.name === "NotFoundError") {
       return stage === "choose"
-        ? "No band was selected. Make sure the band is in link mode, then try again."
+        ? "No band was found or selected. Make sure the light is double-blinking, close any other Bluetooth app, then try again. If it still doesn't appear, use “Show all Bluetooth devices”."
         : "This device doesn't look like a Kiki band in link mode. Hold the button for 5 seconds and try again.";
     }
     if (error.name === "NetworkError") return "Could not connect to the band. Keep it close and in link mode.";
@@ -41,10 +52,13 @@ function friendlyError(error: unknown, stage: Stage): string {
     if (error.name === "NotAllowedError") return "Bluetooth permission was denied. Allow it and try again.";
     if (error.name === "NotSupportedError") return "This device doesn't support the required Bluetooth features.";
   }
+  if (error instanceof TypeError) {
+    return "The Bluetooth service ID is invalid. Check the UUIDs in lib/ble/constants.ts.";
+  }
   return error instanceof Error ? error.message : "Bluetooth connection failed.";
 }
 
-export async function connectBasteonDevice(): Promise<BasteonBleDevice> {
+export async function connectBasteonDevice(opts: ConnectOptions = {}): Promise<BasteonBleDevice> {
   if (typeof navigator === "undefined" || !("bluetooth" in navigator)) {
     throw new Error("Web Bluetooth is not supported by this browser.");
   }
@@ -53,11 +67,20 @@ export async function connectBasteonDevice(): Promise<BasteonBleDevice> {
   let device: BluetoothDevice | null = null;
 
   try {
+    // Filters are OR'd: match by service UUID, or by name.
     // Kiki is the customer-facing name; "Basteon" is accepted for units flashed with older firmware.
-    device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: "Kiki" }, { namePrefix: "Basteon" }],
-      optionalServices: [BASTEON_SERVICE_UUID],
-    });
+    device = await navigator.bluetooth.requestDevice(
+      opts.showAll
+        ? { acceptAllDevices: true, optionalServices: [SERVICE_UUID] }
+        : {
+            filters: [
+              { services: [SERVICE_UUID] },
+              { namePrefix: "Kiki" },
+              { namePrefix: "Basteon" },
+            ],
+            optionalServices: [SERVICE_UUID],
+          },
+    );
 
     stage = "connect";
     const server = await withTimeout(
@@ -67,11 +90,11 @@ export async function connectBasteonDevice(): Promise<BasteonBleDevice> {
     );
 
     stage = "discover";
-    const service = await server.getPrimaryService(BASTEON_SERVICE_UUID);
+    const service = await server.getPrimaryService(SERVICE_UUID);
     const [info, token, status] = await Promise.all([
-      service.getCharacteristic(BASTEON_INFO_UUID),
-      service.getCharacteristic(BASTEON_TOKEN_UUID),
-      service.getCharacteristic(BASTEON_STATUS_UUID),
+      service.getCharacteristic(INFO_UUID),
+      service.getCharacteristic(TOKEN_UUID),
+      service.getCharacteristic(STATUS_UUID),
     ]);
 
     stage = "read";

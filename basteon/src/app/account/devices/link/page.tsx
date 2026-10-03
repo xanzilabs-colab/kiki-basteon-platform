@@ -67,12 +67,12 @@ export default function LinkDevicePage() {
     setError("");
   }
 
-  async function findDevice() {
+  async function findDevice(showAll = false) {
     setBusy(true);
     setError("");
     failureRef.current = "";
     try {
-      const next = await connectBasteonDevice();
+      const next = await connectBasteonDevice({ showAll });
       cleanup.current?.();
       session.current?.disconnect();
       session.current = next;
@@ -160,13 +160,13 @@ export default function LinkDevicePage() {
         <div className="space-y-2 text-sm">
           <p>Put your band into link mode:</p>
           <ol className="list-decimal pl-5 space-y-1">
-  <li>Press and <b>hold</b> the button. The light stays on while you hold.</li>
-  <li>After about 5 seconds you&apos;ll hear two quick beeps and the light starts double-blinking. <b>Now let go.</b></li>
-  <li>Tap <b>Find band</b> below.</li>
-</ol>
-<p className="muted text-xs">
-  Link mode lasts 5 minutes. If you let go before the two beeps, the band starts an alert countdown. Hold the button for 1.5 seconds to cancel it.
-</p>
+            <li>Press and <b>hold</b> the button. The light stays on while you hold.</li>
+            <li>After about 5 seconds you&apos;ll hear two quick beeps and the light starts double-blinking. <b>Now let go.</b></li>
+            <li>Tap <b>Find band</b> below.</li>
+          </ol>
+          <p className="muted text-xs">
+            Link mode lasts 5 minutes. If you let go before the two beeps, the band starts an alert countdown. Hold the button for 1.5 seconds to cancel it.
+          </p>
         </div>
 
         <label className="flex items-center gap-2 text-sm">
@@ -177,13 +177,21 @@ export default function LinkDevicePage() {
         <button
           className="btn btn-primary w-full !h-10"
           disabled={!ready || busy}
-          onClick={() => void findDevice()}
+          onClick={() => void findDevice(false)}
         >
           {busy && !deviceId ? "Looking for your band…" : "Find band"}
         </button>
 
+        <button
+          className="btn w-full"
+          disabled={!ready || busy}
+          onClick={() => void findDevice(true)}
+        >
+          Can&apos;t see it? Show all Bluetooth devices
+        </button>
+
         <p className="muted text-xs">
-          On Android, turn on Location before scanning. Bluetooth linking needs a secure (https) connection.
+          Close any other Bluetooth app that&apos;s connected to the band (such as nRF Connect). On Android, turn on Location before scanning. Bluetooth linking needs a secure (https) connection.
         </p>
       </section>
 
