@@ -33,6 +33,18 @@ function ResizeMap() {
   return null;
 }
 
+function DeferredTileLayer() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  if (!ready) return null;
+  return <TileLayer url={process.env.NEXT_PUBLIC_MAP_TILE_URL!} attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION} subdomains="abcd" keepBuffer={4} maxZoom={19} />;
+}
+
 const pin = (status: string, selected: boolean) =>
   L.divIcon({
     className: "",
@@ -93,7 +105,7 @@ export default function AlertMap({
 
   return (
     <MapContainer center={center} zoom={Number(process.env.NEXT_PUBLIC_DEFAULT_MAP_ZOOM ?? 5)} scrollWheelZoom zoomControl={false} className="alert-map">
-      <TileLayer url={process.env.NEXT_PUBLIC_MAP_TILE_URL!} attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION} subdomains="abcd" keepBuffer={4} maxZoom={19} />
+      <DeferredTileLayer />
       <ZoomControl position="topleft" />
       <ResizeMap />
       <Fly alert={selected} follow={follow} />
