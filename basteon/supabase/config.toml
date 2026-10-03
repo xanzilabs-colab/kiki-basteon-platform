@@ -1,0 +1,2 @@
+[functions.secure-alert]
+verify_jwt = false

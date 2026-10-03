@@ -1,0 +1,2 @@
+import { statusColors, statusLabels } from "@/lib/status"; import type { AlertStatus } from "@/lib/types";
+export function StatusBadge({ status }: { status: AlertStatus }) { return <span className={`status status-${statusColors[status]} ${status === "new" ? "pulse" : ""}`}>{statusLabels[status]}</span>; }

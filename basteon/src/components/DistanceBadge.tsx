@@ -1,0 +1,1 @@
+import { formatDistance } from "@/lib/geo"; export function DistanceBadge({ km }: { km?: number | null }) { return <span className="muted text-xs">{formatDistance(km)}</span>; }

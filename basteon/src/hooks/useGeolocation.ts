@@ -1,0 +1,4 @@
+"use client";
+import { useEffect, useState } from "react";
+import type { Position } from "@/lib/geo";
+export function useGeolocation() { const [position, setPosition] = useState<Position | null>(null); const [error, setError] = useState<string | null>(null); useEffect(() => { if (!navigator.geolocation) { setError("Enable location to see distance to alerts"); return; } const id = navigator.geolocation.watchPosition((value) => { setPosition({ lat: value.coords.latitude, lng: value.coords.longitude, accuracy: value.coords.accuracy }); setError(null); }, () => setError("Enable location to see distance to alerts"), { enableHighAccuracy: true, maximumAge: 10000 }); return () => navigator.geolocation.clearWatch(id); }, []); return { position, error }; }

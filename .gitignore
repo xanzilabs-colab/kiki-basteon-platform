@@ -1,0 +1,15 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# JavaScript build output and dependencies
+**/node_modules/
+**/.next/
+**/tsconfig.tsbuildinfo
+**/supabase/.temp/
+
+# Editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db
