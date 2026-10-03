@@ -68,7 +68,7 @@ export function AccountShell({ name, children }: { name: string; children: React
           ))}
         </nav>
         <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={() => setSosOpen(true)}>
-          <ShieldAlert size={18} /> Send SOS
+          <KikiMark size={48} /> Send SOS
         </button>
         <button className="btn btn-ghost m-3 mt-2" onClick={() => void signOut()}>
           Sign out
@@ -97,8 +97,7 @@ export function AccountShell({ name, children }: { name: string; children: React
           </Link>
         ))}
         <button className="account-mobile-sos" title="Send SOS" aria-label="Send SOS" onClick={() => setSosOpen(true)}>
-          <ShieldAlert size={27} strokeWidth={2.4} aria-hidden="true" />
-          <span>SOS</span>
+          <KikiMark size={108} />
         </button>
         {links.slice(2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px] aria-[current=page]:border-t-[var(--text)]" aria-current={pathname === link.href ? "page" : undefined}>

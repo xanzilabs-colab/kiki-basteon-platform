@@ -58,7 +58,9 @@
 .account-sign-out { min-width: 42px; padding: 0; }
 .account-mobile-nav .nav-link { display: flex; align-items: center; }
 .account-desktop-sos { justify-content: center; }
-.account-mobile-sos { position: relative; z-index: 1; display: flex; width: 68px; min-width: 68px; height: 68px; margin: -26px 4px 0; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 4px solid #fcf9f3; border-radius: 50%; background: #d94362; box-shadow: 0 8px 18px rgba(217, 67, 98, .28); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .06em; }
+.account-desktop-sos .kiki-mark { filter: brightness(0) invert(1); }
+.account-mobile-sos { position: relative; z-index: 1; display: flex; width: 78px; min-width: 78px; height: 78px; margin: -30px 2px 0; align-items: center; justify-content: center; overflow: hidden; border: 4px solid #fcf9f3; border-radius: 50%; background: #d94362; box-shadow: 0 8px 18px rgba(217, 67, 98, .28); }
+.account-mobile-sos .kiki-mark { filter: brightness(0) invert(1); }
 .account-mobile-sos:hover { background: #bd2f4d; }
 .account-sos-scrim { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(50, 24, 63, .45); }
 .account-sos-dialog { width: min(100%, 380px); border: 1px solid #ded6e7; border-radius: 16px; background: #fff; box-shadow: 0 20px 50px rgba(50, 24, 63, .24); padding: 28px; text-align: center; }
