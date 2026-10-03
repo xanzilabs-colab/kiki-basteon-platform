@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { playAlertSound, unlockAlertSound } from "@/lib/alertSound";
 import { createClient } from "@/lib/supabase/client";
 import { enablePushNotifications } from "@/lib/usePushNotifications";
-import type { Alert, AlertEvent } from "@/lib/types";
+import type { Alert, AlertEvent, Device } from "@/lib/types";
 
-const query = "*, device:devices(device_name,user_id,owner:profiles(full_name,phone)), assignee:profiles!alerts_assigned_to_fkey(full_name)";
+const alertQuery = "*, assignee:profiles!alerts_assigned_to_fkey(full_name)";
 
 function announceAlert(alert: Alert) {
 	toast("NEW PANIC ALERT", { description: "A wearable device has activated an emergency alert." });
@@ -28,6 +28,7 @@ export function useRealtimeAlerts() {
 	const [alerts, setAlerts] = useState<Alert[]>([]);
 	const [events, setEvents] = useState<AlertEvent[]>([]);
 	const [connection, setConnection] = useState("connecting");
+	const [error, setError] = useState("");
 	const knownAlertIds = useRef(new Set<string>());
 	const hasInitialSnapshot = useRef(false);
 
@@ -43,10 +44,32 @@ export function useRealtimeAlerts() {
 		};
 
 		const syncAlerts = async () => {
-			const { data } = await supabase.from("alerts").select(query).order("triggered_at", { ascending: false }).limit(200);
-			if (!active || !data) return;
+			const { data, error: alertError } = await supabase.from("alerts").select(alertQuery).order("triggered_at", { ascending: false }).limit(200);
+			if (!active) return;
+			if (alertError) { setError(alertError.message); return; }
 
-			const nextAlerts = data as Alert[];
+			const rawAlerts = (data ?? []) as Alert[];
+			const deviceIds = [...new Set(rawAlerts.map((alert) => alert.device_id))];
+			const { data: devices, error: deviceError } = deviceIds.length
+				? await supabase.from("devices").select("device_id,device_name,user_id").in("device_id", deviceIds)
+				: { data: [] as Device[], error: null };
+			if (!active) return;
+			if (deviceError) { setError(deviceError.message); return; }
+
+			const ownerIds = [...new Set((devices ?? []).map((device) => device.user_id).filter((id): id is string => Boolean(id)))];
+			const { data: owners, error: ownerError } = ownerIds.length
+				? await supabase.from("profiles").select("id,full_name,phone").in("id", ownerIds)
+				: { data: [], error: null };
+			if (!active) return;
+			if (ownerError) { setError(ownerError.message); return; }
+
+			const deviceById = new Map((devices ?? []).map((device) => [device.device_id, device]));
+			const ownerById = new Map((owners ?? []).map((owner) => [owner.id, owner]));
+			const nextAlerts = rawAlerts.map((alert) => {
+				const device = deviceById.get(alert.device_id);
+				return { ...alert, device: device ? { ...device, owner: device.user_id ? ownerById.get(device.user_id) ?? null : null } : null };
+			});
+			setError("");
 			const newAlerts = hasInitialSnapshot.current
 				? nextAlerts.filter((alert) => !knownAlertIds.current.has(alert.id))
 				: [];
@@ -73,8 +96,7 @@ export function useRealtimeAlerts() {
 			.on("postgres_changes", { event: "INSERT", schema: "public", table: "alerts" }, async (payload) => {
 				const changed = payload.new as Alert;
 				addOrUpdateAlert(changed, true);
-				const { data } = await supabase.from("alerts").select(query).eq("id", changed.id).single();
-				if (active && data) addOrUpdateAlert(data as Alert, false);
+				void syncAlerts();
 			})
 			.on("postgres_changes", { event: "UPDATE", schema: "public", table: "alerts" }, (payload) => {
 				const changed = payload.new as Partial<Alert>;
@@ -100,9 +122,11 @@ export function useRealtimeAlerts() {
 	}, []);
 
 	const refresh = async () => {
-		const { data } = await createClient().from("alerts").select(query).order("triggered_at", { ascending: false }).limit(200);
+		const supabase = createClient();
+		const { data, error: alertError } = await supabase.from("alerts").select(alertQuery).order("triggered_at", { ascending: false }).limit(200);
+		if (alertError) { setError(alertError.message); return; }
 		setAlerts((data ?? []) as Alert[]);
 	};
 
-	return { alerts, setAlerts, events, setEvents, connection, refresh };
+	return { alerts, setAlerts, events, setEvents, connection, error, refresh };
 }

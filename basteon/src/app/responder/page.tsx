@@ -19,7 +19,7 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
 });
 
 export default function ResponderPage() {
-  const { alerts, events, connection, refresh } = useRealtimeAlerts();
+  const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts();
   const { position, error } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "all">("active");
@@ -47,6 +47,7 @@ export default function ResponderPage() {
       </Navbar>
 
       <main className="relative min-h-0 min-w-0">
+        {alertError && <div role="alert" className="absolute z-[1100] top-3 left-3 right-3 md:left-[352px] lg:right-[372px] border border-[#6b2b32] bg-[rgb(255_77_90/.92)] p-3 text-sm text-white">Unable to load alerts: {alertError}</div>}
         <div className="absolute inset-0">
           <AlertMap alerts={active} selected={selected} me={position} trail={trail} onSelect={(a) => setSelectedId(a.id)} />
         </div>
