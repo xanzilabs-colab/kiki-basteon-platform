@@ -6,7 +6,7 @@ export async function middleware(request: NextRequest) {
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { cookies: { getAll: () => request.cookies.getAll(), setAll: (items: { name: string; value: string; options?: Record<string, unknown> }[]) => { items.forEach(({ name, value }) => request.cookies.set(name, value)); response = NextResponse.next({ request }); items.forEach(({ name, value, options }) => response.cookies.set(name, value, options)); } } });
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
-  const publicRoute = pathname === "/login" || pathname === "/signup";
+  const publicRoute = pathname === "/login" || pathname === "/signup" || pathname === "/admin/login" || pathname === "/responder/login";
   if (!user && !publicRoute && !pathname.startsWith("/api/")) return NextResponse.redirect(new URL("/login", request.url));
   if (user && publicRoute) return NextResponse.redirect(new URL("/", request.url));
   if (user && (pathname.startsWith("/admin") || pathname.startsWith("/responder") || pathname.startsWith("/account"))) {

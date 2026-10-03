@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { KikiMark } from "@/components/KikiMark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,12 +28,12 @@ export default function LoginPage() {
       <form onSubmit={login} className="auth-card">
         <div className="auth-head">
           <div className="flex items-center gap-2.5">
-            <span className="mark">B</span>
-            <b className="text-[13px] tracking-[.04em] font-semibold">BASTEON</b>
+            <KikiMark size={170} />
+            <b className="text-[13px] tracking-[.04em] font-semibold">KIKI CONNECT</b>
           </div>
-          <h1 className="page-title mt-4">Sign in</h1>
+          <h1 className="page-title mt-4">Safety, wherever you are.</h1>
           <p className="muted text-[12px] mt-1">
-            Access your devices or the response console.
+            Your Kiki keeps support close when you need it.
           </p>
         </div>
 
@@ -79,7 +80,7 @@ export default function LoginPage() {
           </button>
 
           <p className="muted text-[12px] text-center">
-            New to Basteon?{" "}
+            New to Kiki?{" "}
             <Link className="text-[var(--info)] hover:underline" href="/signup">
               Create an account
             </Link>

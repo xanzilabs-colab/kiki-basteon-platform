@@ -87,7 +87,7 @@ export default function SignupPage() {
                   checked={consent}
                   onChange={(event) => setConsent(event.target.checked)}
                 />
-                I consent to Basteon storing my profile and contact information for device
+                I consent to Kiki Connect storing my profile and contact information for device
                 ownership and emergency response.
               </label>
               {error && (

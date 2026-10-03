@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { KikiMark } from "@/components/KikiMark";
 
 function Clock() {
   const [now, setNow] = useState<Date | null>(null);
@@ -28,8 +29,8 @@ export function Navbar({ children }: { children?: React.ReactNode }) {
   return (
     <header className="appbar">
       <div className="brand">
-        <span className="mark">B</span>
-        <span>BASTEON</span>
+        <KikiMark size={34} />
+        <span>KIKI CONNECT</span>
       </div>
 
       <div className="context hidden sm:flex">

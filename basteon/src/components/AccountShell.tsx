@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { KikiMark } from "@/components/KikiMark";
 
 const links = [{ href: "/account", label: "Overview" }, { href: "/account/devices", label: "Devices" }, { href: "/account/profile", label: "Profile" }];
 
@@ -13,8 +14,8 @@ export function AccountShell({ name, children }: { name: string; children: React
     <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[216px_1fr] md:overflow-hidden">
       <aside className="sidebar hidden md:flex md:min-h-0 md:flex-col">
         <div className="sidebar-head">
-          <span className="mark">B</span>
-          <span>BASTEON</span>
+          <KikiMark size={34} />
+          <span>KIKI CONNECT</span>
         </div>
         <nav className="py-2">
           {links.map((link) => (
@@ -35,7 +36,7 @@ export function AccountShell({ name, children }: { name: string; children: React
 
       <div className="min-w-0 pb-16 md:min-h-0 md:overflow-y-auto md:pb-0">
         <header className="appbar px-4">
-          <b className="tracking-[.14em] md:hidden">BASTEON</b>
+          <b className="tracking-[.1em] md:hidden">KIKI CONNECT</b>
           <span className="muted ml-auto truncate text-xs">{name}</span>
           <button className="btn btn-ghost ml-3 md:hidden" onClick={() => void signOut()}>
             Sign out
