@@ -160,13 +160,13 @@ export default function LinkDevicePage() {
         <div className="space-y-2 text-sm">
           <p>Put your band into link mode:</p>
           <ol className="list-decimal pl-5 space-y-1">
-            <li>Press and <b>hold</b> the button. After about 1.5 seconds you&apos;ll hear a beep. <b>Keep holding.</b></li>
-            <li>At about 5 seconds you&apos;ll hear two quick beeps and the light starts double-blinking.</li>
-            <li>Let go, then tap <b>Find band</b> below.</li>
-          </ol>
-          <p className="muted text-xs">
-            Link mode lasts 5 minutes. Don&apos;t tap the button while linking, because that starts an alert countdown.
-          </p>
+  <li>Press and <b>hold</b> the button. The light stays on while you hold.</li>
+  <li>After about 5 seconds you&apos;ll hear two quick beeps and the light starts double-blinking. <b>Now let go.</b></li>
+  <li>Tap <b>Find band</b> below.</li>
+</ol>
+<p className="muted text-xs">
+  Link mode lasts 5 minutes. If you let go before the two beeps, the band starts an alert countdown. Hold the button for 1.5 seconds to cancel it.
+</p>
         </div>
 
         <label className="flex items-center gap-2 text-sm">
