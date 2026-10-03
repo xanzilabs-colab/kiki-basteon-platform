@@ -19,7 +19,7 @@ const FAILURE_TEXT: Record<string, string> = {
 };
 
 function humanStatus(status: string) {
-  if (status === "linked") return "Band linked!";
+  if (status === "linked") return "Band linked.";
   if (status === "linking") return "Linking your band…";
   if (status === "ready") return "Band is ready.";
   if (failed(status)) {
@@ -107,28 +107,38 @@ export default function LinkDevicePage() {
         body: JSON.stringify({ device_id: deviceId, nickname: nickname || undefined }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error?.replaceAll("_", " ") ?? "Could not start linking.");
+      if (!response.ok) {
+        throw new Error(result.error?.replaceAll("_", " ") ?? "Could not start linking.");
+      }
       if (result.already_linked) return router.replace("/account/devices");
 
       setStatus("Sending a one-time code to your band…");
       await session.current.writeToken(result.token);
 
-      // Wait for the band to confirm (status notification or the device appearing on the account)
       const deadline = Date.now() + 30_000;
       while (Date.now() < deadline && mountedRef.current) {
         if (failureRef.current) throw new Error(failureRef.current);
         await new Promise((resolve) => window.setTimeout(resolve, 2_000));
         if (failureRef.current) throw new Error(failureRef.current);
         const devices = await fetch("/api/devices/list");
-        if (devices.ok && (await devices.json()).some((item: { device_id: string }) => item.device_id === deviceId)) {
+        if (
+          devices.ok &&
+          (await devices.json()).some(
+            (item: { device_id: string }) => item.device_id === deviceId,
+          )
+        ) {
           return router.replace("/account/devices");
         }
       }
       if (mountedRef.current) {
-        throw new Error("The band didn't confirm linking. Keep it powered on, in link mode, and try again.");
+        throw new Error(
+          "The band didn't confirm linking. Keep it powered on, in link mode, and try again.",
+        );
       }
     } catch (nextError) {
-      if (mountedRef.current) setError(nextError instanceof Error ? nextError.message : "Linking failed.");
+      if (mountedRef.current) {
+        setError(nextError instanceof Error ? nextError.message : "Linking failed.");
+      }
     } finally {
       if (mountedRef.current) setBusy(false);
     }
@@ -136,101 +146,129 @@ export default function LinkDevicePage() {
 
   if (supported === false) {
     return (
-      <div className="space-y-4">
-        <h1 className="page-title">Link a band</h1>
-        <section className="panel p-4">
+      <div className="space-y-5 max-w-[640px]">
+        <div>
+          <p className="eyebrow">Bluetooth setup</p>
+          <h1 className="page-title mt-1">Link a band</h1>
+        </div>
+        <section className="panel p-6">
           <p className="font-medium">Bluetooth isn&apos;t available in this browser.</p>
-          <p className="muted text-xs mt-2">
-            Use Chrome on an Android phone, or Chrome/Edge on a computer. iPhone, Safari and Firefox aren&apos;t supported yet.
+          <p className="muted text-[12px] mt-2">
+            Use Chrome on an Android phone, or Chrome/Edge on a computer. iPhone, Safari and
+            Firefox aren&apos;t supported yet.
           </p>
         </section>
-        <Link className="btn inline-flex items-center" href="/account/devices">Back to devices</Link>
+        <Link className="btn" href="/account/devices">Back to devices</Link>
       </div>
     );
   }
 
   return (
-    <div className="max-w-xl space-y-4">
+    <div className="max-w-[640px] space-y-5">
       <div>
         <p className="eyebrow">Bluetooth setup</p>
         <h1 className="page-title mt-1">Link a band</h1>
       </div>
 
-      <section className="panel p-4 space-y-4">
-        <div className="space-y-2 text-sm">
-          <p>Put your band into link mode:</p>
-          <ol className="list-decimal pl-5 space-y-1">
-            <li>Press and <b>hold</b> the button. The light stays on while you hold.</li>
-            <li>After about 5 seconds you&apos;ll hear two quick beeps and the light starts double-blinking. <b>Now let go.</b></li>
-            <li>Tap <b>Find band</b> below.</li>
-          </ol>
-          <p className="muted text-xs">
-            Link mode lasts 5 minutes. If you let go before the two beeps, the band starts an alert countdown. Hold the button for 1.5 seconds to cancel it.
+      <section className="panel">
+        <div className="pane-head"><span>Prepare your band</span></div>
+        <div className="p-5 space-y-4">
+          <div className="space-y-2 text-[13px] text-[var(--text-2)]">
+            <p className="text-[var(--text)]">Put your band into link mode:</p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Press and <b>hold</b> the button. The light stays on while you hold.</li>
+              <li>
+                After about 5 seconds you&apos;ll hear two quick beeps and the light starts
+                double-blinking. <b>Now let go.</b>
+              </li>
+              <li>Tap <b>Find band</b> below.</li>
+            </ol>
+            <p className="muted text-[12px]">
+              Link mode lasts 5 minutes. If you let go before the two beeps, the band starts an
+              alert countdown. Hold the button for 1.5 seconds to cancel it.
+            </p>
+          </div>
+
+          <label className="flex items-center gap-2 text-[13px]">
+            <input type="checkbox" checked={ready} onChange={(e) => setReady(e.target.checked)} />
+            The light is double-blinking
+          </label>
+
+          <button
+            className="btn btn-primary w-full"
+            style={{ height: 36 }}
+            disabled={!ready || busy}
+            onClick={() => void findDevice(false)}
+          >
+            {busy && !deviceId ? "Looking for your band…" : "Find band"}
+          </button>
+
+          <button
+            className="btn w-full"
+            disabled={!ready || busy}
+            onClick={() => void findDevice(true)}
+          >
+            Can&apos;t see it? Show all Bluetooth devices
+          </button>
+
+          <p className="muted text-[11.5px]">
+            Close any other Bluetooth app that&apos;s connected to the band (such as nRF Connect).
+            On Android, turn on Location before scanning. Bluetooth linking needs a secure (https)
+            connection.
           </p>
         </div>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={ready} onChange={(event) => setReady(event.target.checked)} />
-          The light is double-blinking
-        </label>
-
-        <button
-          className="btn btn-primary w-full !h-10"
-          disabled={!ready || busy}
-          onClick={() => void findDevice(false)}
-        >
-          {busy && !deviceId ? "Looking for your band…" : "Find band"}
-        </button>
-
-        <button
-          className="btn w-full"
-          disabled={!ready || busy}
-          onClick={() => void findDevice(true)}
-        >
-          Can&apos;t see it? Show all Bluetooth devices
-        </button>
-
-        <p className="muted text-xs">
-          Close any other Bluetooth app that&apos;s connected to the band (such as nRF Connect). On Android, turn on Location before scanning. Bluetooth linking needs a secure (https) connection.
-        </p>
       </section>
 
       {deviceId && (
-        <section className="panel p-4 space-y-3">
-          <p className="label">Selected band</p>
-          <p className="font-medium">{deviceName}</p>
-          <p className="data text-xs muted">{deviceId}</p>
+        <section className="panel">
+          <div className="pane-head"><span>Selected band</span></div>
+          <div className="p-5 space-y-3">
+            <p className="font-medium">{deviceName}</p>
+            <p className="data text-[11.5px] muted">{deviceId}</p>
 
-          <label className="block">
-            <span className="label">Nickname <span className="normal-case">(optional)</span></span>
-            <input
-              className="input mt-1.5"
-              value={nickname}
-              maxLength={40}
-              onChange={(event) => setNickname(event.target.value)}
-            />
-          </label>
+            <label className="block">
+              <span className="label">
+                Nickname <span className="normal-case text-[var(--muted-2)]">(optional)</span>
+              </span>
+              <input
+                className="input mt-1.5"
+                value={nickname}
+                maxLength={40}
+                onChange={(e) => setNickname(e.target.value)}
+              />
+            </label>
 
-          <button className="btn btn-primary w-full !h-10" disabled={busy} onClick={() => void linkDevice()}>
-            {busy ? "Linking…" : "Link this band"}
-          </button>
+            <button
+              className="btn btn-primary w-full"
+              style={{ height: 36 }}
+              disabled={busy}
+              onClick={() => void linkDevice()}
+            >
+              {busy ? "Linking…" : "Link this band"}
+            </button>
 
-          {status && (
-            <p role="status" className={`text-xs ${failed(status) ? "text-[var(--crit)]" : "text-[var(--ok)]"}`}>
-              {status}
-            </p>
-          )}
+            {status && (
+              <p
+                role="status"
+                className={`text-[12px] ${failed(status) ? "text-[var(--crit)]" : "text-[var(--ok)]"}`}
+              >
+                {status}
+              </p>
+            )}
+          </div>
         </section>
       )}
 
       {error && (
-        <section className="panel p-4 border-[var(--crit)]">
-          <p role="alert" className="text-[var(--crit)] text-sm">{error}</p>
-          <button className="btn mt-3" onClick={resetSession}>Try again</button>
+        <section className="panel" style={{ borderColor: "var(--crit-line)" }}>
+          <div className="p-5">
+            <p role="alert" className="text-[var(--crit)] text-[13px]">{error}</p>
+            <button className="btn mt-3" onClick={resetSession}>Try again</button>
+          </div>
         </section>
       )}
 
-      <Link className="btn inline-flex items-center" href="/account/devices">Back to devices</Link>
+      <Link className="btn" href="/account/devices">Back to devices</Link>
     </div>
   );
 }

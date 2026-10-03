@@ -7,7 +7,12 @@ import type { Position } from "@/lib/geo";
 import { hasLocation, haversineKm } from "@/lib/geo";
 
 const TONE: Record<string, string> = { new: "mk-new", acknowledged: "mk-ack", enroute: "mk-enr", on_scene: "mk-sce" };
-const HEX: Record<string, string> = { new: "#ff4d5a", acknowledged: "#f2a93b", enroute: "#3b9cff", on_scene: "#9b7bff" };
+const HEX: Record<string, string> = {
+  new: "var(--st-new)",
+  acknowledged: "var(--st-acknowledged)",
+  enroute: "var(--st-enroute)",
+  on_scene: "var(--st-on-scene)",
+};
 
 function Fly({ alert, follow }: { alert: Alert | null; follow: boolean }) {
   const map = useMap();
@@ -111,16 +116,16 @@ export default function AlertMap({
       <Fly alert={selected} follow={follow} />
 
       <div className="absolute z-[1000] top-3 right-3">
-        <button className={`btn ${follow ? "!text-[var(--accent)]" : ""}`} onClick={() => setFollow((value) => !value)} aria-pressed={follow}>
-          Follow
+        <button className="btn" onClick={() => setFollow((value) => !value)} aria-pressed={follow}>
+          Follow incident
         </button>
       </div>
 
       {/* range rings around the selected incident */}
       {sel && (
         <>
-          <Circle center={[sel.lat!, sel.lng!]} radius={250} pathOptions={{ color: HEX[sel.status] ?? "#3b9cff", weight: 1, dashArray: "4 6", fillOpacity: 0.06 }} />
-          <Circle center={[sel.lat!, sel.lng!]} radius={1000} pathOptions={{ color: HEX[sel.status] ?? "#3b9cff", weight: 1, dashArray: "2 8", fillOpacity: 0 }} />
+          <Circle center={[sel.lat!, sel.lng!]} radius={250} pathOptions={{ color: HEX[sel.status] ?? "var(--st-enroute)", weight: 1, dashArray: "4 6", fillOpacity: 0.06 }} />
+          <Circle center={[sel.lat!, sel.lng!]} radius={1000} pathOptions={{ color: HEX[sel.status] ?? "var(--st-enroute)", weight: 1, dashArray: "2 8", fillOpacity: 0 }} />
         </>
       )}
 
@@ -142,32 +147,32 @@ export default function AlertMap({
       {me && (
         <>
           <Marker position={[me.lat, me.lng]} icon={mePin}><Popup>Your location</Popup></Marker>
-          <Circle center={[me.lat, me.lng]} radius={me.accuracy ?? 20} pathOptions={{ color: "#34c58a", weight: 1, fillOpacity: 0.08 }} />
+          <Circle center={[me.lat, me.lng]} radius={me.accuracy ?? 20} pathOptions={{ color: "var(--st-resolved)", weight: 1, fillOpacity: 0.08 }} />
         </>
       )}
 
       {route.pts.length > 1 && (
         <>
-          {!direct && <Polyline positions={route.pts} pathOptions={{ color: "#04101d", weight: 8, opacity: 0.6 }} />}
-          <Polyline positions={route.pts} pathOptions={{ color: "#3b9cff", weight: 4, dashArray: direct ? "8 8" : undefined }} />
+          {!direct && <Polyline positions={route.pts} pathOptions={{ color: "var(--chrome)", weight: 9, opacity: 0.9 }} />}
+          <Polyline positions={route.pts} pathOptions={{ color: "var(--text)", weight: 4, dashArray: direct ? "8 8" : undefined }} />
         </>
       )}
 
       {fixes.length > 1 && fixes.slice(1).map((point, index) => {
         const previous = fixes[index];
         const degraded = point.loc_source !== "gps";
-        return <Polyline key={`${point.id}-${point.ctr}`} positions={[[previous.lat!, previous.lng!], [point.lat!, point.lng!]]} pathOptions={{ color: "#24c4c9", weight: 3, opacity: degraded ? 0.4 : 0.75, dashArray: degraded ? "4 7" : undefined }} />;
+        return <Polyline key={`${point.id}-${point.ctr}`} positions={[[previous.lat!, previous.lng!], [point.lat!, point.lng!]]} pathOptions={{ color: degraded ? "var(--muted)" : "var(--st-enroute)", weight: 3, opacity: degraded ? 0.6 : 0.9, dashArray: degraded ? "4 7" : undefined }} />;
       })}
       {fixes.map((point) => (
-        <CircleMarker key={`fix-${point.id}-${point.ctr}`} center={[point.lat!, point.lng!]} radius={3} pathOptions={{ color: point.loc_source === "gps" ? "#65e0e4" : "#9aa8b7", weight: 1, fillOpacity: 0.9 }} />
+        <CircleMarker key={`fix-${point.id}-${point.ctr}`} center={[point.lat!, point.lng!]} radius={3} pathOptions={{ color: point.loc_source === "gps" ? "var(--st-enroute)" : "var(--muted)", weight: 1, fillOpacity: 0.9 }} />
       ))}
 
       {/* bottom HUD: legend + route */}
-      <div className="absolute z-[1000] bottom-3 left-3 right-3 md:left-[352px] lg:right-[372px] flex justify-center pointer-events-none">
-        <div className="glass pointer-events-auto flex items-center gap-4 px-3 h-8 text-[11px] overflow-x-auto max-w-full">
-          {[["New", "#ff4d5a"], ["Acknowledged", "#f2a93b"], ["En route", "#3b9cff"], ["On scene", "#9b7bff"], ["You", "#34c58a"]].map(([n, c]) => (
+      <div className="absolute z-[1000] bottom-3 left-3 right-3 flex justify-center pointer-events-none">
+          <div className="panel pointer-events-auto flex items-center gap-4 px-3 h-9 text-[13px] !overflow-x-auto !overflow-y-hidden max-w-full">
+            {[["New", "var(--st-new)"], ["Acknowledged", "var(--st-acknowledged)"], ["En route", "var(--st-enroute)"], ["On scene", "var(--st-on-scene)"], ["You", "var(--st-resolved)"]].map(([n, c]) => (
             <span key={n} className="flex items-center gap-1.5 whitespace-nowrap muted">
-              <i className="w-2 h-2 rounded-full" style={{ background: c }} />{n}
+              <i className="w-2 h-2" style={{ background: c }} />{n}
             </span>
           ))}
           {route.km != null && (

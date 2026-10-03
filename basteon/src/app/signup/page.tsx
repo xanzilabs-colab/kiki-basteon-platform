@@ -22,5 +22,95 @@ export default function SignupPage() {
     if (!data.session) return setCheckingEmail(true);
     router.replace("/account");
   }
-  return <main className="min-h-screen grid place-items-center p-5 bg-[var(--bg)]"><form onSubmit={signup} className="panel w-full max-w-[420px]"><div className="p-5 border-b border-[var(--line)]"><p className="eyebrow">Personal safety</p><h1 className="page-title mt-2">Create your account</h1></div><div className="p-5 space-y-4">{checkingEmail ? <p className="text-sm text-[var(--ok)]">Check your email to confirm your account, then sign in.</p> : <><label className="block"><span className="label">Full name</span><input className="input mt-1.5" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} /></label><label className="block"><span className="label">Mobile number</span><input className="input mt-1.5" type="tel" autoComplete="tel" required value={phone} onChange={(event) => setPhone(event.target.value)} /></label><label className="block"><span className="label">Email</span><input className="input mt-1.5" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label><label className="block"><span className="label">Password</span><input className="input mt-1.5" type="password" minLength={8} autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label><label className="flex items-start gap-2 text-xs muted"><input className="mt-0.5" type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />I consent to Basteon storing my profile and contact information for device ownership and emergency response.</label>{error && <p role="alert" className="text-xs text-[var(--crit)] border border-[#6b2b32] bg-[rgb(255_77_90/.08)] p-2">{error}</p>}<button className="btn btn-primary w-full !h-9" disabled={loading}>{loading ? "Creating account…" : "Create account"}</button></>}<p className="muted text-xs text-center">Already registered? <Link className="text-[var(--accent)]" href="/login">Sign in</Link></p></div></form></main>;
+  return (
+    <main className="auth-shell">
+      <form onSubmit={signup} className="auth-card">
+        <div className="auth-head">
+          <p className="eyebrow">Personal safety</p>
+          <h1 className="page-title mt-2">Create your account</h1>
+        </div>
+        <div className="auth-body space-y-4">
+          {checkingEmail ? (
+            <p className="text-sm text-[var(--ok)]">
+              Check your email to confirm your account, then sign in.
+            </p>
+          ) : (
+            <>
+              <label className="block">
+                <span className="label">Full name</span>
+                <input
+                  className="input mt-1.5"
+                  autoComplete="name"
+                  required
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className="label">Mobile number</span>
+                <input
+                  className="input mt-1.5"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className="label">Email</span>
+                <input
+                  className="input mt-1.5"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className="label">Password</span>
+                <input
+                  className="input mt-1.5"
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </label>
+              <label className="flex items-start gap-2 text-xs muted">
+                <input
+                  className="mt-0.5"
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(event) => setConsent(event.target.checked)}
+                />
+                I consent to Basteon storing my profile and contact information for device
+                ownership and emergency response.
+              </label>
+              {error && (
+                <p
+                  role="alert"
+                  className="bg-[var(--surface-2)] border-l-4 border-[var(--crit)] p-2 text-xs text-[var(--crit)]"
+                >
+                  {error}
+                </p>
+              )}
+              <button className="btn btn-primary w-full" disabled={loading}>
+                {loading ? "Creating account…" : "Create account"}
+              </button>
+            </>
+          )}
+          <p className="muted text-xs text-center">
+            Already registered?{" "}
+            <Link className="text-[var(--accent)]" href="/login">
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </form>
+    </main>
+  );
 }

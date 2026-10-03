@@ -1,4 +1,5 @@
 "use client";
+
 import { Copy, ExternalLink, Phone, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -9,63 +10,145 @@ import { LocationSourceBadge } from "./LocationSourceBadge";
 import { StatusActions } from "./StatusActions";
 import { AlertTimeline } from "./AlertTimeline";
 
-export function AlertDetailPanel({ alert, events, admin, refresh, onViewProfile }: { alert: Alert | null; events: AlertEvent[]; admin?: boolean; refresh(): void; onViewProfile?(alert: Alert): void }) {
+export function AlertDetailPanel({
+  alert,
+  events,
+  admin,
+  refresh,
+  onViewProfile,
+}: {
+  alert: Alert | null;
+  events: AlertEvent[];
+  admin?: boolean;
+  refresh(): void;
+  onViewProfile?(alert: Alert): void;
+}) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
-  if (!alert) return <div className="p-6"><p className="label">No selection</p><p className="muted text-xs mt-1">Select an alert to view response details.</p></div>;
-  const coords = alert.lat == null || alert.lng == null ? null : `${alert.lat.toFixed(6)}, ${alert.lng.toFixed(6)}`;
+
+  if (!alert) {
+    return (
+      <div className="p-6">
+        <p className="label">No selection</p>
+        <p className="muted text-[12px] mt-1">Select an incident to view response details.</p>
+      </div>
+    );
+  }
+
+  const coords =
+    alert.lat == null || alert.lng == null
+      ? null
+      : `${alert.lat.toFixed(6)}, ${alert.lng.toFixed(6)}`;
   const ageSeconds = Math.floor(locationAgeMs(alert, now) / 1000);
   const health = locationHealth(alert, now);
   const healthText = health === "live" ? "LIVE" : health === "delayed" ? "SIGNAL DELAYED" : "NO SIGNAL";
-  const healthColor = health === "live" ? "text-[var(--ok)]" : health === "delayed" ? "text-[var(--warn)]" : "text-[var(--crit)]";
+  const healthColor =
+    health === "live"
+      ? "text-[var(--ok)]"
+      : health === "delayed"
+      ? "text-[var(--warn)]"
+      : "text-[var(--crit)]";
 
   return (
-    <div className="flex flex-col min-h-full">
-      <div className="pane-head"><StatusBadge status={alert.status} /><span className="data">#{alert.ctr}</span></div>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="pane-head">
+        <StatusBadge status={alert.status} />
+        <span className="data text-[11px] muted">#{alert.ctr}</span>
+      </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="section">
-        <h2 className="text-[15px] font-semibold">{alert.device?.device_name ?? alert.device_id}</h2>
-        <p className="muted text-xs mt-0.5">{alert.device?.owner?.full_name ?? "No owner assigned"}</p>
+        <h2 className="text-[15px] font-semibold tracking-[-.005em]">
+          {alert.device?.device_name ?? alert.device_id}
+        </h2>
+        <p className="muted text-[12px] mt-0.5">
+          {alert.device?.owner?.full_name ?? "No owner assigned"}
+        </p>
+
         {alert.device?.owner?.phone && (
-          <a className="btn mt-3 inline-flex items-center gap-2 !text-[var(--accent)]" href={`tel:${alert.device.owner.phone}`}>
-            <Phone size={13} /><span className="data">{alert.device.owner.phone}</span>
+          <a
+            className="btn mt-3 inline-flex items-center gap-2 text-[var(--info)]"
+            href={`tel:${alert.device.owner.phone}`}
+          >
+            <Phone size={13} />
+            <span className="data">{alert.device.owner.phone}</span>
           </a>
         )}
-        {alert.device?.owner && onViewProfile && <button className="btn mt-3 flex w-full items-center justify-center gap-2" onClick={() => onViewProfile(alert)}><UserRound size={14} />View user profile</button>}
+
+        {alert.device?.owner && onViewProfile && (
+          <button
+            className="btn mt-2 w-full inline-flex items-center justify-center gap-2"
+            onClick={() => onViewProfile(alert)}
+          >
+            <UserRound size={14} />
+            View user profile
+          </button>
+        )}
       </div>
 
       <div className="section space-y-2">
         <span className="label">Location</span>
-        <div className="flex items-center justify-between gap-2"><LocationSourceBadge alert={alert} /><span className={`data text-[11px] ${healthColor}`}>{healthText}</span></div>
-        <div className="kv"><span className="muted text-xs">Last update</span><span className={`data ${healthColor}`}>{ageSeconds}s ago</span></div>
+        <div className="flex items-center justify-between gap-2">
+          <LocationSourceBadge alert={alert} />
+          <span className={`data text-[11px] ${healthColor}`}>{healthText}</span>
+        </div>
+        <div className="kv">
+          <span className="muted text-[12px]">Last update</span>
+          <span className={`data text-[12px] ${healthColor}`}>{ageSeconds}s ago</span>
+        </div>
+
         {coords ? (
           <>
             <div className="kv">
               <span className="data text-[12px]">{coords}</span>
-              <button className="btn !px-2" title="Copy coordinates" onClick={() => { void navigator.clipboard.writeText(coords); toast.success("Coordinates copied"); }}><Copy size={13} /></button>
+              <button
+                className="btn"
+                style={{ height: 24, width: 28, padding: 0 }}
+                title="Copy coordinates"
+                onClick={() => {
+                  void navigator.clipboard.writeText(coords);
+                  toast.success("Coordinates copied");
+                }}
+              >
+                <Copy size={13} />
+              </button>
             </div>
-            <a className="btn w-full inline-flex items-center justify-center gap-2" target="_blank" rel="noreferrer"
-               href={`https://www.google.com/maps/dir/?api=1&destination=${alert.lat},${alert.lng}`}>
-              <ExternalLink size={13} />Navigate
+            <a
+              className="btn w-full inline-flex items-center justify-center gap-2"
+              target="_blank"
+              rel="noreferrer"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${alert.lat},${alert.lng}`}
+            >
+              <ExternalLink size={13} />
+              Navigate
             </a>
           </>
-        ) : <p className="text-[var(--crit)] text-xs">No GPS fix available for this alert.</p>}
+        ) : (
+          <p className="text-[var(--crit)] text-[12px]">No GPS fix available for this incident.</p>
+        )}
       </div>
 
       <div className="section">
-        <div className="kv"><span className="label">Battery</span><span className="data">{alert.battery == null ? "--" : `${alert.battery}%`}</span></div>
-        <div className="kv mt-2"><span className="label">Location updates</span><span className="data">{alert.update_count ?? 0}</span></div>
+        <div className="kv">
+          <span className="label">Battery</span>
+          <span className="data text-[12px]">{alert.battery == null ? "—" : `${alert.battery}%`}</span>
+        </div>
+        <div className="kv mt-2">
+          <span className="label">Location updates</span>
+          <span className="data text-[12px]">{alert.update_count ?? 0}</span>
+        </div>
       </div>
 
-      <div className="section flex-1">
+      <div className="section">
         <span className="label block mb-3">Timeline</span>
         <AlertTimeline events={events.filter((e) => e.alert_id === alert.id)} />
       </div>
+      </div>
 
-      <div className="section sticky bottom-0 bg-[var(--surface)] border-t border-[var(--line-strong)] border-b-0">
+      <div className="section shrink-0 border-t border-[var(--line-strong)] border-b-0 bg-[var(--surface)]">
         <StatusActions alert={alert} admin={admin} onChanged={refresh} />
       </div>
     </div>

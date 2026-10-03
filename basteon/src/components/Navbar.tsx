@@ -1,35 +1,60 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 function Clock() {
-  const [t, setT] = useState("");
+  const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
-    const f = () => setT(new Date().toLocaleTimeString("en-ZA", { hour12: false }));
-    f();
-    const i = setInterval(f, 1000);
+    setNow(new Date());
+    const i = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(i);
   }, []);
-  return <span className="data text-[12px] muted hidden sm:inline">{t}</span>;
+  if (!now) return null;
+  return (
+    <div className="clock hidden sm:flex" aria-label="Current time">
+      <span className="clock-time">{now.toLocaleTimeString("en-ZA", { hour12: false })}</span>
+      <span className="clock-date">
+        {now.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+      </span>
+    </div>
+  );
 }
 
 export function Navbar({ children }: { children?: React.ReactNode }) {
   const router = useRouter();
   return (
-    <header className="h-11 flex items-center gap-3 px-3 border-b border-[var(--line)] bg-[var(--surface)] relative z-[1100]">
-      <div className="flex items-center gap-2">
-        <span className="w-4 h-4 bg-[var(--accent)]" style={{ clipPath: "polygon(50% 0, 100% 100%, 0 100%)" }} />
-        <b className="text-[13px] font-semibold tracking-[.14em]">BASTEON</b>
-        <span className="w-px h-4 bg-[var(--line-strong)] mx-1 hidden sm:block" />
-        <span className="label hidden sm:inline">Response Console</span>
+    <header className="appbar">
+      <div className="brand">
+        <span className="mark">B</span>
+        <span>BASTEON</span>
       </div>
-      <div className="ml-auto flex items-center gap-4">
+
+      <div className="context hidden sm:flex">
+        <b>Response console</b>
+        <span>Incident dispatch</span>
+      </div>
+
+      <div className="spacer" />
+
+      <div className="slot">
         <Clock />
         {children}
-        <button className="btn !px-2" title="Sign out" onClick={async () => { await createClient().auth.signOut(); router.replace("/login"); }}>
-          <LogOut size={14} />
+      </div>
+
+      <div className="slot">
+        <button
+          className="btn btn-ghost"
+          title="Sign out"
+          onClick={async () => {
+            await createClient().auth.signOut();
+            router.replace("/login");
+          }}
+        >
+          <LogOut size={16} />
+          <span className="hidden md:inline">Sign out</span>
         </button>
       </div>
     </header>
