@@ -8,7 +8,7 @@ import { activeBuddyTrip, buddyHmacSecret, presenceForTrip, requireBuddyUser } f
 export async function GET() {
   const access = await requireBuddyUser();
   if ("error" in access) return access.error;
-  if (!access.verified) return safeJson({ error: "not_verified" }, { status: 403 });
+  if (BUDDIES_REQUIRE_VERIFICATION && !access.verified) return safeJson({ error: "not_verified" }, { status: 403 });
   if (BUDDIES_REQUIRE_VERIFICATION) try { await requireFreshFaceProof(access.user.id); } catch { return safeJson({ error: "FACE_CHECK_REQUIRED" }, { status: 401 }); }
   const viewerTrip = await activeBuddyTrip(access.db, access.user.id);
   if (!viewerTrip) return safeJson({ avatars: [] });
