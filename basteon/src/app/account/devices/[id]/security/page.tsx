@@ -87,17 +87,24 @@ export default function DeviceSecurityPage() {
     if (!device) return;
     checkNewPin();
     const band = await connectThisBand(device);
+    let serverPinSaved = false;
     try {
       if (band.info.locked) throw new Error("The band still holds an old PIN. Disconnect, wait about 30 seconds in link mode so it can sync, then try again.");
+      const response = await fetch(`/api/devices/${device.id}/pin`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: newPin }) });
+      if (!response.ok) throw new Error(await apiError(response, "Could not save the PIN."));
+      serverPinSaved = true;
       setMessage("Saving the PIN on the band…");
       await band.setPin(newPin);
-      const response = await fetch(`/api/devices/${device.id}/pin`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: newPin }) });
-      if (!response.ok) {
-        const text = await apiError(response, "Could not save the PIN.");
-        await band.clearPin().catch(() => undefined);
-        throw new Error(text);
-      }
       reset("PIN lock is on. Keep your PIN private; Kiki staff will never ask for it.");
+    } catch (error) {
+      if (serverPinSaved) {
+        await fetch(`/api/devices/${device.id}/pin`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin: newPin }),
+        }).catch(() => undefined);
+      }
+      throw error;
     } finally {
       band.disconnect();
       await refresh();

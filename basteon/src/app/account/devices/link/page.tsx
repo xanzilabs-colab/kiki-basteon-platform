@@ -137,20 +137,29 @@ export default function LinkDevicePage() {
 
   // Runs right after "linked": the band keeps BLE up ~20 s so the new owner can set a PIN.
   async function protectBand(band: BasteonBleDevice, id: string) {
-    setStatus("Saving your PIN on the band…");
-    await band.setPin(newPin);
     const list = await fetch("/api/devices/list");
     const row = list.ok ? ((await list.json()) as { id: string; device_id: string }[]).find((item) => item.device_id === id) : undefined;
-    const saved = row
-      ? await fetch(`/api/devices/${row.id}/pin`, {
-        method: "POST",
+    if (!row) {
+      throw new Error("Your band is linked, but it isn't available to protect yet. Open its security page in a moment to set the PIN.");
+    }
+    const saved = await fetch(`/api/devices/${row.id}/pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: newPin }),
+    });
+    if (!saved.ok) {
+      throw new Error("Your band is linked, but the PIN couldn't be saved. Set it from the band's security page.");
+    }
+    try {
+      setStatus("Saving your PIN on the band…");
+      await band.setPin(newPin);
+    } catch (error) {
+      await fetch(`/api/devices/${row.id}/pin`, {
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin: newPin }),
-      })
-      : null;
-    if (!saved?.ok) {
-      await band.clearPin().catch(() => undefined);
-      throw new Error("Your band is linked, but the PIN couldn't be saved. Set it from the band's security page.");
+      }).catch(() => undefined);
+      throw error;
     }
   }
 
