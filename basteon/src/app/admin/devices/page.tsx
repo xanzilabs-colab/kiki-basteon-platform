@@ -1,103 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Link2, RefreshCw, Search, Smartphone, Unlink } from "lucide-react";
 import type { Device } from "@/lib/types";
 import { DeviceTable } from "@/components/DeviceTable";
 import { RegisterDeviceDialog } from "@/components/RegisterDeviceDialog";
 
 export default function DevicesPage() {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [filter, setFilter] = useState<"all" | "linked" | "unlinked">("all");
-  const [search, setSearch] = useState("");
-
-  const refresh = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch("/api/admin/devices", { cache: "no-store" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Could not load devices.");
-      setDevices(body as Device[]);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Could not load devices.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const [devices, setDevices] = useState<Device[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [filter, setFilter] = useState<"all" | "linked" | "unlinked">("all"); const [search, setSearch] = useState("");
+  const refresh = async () => { setLoading(true); setError(""); try { const response = await fetch("/api/admin/devices", { cache: "no-store" }); const body = await response.json(); if (!response.ok) throw new Error(body.error ?? "Could not load devices."); setDevices(body as Device[]); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "Could not load devices."); } finally { setLoading(false); } };
   useEffect(() => { void refresh(); }, []);
+  const displayed = useMemo(() => { const needle = search.trim().toLowerCase(); return devices.filter((device) => { const ownership = filter === "all" || (filter === "linked" ? Boolean(device.user_id) : !device.user_id); const searchable = [device.device_id, device.device_name, device.owner?.full_name, device.owner?.email].filter(Boolean).join(" ").toLowerCase(); return ownership && (!needle || searchable.includes(needle)); }); }, [devices, filter, search]);
+  const linked = devices.filter((device) => device.user_id).length; const active = devices.filter((device) => device.active).length;
+  const metrics = [{ label: "Registered", value: devices.length, note: "Kiki devices in fleet", icon: Smartphone }, { label: "Linked", value: linked, note: `${Math.max(devices.length - linked, 0)} awaiting an owner`, icon: Link2 }, { label: "Active", value: active, note: `${Math.max(devices.length - active, 0)} inactive`, icon: RefreshCw }];
 
-  const displayed = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return devices.filter((device) => {
-      const ownership =
-        filter === "all" || (filter === "linked" ? Boolean(device.user_id) : !device.user_id);
-      const searchable = [
-        device.device_id,
-        device.device_name,
-        device.owner?.full_name,
-        device.owner?.email,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return ownership && (!needle || searchable.includes(needle));
-    });
-  }, [devices, filter, search]);
-
-  return (
-    <div className="space-y-5 max-w-[1180px]">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Fleet</p>
-          <h1 className="page-title mt-1">Devices</h1>
-        </div>
-        <RegisterDeviceDialog refresh={refresh} />
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-        <input
-          className="input sm:max-w-sm"
-          placeholder="Search ID, name, owner, or email"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <div className="tabs sm:w-[280px]">
-          <button className="tab" aria-selected={filter === "all"} onClick={() => setFilter("all")}>All</button>
-          <button className="tab" aria-selected={filter === "linked"} onClick={() => setFilter("linked")}>Linked</button>
-          <button className="tab" aria-selected={filter === "unlinked"} onClick={() => setFilter("unlinked")}>Unlinked</button>
-        </div>
-      </div>
-
-      {error && (
-        <div
-          role="alert"
-          className="bg-[var(--surface-2)] border-l-4 border-[var(--crit)] px-3 py-2.5 text-[12px] text-[var(--crit)]"
-        >
-          Could not load devices — {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="tbl-wrap">
-          <div className="p-4 space-y-3">
-            {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="h-8 bg-[var(--surface-2)] animate-pulse" />
-            ))}
-          </div>
-        </div>
-      ) : devices.length === 0 ? (
-        <section className="panel p-6">
-          <p className="font-medium">No devices registered yet</p>
-          <p className="muted text-[12px] mt-1">
-            Register a band before it can be linked to a user.
-          </p>
-        </section>
-      ) : (
-        <DeviceTable devices={displayed} refresh={refresh} />
-      )}
-    </div>
-  );
+  return <div className="mx-auto max-w-[1280px] space-y-5">
+    <header className="flex flex-col gap-4 border-b border-[var(--line)] pb-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="eyebrow">Fleet management</p><h1 className="page-title mt-1">Devices</h1><p className="muted mt-2 max-w-xl text-[13px]">Register, assign, and maintain the Kiki devices connected to your platform.</p></div><RegisterDeviceDialog refresh={refresh} /></header>
+    <section className="grid gap-px overflow-hidden border border-[var(--line)] bg-[var(--line)] sm:grid-cols-3">{metrics.map((metric) => <article key={metric.label} className="flex min-h-[126px] items-start justify-between bg-[var(--surface-1)] p-5"><div><span className="muted text-[12px] font-semibold">{metric.label}</span><strong className="mt-3 block font-[var(--font-display)] text-3xl">{metric.value}</strong><span className="muted mt-1 block text-[11px]">{metric.note}</span></div><metric.icon className="text-[var(--muted)]" size={19} aria-hidden="true" /></article>)}</section>
+    <section className="panel border border-[var(--line)] shadow-none">
+      <div className="pane-head"><div><span>Device inventory</span><p className="muted mt-0.5 font-[var(--font-ui)] text-[11px] font-normal">{displayed.length} of {devices.length} devices shown</p></div><button className="btn" style={{ height: 30 }} disabled={loading} onClick={() => void refresh()}><RefreshCw size={15} />Refresh</button></div>
+      <div className="flex flex-col gap-3 border-b border-[var(--line)] p-4 lg:flex-row lg:items-center lg:justify-between"><label className="relative block w-full lg:max-w-md"><Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={17} /><input className="input pl-10" placeholder="Search device, owner, or email" value={search} onChange={(event) => setSearch(event.target.value)} /></label><div className="tabs m-0 w-full lg:w-[320px]"><button className="tab" aria-selected={filter === "all"} onClick={() => setFilter("all")}>All <span className="data">{devices.length}</span></button><button className="tab" aria-selected={filter === "linked"} onClick={() => setFilter("linked")}>Linked <span className="data">{linked}</span></button><button className="tab" aria-selected={filter === "unlinked"} onClick={() => setFilter("unlinked")}>Unlinked <span className="data">{devices.length - linked}</span></button></div></div>
+      {error && <div role="alert" className="border-l-4 border-[var(--crit)] bg-[var(--crit-bg)] px-4 py-3 text-[12px] text-[var(--crit)]">Could not load devices: {error}</div>}
+      {loading ? <div className="space-y-3 p-5">{Array.from({ length: 5 }, (_, index) => <div key={index} className="h-11 animate-pulse bg-[var(--surface-2)]" />)}</div> : devices.length === 0 ? <div className="p-8 text-center"><Smartphone className="mx-auto text-[var(--muted)]" size={24} /><p className="mt-3 font-medium">No devices registered yet</p><p className="muted mt-1 text-[12px]">Register a Kiki device to add it to the fleet.</p></div> : displayed.length === 0 ? <div className="p-8 text-center"><Unlink className="mx-auto text-[var(--muted)]" size={24} /><p className="mt-3 font-medium">No matching devices</p><p className="muted mt-1 text-[12px]">Change the search or ownership filter to see other registered devices.</p></div> : <DeviceTable devices={displayed} refresh={refresh} />}
+    </section>
+  </div>;
 }
