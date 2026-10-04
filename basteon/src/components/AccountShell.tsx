@@ -117,6 +117,12 @@ export function AccountShell({ name, children }: { name: string; children: React
   }, [pathname]);
 
   useEffect(() => {
+    const updateAvatar = (event: Event) => setAvatarUrl((event as CustomEvent<string | null>).detail);
+    window.addEventListener("kiki-profile-avatar-updated", updateAvatar);
+    return () => window.removeEventListener("kiki-profile-avatar-updated", updateAvatar);
+  }, []);
+
+  useEffect(() => {
     if (safetyCall !== "incoming") return;
     return startRingtone(ringtoneUrl);
   }, [ringtoneUrl, safetyCall]);
@@ -211,7 +217,7 @@ export function AccountShell({ name, children }: { name: string; children: React
       <div inert={sosOpen} className="min-w-0 pb-[76px] md:min-h-0 md:overflow-y-auto md:pb-0">
         <header className="appbar account-mobile-appbar px-4">
           <Link className="account-user-summary" href="/account/profile" title="Open profile">
-            <span className="account-user-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : name.charAt(0).toUpperCase()}<i /></span>
+            <span className="account-user-avatar">{avatarUrl ? <img src={avatarUrl} alt={`${name}'s profile`} /> : name.charAt(0).toUpperCase()}<i /></span>
             <span className="account-user-copy">
               <span className="account-user-name">{name}<BadgeCheck size={14} /></span>
               <span className="account-user-protected"><i />Protected · Active</span>
