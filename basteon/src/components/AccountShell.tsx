@@ -215,6 +215,17 @@ export function AccountShell({ name, children }: { name: string; children: React
           </section>
         </div>
       )}
+      {safetyCall === "arming" && (
+        <section className="safety-call-screen safety-call-arming" role="dialog" aria-modal="true" aria-label="Starting safety call">
+          <div className="safety-call-caller">
+            <span className="safety-call-avatar"><PhoneCall size={36} /></span>
+            <p>SAFETY CALL</p>
+            <h2>Connecting Kiki Care</h2>
+            <span>Preparing your safety check-in</span>
+          </div>
+          <button className="safety-call-decline" onClick={() => setSafetyCall("idle")}><PhoneOff size={25} /><span>Cancel</span></button>
+        </section>
+      )}
       {safetyCall === "incoming" && (
         <section className="safety-call-screen" role="dialog" aria-modal="true" aria-label="Incoming safety call">
           <div className="safety-call-caller">
