@@ -218,9 +218,9 @@
 
 @media (max-width: 767px) {
   .account-shell .sidebar { display: none; }
-  .account-shell .account-mobile-appbar { display: grid; height: 104px; grid-template-columns: minmax(0, 1fr) 42px; grid-template-rows: 60px 44px; column-gap: 10px; padding-inline: 16px; }
+  .account-shell .account-mobile-appbar { display: grid; height: calc(128px + env(safe-area-inset-top)); grid-template-columns: minmax(0, 1fr) 42px; grid-template-rows: calc(68px + env(safe-area-inset-top)) 60px; column-gap: 10px; padding-inline: 16px; }
   .account-shell .account-mobile-brand { grid-column: 1; grid-row: 1; }
-  .account-shell .account-user-summary { grid-column: 1 / -1; grid-row: 2; width: 100%; align-self: center; margin: 0; border: 0; border-radius: 9px; background: #f4eff8; padding: 6px 10px; text-align: left; }
+  .account-shell .account-user-summary { grid-column: 1 / -1; grid-row: 2; width: 100%; min-height: 48px; align-self: start; margin: 4px 0 0; border: 0; border-radius: 9px; background: #f4eff8; padding: 8px 10px; text-align: left; }
   .account-shell .account-user-label { font-size: 9px; }
   .account-shell .account-user-name { font-size: 12px; }
   .account-shell .account-sign-out { grid-column: 2; grid-row: 1; align-self: start; margin: 12px 0 0; }
