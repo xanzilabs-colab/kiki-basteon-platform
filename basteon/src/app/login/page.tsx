@@ -20,7 +20,10 @@ export default function LoginPage() {
     const { error } = await createClient().auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) setError(error.message);
-    else router.replace("/");
+    else {
+      await fetch("/api/verification/device/rotate", { method: "POST" });
+      router.replace("/");
+    }
   }
 
   return (

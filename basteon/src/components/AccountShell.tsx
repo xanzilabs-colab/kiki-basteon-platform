@@ -23,7 +23,12 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [callSeconds, setCallSeconds] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
-  async function signOut() { await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
+  async function signOut() {
+    await fetch("/api/verification/device/logout", { method: "POST" });
+    await createClient().auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
 
   async function loadRingtone() {
     const supabase = createClient();
