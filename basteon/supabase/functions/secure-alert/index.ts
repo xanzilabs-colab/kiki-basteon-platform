@@ -23,6 +23,7 @@ type TrackingPayload = {
 };
 
 type LinkPayload = { status: "link_device"; ctr: number; token: string };
+type HeartbeatPayload = { status: "device_heartbeat"; ctr: number; battery: number | null; wifiRssi: number | null };
 
 function parseLinkPayload(value: unknown): LinkPayload | null {
   if (!value || typeof value !== "object") return null;
@@ -30,6 +31,17 @@ function parseLinkPayload(value: unknown): LinkPayload | null {
   if (payload.status !== "link_device" || typeof payload.ctr !== "number" || !Number.isSafeInteger(payload.ctr) || payload.ctr <= 0) return null;
   if (typeof payload.token !== "string" || !/^[a-fA-F0-9]{32}$/.test(payload.token)) return null;
   return { status: "link_device", ctr: payload.ctr, token: payload.token };
+}
+
+function parseHeartbeatPayload(value: unknown): HeartbeatPayload | null {
+  if (!value || typeof value !== "object") return null;
+  const payload = value as Record<string, unknown>;
+  if (payload.status !== "device_heartbeat" || typeof payload.ctr !== "number" || !Number.isSafeInteger(payload.ctr) || payload.ctr <= 0) return null;
+  const battery = payload.bat;
+  const wifiRssi = payload.rssi;
+  if (battery !== undefined && (!Number.isInteger(battery) || battery < 0 || battery > 100)) return null;
+  if (wifiRssi !== undefined && (!Number.isInteger(wifiRssi) || wifiRssi < -127 || wifiRssi > 0)) return null;
+  return { status: "device_heartbeat", ctr: payload.ctr, battery: typeof battery === "number" ? battery : null, wifiRssi: typeof wifiRssi === "number" ? wifiRssi : null };
 }
 
 async function sha256Hex(value: string) {
@@ -158,6 +170,20 @@ Deno.serve(async (request) => {
     });
     if (error) return json({ error: "db_error" }, 500);
     return json(result, 200);
+  }
+
+  const heartbeat = parseHeartbeatPayload(payload);
+  if (heartbeat) {
+    if (heartbeat.ctr <= Number(device.last_ctr)) return json({ error: "replayed_counter" }, 409);
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("devices").update({
+      last_ctr: heartbeat.ctr,
+      last_seen_at: now,
+      telemetry_at: now,
+      battery: heartbeat.battery,
+      wifi_rssi: heartbeat.wifiRssi,
+    }).eq("device_id", deviceId).lt("last_ctr", heartbeat.ctr);
+    return error ? json({ error: "db_error" }, 500) : json({ ok: true }, 200);
   }
 
   const tracking = parseTrackingPayload(payload);

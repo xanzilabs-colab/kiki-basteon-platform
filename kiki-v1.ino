@@ -23,7 +23,7 @@ const bool   USE_DEV_FALLBACK_LOCATION = true;
 const double DEV_FALLBACK_LAT = -23.9667;
 const double DEV_FALLBACK_LNG = 29.7;
 
-#define USE_BATTERY_SENSE 0
+#define USE_BATTERY_SENSE 1
 const int BATTERY_PIN = 34;
 
 // Dev key = ASCII "12345678901234567890123456789012". Replace via NVS in production.
@@ -49,6 +49,7 @@ const unsigned long WIFI_BACKOFF_MAX_MS = 30000;
 const unsigned long GPS_FRESH_MS      = 30000;
 const unsigned long CACHE_MIN_INTERVAL_MS = 300000;
 const double        CACHE_MIN_MOVE_M      = 100.0;
+const unsigned long TELEMETRY_INTERVAL_MS = 120000;
 
 // ---------- Live tracking (periodic updates after the first alert) ----------
 const bool          TRACKING_ENABLED     = true;
@@ -80,7 +81,7 @@ DeviceState state = IDLE;
 Preferences prefs;
 TinyGPSPlus gps;
 String deviceId;
-unsigned long countdownStart = 0, lastAttempt = 0, lastCacheSave = 0;
+unsigned long countdownStart = 0, lastAttempt = 0, lastCacheSave = 0, lastTelemetryAt = 0;
 unsigned int sendAttempts = 0;
 int lastSendErr = 0;
 
@@ -285,10 +286,32 @@ String buildPayload(const char* status, uint32_t ctr, uint32_t ref) {
   return inner;
 }
 
+String buildHeartbeatPayload(uint32_t ctr) {
+  String inner = "{\"status\":\"device_heartbeat\",\"ctr\":" + String(ctr);
+  int bat = readBatteryPercent();
+  if (bat >= 0) inner += ",\"bat\":" + String(bat);
+  if (WiFi.status() == WL_CONNECTED) inner += ",\"rssi\":" + String(WiFi.RSSI());
+  inner += "}";
+  return inner;
+}
+
 uint32_t nextCtr() {
   uint32_t c = prefs.getUInt("ctr", 0) + 1;
   prefs.putUInt("ctr", c);
   return c;
+}
+
+void sendHeartbeat() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  uint32_t ctr = nextCtr();
+  String body = encryptPayload(buildHeartbeatPayload(ctr));
+  int code = body.length() ? postPayload(body, nullptr) : -3;
+  if (code >= 200 && code < 300) {
+    lastTelemetryAt = millis();
+    Serial.println("[TELEMETRY] sent battery=" + String(readBatteryPercent()) + "% rssi=" + String(WiFi.RSSI()) + " dBm");
+  } else {
+    Serial.println("[TELEMETRY] failed: " + sendError(code));
+  }
 }
 
 // ---------- Tracking ----------
@@ -516,6 +539,8 @@ void loop() {
   trackGps();
   updateButton();
   maintainWifi();
+
+  if (state == IDLE && millis() - lastTelemetryAt >= TELEMETRY_INTERVAL_MS) sendHeartbeat();
 
   switch (state) {
     case COUNTDOWN:

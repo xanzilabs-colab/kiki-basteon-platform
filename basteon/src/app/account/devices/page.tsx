@@ -7,6 +7,24 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Device } from "@/lib/types";
 
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+function relativeTime(value: string | null | undefined) {
+  if (!value) return "Never seen";
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
+  if (minutes < 1) return "Last seen just now";
+  if (minutes < 60) return `Last seen ${minutes} min${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  return `Last seen ${hours} hr${hours === 1 ? "" : "s"} ago`;
+}
+
+function signalLabel(rssi: number | null | undefined) {
+  if (rssi == null) return "Signal not reported";
+  if (rssi >= -55) return `Strong (${rssi} dBm)`;
+  if (rssi >= -70) return `Good (${rssi} dBm)`;
+  return `Weak (${rssi} dBm)`;
+}
+
 export default function DevicesPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [error, setError] = useState("");
@@ -59,6 +77,10 @@ export default function DevicesPage() {
       ) : (
         devices.map((device) => (
           <section className="kiki-device-card" key={device.id}>
+              {(() => {
+                const latestSignal = device.telemetry_at ?? device.last_seen_at;
+                const isOnline = Boolean(device.active && latestSignal && Date.now() - new Date(latestSignal).getTime() <= ONLINE_WINDOW_MS);
+                return <>
               <div className="kiki-device-card-head">
                 <div className="flex min-w-0 gap-3">
                   <span className="kiki-device-large"><Image src="/assets/devices-icon-link.png" alt="Linked Kiki device" width={56} height={56} priority /></span>
@@ -67,12 +89,14 @@ export default function DevicesPage() {
                   </div>
                 </div>
                 <span className={`kiki-active-pill ${device.active ? "is-active" : ""}`}>
-                  {device.active ? "Active" : "Inactive"}
+                  {isOnline ? "Active" : device.active ? "Offline" : "Inactive"}
                 </span>
               </div>
-              <div className="kiki-device-telemetry"><div><span>Battery status</span><b><BatteryCharging size={16} />Device ready</b></div><div><span>Bluetooth signal</span><b><Wifi size={16} />{device.active ? "Connected" : "Unavailable"}</b></div></div>
-              <p className="kiki-device-meta"><span><Clock3 size={14} />Linked {device.linked_at ? new Date(device.linked_at).toLocaleDateString() : "previously"}</span><b>{device.last_seen_at ? `Last seen ${new Date(device.last_seen_at).toLocaleString()}` : "Never seen"}</b></p>
+              <div className="kiki-device-telemetry"><div><span>Battery status</span><b><BatteryCharging size={16} />{device.battery == null ? "Not reported" : `${device.battery}% charged`}</b></div><div><span>Device signal</span><b><Wifi size={16} />{isOnline ? signalLabel(device.wifi_rssi) : "Offline"}</b></div></div>
+              <p className="kiki-device-meta"><span><Clock3 size={14} />Linked {device.linked_at ? new Date(device.linked_at).toLocaleDateString() : "previously"}</span><b>{relativeTime(latestSignal)}</b></p>
               <div className="kiki-device-actions"><button onClick={() => void rename(device)}>Rename</button><button onClick={() => void unlink(device)} title="Unlink device"><Trash2 size={16} /></button></div>
+              </>;
+              })()}
           </section>
         ))
       )}
