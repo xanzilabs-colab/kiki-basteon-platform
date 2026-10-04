@@ -157,6 +157,10 @@
 .hamba-trip-stats span { display: inline-flex; align-items: center; gap: 5px; }
 .hamba-active-card > p { color: #756b7d; font-size: 12px; }
 .hamba-actions .btn { flex: 1; }
+.hamba-recent { margin-top: 18px; border: 1px solid #ded6e7; border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgba(50, 24, 63, .07); overflow: hidden; }
+.hamba-recent-head { padding: 16px 18px 10px; }.hamba-recent-head h2 { margin: 2px 0 0; color: #32183f; font-size: 18px; }
+.hamba-recent-item { display: flex; align-items: center; gap: 11px; border-top: 1px solid #eee8f3; padding: 13px 18px; }.hamba-recent-dot { width: 10px; height: 10px; flex: 0 0 auto; border-radius: 50%; background: #4fa77a; box-shadow: 0 0 0 4px #e7f5ed; }.hamba-recent-item div { min-width: 0; flex: 1; }.hamba-recent-item b { display: block; overflow: hidden; color: #32183f; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }.hamba-recent-item p, .hamba-recent-item time { margin: 3px 0 0; color: #5f5467; font-size: 11px; }.hamba-recent-item time { margin: 0; text-align: right; }
+.buddies-panel, .buddies-consent, .hamba-planner, .hamba-active-card { border-color: #d5a4e4; box-shadow: 0 10px 26px rgba(92, 29, 94, .09); }.buddies-map { background: radial-gradient(circle at 50% 50%, #fff 0, #f4e6f8 58%, #ead4f0 100%); }.hamba-engine { background: #f4e6f8; color: #5c1d5e; }.account-sos-dialog { border-color: #f7bfd0; border-radius: 24px; box-shadow: 0 24px 64px rgba(92, 29, 94, .28); }.account-sos-icon { background: #fff1f3; color: #d9264e; }.account-sos-actions .btn-danger { background: #d9264e; }
 .account-desktop-sos .kiki-mark { filter: brightness(0) invert(1); }
 .account-mobile-sos { position: relative; z-index: 1; display: flex; width: 78px; min-width: 78px; height: 78px; margin: -30px 2px 0; align-items: center; justify-content: center; overflow: hidden; border: 4px solid #fcf9f3; border-radius: 50%; background: #d94362; box-shadow: 0 8px 18px rgba(217, 67, 98, .28); }
 .account-mobile-sos .kiki-mark { filter: brightness(0) invert(1); }

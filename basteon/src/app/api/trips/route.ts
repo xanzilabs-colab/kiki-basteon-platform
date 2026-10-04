@@ -15,8 +15,12 @@ const tripSchema = z.object({
 export async function GET() {
   const access = await requireTripUser();
   if ("error" in access) return access.error;
-  const { data, error } = await createAdminClient().from("trips").select("*").eq("owner_id", access.user.id).in("status", ["planned", "active", "concern", "alert"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
-  return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ trip: data });
+  const db = createAdminClient();
+  const [{ data, error }, { data: recent }] = await Promise.all([
+    db.from("trips").select("*").eq("owner_id", access.user.id).in("status", ["planned", "active", "concern", "alert"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    db.from("trips").select("id,destination_label,mode,status,created_at,ended_at").eq("owner_id", access.user.id).in("status", ["arrived", "cancelled"]).order("created_at", { ascending: false }).limit(5),
+  ]);
+  return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ trip: data, recent: recent ?? [] });
 }
 
 export async function POST(request: Request) {

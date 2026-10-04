@@ -15,6 +15,7 @@ const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false, load
 type Place = { label: string; lat: number; lng: number };
 type Route = { points: Place[]; distanceM: number; durationS: number };
 type ActiveTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; planned_route: Route; route_distance_m: number; route_duration_s: number; started_at: string; expected_arrival_at: string; next_check_in_at: string | null; status: string };
+type RecentTrip = { id: string; destination_label: string; mode: TripMode; status: string; created_at: string; ended_at: string | null };
 
 export default function TripsPage() {
   const { position, error: locationError } = useGeolocation();
@@ -25,13 +26,14 @@ export default function TripsPage() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedRoute, setSelectedRoute] = useState(0);
   const [activeTrip, setActiveTrip] = useState<ActiveTrip | null>(null);
+  const [recentTrips, setRecentTrips] = useState<RecentTrip[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const fixes = useRef<GeoPoint[]>([]);
   const previousWatchState = useRef<RouteWatchState>("normal");
 
   useEffect(() => {
-    fetch("/api/trips").then((response) => response.json()).then((data) => setActiveTrip(data.trip ?? null)).catch(() => undefined);
+    fetch("/api/trips").then((response) => response.json()).then((data) => { setActiveTrip(data.trip ?? null); setRecentTrips(data.recent ?? []); }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -141,6 +143,7 @@ export default function TripsPage() {
           {!position && <p className="hamba-note"><LocateFixed size={16} /> {locationError ?? "Enable location to plan a route."}</p>}
         </section>
       )}
+      {!activeTrip && recentTrips.length > 0 && <section className="hamba-recent"><div className="hamba-recent-head"><div><p className="eyebrow">Recent activity</p><h2>Recent destinations</h2></div></div>{recentTrips.map((trip) => <div className="hamba-recent-item" key={trip.id}><span className="hamba-recent-dot" /><div><b>{trip.destination_label}</b><p>{trip.mode} · {trip.status === "arrived" ? "Arrived safely" : "Cancelled"}</p></div><time>{new Date(trip.ended_at ?? trip.created_at).toLocaleDateString()}</time></div>)}</section>}
       {message && <p className="hamba-message" role="status">{message}</p>}
     </div>
   );
