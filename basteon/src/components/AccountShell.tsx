@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, Smartphone, UserRound } from "lucide-react";
+import { House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, Smartphone, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -129,6 +129,7 @@ export function AccountShell({ name, children }: { name: string; children: React
             </Link>
           ))}
           <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" ? "page" : undefined}>Trips</Link>
+          <Link href="/account/buddies" className="sidebar-link" aria-current={pathname === "/account/buddies" ? "page" : undefined}><UsersRound size={18} /> Buddies</Link>
         </nav>
         <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={() => setSosOpen(true)}>
           <KikiMark size={48} /> Send SOS
@@ -183,6 +184,7 @@ export function AccountShell({ name, children }: { name: string; children: React
         <div className="account-more-scrim" role="presentation" onClick={() => setMoreOpen(false)}>
           <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/trips"); }}><span><Route size={20} /> Trips</span><small>Hamba travel safety</small></button>
+            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/buddies"); }}><span><UsersRound size={20} /> Buddies</span><small>Find safer travel company</small></button>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); void startSafetyCall(); }}><span><PhoneCall size={20} /> Safety call</span><small>Start a discreet in-app call</small></button>
             <button className="btn w-full" onClick={() => setMoreOpen(false)}>Close</button>
           </section>

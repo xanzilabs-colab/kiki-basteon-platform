@@ -95,6 +95,32 @@
 .hamba-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 16px 0; border-radius: 10px; background: #f5f0fa; padding: 4px; }
 .hamba-mode button { height: 38px; border: 0; border-radius: 7px; background: transparent; color: #756b7d; font-weight: 800; }
 .hamba-mode button.active { background: #54256f; color: #fff; }
+.buddies-page { max-width: 820px; }
+.buddies-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.buddies-heading p { margin: 6px 0 0; color: #756b7d; font-size: 13px; }
+.buddies-heading > span { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; border-radius: 999px; background: #e7f5ed; padding: 8px 10px; color: #286644; font-size: 12px; font-weight: 800; }
+.buddies-panel, .buddies-consent { border: 1px solid #ded6e7; border-radius: 12px; background: #fff; box-shadow: 0 8px 22px rgba(50, 24, 63, .07); padding: 18px; }
+.buddies-panel + .buddies-panel, .buddies-consent, .buddies-message { margin-top: 14px; }
+.buddies-panel h2, .buddies-consent h2 { margin: 0 0 7px; color: #32183f; font-size: 16px; font-weight: 800; }
+.buddies-visibility { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.buddies-visibility p, .buddies-consent p { margin: 0; color: #756b7d; font-size: 12px; line-height: 1.5; }
+.buddies-toggle { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; height: 38px; border: 1px solid #ded6e7; border-radius: 8px; background: #fff; padding: 0 12px; color: #756b7d; font-weight: 800; }
+.buddies-toggle.on { border-color: #4fa77a; background: #e7f5ed; color: #286644; }
+.buddies-consent { display: grid; gap: 10px; }
+.buddies-consent .btn { width: 100%; }
+.buddies-modes { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+.buddies-modes button { height: 34px; border: 1px solid #ded6e7; border-radius: 7px; background: #fff; padding: 0 10px; color: #756b7d; font-size: 12px; font-weight: 800; text-transform: capitalize; }
+.buddies-modes button.active { border-color: #54256f; background: #54256f; color: #fff; }
+.buddies-map { position: relative; display: grid; height: 380px; margin-bottom: 14px; place-items: center; overflow: hidden; border-radius: 10px; background: #f7f2fa; }
+.buddies-ring { position: absolute; display: block; border: 1px solid rgba(84, 37, 111, .3); border-radius: 50%; }
+.buddies-ring.ring-0 { width: 120px; height: 120px; border-color: rgba(84, 37, 111, .55); }
+.buddies-ring.ring-1 { width: 230px; height: 230px; }
+.buddies-ring.ring-2 { width: 340px; height: 340px; }
+.buddies-me { position: relative; z-index: 2; display: grid; width: 48px; height: 48px; place-items: center; border-radius: 50%; background: #54256f; color: #fff; font-size: 12px; font-weight: 800; }
+.buddies-avatar { position: absolute; z-index: 3; display: grid; width: 54px; height: 54px; place-items: center; border: 1px solid #ded6e7; border-radius: 50%; background: #fff; color: #32183f; box-shadow: 0 4px 10px rgba(50, 24, 63, .12); }
+.buddies-avatar span { font-size: 20px; }.buddies-avatar small { overflow: hidden; width: 48px; font-size: 8px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.buddies-selected { display: flex; align-items: center; gap: 10px; margin-top: 14px; border-top: 1px solid #eee8f3; padding-top: 14px; color: #32183f; font-size: 12px; }.buddies-selected span { flex: 1; color: #756b7d; }
+.buddies-message { color: #286644; font-size: 12px; }
 .hamba-preview, .hamba-active { overflow: hidden; border-radius: 14px; }
 .hamba-map { height: 280px; width: 100%; background: #e9e2f5; }
 .hamba-map-loading { display: grid; place-items: center; color: #756b7d; font-size: 13px; }

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ExternalLink, LayoutDashboard, ScrollText, Smartphone, Users } from "lucide-react";
+import { ExternalLink, LayoutDashboard, ScrollText, ShieldCheck, Smartphone, Users } from "lucide-react";
 
 const links = [
   { name: "Overview", href: "/admin", Icon: LayoutDashboard },
   { name: "Devices", href: "/admin/devices", Icon: Smartphone },
   { name: "Users", href: "/admin/users", Icon: Users },
   { name: "Alert audit", href: "/admin/alerts", Icon: ScrollText },
+  { name: "Buddies safety", href: "/admin/buddies", Icon: ShieldCheck },
 ];
 
 export function AdminNav() {
