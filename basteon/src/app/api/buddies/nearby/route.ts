@@ -23,6 +23,7 @@ export async function GET() {
     return safeJson({ error: "moderation_review" }, { status: 403 });
   }
   const { data: rows } = await access.db.from("buddy_trips").select("*").eq("active", true).eq("visible", true).gt("expires_at", new Date().toISOString()).limit(100);
+  const activeTripIds = new Set((rows ?? []).map((row) => row.id as string));
   const candidates = (await Promise.all((rows ?? []).map((row) => presenceForTrip(access.db, row)))).filter((presence): presence is NonNullable<typeof presence> => Boolean(presence));
   const { data: states } = await access.db.from("buddy_pair_states").select("target_trip_id,state").eq("viewer_trip_id", viewerTrip.id);
   const pairStates = Object.fromEntries((states ?? []).map((state) => [`${viewerTrip.id}|${state.target_trip_id}`, state.state]));
@@ -46,6 +47,7 @@ export async function GET() {
   const membersByBubble = new Map<string, string[]>();
   for (const member of bubbleMembers ?? []) membersByBubble.set(member.bubble_id, [...(membersByBubble.get(member.bubble_id) ?? []), member.trip_id]);
   const bubbles = [...membersByBubble.entries()].flatMap(([id, memberTripIds]) => {
+    if (!memberTripIds.every((tripId) => activeTripIds.has(tripId))) return [];
     const lead = presented.find((item) => memberTripIds.includes(item.tripId));
     return lead ? [{ ...lead.avatar, id, memberCount: memberTripIds.length }] : [];
   });
