@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ExternalLink, LayoutDashboard, ScrollText, ShieldCheck, Smartphone, Users } from "lucide-react";
+import { ChartLine, ExternalLink, ListChecks, Radio, RadioTower, ShieldCheck, Users } from "lucide-react";
 
 const links = [
-  { name: "Overview", href: "/admin", Icon: LayoutDashboard },
-  { name: "Devices", href: "/admin/devices", Icon: Smartphone },
+  { name: "Overview", href: "/admin", Icon: ChartLine },
+  { name: "Devices (Fleet)", href: "/admin/devices", Icon: Radio },
   { name: "Users", href: "/admin/users", Icon: Users },
-  { name: "Alert audit", href: "/admin/alerts", Icon: ScrollText },
+  { name: "Alert Audit Log", href: "/admin/alerts", Icon: ListChecks },
   { name: "Buddies safety", href: "/admin/buddies", Icon: ShieldCheck },
 ];
 
@@ -29,8 +29,8 @@ export function AdminNav() {
       ))}
       <div className="my-2 border-t border-[var(--line)] hidden md:block" />
       <Link href="/responder" className="sidebar-link flex-1 whitespace-nowrap md:flex-none">
-        <ExternalLink size={17} />
-        Response console
+        <RadioTower size={17} />
+        Tactical Response
       </Link>
     </nav>
   );
