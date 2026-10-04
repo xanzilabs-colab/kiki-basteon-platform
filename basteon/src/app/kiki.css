@@ -7,8 +7,8 @@
   --well: #ffffff;
   --divider: #ded6e7;
   --text: #29212f;
-  --text-2: #5f5467;
-  --muted: #756b7d;
+  --text-2: #4d4354;
+  --muted: #5f5467;
   --line: var(--divider);
   --line-focus: #54256f;
   --accent: #54256f;
@@ -65,6 +65,22 @@
 .account-mobile-call:hover { background: #e9e2f5; color: #54256f; }
 .account-mobile-more { color: #756b7d; }
 .account-mobile-more:hover { background: #e9e2f5; color: #54256f; }
+.account-shell .muted,
+.account-shell .account-user-label,
+.account-shell .account-ringtone-caption,
+.account-shell .account-more-option small,
+.account-shell .hamba-heading p,
+.account-shell .hamba-mode button,
+.account-shell .hamba-route-summary span,
+.account-shell .hamba-note,
+.account-shell .hamba-message,
+.account-shell .hamba-active-card > p,
+.account-shell .buddies-heading p,
+.account-shell .buddies-visibility p,
+.account-shell .buddies-consent p,
+.account-shell .buddies-toggle,
+.account-shell .buddies-modes button,
+.account-shell .buddies-selected span { color: #5f5467; }
 .account-ringtone-settings { border-top: 1px solid #eee8f3; padding-top: 18px; }
 .account-ringtone-caption { margin: 5px 0 12px; color: #756b7d; font-size: 12px; }
 .account-ringtone-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }

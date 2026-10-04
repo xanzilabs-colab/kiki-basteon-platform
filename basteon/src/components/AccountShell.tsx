@@ -162,7 +162,7 @@ export function AccountShell({ name, children }: { name: string; children: React
             <span className="account-user-label">Signed in as</span>
             <span className="account-user-name">{name}</span>
           </div>
-          <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
+          <button className="btn btn-ghost account-sign-out translate-y-1 md:hidden" title="Sign out" onClick={() => void signOut()}>
             <LogOut size={17} aria-hidden="true" />
           </button>
         </header>
@@ -172,7 +172,7 @@ export function AccountShell({ name, children }: { name: string; children: React
       <nav className="account-mobile-nav fixed inset-x-0 bottom-0 z-20 flex h-[68px] border-t border-[var(--line)] bg-[var(--chrome)] md:hidden">
         {links.slice(0, 2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px] aria-[current=page]:border-t-[var(--text)]" aria-current={pathname === link.href ? "page" : undefined}>
-            {link.href === "/account/devices" ? <Image src="/assets/devices-icon.png" alt="" width={22} height={22} className="h-[22px] w-[22px]" /> : <link.icon size={18} strokeWidth={2.2} aria-hidden="true" />}
+            {link.href === "/account/devices" ? <Image src="/assets/devices-icon.png" alt="" width={44} height={44} className="h-11 w-11" /> : <link.icon size={18} strokeWidth={2.2} aria-hidden="true" />}
             <span>{link.label}</span>
           </Link>
         ))}

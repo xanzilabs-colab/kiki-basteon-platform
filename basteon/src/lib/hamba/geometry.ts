@@ -1,4 +1,4 @@
-import type { GeoPoint } from "./types";
+import type { GeoPoint, PlannedRoute } from "./types";
 
 const radians = (value: number) => value * Math.PI / 180;
 export function distanceM(a: GeoPoint, b: GeoPoint) {
@@ -22,4 +22,37 @@ export function distanceToPolylineM(point: GeoPoint, line: GeoPoint[]) {
     const y = start.y + ratio * (target.y - start.y);
     return Math.min(best, Math.hypot(x, y));
   }, Infinity);
+}
+
+export function remainingRouteDistanceM(point: GeoPoint, line: GeoPoint[]) {
+  if (line.length < 2) return Infinity;
+  const latitudeScale = 111_320;
+  const longitudeScale = Math.cos(radians(point.lat)) * 111_320;
+  let closestDistance = Infinity;
+  let remaining = Infinity;
+
+  for (let index = 1; index < line.length; index++) {
+    const start = line[index - 1];
+    const end = line[index];
+    const startX = (start.lng - point.lng) * longitudeScale;
+    const startY = (start.lat - point.lat) * latitudeScale;
+    const endX = (end.lng - point.lng) * longitudeScale;
+    const endY = (end.lat - point.lat) * latitudeScale;
+    const deltaX = endX - startX;
+    const deltaY = endY - startY;
+    const lengthSquared = deltaX ** 2 + deltaY ** 2;
+    const ratio = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, (-(startX * deltaX + startY * deltaY)) / lengthSquared));
+    const nearestDistance = Math.hypot(startX + ratio * deltaX, startY + ratio * deltaY);
+    if (nearestDistance >= closestDistance) continue;
+    closestDistance = nearestDistance;
+    let distanceAfter = distanceM(start, end) * (1 - ratio);
+    for (let next = index + 1; next < line.length; next++) distanceAfter += distanceM(line[next - 1], line[next]);
+    remaining = distanceAfter;
+  }
+  return remaining;
+}
+
+export function remainingRouteDurationS(point: GeoPoint, route: PlannedRoute) {
+  if (route.distanceM <= 0 || route.durationS <= 0) return 0;
+  return Math.max(0, Math.ceil((remainingRouteDistanceM(point, route.points) / route.distanceM) * route.durationS));
 }

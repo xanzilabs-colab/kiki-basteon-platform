@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Clock3, LocateFixed, MapPinned, Navigation, ShieldCheck } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { formatDistance } from "@/lib/geo";
+import { remainingRouteDurationS } from "@/lib/hamba/geometry";
 import type { TripMode } from "@/lib/hamba/types";
 import { evaluateRouteWatch } from "@/lib/hamba/routeWatch";
 import type { GeoPoint, RouteWatchState } from "@/lib/hamba/types";
@@ -57,7 +58,12 @@ export default function TripsPage() {
     const fix: GeoPoint = { lat: position.lat, lng: position.lng, accuracyM: position.accuracy, timestamp: Date.now() };
     fixes.current = [...fixes.current, fix].slice(-60);
     const heartbeat = window.setTimeout(() => {
-      void fetch(`/api/trips/${activeTrip.id}/heartbeat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lat: position.lat, lng: position.lng, accuracyM: position.accuracy }) });
+      void fetch(`/api/trips/${activeTrip.id}/heartbeat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lat: position.lat, lng: position.lng, accuracyM: position.accuracy }) })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => {
+          if (!data) return;
+          setActiveTrip((current) => current?.id === activeTrip.id ? { ...current, expected_arrival_at: data.expectedArrivalAt, next_check_in_at: data.nextCheckInAt } : current);
+        });
       const result = evaluateRouteWatch({
         mode: activeTrip.mode,
         route: { ...activeTrip.planned_route, points: activeTrip.planned_route.points.map((point) => ({ ...point, timestamp: 0 })), alternatives: [] },
@@ -78,6 +84,9 @@ export default function TripsPage() {
 
   const route = activeTrip?.planned_route ?? routes[selectedRoute];
   const etaMinutes = route ? Math.max(1, Math.ceil(route.durationS / 60)) : null;
+  const activeRemainingMinutes = activeTrip && position
+    ? Math.max(1, Math.ceil(remainingRouteDurationS({ ...position, timestamp: Date.now() }, { ...activeTrip.planned_route, points: activeTrip.planned_route.points.map((point) => ({ ...point, timestamp: 0 })), alternatives: [] }) / 60))
+    : null;
 
   async function startTrip() {
     if (!destination || !route) return;
@@ -118,7 +127,7 @@ export default function TripsPage() {
           <div className="hamba-active-card">
             <span className="hamba-live"><i /> Active trip</span>
             <h2>{activeTrip.destination_label}</h2>
-            <div className="hamba-trip-stats"><span><Navigation size={16} /> {formatDistance(activeTrip.route_distance_m / 1000)}</span><span><Clock3 size={16} /> {Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - Date.now()) / 60_000))} min remaining</span></div>
+            <div className="hamba-trip-stats"><span><Navigation size={16} /> {formatDistance(activeTrip.route_distance_m / 1000)}</span><span><Clock3 size={16} /> {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - Date.now()) / 60_000))} min remaining</span></div>
             <p>Next check-in is due in {activeTrip.next_check_in_at ? Math.max(0, Math.ceil((new Date(activeTrip.next_check_in_at).getTime() - Date.now()) / 60_000)) : 0} min.</p>
             <div className="hamba-actions"><button className="btn" onClick={() => void checkIn()}>Check in</button><button className="btn btn-primary" onClick={() => void arrive()}>I've arrived</button></div>
           </div>
