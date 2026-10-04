@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Flag, Handshake, Mic, PhoneOff, ShieldAlert } from "lucide-react";
 
@@ -10,15 +10,39 @@ const labels: Record<string, string> = { on_my_way: "On my way", at_the_meeting_
 export default function BubblePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [id, setId] = useState(""); const [bubble, setBubble] = useState<Bubble | null>(null); const [message, setMessage] = useState(""); const [pending, setPending] = useState(false); const [loadFailed, setLoadFailed] = useState(false);
+  const pollTimer = useRef<number | null>(null);
+  const consecutiveFailures = useRef(0);
   async function load(bubbleId: string, showError = true) {
     try {
-      const response = await fetch(`/api/buddies/bubble/${bubbleId}`);
+      const response = await fetch(`/api/buddies/bubble/${bubbleId}`, { cache: "no-store" });
       if (!response.ok) { setLoadFailed(true); if (showError && !bubble) setMessage("Bubble is unavailable. Please return to Buddies and try again."); return false; }
       setBubble(await response.json()); setLoadFailed(false); if (showError) setMessage(""); return true;
     } catch { setLoadFailed(true); if (showError && !bubble) setMessage("Could not load this Buddy bubble. Please return to Buddies and try again."); return false; }
   }
   useEffect(() => { void params.then(({ id: bubbleId }) => { setId(bubbleId); void load(bubbleId); }); }, [params]);
-  useEffect(() => { if (!id || loadFailed) return; const refresh = () => { if (document.visibilityState === "visible") void load(id, false); }; const timer = window.setInterval(refresh, 1_500); window.addEventListener("visibilitychange", refresh); return () => { window.clearInterval(timer); window.removeEventListener("visibilitychange", refresh); }; }, [id, loadFailed]);
+  useEffect(() => {
+    if (!id || bubble?.closed) return;
+    let disposed = false;
+    const refresh = async () => {
+      if (document.visibilityState === "visible") {
+        const loaded = await load(id, false);
+        consecutiveFailures.current = loaded ? 0 : Math.min(consecutiveFailures.current + 1, 5);
+      }
+      if (!disposed) pollTimer.current = window.setTimeout(refresh, 1_500 * 2 ** consecutiveFailures.current);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible" || disposed) return;
+      if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
+      void refresh();
+    };
+    void refresh();
+    window.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      disposed = true;
+      if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
+      window.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [id, bubble?.closed]);
   async function post(path: string, body?: object, confirmation = "Updated.") {
     if (pending) return;
     setPending(true); setMessage("");
@@ -29,10 +53,10 @@ export default function BubblePage({ params }: { params: Promise<{ id: string }>
       setBubble((current) => {
         if (!current) return current;
         if (path === "arrived") return { ...current, members: current.members.map((member) => member.you ? { ...member, arrived: true, met: true } : member) };
-        if (path === "message" && typeof body === "object" && body !== null && "key" in body && typeof body.key === "string") return { ...current, messages: [{ message_key: body.key, created_at: new Date().toISOString(), sender: "You" }, ...current.messages] };
+        if (path === "message" && typeof body === "object" && body !== null && "key" in body && typeof body.key === "string") return { ...current, messages: [...current.messages, { message_key: body.key, created_at: new Date().toISOString(), sender: "You" }] };
         return current;
       });
-      setMessage(confirmation); void load(id, false);
+      setMessage(confirmation); await load(id, false);
     } catch { setMessage("Could not update. Check your connection and try again."); } finally { setPending(false); }
   }
   async function leave() {
