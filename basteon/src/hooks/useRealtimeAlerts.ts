@@ -58,13 +58,18 @@ export function useRealtimeAlerts() {
 
 			const ownerIds = [...new Set((devices ?? []).map((device) => device.user_id).filter((id): id is string => Boolean(id)))];
 			const { data: owners, error: ownerError } = ownerIds.length
-				? await supabase.from("profiles").select("id,full_name,phone,home_address,emergency_contact_name,emergency_contact_phone").in("id", ownerIds)
+				? await supabase.from("profiles").select("id,full_name,phone,home_address,emergency_contact_name,emergency_contact_phone,avatar_path").in("id", ownerIds)
 				: { data: [], error: null };
 			if (!active) return;
 			if (ownerError) { setError(ownerError.message); return; }
 
 			const deviceById = new Map((devices ?? []).map((device) => [device.device_id, device]));
-			const ownerById = new Map((owners ?? []).map((owner) => [owner.id, owner]));
+			const ownersWithAvatars = await Promise.all((owners ?? []).map(async (owner) => {
+				if (!owner.avatar_path) return owner;
+				const { data } = await supabase.storage.from("kiki-profile-images").createSignedUrl(owner.avatar_path, 3_600);
+				return { ...owner, avatar_url: data?.signedUrl ?? null };
+			}));
+			const ownerById = new Map(ownersWithAvatars.map((owner) => [owner.id, owner]));
 			const nextAlerts = rawAlerts.map((alert) => {
 				const device = deviceById.get(alert.device_id);
 				return { ...alert, device: device ? { ...device, owner: device.user_id ? ownerById.get(device.user_id) ?? null : null } : null };

@@ -16,6 +16,7 @@ export default function ProfilePage() {
   const [ringtoneBusy, setRingtoneBusy] = useState(false);
   const [ringtones, setRingtones] = useState<Ringtone[]>([]);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const previewAudio = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -25,10 +26,14 @@ export default function ProfilePage() {
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("full_name,phone,home_address,emergency_contact_name,emergency_contact_phone,consented_at,ringtone_path,ringtone_id")
+        .select("full_name,phone,home_address,emergency_contact_name,emergency_contact_phone,consented_at,ringtone_path,ringtone_id,avatar_path")
         .eq("id", user.id)
         .single();
       setProfile(data ?? {});
+      if (data?.avatar_path) {
+        const { data: signed } = await supabase.storage.from("kiki-profile-images").createSignedUrl(data.avatar_path, 3_600);
+        setAvatarUrl(signed?.signedUrl ?? null);
+      }
       const { data: ringtoneCatalog } = await supabase.from("ringtones").select("id,name,storage_path,is_stock").eq("is_stock", true).order("name");
       setRingtones(ringtoneCatalog ?? []);
     })();
@@ -86,6 +91,22 @@ export default function ProfilePage() {
     setMessage("Ringtone saved for your in-app safety call.");
   }
 
+  async function uploadAvatar(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) return setMessage("Choose a JPG, PNG, or WebP image smaller than 2 MB.");
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const extension = file.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "") || "jpg";
+    const path = `${user.id}/avatar.${extension}`;
+    if (profile.avatar_path && profile.avatar_path !== path) await supabase.storage.from("kiki-profile-images").remove([profile.avatar_path]);
+    const { error: uploadError } = await supabase.storage.from("kiki-profile-images").upload(path, file, { upsert: true, contentType: file.type });
+    const { error } = uploadError ? { error: uploadError } : await supabase.from("profiles").update({ avatar_path: path }).eq("id", user.id);
+    if (error) return setMessage(error.message);
+    const { data: signed } = await supabase.storage.from("kiki-profile-images").createSignedUrl(path, 3_600);
+    setProfile((current) => ({ ...current, avatar_path: path })); setAvatarUrl(signed?.signedUrl ?? null); setMessage("Profile image saved.");
+  }
+
   function stopPreview() {
     previewAudio.current?.pause();
     previewAudio.current = null;
@@ -133,6 +154,10 @@ export default function ProfilePage() {
         <div className="pane-head"><span>Profile</span></div>
 
         <div className="p-5 space-y-4">
+          <label className="flex items-center gap-3 rounded-xl bg-[var(--surface-2)] p-3">
+            {avatarUrl ? <img src={avatarUrl} alt="Your profile" className="h-14 w-14 rounded-full object-cover" /> : <span className="grid h-14 w-14 place-items-center rounded-full bg-[var(--accent)] font-bold text-white">K</span>}
+            <span><b className="block">Profile image</b><span className="muted text-[12px]">Visible to authorised responders during an alert.</span><input className="mt-1 block text-[12px]" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadAvatar(event.target.files?.[0])} /></span>
+          </label>
           <div className="grid gap-2 sm:grid-cols-2">
             <Link className="btn" href="/account/profile/medical">Medical ID &amp; Emergency Info</Link>
             <Link className="btn" href="/account/guardians">Guardian Circle</Link>
