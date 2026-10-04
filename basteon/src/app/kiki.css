@@ -251,7 +251,7 @@
 .kiki-activity-row p, .kiki-activity-empty { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
 .kiki-activity-row:hover { background: var(--accent-bg); }
 .kiki-card-icon-buddy { background: var(--ok-bg); color: #258257; }
-.safety-call-screen { position: fixed; z-index: 120; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 54px 28px 52px; background: #32183f; color: #fff; text-align: center; }
+.safety-call-screen { position: fixed; z-index: 2147483647; inset: 0; width: 100vw; min-height: 100dvh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 54px 28px 52px; background: #32183f; color: #fff; text-align: center; }
 .safety-call-arming { z-index: 130; }
 .safety-call-screen::before { position: absolute; inset: 0; background: radial-gradient(circle at 50% 26%, rgba(231, 90, 155, .34), transparent 32%); content: ""; }
 .safety-call-caller, .safety-call-actions { position: relative; z-index: 1; }
@@ -338,4 +338,14 @@
 
 @media (min-width: 768px) {
   .account-mobile-sos { display: none; }
+}
+
+.account-user-avatar img,
+.kiki-profile-identity > img,
+.kiki-avatar-upload img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  object-position: center;
 }

@@ -28,6 +28,7 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [callSeconds, setCallSeconds] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
+  const ringtoneUrlRef = useRef<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   function openSos() {
     sosSending.current = false;
@@ -66,19 +67,22 @@ export function AccountShell({ name, children }: { name: string; children: React
     router.refresh();
   }
 
-  async function loadRingtone() {
+  async function loadRingtone(): Promise<string | null> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return null;
     const { data: profile } = await supabase.from("profiles").select("ringtone_path,ringtone_id").eq("id", user.id).single();
     let storagePath = profile?.ringtone_path;
     if (!storagePath && profile?.ringtone_id) {
       const { data: ringtone } = await supabase.from("ringtones").select("storage_path").eq("id", profile.ringtone_id).maybeSingle();
       storagePath = ringtone?.storage_path;
     }
-    if (!storagePath) return setRingtoneUrl(null);
+    if (!storagePath) { ringtoneUrlRef.current = null; setRingtoneUrl(null); return null; }
     const { data } = await supabase.storage.from("kiki-ringtones").createSignedUrl(storagePath, 3_600);
-    setRingtoneUrl(data?.signedUrl ?? null);
+    const signedUrl = data?.signedUrl ?? null;
+    ringtoneUrlRef.current = signedUrl;
+    setRingtoneUrl(signedUrl);
+    return signedUrl;
   }
 
   useEffect(() => {
@@ -105,12 +109,18 @@ export function AccountShell({ name, children }: { name: string; children: React
   }, []);
 
   useEffect(() => {
+    const updateRingtone = (event: Event) => { const signedUrl = (event as CustomEvent<string | null>).detail; ringtoneUrlRef.current = signedUrl; setRingtoneUrl(signedUrl); };
+    window.addEventListener("kiki-ringtone-updated", updateRingtone);
+    return () => window.removeEventListener("kiki-ringtone-updated", updateRingtone);
+  }, []);
+
+  useEffect(() => {
     const supabase = createClient();
     void (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data: profile } = await supabase.from("profiles").select("avatar_path").eq("id", user.id).single();
-      if (!profile?.avatar_path) return;
+      if (!profile?.avatar_path) { setAvatarUrl(null); return; }
       const { data } = await supabase.storage.from("kiki-profile-images").createSignedUrl(profile.avatar_path, 3_600);
       setAvatarUrl(data?.signedUrl ?? null);
     })();
@@ -124,7 +134,7 @@ export function AccountShell({ name, children }: { name: string; children: React
 
   useEffect(() => {
     if (safetyCall !== "incoming") return;
-    return startRingtone(ringtoneUrl);
+    return startRingtone(ringtoneUrlRef.current);
   }, [ringtoneUrl, safetyCall]);
 
   useEffect(() => {
@@ -176,7 +186,8 @@ export function AccountShell({ name, children }: { name: string; children: React
 
   async function startSafetyCall() {
     if (safetyCall === "idle") {
-      primeRingtone(ringtoneUrl);
+      const signedUrl = await loadRingtone();
+      primeRingtone(signedUrl);
       setSafetyCall("arming");
     }
   }
