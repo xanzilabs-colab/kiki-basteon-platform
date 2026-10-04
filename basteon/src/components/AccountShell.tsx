@@ -115,14 +115,10 @@ export function AccountShell({ name, children }: { name: string; children: React
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
     void (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("avatar_path").eq("id", user.id).single();
-      if (!profile?.avatar_path) { setAvatarUrl(null); return; }
-      const { data } = await supabase.storage.from("kiki-profile-images").createSignedUrl(profile.avatar_path, 3_600);
-      setAvatarUrl(data?.signedUrl ?? null);
+      const response = await fetch("/api/account/profile/avatar");
+      const avatar = response.ok ? await response.json() as { url?: string | null } : null;
+      setAvatarUrl(avatar?.url ?? null);
     })();
   }, [pathname]);
 

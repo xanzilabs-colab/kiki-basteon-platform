@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buddyHmacSecret, requireBuddiesEnabled, BuddiesUnavailableError } from "@/lib/buddies/server/runtime";
+import { BUDDIES_REQUIRE_VERIFICATION } from "@/lib/verification/config";
 import { toBuddyPresence } from "@/lib/buddies/server/mapper";
 import { buildNearbyView, type BuddyPresence, type PrivacyZone } from "@/lib/buddies";
 import { safeJson } from "@/lib/verification/http";
@@ -40,7 +41,7 @@ export async function presenceForTrip(db: ReturnType<typeof createAdminClient>, 
   if (trip.last_lat === null || trip.last_lng === null) return null;
   return toBuddyPresence(trip as never, {
     position: { lat: trip.last_lat, lng: trip.last_lng },
-    verified: profile?.verification_status === "verified",
+    verified: !BUDDIES_REQUIRE_VERIFICATION || profile?.verification_status === "verified",
     suspended: profile?.verification_status === "suspended",
     contactIds: (contacts ?? []).map((row) => row.contact_user_id),
     blockedIds: (blocks ?? []).map((row) => row.blocked_user_id),

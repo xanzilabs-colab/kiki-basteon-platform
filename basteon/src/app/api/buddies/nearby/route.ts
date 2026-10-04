@@ -1,6 +1,7 @@
 import { BUDDY_CONFIG, buildNearbyView, evaluateQueryPattern } from "@/lib/buddies";
 import { snapToCell } from "@/lib/buddies/geo";
 import { requireFreshFaceProof } from "@/lib/verification/service";
+import { BUDDIES_REQUIRE_VERIFICATION } from "@/lib/verification/config";
 import { safeJson } from "@/lib/verification/http";
 import { activeBuddyTrip, buddyHmacSecret, presenceForTrip, requireBuddyUser } from "../_shared";
 
@@ -8,7 +9,7 @@ export async function GET() {
   const access = await requireBuddyUser();
   if ("error" in access) return access.error;
   if (!access.verified) return safeJson({ error: "not_verified" }, { status: 403 });
-  try { await requireFreshFaceProof(access.user.id); } catch { return safeJson({ error: "FACE_CHECK_REQUIRED" }, { status: 401 }); }
+  if (BUDDIES_REQUIRE_VERIFICATION) try { await requireFreshFaceProof(access.user.id); } catch { return safeJson({ error: "FACE_CHECK_REQUIRED" }, { status: 401 }); }
   const viewerTrip = await activeBuddyTrip(access.db, access.user.id);
   if (!viewerTrip) return safeJson({ avatars: [] });
   const viewer = await presenceForTrip(access.db, viewerTrip);

@@ -15,10 +15,10 @@ describe("simulated face provider", () => {
 describe("verification runtime", () => {
   afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
 
-  it("rejects simulation mode in production", async () => {
+  it("allows the configured simulation mode in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERIFICATION_MODE", "simulation");
     const { assertVerificationRuntime } = await import("../config");
-    expect(assertVerificationRuntime).toThrow("forbidden in production");
+    expect(assertVerificationRuntime).not.toThrow();
   });
 });

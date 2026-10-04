@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { invalidateFaceProof, requireFreshFaceProof } from "@/lib/verification/service";
+import { BUDDIES_REQUIRE_VERIFICATION } from "@/lib/verification/config";
 import { sameOrigin, safeJson } from "@/lib/verification/http";
 import { activeBuddyTrip, requireBuddyUser } from "../_shared";
 
@@ -12,9 +13,9 @@ export async function POST(request: Request) {
   if (!input.success) return safeJson({ error: "invalid_visibility" }, { status: 400 });
   const trip = await activeBuddyTrip(access.db, access.user.id);
   if (!trip) return safeJson({ error: "no_active_trip" }, { status: 409 });
-  if (input.data.visible) {
+  if (input.data.visible && BUDDIES_REQUIRE_VERIFICATION) {
     try { await requireFreshFaceProof(access.user.id); } catch { return safeJson({ error: "FACE_CHECK_REQUIRED" }, { status: 401 }); }
-  } else await invalidateFaceProof(access.user.id);
+  } else if (!input.data.visible) await invalidateFaceProof(access.user.id);
   await access.db.from("buddy_trips").update({ visible: input.data.visible }).eq("id", trip.id);
   return safeJson({ visible: input.data.visible });
 }

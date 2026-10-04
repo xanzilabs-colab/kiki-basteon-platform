@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { requireFreshFaceProof } from "@/lib/verification/service";
+import { BUDDIES_REQUIRE_VERIFICATION } from "@/lib/verification/config";
 import { safeJson, sameOrigin } from "@/lib/verification/http";
 import { activeBuddyTrip, requireBuddyUser } from "../../_shared";
 
@@ -8,7 +9,7 @@ const schema = z.object({ pingId: z.string().uuid(), action: z.enum(["accept", "
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return safeJson({ error: "forbidden" }, { status: 403 });
   const access = await requireBuddyUser(); if ("error" in access) return access.error;
-  try { await requireFreshFaceProof(access.user.id); } catch { return safeJson({ error: "FACE_CHECK_REQUIRED" }, { status: 401 }); }
+  if (BUDDIES_REQUIRE_VERIFICATION) try { await requireFreshFaceProof(access.user.id); } catch { return safeJson({ error: "FACE_CHECK_REQUIRED" }, { status: 401 }); }
   const input = schema.safeParse(await request.json().catch(() => null)); if (!input.success) return safeJson({ error: "invalid_response" }, { status: 400 });
   const trip = await activeBuddyTrip(access.db, access.user.id); if (!trip) return safeJson({ error: "no_active_trip" }, { status: 409 });
   const { data: ping } = await access.db.from("buddy_pings").select("*").eq("id", input.data.pingId).eq("to_trip_id", trip.id).eq("status", "pending").maybeSingle();

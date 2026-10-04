@@ -19,10 +19,10 @@ export const VERIFICATION_CONFIG = {
   minimumMatchScore: Number(process.env.FACE_MIN_MATCH_SCORE ?? 0.9),
 } as const;
 
+export const BUDDIES_REQUIRE_VERIFICATION = process.env.BUDDIES_REQUIRE_VERIFICATION === "true";
+
 export function assertVerificationRuntime() {
-  if (process.env.NODE_ENV === "production" && VERIFICATION_CONFIG.mode === "simulation") {
-    throw new Error("VERIFICATION_MODE=simulation is forbidden in production.");
-  }
+  if (VERIFICATION_CONFIG.mode !== "simulation") throw new Error("No live face-verification provider has been configured.");
 }
 
 export function assertBuddiesRuntime() {
@@ -34,6 +34,5 @@ export function assertBuddiesRuntime() {
 
 export function buddiesEnabled() {
   assertBuddiesRuntime();
-  const enabled = process.env.BUDDIES_ENABLED ?? (process.env.NODE_ENV !== "production" ? "true" : "false");
-  return enabled === "true" && (process.env.NODE_ENV !== "production" || VERIFICATION_CONFIG.mode === "live");
+  return (process.env.BUDDIES_ENABLED ?? "true") === "true";
 }
