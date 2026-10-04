@@ -10,6 +10,7 @@ import { BUDDY_CONFIG } from "@/lib/buddies/config";
 
 type Place = { label: string; lat: number; lng: number };
 type Avatar = { ref: string; nickname: string; avatar: string; ring: number; angleDeg: number; radialPct: number; badges: string[]; destinationArea: string | null; mode: string };
+type BubbleMarker = Avatar & { id: string; memberCount: number };
 const modes = ["walk", "taxi", "ehail", "bus", "train"] as const;
 const modeTiles = [
   { value: "taxi", label: "Taxi", icon: Bus },
@@ -41,7 +42,7 @@ export default function BuddiesPage() {
   const { position, error: locationError } = useGeolocation();
   const [query, setQuery] = useState(""); const [places, setPlaces] = useState<Place[]>([]); const [destination, setDestination] = useState<Place | null>(null);
   const [mode, setMode] = useState<(typeof modes)[number]>("walk"); const [visible, setVisible] = useState(false); const [active, setActive] = useState(false);
-  const [avatars, setAvatars] = useState<Avatar[]>([]); const [message, setMessage] = useState(""); const [consent, setConsent] = useState(false); const [pending, setPending] = useState<FacePurpose | null>(null);
+  const [avatars, setAvatars] = useState<Avatar[]>([]); const [bubbles, setBubbles] = useState<BubbleMarker[]>([]); const [message, setMessage] = useState(""); const [consent, setConsent] = useState(false); const [pending, setPending] = useState<FacePurpose | null>(null);
   const [selected, setSelected] = useState<Avatar | null>(null);
   const [alias, setAlias] = useState("");
   const [nearbyLoaded, setNearbyLoaded] = useState(false);
@@ -110,7 +111,7 @@ export default function BuddiesPage() {
     if (response.status === 401) { await gated("visibility", async () => { await setVisibility(next); }); return; }
     if (!response.ok) return setMessage(data.error ?? "Visibility could not be changed.");
     setVisible(next); setConsent(false);
-    if (!next) { setAvatars([]); setSelected(null); setNearbyLoaded(false); setPending(null); }
+    if (!next) { setAvatars([]); setBubbles([]); setSelected(null); setNearbyLoaded(false); setPending(null); }
     setMessage(next ? "You are visible through privacy-preserving rings." : "You are no longer visible and your face proof was cleared.");
   }
 
@@ -128,8 +129,10 @@ export default function BuddiesPage() {
       }
       if (!response.ok) { if (!auto || data.error !== "refresh_limited") setMessage(nearbyErrorMessage[data.error] ?? "Nearby is unavailable."); return; }
       const next: Avatar[] = data.avatars ?? [];
+      const nextBubbles: BubbleMarker[] = data.bubbles ?? [];
       setAvatars(next);
-      setSelected((current) => current ? next.find((avatar) => avatar.ref === current.ref) ?? null : null);
+      setBubbles(nextBubbles);
+      setSelected((current) => current ? [...next, ...nextBubbles].find((avatar) => avatar.ref === current.ref) ?? null : null);
       setNearbyLoaded(true);
     } catch { if (!auto) setMessage("Nearby is unavailable. Check your connection."); }
     finally { nearbyInFlight.current = false; }
@@ -167,6 +170,11 @@ export default function BuddiesPage() {
         {[0, 1, 2].map((ring) => <i key={ring} className={`buddies-ring ring-${ring}`} />)}
         <span className="buddies-zone-label">Approximate zones</span>
         <span className="buddies-me">YOU</span>
+        {visible && bubbles.map((bubble) => {
+          const radius = Math.min(42, 20 + bubble.ring * 10 * bubble.radialPct);
+          const radians = bubble.angleDeg * Math.PI / 180;
+          return <button key={bubble.id} type="button" aria-pressed={selected?.ref === bubble.ref} onClick={() => setSelected(bubble)} className={`buddies-bubble-marker ring-${bubble.ring}`} style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }} title={`${bubble.memberCount} Buddies travelling together`} aria-label={`Select Buddy bubble with ${bubble.memberCount} members`}><span>{bubble.avatar}</span><small>{bubble.memberCount}</small></button>;
+        })}
         {visible && avatars.map((avatar) => {
           const radius = Math.min(42, 20 + avatar.ring * 10 * avatar.radialPct);
           const radians = avatar.angleDeg * Math.PI / 180;
@@ -174,7 +182,7 @@ export default function BuddiesPage() {
         })}
       </div>
       <p className="buddies-privacy-note">Exact locations are hidden. Matches use generated aliases and broad travel zones.</p>
-      {visible && <><button className="btn buddies-refresh" onClick={() => void refreshNearby()} title={`Nearby also refreshes automatically every ${BUDDY_CONFIG.minRefreshMs / 1000} seconds`}><RefreshCw size={16} />Refresh nearby</button>{nearbyLoaded && avatars.length === 0 && <p className="buddies-privacy-note">No compatible visible Buddies nearby right now.</p>}</>}
+      {visible && <><button className="btn buddies-refresh" onClick={() => void refreshNearby()} title={`Nearby also refreshes automatically every ${BUDDY_CONFIG.minRefreshMs / 1000} seconds`}><RefreshCw size={16} />Refresh nearby</button>{nearbyLoaded && avatars.length + bubbles.length === 0 && <p className="buddies-privacy-note">No compatible visible Buddies nearby right now.</p>}</>}
     </section>
     <section className="buddies-panel buddies-plan-widget">
       <h2><UserPlus size={18} />{active && !planningNewTrip ? "Join a travel Buddy" : "Plan a Buddy walk / ride"}</h2>
@@ -191,7 +199,7 @@ export default function BuddiesPage() {
       </> : <>
         <button className="btn hamba-start" onClick={() => { setPlanningNewTrip(true); setMessage("Plan a new trip. Your existing trip stays active until you create the replacement."); }}><UserPlus size={16} />Plan another trip</button>
         <div className="buddies-visibility"><div><h3>Be visible to Buddies</h3><p>{alias ? `Your alias: ${alias}. ` : ""}Only your alias, avatar, mode, destination area, and zone are shared.</p></div><button className={`buddies-toggle ${visible ? "on" : ""}`} type="button" aria-pressed={visible} onClick={() => visible ? void setVisibility(false) : setConsent(true)}>{visible ? <Eye size={17} /> : <EyeOff size={17} />}{visible ? "Visible" : "Off"}</button></div>
-        <div className="buddies-invite-notice">{visible && selected ? <><span className="buddies-selected-avatar">{selected.avatar}</span><div><b>{selected.nickname}</b><span>{selected.mode}{selected.destinationArea ? ` to ${selected.destinationArea}` : ""}</span></div></> : <><UserPlus size={18} /><span>{visible ? "No Buddy selected" : "Your trip is hidden"}</span></>}</div>
+        <div className="buddies-invite-notice">{visible && selected ? <><span className="buddies-selected-avatar">{selected.avatar}</span><div><b>{bubbles.some((bubble) => bubble.ref === selected.ref) ? "Buddy bubble" : selected.nickname}</b><span>{bubbles.some((bubble) => bubble.ref === selected.ref) ? "Traveling together" : `${selected.mode}${selected.destinationArea ? ` to ${selected.destinationArea}` : ""}`}</span></div></> : <><UserPlus size={18} /><span>{visible ? "No Buddy selected" : "Your trip is hidden"}</span></>}</div>
         <button className="btn btn-primary hamba-start" disabled={!visible || !selected || joining} onClick={() => void join()}><Handshake size={16} />{joining ? "Joining..." : "Join Buddy"}</button>
       </>}
     </section>

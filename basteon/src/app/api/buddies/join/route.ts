@@ -1,6 +1,6 @@
-import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { canPing, resolveRef } from "@/lib/buddies";
+import { createMeetingCode } from "@/lib/buddies/meetingCode";
 import { createNotifications } from "@/lib/notifications";
 import { requireFreshFaceProof } from "@/lib/verification/service";
 import { BUDDIES_REQUIRE_VERIFICATION } from "@/lib/verification/config";
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await access.db.rpc("join_buddy_bubble", {
     p_joiner: access.user.id, p_joiner_trip: view.trip.id, p_target: target.userId, p_target_trip: target.tripId,
-    p_meeting_code: randomBytes(6).toString("base64url"), p_expires_at: new Date(now + BUBBLE_TTL_MS).toISOString(),
+    p_meeting_code: createMeetingCode(), p_expires_at: new Date(now + BUBBLE_TTL_MS).toISOString(),
   });
   const row = (Array.isArray(data) ? data[0] : data) as { joined_bubble_id?: string; created?: boolean; already_member?: boolean } | null;
   if (error || !row?.joined_bubble_id) return safeJson({ error: "bubble_unavailable" }, { status: 500 });

@@ -1,4 +1,4 @@
-import { BUDDY_CONFIG, buildNearbyView, evaluateQueryPattern } from "@/lib/buddies";
+import { BUDDY_CONFIG, buildNearbyView, evaluateQueryPattern, resolveRef } from "@/lib/buddies";
 import { snapToCell } from "@/lib/buddies/geo";
 import { requireFreshFaceProof } from "@/lib/verification/service";
 import { BUDDIES_REQUIRE_VERIFICATION } from "@/lib/verification/config";
@@ -27,6 +27,30 @@ export async function GET() {
   const { data: states } = await access.db.from("buddy_pair_states").select("target_trip_id,state").eq("viewer_trip_id", viewerTrip.id);
   const pairStates = Object.fromEntries((states ?? []).map((state) => [`${viewerTrip.id}|${state.target_trip_id}`, state.state]));
   const result = buildNearbyView({ viewer, now, secret: buddyHmacSecret(), pairStates }, candidates);
+  const presented = result.avatars.flatMap((avatar) => {
+    const candidate = resolveRef(buddyHmacSecret(), access.user.id, result.avatars, candidates, avatar.ref);
+    return candidate ? [{ avatar, tripId: candidate.tripId }] : [];
+  });
+  const presentedTripIds = [...new Set(presented.map((item) => item.tripId))];
+  const { data: candidateMembers } = presentedTripIds.length
+    ? await access.db.from("buddy_bubble_members").select("bubble_id,trip_id").in("trip_id", presentedTripIds).is("left_at", null)
+    : { data: [] as Array<{ bubble_id: string; trip_id: string }> };
+  const candidateBubbleIds = [...new Set((candidateMembers ?? []).map((member) => member.bubble_id))];
+  const { data: openBubbles } = candidateBubbleIds.length
+    ? await access.db.from("buddy_bubbles").select("id").in("id", candidateBubbleIds).is("closed_at", null).gt("expires_at", new Date(now).toISOString())
+    : { data: [] as Array<{ id: string }> };
+  const openBubbleIds = new Set((openBubbles ?? []).map((bubble) => bubble.id));
+  const { data: bubbleMembers } = openBubbleIds.size
+    ? await access.db.from("buddy_bubble_members").select("bubble_id,trip_id").in("bubble_id", [...openBubbleIds]).is("left_at", null)
+    : { data: [] as Array<{ bubble_id: string; trip_id: string }> };
+  const membersByBubble = new Map<string, string[]>();
+  for (const member of bubbleMembers ?? []) membersByBubble.set(member.bubble_id, [...(membersByBubble.get(member.bubble_id) ?? []), member.trip_id]);
+  const bubbles = [...membersByBubble.entries()].flatMap(([id, memberTripIds]) => {
+    const lead = presented.find((item) => memberTripIds.includes(item.tripId));
+    return lead ? [{ ...lead.avatar, id, memberCount: memberTripIds.length }] : [];
+  });
+  const bubbleTripIds = new Set((candidateMembers ?? []).filter((member) => openBubbleIds.has(member.bubble_id)).map((member) => member.trip_id));
+  const avatars = presented.filter((item) => !bubbleTripIds.has(item.tripId)).map((item) => item.avatar);
   await Promise.all(Object.entries(result.nextPairStates).map(async ([key, state]) => {
     const targetTripId = key.split("|")[1];
     await access.db.from("buddy_pair_states").upsert({ viewer_trip_id: viewerTrip.id, target_trip_id: targetTripId, state, updated_at: new Date().toISOString() });
@@ -36,5 +60,5 @@ export async function GET() {
   const bands = Object.fromEntries(result.avatars.map((avatar) => [avatar.ref, avatar.ring]));
   await access.db.from("buddy_query_log").insert({ viewer_trip_id: viewerTrip.id, snapped_lat: snapped.lat, snapped_lng: snapped.lng, refs, bands });
   if (pattern.action === "flag") await access.db.from("buddy_moderation_flags").insert({ user_id: access.user.id, kind: "nearby_tracking_pattern", detail: { reasons: pattern.reasons } });
-  return safeJson({ avatars: result.avatars });
+  return safeJson({ avatars, bubbles });
 }
