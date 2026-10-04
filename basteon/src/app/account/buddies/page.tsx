@@ -24,6 +24,16 @@ export default function BuddiesPage() {
   const face = useFaceCheck();
 
   useEffect(() => {
+    void fetch("/api/buddies/trips")
+      .then((response) => response.ok ? response.json() : null)
+      .then((trip) => {
+        if (!trip?.active) return;
+        setActive(true);
+        setVisible(Boolean(trip.visible));
+      });
+  }, []);
+
+  useEffect(() => {
     if (query.trim().length < 3 || destination) return setPlaces([]);
     const timer = window.setTimeout(async () => {
       const response = await fetch("/api/trips/geocode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
