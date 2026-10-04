@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bus, Car, Eye, EyeOff, Footprints, Handshake, LocateFixed, MapPinned, RefreshCw, ShieldCheck, TrainFront, UserPlus } from "lucide-react";
+import { Bus, Car, Eye, EyeOff, Footprints, Handshake, LocateFixed, MapPinned, RefreshCw, ShieldCheck, TrainFront, UserPlus, X } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFaceCheck, type FacePurpose } from "@/hooks/useFaceCheck";
 import { BUDDY_CONFIG } from "@/lib/buddies/config";
@@ -53,6 +53,7 @@ export default function BuddiesPage() {
   const router = useRouter();
   const nearbyInFlight = useRef(false);
   const positionInFlight = useRef(false);
+  const hiddenBubbleIds = useRef(new Set<string>());
   const lastNearbyAt = useRef(0);
   const autoRefresh = useRef<() => Promise<void>>(async () => {});
 
@@ -97,7 +98,7 @@ export default function BuddiesPage() {
     const response = await fetch("/api/buddies/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: position, destination, route: routeData.routes[0].points, mode, leaveFrom: new Date().toISOString(), maxWaitMinutes: 30, maxWalkM: 800, groupSize: 3, audience: "all_verified" }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return setMessage(data.error === "not_verified" ? "Buddies requires verified enrolment." : tripErrorMessage[data.error] ?? "Trip could not be created.");
-    setActive(true); setPlanningNewTrip(false); setAlias(data.alias); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
+    hiddenBubbleIds.current.clear(); setBubbles([]); setActive(true); setPlanningNewTrip(false); setAlias(data.alias); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
     } catch { setMessage("Your Buddy trip could not be created. Check your connection and try again."); }
     finally { setBusy(false); }
   }
@@ -133,7 +134,7 @@ export default function BuddiesPage() {
       }
       if (!response.ok) { if (!auto || data.error !== "refresh_limited") setMessage(nearbyErrorMessage[data.error] ?? "Nearby is unavailable."); return; }
       const next: Avatar[] = data.avatars ?? [];
-      const nextBubbles: BubbleMarker[] = data.bubbles ?? [];
+      const nextBubbles: BubbleMarker[] = (data.bubbles ?? []).filter((bubble: BubbleMarker) => !hiddenBubbleIds.current.has(bubble.id));
       setAvatars(next);
       setBubbles(nextBubbles);
       setSelected((current) => current ? [...next, ...nextBubbles].find((avatar) => avatar.ref === current.ref) ?? null : null);
@@ -142,6 +143,13 @@ export default function BuddiesPage() {
     finally { nearbyInFlight.current = false; }
   }
   autoRefresh.current = () => refreshNearby(true);
+
+  function clearMapGroups() {
+    for (const bubble of bubbles) hiddenBubbleIds.current.add(bubble.id);
+    if (selected && bubbles.some((bubble) => bubble.ref === selected.ref)) setSelected(null);
+    setBubbles([]);
+    setMessage("Existing group markers cleared from this map. New Buddy groups will still appear.");
+  }
 
   useEffect(() => {
     if (!visible) return;
@@ -186,7 +194,7 @@ export default function BuddiesPage() {
         })}
       </div>
       <p className="buddies-privacy-note">Exact locations are hidden. Matches use generated aliases and broad travel zones.</p>
-      {visible && <><button className="btn buddies-refresh" onClick={() => void refreshNearby()} title={`Nearby also refreshes automatically every ${BUDDY_CONFIG.minRefreshMs / 1000} seconds`}><RefreshCw size={16} />Refresh nearby</button>{nearbyLoaded && avatars.length + bubbles.length === 0 && <p className="buddies-privacy-note">No compatible visible Buddies nearby right now.</p>}</>}
+      {visible && <><div className="flex items-center justify-center gap-2"><button className="btn buddies-refresh" onClick={() => void refreshNearby()} title={`Nearby also refreshes automatically every ${BUDDY_CONFIG.minRefreshMs / 1000} seconds`}><RefreshCw size={16} />Refresh nearby</button><button className="btn buddies-refresh px-3" onClick={clearMapGroups} title="Clear existing group markers from this map" aria-label="Clear existing group markers"><X size={16} /></button></div>{nearbyLoaded && avatars.length + bubbles.length === 0 && <p className="buddies-privacy-note">No compatible visible Buddies nearby right now.</p>}</>}
     </section>
     <section className="buddies-panel buddies-plan-widget">
       <h2><UserPlus size={18} />{active && !planningNewTrip ? "Join a travel Buddy" : "Plan a Buddy walk / ride"}</h2>
