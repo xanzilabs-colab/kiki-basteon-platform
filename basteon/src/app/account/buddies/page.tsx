@@ -8,6 +8,12 @@ import { useFaceCheck, type FacePurpose } from "@/hooks/useFaceCheck";
 type Place = { label: string; lat: number; lng: number };
 type Avatar = { ref: string; nickname: string; avatar: string; ring: number; angleDeg: number; radialPct: number; badges: string[]; destinationArea: string | null; mode: string };
 const modes = ["walk", "taxi", "ehail", "bus", "train"] as const;
+const tripErrorMessage: Record<string, string> = {
+  invalid_trip: "That route has too much detail to use for a Buddy trip. Please choose another route.",
+  trip_unavailable: "Buddy trips are temporarily unavailable. Please try again.",
+  BUDDIES_UNAVAILABLE: "Buddies is not available right now.",
+  forbidden: "Please refresh and try creating your Buddy trip again.",
+};
 
 export default function BuddiesPage() {
   const { position, error: locationError } = useGeolocation();
@@ -38,7 +44,7 @@ export default function BuddiesPage() {
     if (!routeResponse.ok || !routeData.routes?.[0]) return setMessage("Route planning is unavailable right now.");
     const response = await fetch("/api/buddies/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: position, destination, route: routeData.routes[0].points, mode, leaveFrom: new Date().toISOString(), maxWaitMinutes: 30, maxWalkM: 800, groupSize: 3, audience: "all_verified" }) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return setMessage(data.error === "not_verified" ? "Buddies requires verified enrolment." : data.error ?? "Trip could not be created.");
+    if (!response.ok) return setMessage(data.error === "not_verified" ? "Buddies requires verified enrolment." : tripErrorMessage[data.error] ?? "Trip could not be created.");
     setActive(true); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
   }
 
