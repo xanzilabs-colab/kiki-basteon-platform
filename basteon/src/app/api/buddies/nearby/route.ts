@@ -46,12 +46,13 @@ export async function GET() {
     : { data: [] as Array<{ bubble_id: string; trip_id: string }> };
   const membersByBubble = new Map<string, string[]>();
   for (const member of bubbleMembers ?? []) membersByBubble.set(member.bubble_id, [...(membersByBubble.get(member.bubble_id) ?? []), member.trip_id]);
-  const bubbles = [...membersByBubble.entries()].flatMap(([id, memberTripIds]) => {
+  const validBubbles = [...membersByBubble.entries()].flatMap(([id, memberTripIds]) => {
     if (!memberTripIds.every((tripId) => activeTripIds.has(tripId))) return [];
     const lead = presented.find((item) => memberTripIds.includes(item.tripId));
-    return lead ? [{ ...lead.avatar, id, memberCount: memberTripIds.length }] : [];
+    return lead ? [{ id, memberTripIds, marker: { ...lead.avatar, id, memberCount: memberTripIds.length } }] : [];
   });
-  const bubbleTripIds = new Set((candidateMembers ?? []).filter((member) => openBubbleIds.has(member.bubble_id)).map((member) => member.trip_id));
+  const bubbles = validBubbles.map((bubble) => bubble.marker);
+  const bubbleTripIds = new Set(validBubbles.flatMap((bubble) => bubble.memberTripIds));
   const avatars = presented.filter((item) => !bubbleTripIds.has(item.tripId)).map((item) => item.avatar);
   await Promise.all(Object.entries(result.nextPairStates).map(async ([key, state]) => {
     const targetTripId = key.split("|")[1];
