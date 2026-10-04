@@ -22,7 +22,7 @@ function db(members: string[]) {
     from: vi.fn((table: string) => {
       const result = table === "buddy_bubble_members" ? { data: members.map((user_id) => ({ user_id })) } : { data: null, count: 0, error: null };
       const builder: Record<string, unknown> = { then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve) };
-      for (const method of ["select", "eq", "gte", "not", "order", "limit"]) builder[method] = vi.fn(() => builder);
+      for (const method of ["select", "eq", "gte", "not", "is", "order", "limit"]) builder[method] = vi.fn(() => builder);
       builder.maybeSingle = vi.fn(async () => result);
       builder.insert = vi.fn(async (row: unknown) => { mocks.inserts.push({ table, row }); return { error: null }; });
       return builder;
@@ -44,7 +44,7 @@ describe("join buddy", () => {
     mocks.rpc.mockResolvedValue({ data: [{ joined_bubble_id: BUBBLE, created: true, already_member: false }], error: null });
   });
 
-  it("creates a fresh direct bubble and notifies only the selected Buddy", async () => {
+  it("creates a Bubble from an in-view ref and notifies its active members without leaking identities", async () => {
     const response = await POST(request({ ref: "a".repeat(16) }));
     const body = await response.json();
     expect(response.status).toBe(200);
@@ -60,11 +60,11 @@ describe("join buddy", () => {
     expect(notifications[1].body).toContain("Kind Comet");
   });
 
-  it("does not notify unrelated members returned by a stale Bubble membership query", async () => {
+  it("notifies all active Bubble members when another Buddy joins", async () => {
     mocks.access.mockResolvedValue({ user: { id: "joiner" }, db: db(["joiner", "target", "other-member"]) });
     await POST(request({ ref: "a".repeat(16) }));
     const [notifications] = mocks.notify.mock.calls[0];
-    expect(notifications.map((item: { userId: string }) => item.userId)).toEqual(["joiner", "target"]);
+    expect(notifications.map((item: { userId: string }) => item.userId)).toEqual(["joiner", "target", "other-member"]);
   });
 
   it("is idempotent when already sharing a bubble", async () => {

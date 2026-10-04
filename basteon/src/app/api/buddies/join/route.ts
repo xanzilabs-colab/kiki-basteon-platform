@@ -42,11 +42,14 @@ export async function POST(request: Request) {
     if (row.created) await recordBuddyAudit(access.db, { ...eventBase, event: "bubble_created" });
     await recordBuddyAudit(access.db, { ...eventBase, event: "member_joined" });
     await access.db.from("buddy_pings").insert({ from_trip_id: view.trip.id, to_trip_id: target.tripId, status: "accepted", responded_at: new Date().toISOString() });
+    const { data: members } = await access.db.from("buddy_bubble_members").select("user_id").eq("bubble_id", bubbleId).is("left_at", null);
+    const others = (members ?? []).map((member) => member.user_id as string).filter((id) => id !== access.user.id);
     const href = `/account/buddies/bubble/${bubbleId}`;
     const payload = { bubbleId };
+    const companions = others.length > 1 ? `${target.nickname} and ${others.length - 1} other Buddy${others.length > 2 ? "s" : ""}` : target.nickname;
     await createNotifications([
-      { userId: access.user.id, type: "buddy_bubble", title: "You joined a Buddy bubble", body: `You're in a private bubble with ${target.nickname}. Open it for your meeting code.`, href, payload },
-      { userId: target.userId, type: "buddy_bubble", title: "A Buddy joined you", body: `${view.viewer.nickname} joined your Buddy bubble. Open it to meet safely.`, href, payload },
+      { userId: access.user.id, type: "buddy_bubble", title: "You joined a Buddy bubble", body: `You're in a private bubble with ${companions}. Open it for your meeting code.`, href, payload },
+      ...others.map((userId) => ({ userId, type: "buddy_bubble" as const, title: "A Buddy joined you", body: `${view.viewer.nickname} joined your Buddy bubble. Open it to meet safely.`, href, payload })),
     ], access.db);
   }
   return safeJson({ joined: true, bubbleId, created: Boolean(row.created), alreadyMember: Boolean(row.already_member) });
