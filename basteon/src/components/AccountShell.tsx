@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, Smartphone, UserRound, UsersRound } from "lucide-react";
+import { House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Smartphone, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -195,6 +195,7 @@ export function AccountShell({ name, children }: { name: string; children: React
           <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/trips"); }}><span><Route size={20} /> Trips</span><small>Hamba travel safety</small></button>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/buddies"); }}><span><UsersRound size={20} /> Buddies</span><small>Find safer travel company</small></button>
+            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/guardians"); }}><span><ShieldCheck size={20} /> Guardians</span><small>Your private Guardian Circle</small></button>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); void startSafetyCall(); }}><span><PhoneCall size={20} /> Safety call</span><small>Start a discreet in-app call</small></button>
             <button className="btn w-full" onClick={() => setMoreOpen(false)}>Close</button>
           </section>

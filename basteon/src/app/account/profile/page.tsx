@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Pause, Play } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile, Ringtone } from "@/lib/types";
@@ -132,6 +133,10 @@ export default function ProfilePage() {
         <div className="pane-head"><span>Profile</span></div>
 
         <div className="p-5 space-y-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Link className="btn" href="/account/profile/medical">Medical ID &amp; Emergency Info</Link>
+            <Link className="btn" href="/account/guardians">Guardian Circle</Link>
+          </div>
           <label className="block">
             <span className="label">Full name</span>
             <input className="input mt-1.5" required {...field("full_name")} />
