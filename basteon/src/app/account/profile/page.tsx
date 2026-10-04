@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Pause, Play } from "lucide-react";
+import { Check, ChevronRight, FileText, Lock, Moon, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -144,13 +144,13 @@ export default function ProfilePage() {
   }
 
   return (
-    <form className="max-w-[640px] space-y-5" onSubmit={save}>
+    <form className="kiki-profile-page max-w-[640px] space-y-5" onSubmit={save}>
       <div>
         <p className="eyebrow">Personal information</p>
         <h1 className="page-title mt-1">Your profile</h1>
       </div>
 
-      <section className="panel">
+      <section className="kiki-profile-settings panel">
         <div className="pane-head"><span>Profile</span></div>
 
         <div className="p-5 space-y-4">
@@ -158,9 +158,10 @@ export default function ProfilePage() {
             {avatarUrl ? <img src={avatarUrl} alt="Your profile" className="h-14 w-14 rounded-full object-cover" /> : <span className="grid h-14 w-14 place-items-center rounded-full bg-[var(--accent)] font-bold text-white">K</span>}
             <span><b className="block">Profile image</b><span className="muted text-[12px]">Visible to authorised responders during an alert.</span><input className="mt-1 block text-[12px]" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadAvatar(event.target.files?.[0])} /></span>
           </label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Link className="btn" href="/account/profile/medical">Medical ID &amp; Emergency Info</Link>
-            <Link className="btn" href="/account/guardians">Guardian Circle</Link>
+          <div className="kiki-settings-list">
+            <Link href="/account/profile/medical"><span><FileText size={17} />Medical ID &amp; Emergency Info</span><ChevronRight size={17} /></Link>
+            <Link href="/account/guardians"><span><Lock size={17} />Security &amp; Guardian Circle</span><ChevronRight size={17} /></Link>
+            <a href="#ringtone"><span><Moon size={17} />Safety call ringtone</span><ChevronRight size={17} /></a>
           </div>
           <label className="block">
             <span className="label">Full name</span>
@@ -196,7 +197,7 @@ export default function ProfilePage() {
               : "during account setup"}.
           </p>
 
-          <div className="account-ringtone-settings">
+          <div className="account-ringtone-settings" id="ringtone">
             <span className="label">Safety call ringtone</span>
             <p className="account-ringtone-caption">Choose a Kiki tone or upload your own. Safety calls ring for up to 20 seconds.</p>
             <div className="account-ringtone-grid">

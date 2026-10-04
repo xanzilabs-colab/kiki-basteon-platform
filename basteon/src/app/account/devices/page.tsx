@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { BatteryCharging, Bluetooth, Clock3, PlusCircle, Radio, Trash2, Wifi } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Device } from "@/lib/types";
@@ -40,65 +41,38 @@ export default function DevicesPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-[860px]">
-      <div className="flex items-end justify-between gap-3">
-        <div className="flex items-end gap-3">
-          <Image
-            src="/assets/devices-icon.png"
-            alt=""
-            width={64}
-            height={64}
-            className="shrink-0"
-          />
-          <div>
+    <div className="kiki-devices-page space-y-5 max-w-[860px]">
+      <div className="kiki-reference-title">
+        <div>
           <p className="eyebrow">My equipment</p>
           <h1 className="page-title mt-1">My devices</h1>
-          </div>
         </div>
-        <Link className="btn btn-primary" href="/account/devices/link">Link device</Link>
+        <Link className="kiki-add-device" href="/account/devices/link"><PlusCircle size={15} /> Link device</Link>
       </div>
 
       {error && <p role="alert" className="text-[12px] text-[var(--crit)]">{error}</p>}
 
       {devices.length === 0 ? (
-        <section className="panel p-6">
-          <p className="muted">No devices linked yet.</p>
+        <section className="kiki-empty-device">
+          <PlusCircle size={25} /><h2>Have a backup device?</h2><p>Pair a Kiki Smart Pendant or Keyring tracker.</p><Link href="/account/devices/link">Pair Secondary Tracker</Link>
         </section>
       ) : (
         devices.map((device) => (
-          <section className="panel" key={device.id}>
-            <div className="p-5">
-              <div className="flex justify-between gap-3 items-start">
+          <section className="kiki-device-card" key={device.id}>
+              <div className="kiki-device-card-head">
                 <div className="flex min-w-0 gap-3">
-                  <Image
-                    src="/assets/devices-icon-link.png"
-                    alt="Linked device"
-                    width={44}
-                    height={44}
-                    className="h-11 w-11 shrink-0"
-                  />
+                  <span className="kiki-device-large"><Radio size={25} /></span>
                   <div className="min-w-0">
-                    <h2 className="font-semibold text-[14px] truncate">{device.device_name}</h2>
-                    <p className="data text-[11.5px] muted mt-1">{device.device_id}</p>
+                    <h2>{device.device_name}</h2><p>{device.device_id}</p>
                   </div>
                 </div>
-                <span className={`status ${device.active ? "status-green" : "status-gray"}`}>
+                <span className={`kiki-active-pill ${device.active ? "is-active" : ""}`}>
                   {device.active ? "Active" : "Inactive"}
                 </span>
               </div>
-
-              <p className="muted text-[12px] mt-3">
-                Linked{" "}
-                {device.linked_at ? new Date(device.linked_at).toLocaleDateString() : "previously"}{" "}
-                · Last seen{" "}
-                {device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : "Never"}
-              </p>
-
-              <div className="flex gap-2 mt-4">
-                <button className="btn" onClick={() => void rename(device)}>Rename</button>
-                <button className="btn btn-danger" onClick={() => void unlink(device)}>Unlink</button>
-              </div>
-            </div>
+              <div className="kiki-device-telemetry"><div><span>Battery status</span><b><BatteryCharging size={16} />Device ready</b></div><div><span>Bluetooth signal</span><b><Wifi size={16} />{device.active ? "Connected" : "Unavailable"}</b></div></div>
+              <p className="kiki-device-meta"><span><Clock3 size={14} />Linked {device.linked_at ? new Date(device.linked_at).toLocaleDateString() : "previously"}</span><b>{device.last_seen_at ? `Last seen ${new Date(device.last_seen_at).toLocaleString()}` : "Never seen"}</b></p>
+              <div className="kiki-device-actions"><button onClick={() => void rename(device)}>Rename</button><button onClick={() => void unlink(device)} title="Unlink device"><Trash2 size={16} /></button></div>
           </section>
         ))
       )}
