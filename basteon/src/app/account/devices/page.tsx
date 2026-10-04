@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BatteryCharging, Clock3, PlusCircle, Trash2, Wifi } from "lucide-react";
+import { BatteryCharging, Clock3, Lock, PlusCircle, Trash2, Wifi } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { pinErrorMessage } from "@/lib/devicePin";
 import type { Device } from "@/lib/types";
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
@@ -26,6 +28,7 @@ function signalLabel(rssi: number | null | undefined) {
 }
 
 export default function DevicesPage() {
+  const router = useRouter();
   const [devices, setDevices] = useState<Device[]>([]);
   const [error, setError] = useState("");
 
@@ -52,9 +55,11 @@ export default function DevicesPage() {
   }
 
   async function unlink(device: Device) {
+    // PIN-locked bands are unlinked from the security page, where the PIN is entered in a masked field.
+    if (device.pin_locked) return router.push(`/account/devices/${device.id}/security#unlink`);
     if (!window.confirm(`Unlink ${device.device_name}?`)) return;
-    const response = await fetch(`/api/devices/${device.id}/unlink`, { method: "POST" });
-    if (!response.ok) setError("Could not unlink device.");
+    const response = await fetch(`/api/devices/${device.id}/unlink`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (!response.ok) setError(pinErrorMessage(await response.json().catch(() => ({}))) ?? "Could not unlink device.");
     else void refresh();
   }
 
@@ -94,7 +99,7 @@ export default function DevicesPage() {
               </div>
               <div className="kiki-device-telemetry"><div><span>Battery status</span><b><BatteryCharging size={16} />{device.battery == null ? "Not reported" : `${device.battery}% charged`}</b></div><div><span>Device signal</span><b><Wifi size={16} />{isOnline ? signalLabel(device.wifi_rssi) : "Offline"}</b></div></div>
               <p className="kiki-device-meta"><span><Clock3 size={14} />Linked {device.linked_at ? new Date(device.linked_at).toLocaleDateString() : "previously"}</span><b>{relativeTime(latestSignal)}</b></p>
-              <div className="kiki-device-actions"><button onClick={() => void rename(device)}>Rename</button><button onClick={() => void unlink(device)} title="Unlink device"><Trash2 size={16} /></button></div>
+              <div className="kiki-device-actions"><button onClick={() => void rename(device)}>Rename</button><Link href={`/account/devices/${device.id}/security`} title="Band PIN and security"><Lock size={14} />{device.pin_locked ? "PIN on" : "Set PIN"}</Link><button onClick={() => void unlink(device)} title="Unlink device"><Trash2 size={16} /></button></div>
               </>;
               })()}
           </section>

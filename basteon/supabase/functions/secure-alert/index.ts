@@ -23,7 +23,7 @@ type TrackingPayload = {
 };
 
 type LinkPayload = { status: "link_device"; ctr: number; token: string };
-type HeartbeatPayload = { status: "device_heartbeat"; ctr: number; battery: number | null; wifiRssi: number | null };
+type HeartbeatPayload = { status: "device_heartbeat"; ctr: number; battery: number | null; wifiRssi: number | null; lock: boolean | null };
 
 function parseLinkPayload(value: unknown): LinkPayload | null {
   if (!value || typeof value !== "object") return null;
@@ -41,7 +41,9 @@ function parseHeartbeatPayload(value: unknown): HeartbeatPayload | null {
   const wifiRssi = payload.rssi;
   if (battery !== undefined && (!Number.isInteger(battery) || battery < 0 || battery > 100)) return null;
   if (wifiRssi !== undefined && (!Number.isInteger(wifiRssi) || wifiRssi < -127 || wifiRssi > 0)) return null;
-  return { status: "device_heartbeat", ctr: payload.ctr, battery: typeof battery === "number" ? battery : null, wifiRssi: typeof wifiRssi === "number" ? wifiRssi : null };
+  const lock = payload.lock;
+  if (lock !== undefined && lock !== 0 && lock !== 1) return null;
+  return { status: "device_heartbeat", ctr: payload.ctr, battery: typeof battery === "number" ? battery : null, wifiRssi: typeof wifiRssi === "number" ? wifiRssi : null, lock: lock === undefined ? null : lock === 1 };
 }
 
 async function sha256Hex(value: string) {
@@ -182,8 +184,17 @@ Deno.serve(async (request) => {
       telemetry_at: now,
       battery: heartbeat.battery,
       wifi_rssi: heartbeat.wifiRssi,
+      ...(heartbeat.lock === null ? {} : { band_pin_locked: heartbeat.lock, band_lock_reported_at: now }),
     }).eq("device_id", deviceId).lt("last_ctr", heartbeat.ctr);
-    return error ? json({ error: "db_error" }, 500) : json({ ok: true }, 200);
+    if (error) return json({ error: "db_error" }, 500);
+    if (heartbeat.lock) {
+      // The server is the authority: a band holding a PIN the server no longer has (unlinked, removed by the
+      // owner, admin reset, new owner) is told to drop it. Never reveals anything about the PIN itself.
+      const { data: pin, error: pinError } = await supabase.from("device_pins").select("device_id").eq("device_id", deviceId).maybeSingle();
+      if (pinError) return json({ ok: true }, 200);
+      if (!pin) return json({ ok: true, pin_clear: true }, 200);
+    }
+    return json({ ok: true }, 200);
   }
 
   const tracking = parseTrackingPayload(payload);
