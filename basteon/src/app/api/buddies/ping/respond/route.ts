@@ -19,5 +19,5 @@ export async function POST(request: Request) {
   const { data: sourceTrip } = await access.db.from("buddy_trips").select("user_id").eq("id", ping.from_trip_id).single();
   await access.db.from("buddy_bubble_members").insert([{ bubble_id: bubble.id, user_id: access.user.id, trip_id: trip.id }, { bubble_id: bubble.id, user_id: sourceTrip!.user_id, trip_id: ping.from_trip_id }]);
   await access.db.from("buddy_pings").update({ status: "accepted", responded_at: new Date().toISOString() }).eq("id", ping.id);
-  return safeJson({ bubble: true });
+  return safeJson({ bubble: true, bubbleId: bubble.id });
 }
