@@ -301,6 +301,8 @@
 @keyframes kiki-float { 50% { transform: translateY(-5px) scale(1.04); } }
 @keyframes kiki-protection-pulse { 50% { opacity:.38; } }
 
+.kiki-avatar-upload { display:flex !important;align-items:center;gap:12px;border:1px solid #e7ccf0;border-radius:16px;background:#faf8fc;padding:12px;text-transform:none !important; }.kiki-avatar-upload img,.kiki-avatar-upload > span { width:54px;height:54px;flex:0 0 auto;border:2px solid #5c1d5e;border-radius:16px;object-fit:cover; }.kiki-avatar-upload > span { display:grid;place-items:center;background:#5c1d5e;color:#fff;font-size:18px;font-weight:900; }.kiki-avatar-upload b { display:grid;gap:3px;color:#29212f;font-size:13px; }.kiki-avatar-upload small { color:#493f52;font-size:11px;font-weight:600; }.kiki-avatar-upload input { margin-left:auto;max-width:145px;color:#493f52;font-size:11px;font-weight:600; }.account-user-avatar { overflow:visible; }.account-user-avatar img { width:100%;height:100%;border-radius:50%;object-fit:cover; }.kiki-device-large { overflow:hidden;background:#f4e6f8; }.kiki-device-large img { width:100%;height:100%;object-fit:contain; }
+
 @media (max-width: 767px) {
   .account-shell .sidebar { display: none; }
   .account-shell .account-mobile-appbar { display:flex;height:calc(76px + env(safe-area-inset-top));align-items:center;gap:8px;padding-top:env(safe-area-inset-top);padding-inline:16px; }

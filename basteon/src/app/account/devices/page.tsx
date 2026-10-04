@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BatteryCharging, Bluetooth, Clock3, PlusCircle, Radio, Trash2, Wifi } from "lucide-react";
+import { BatteryCharging, Clock3, PlusCircle, Trash2, Wifi } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Device } from "@/lib/types";
@@ -61,7 +61,7 @@ export default function DevicesPage() {
           <section className="kiki-device-card" key={device.id}>
               <div className="kiki-device-card-head">
                 <div className="flex min-w-0 gap-3">
-                  <span className="kiki-device-large"><Radio size={25} /></span>
+                  <span className="kiki-device-large"><Image src="/assets/devices-icon-link.png" alt="Linked Kiki device" width={56} height={56} priority /></span>
                   <div className="min-w-0">
                     <h2>{device.device_name}</h2><p>{device.device_id}</p>
                   </div>

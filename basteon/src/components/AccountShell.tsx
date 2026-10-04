@@ -28,6 +28,7 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [callSeconds, setCallSeconds] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   function openSos() {
     sosSending.current = false;
     setSosError("");
@@ -102,6 +103,18 @@ export function AccountShell({ name, children }: { name: string; children: React
   useEffect(() => {
     void loadRingtone();
   }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("avatar_path").eq("id", user.id).single();
+      if (!profile?.avatar_path) return;
+      const { data } = await supabase.storage.from("kiki-profile-images").createSignedUrl(profile.avatar_path, 3_600);
+      setAvatarUrl(data?.signedUrl ?? null);
+    })();
+  }, [pathname]);
 
   useEffect(() => {
     if (safetyCall !== "incoming") return;
@@ -198,7 +211,7 @@ export function AccountShell({ name, children }: { name: string; children: React
       <div inert={sosOpen} className="min-w-0 pb-[76px] md:min-h-0 md:overflow-y-auto md:pb-0">
         <header className="appbar account-mobile-appbar px-4">
           <Link className="account-user-summary" href="/account/profile" title="Open profile">
-            <span className="account-user-avatar">{name.charAt(0).toUpperCase()}<i /></span>
+            <span className="account-user-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : name.charAt(0).toUpperCase()}<i /></span>
             <span className="account-user-copy">
               <span className="account-user-name">{name}<BadgeCheck size={14} /></span>
               <span className="account-user-protected"><i />Protected · Active</span>
