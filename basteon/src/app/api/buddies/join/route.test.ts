@@ -44,7 +44,7 @@ describe("join buddy", () => {
     mocks.rpc.mockResolvedValue({ data: [{ joined_bubble_id: BUBBLE, created: true, already_member: false }], error: null });
   });
 
-  it("creates a bubble from an in-view ref and notifies both members without leaking identities", async () => {
+  it("creates a fresh direct bubble and notifies only the selected Buddy", async () => {
     const response = await POST(request({ ref: "a".repeat(16) }));
     const body = await response.json();
     expect(response.status).toBe(200);
@@ -58,6 +58,13 @@ describe("join buddy", () => {
       expect(item).toMatchObject({ type: "buddy_bubble", href: `/account/buddies/bubble/${BUBBLE}`, payload: { bubbleId: BUBBLE } });
     }
     expect(notifications[1].body).toContain("Kind Comet");
+  });
+
+  it("does not notify unrelated members returned by a stale Bubble membership query", async () => {
+    mocks.access.mockResolvedValue({ user: { id: "joiner" }, db: db(["joiner", "target", "other-member"]) });
+    await POST(request({ ref: "a".repeat(16) }));
+    const [notifications] = mocks.notify.mock.calls[0];
+    expect(notifications.map((item: { userId: string }) => item.userId)).toEqual(["joiner", "target"]);
   });
 
   it("is idempotent when already sharing a bubble", async () => {
