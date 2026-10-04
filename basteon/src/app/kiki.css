@@ -200,6 +200,7 @@
 .buddies-avatar span { font-size: 20px; }.buddies-avatar small { overflow: hidden; width: 48px; font-size: 8px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .buddies-selected { display: flex; align-items: center; gap: 10px; margin-top: 14px; border-top: 1px solid #eee8f3; padding-top: 14px; color: #32183f; font-size: 12px; }.buddies-selected span { flex: 1; color: #756b7d; }
 .buddies-message { color: #286644; font-size: 12px; }
+.buddies-history { display:grid;gap:0;margin-top:10px; }.buddies-history > div { display:grid;grid-template-columns:20px minmax(0,1fr);gap:7px;border-top:1px solid #eee8f3;padding:11px 0;color:#54256f; }.buddies-history p,.buddies-history time { margin:0; }.buddies-history p { color:#32183f;font-size:12px;line-height:1.4; }.buddies-history time { grid-column:2;color:#756b7d;font-size:10px; }
 .hamba-preview, .hamba-active { overflow: hidden; border-radius: 14px; }
 .hamba-map { height: 280px; width: 100%; background: #e9e2f5; }
 .hamba-map-loading { display: grid; place-items: center; color: #756b7d; font-size: 13px; }

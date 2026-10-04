@@ -5,6 +5,7 @@ import { createNotifications } from "@/lib/notifications";
 import { requireFreshFaceProof } from "@/lib/verification/service";
 import { BUDDIES_REQUIRE_VERIFICATION } from "@/lib/verification/config";
 import { safeJson, sameOrigin } from "@/lib/verification/http";
+import { recordBuddyAudit } from "../_audit";
 import { buddyHmacSecret, currentBuddyView, requireBuddyUser } from "../_shared";
 
 const schema = z.object({ ref: z.string().length(16) });
@@ -36,6 +37,10 @@ export async function POST(request: Request) {
   const bubbleId = row.joined_bubble_id;
 
   if (!row.already_member) {
+    const actorAlias = typeof view.trip.alias === "string" ? view.trip.alias : null;
+    const eventBase = { bubbleId, tripId: view.trip.id, actorId: access.user.id, actorAlias };
+    if (row.created) await recordBuddyAudit(access.db, { ...eventBase, event: "bubble_created" });
+    await recordBuddyAudit(access.db, { ...eventBase, event: "member_joined" });
     await access.db.from("buddy_pings").insert({ from_trip_id: view.trip.id, to_trip_id: target.tripId, status: "accepted", responded_at: new Date().toISOString() });
     const { data: members } = await access.db.from("buddy_bubble_members").select("user_id").eq("bubble_id", bubbleId);
     const others = (members ?? []).map((member) => member.user_id as string).filter((id) => id !== access.user.id);

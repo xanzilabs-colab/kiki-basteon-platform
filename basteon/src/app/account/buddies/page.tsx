@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bus, Car, Eye, EyeOff, Footprints, Handshake, LocateFixed, MapPinned, RefreshCw, ShieldCheck, TrainFront, UserPlus } from "lucide-react";
@@ -159,7 +160,7 @@ export default function BuddiesPage() {
   }
 
   return <div className="buddies-page">
-    <div className="buddies-heading"><div><p className="eyebrow">Privacy-first matching</p><h1 className="page-title">Travel together</h1></div><span><ShieldCheck size={16} />Verified travel</span></div>
+    <div className="buddies-heading"><div><p className="eyebrow">Privacy-first matching</p><h1 className="page-title">Travel together</h1></div><div className="flex items-center gap-2"><Link className="btn" href="/account/buddies/history">History</Link><span><ShieldCheck size={16} />Verified travel</span></div></div>
     <section className="buddies-panel buddies-radar-panel">
       <div className="buddies-map" aria-label="Approximate Buddy zones, not geographic locations">
         {[0, 1, 2].map((ring) => <i key={ring} className={`buddies-ring ring-${ring}`} />)}
