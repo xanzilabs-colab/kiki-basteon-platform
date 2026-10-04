@@ -3,10 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BadgeCheck, Bell, House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, UsersRound, Volume2, X } from "lucide-react";
+import { BadgeCheck, House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, UsersRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
+import { NotificationBell } from "@/components/NotificationBell";
 import { primeRingtone, startRingtone } from "@/lib/ringtone";
 
 const links = [
@@ -230,9 +231,9 @@ export function AccountShell({ name, children }: { name: string; children: React
               <span className="account-user-protected"><i />Protected · Active</span>
             </span>
           </Link>
-          <div className="account-header-actions md:hidden">
-            <button className="account-header-action" title="Start safety call" onClick={() => void startSafetyCall()}><Volume2 size={17} /></button>
-            <button className="account-header-action" title="Notifications" aria-label="Notifications"><Bell size={17} /><i /></button>
+          <div className="account-header-actions">
+            <div className="md:hidden"><button className="account-header-action" title="Start safety call" onClick={() => void startSafetyCall()}><Volume2 size={17} /></button></div>
+            <NotificationBell />
           </div>
           <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
             <LogOut size={17} aria-hidden="true" />

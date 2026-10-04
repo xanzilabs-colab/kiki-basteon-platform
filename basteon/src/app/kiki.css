@@ -357,3 +357,22 @@
   aspect-ratio: 1;
   border-radius: 50%;
 }
+
+.account-notifications { position: relative; }
+.account-notification-count { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 4px; border: 2px solid #fff; border-radius: 9px; background: #e63956; color: #fff; font-size: 10px; font-weight: 900; line-height: 14px; text-align: center; }
+.account-notification-panel { position: absolute; z-index: 60; top: calc(100% + 8px); right: 0; width: 340px; max-height: min(70vh, 440px); overflow-y: auto; border: 1px solid #eee8f3; border-radius: 16px; background: #fff; box-shadow: 0 16px 40px rgba(50, 24, 63, .2); color: #32183f; }
+.account-notification-panel header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #eee8f3; }
+.account-notification-panel h2 { font-size: 14px; font-weight: 900; }
+.account-notification-panel header button { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; color: #4a154b; font-size: 11px; font-weight: 800; }
+.account-notification-panel li button { display: flex; width: 100%; gap: 10px; border: 0; border-bottom: 1px solid #f4f0f7; background: transparent; padding: 12px 14px; color: inherit; text-align: left; }
+.account-notification-panel li button.unread { background: #faf6fc; }
+.account-notification-panel li button.unread b::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: #e63956; vertical-align: middle; }
+.account-notification-panel li button > svg { flex: none; margin-top: 2px; color: #4a154b; }
+.account-notification-panel li span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.account-notification-panel li b { font-size: 13px; }
+.account-notification-panel li small, .account-notification-panel time, .account-notification-empty { color: #756b7d; font-size: 12px; }
+.account-notification-panel time { font-size: 10px; }
+.account-notification-empty { padding: 18px 14px; }
+@media (max-width: 767px) {
+  .account-notification-panel { position: fixed; top: calc(76px + env(safe-area-inset-top)); right: 12px; left: 12px; width: auto; }
+}

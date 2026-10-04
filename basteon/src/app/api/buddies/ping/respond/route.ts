@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
+import { createNotifications } from "@/lib/notifications";
 import { requireFreshFaceProof } from "@/lib/verification/service";
 import { BUDDIES_REQUIRE_VERIFICATION } from "@/lib/verification/config";
 import { safeJson, sameOrigin } from "@/lib/verification/http";
@@ -20,5 +21,7 @@ export async function POST(request: Request) {
   const { data: sourceTrip } = await access.db.from("buddy_trips").select("user_id").eq("id", ping.from_trip_id).single();
   await access.db.from("buddy_bubble_members").insert([{ bubble_id: bubble.id, user_id: access.user.id, trip_id: trip.id }, { bubble_id: bubble.id, user_id: sourceTrip!.user_id, trip_id: ping.from_trip_id }]);
   await access.db.from("buddy_pings").update({ status: "accepted", responded_at: new Date().toISOString() }).eq("id", ping.id);
+  const href = `/account/buddies/bubble/${bubble.id}`;
+  await createNotifications([access.user.id, sourceTrip!.user_id as string].map((userId) => ({ userId, type: "buddy_bubble" as const, title: "Buddy bubble ready", body: "Your Buddy request was accepted. Open the bubble for your meeting code.", href, payload: { bubbleId: bubble.id as string } })), access.db);
   return safeJson({ bubble: true, bubbleId: bubble.id });
 }
