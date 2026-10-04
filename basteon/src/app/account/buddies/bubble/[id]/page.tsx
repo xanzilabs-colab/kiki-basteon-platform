@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Flag, Handshake, Mic, PhoneOff, ShieldAlert } from "lucide-react";
+import { playMessageSound, unlockAlertSound } from "@/lib/alertSound";
 
 type Bubble = { meetingCode: string; closed: boolean; members: Array<{ alias: string; avatar: string; arrived: boolean; met: boolean; you: boolean }>; messages: Array<{ message_key: string; created_at: string; sender: string }>; virtualWalk: { id: string; status: string; incoming: boolean } | null };
 const labels: Record<string, string> = { on_my_way: "On my way", at_the_meeting_point: "At the meeting point", running_late: "Running late", i_need_help: "I need help", i_arrived: "I've arrived" };
@@ -12,14 +13,26 @@ export default function BubblePage({ params }: { params: Promise<{ id: string }>
   const [id, setId] = useState(""); const [bubble, setBubble] = useState<Bubble | null>(null); const [message, setMessage] = useState(""); const [pending, setPending] = useState(false); const [loadFailed, setLoadFailed] = useState(false);
   const pollTimer = useRef<number | null>(null);
   const consecutiveFailures = useRef(0);
+  const knownMessageIds = useRef<Set<string> | null>(null);
   async function load(bubbleId: string, showError = true) {
     try {
       const response = await fetch(`/api/buddies/bubble/${bubbleId}`, { cache: "no-store" });
       if (!response.ok) { setLoadFailed(true); if (showError && !bubble) setMessage("Bubble is unavailable. Please return to Buddies and try again."); return false; }
-      setBubble(await response.json()); setLoadFailed(false); if (showError) setMessage(""); return true;
+      const nextBubble = await response.json() as Bubble;
+      const nextMessageIds = new Set(nextBubble.messages.map((item) => `${item.sender}|${item.created_at}|${item.message_key}`));
+      const previousMessageIds = knownMessageIds.current;
+      knownMessageIds.current = nextMessageIds;
+      if (previousMessageIds && nextBubble.messages.some((item) => item.sender !== "You" && !previousMessageIds.has(`${item.sender}|${item.created_at}|${item.message_key}`))) playMessageSound();
+      setBubble(nextBubble); setLoadFailed(false); if (showError) setMessage(""); return true;
     } catch { setLoadFailed(true); if (showError && !bubble) setMessage("Could not load this Buddy bubble. Please return to Buddies and try again."); return false; }
   }
   useEffect(() => { void params.then(({ id: bubbleId }) => { setId(bubbleId); void load(bubbleId); }); }, [params]);
+  useEffect(() => {
+    const unlock = () => { void unlockAlertSound().catch(() => undefined); };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => { window.removeEventListener("pointerdown", unlock); window.removeEventListener("keydown", unlock); };
+  }, []);
   useEffect(() => {
     if (!id || bubble?.closed) return;
     let disposed = false;

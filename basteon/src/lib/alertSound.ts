@@ -26,3 +26,22 @@ export function playAlertSound() {
     });
   } catch {}
 }
+
+export function playMessageSound() {
+  try {
+    const context = getAudioContext();
+    if (context.state !== "running") return;
+    [740, 988].forEach((frequency, index) => {
+      const start = context.currentTime + index * 0.12;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.12, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.2);
+    });
+  } catch {}
+}

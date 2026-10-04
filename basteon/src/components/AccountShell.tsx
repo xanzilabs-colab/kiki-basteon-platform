@@ -198,7 +198,7 @@ export function AccountShell({ name, children }: { name: string; children: React
     <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr] md:overflow-hidden">
       <aside inert={sosOpen} className="sidebar hidden md:flex md:min-h-0 md:flex-col">
         <div className="sidebar-head">
-          <KikiMark size={100} />
+          <KikiMark size={100} zoom={2} />
           <span>KIKI CONNECT</span>
         </div>
         <nav className="py-2">
@@ -216,7 +216,7 @@ export function AccountShell({ name, children }: { name: string; children: React
           <Link href="/account/buddies" className="sidebar-link" aria-current={pathname === "/account/buddies" ? "page" : undefined}><UsersRound size={18} /> Buddies</Link>
         </nav>
         <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={openSos}>
-          <KikiMark size={48} /> Send SOS
+          <KikiMark size={48} zoom={2} /> Send SOS
         </button>
         <button className="account-desktop-call btn mx-3 mt-2" onClick={() => void startSafetyCall()}>
           <PhoneCall size={18} /> Safety call
