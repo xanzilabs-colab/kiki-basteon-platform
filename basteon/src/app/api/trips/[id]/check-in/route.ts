@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { nextCheckInAt } from "@/lib/hamba/checkIn";
 import { requireTripUser } from "../../_shared";
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -7,6 +8,9 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   if ("error" in access) return access.error;
   const { id } = await params;
   const now = new Date();
-  const { error } = await createAdminClient().from("trips").update({ last_check_in_at: now.toISOString(), next_check_in_at: new Date(now.getTime() + 15 * 60_000).toISOString(), risk_score: 0, route_watch_state: "normal" }).eq("id", id).eq("owner_id", access.user.id).in("status", ["active", "concern", "alert"]);
+  const db = createAdminClient();
+  const { data: trip } = await db.from("trips").select("expected_arrival_at").eq("id", id).eq("owner_id", access.user.id).in("status", ["active", "concern", "alert"]).maybeSingle();
+  if (!trip) return NextResponse.json({ error: "trip_not_found" }, { status: 404 });
+  const { error } = await db.from("trips").update({ last_check_in_at: now.toISOString(), next_check_in_at: nextCheckInAt(now, new Date(trip.expected_arrival_at)).toISOString(), risk_score: 0, route_watch_state: "normal" }).eq("id", id).eq("owner_id", access.user.id);
   return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true });
 }

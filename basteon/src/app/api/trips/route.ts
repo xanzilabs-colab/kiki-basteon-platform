@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { nextCheckInAt } from "@/lib/hamba/checkIn";
 import { requireTripUser } from "./_shared";
 
 const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) });
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     expected_arrival_at: expectedArrival.toISOString(),
     last_heartbeat_at: now.toISOString(),
     last_check_in_at: now.toISOString(),
-    next_check_in_at: new Date(now.getTime() + 15 * 60_000).toISOString(),
+    next_check_in_at: nextCheckInAt(now, expectedArrival).toISOString(),
     consented_at: now.toISOString(),
     location_retention_until: new Date(now.getTime() + 30 * 24 * 60 * 60_000).toISOString(),
   }).select("*").single();

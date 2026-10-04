@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -41,9 +42,18 @@ export default function DevicesPage() {
   return (
     <div className="space-y-5 max-w-[860px]">
       <div className="flex items-end justify-between gap-3">
-        <div>
+        <div className="flex items-end gap-3">
+          <Image
+            src="/assets/devices-icon.png"
+            alt=""
+            width={64}
+            height={64}
+            className="shrink-0"
+          />
+          <div>
           <p className="eyebrow">My equipment</p>
           <h1 className="page-title mt-1">My devices</h1>
+          </div>
         </div>
         <Link className="btn btn-primary" href="/account/devices/link">Link device</Link>
       </div>
@@ -59,9 +69,18 @@ export default function DevicesPage() {
           <section className="panel" key={device.id}>
             <div className="p-5">
               <div className="flex justify-between gap-3 items-start">
-                <div className="min-w-0">
-                  <h2 className="font-semibold text-[14px] truncate">{device.device_name}</h2>
-                  <p className="data text-[11.5px] muted mt-1">{device.device_id}</p>
+                <div className="flex min-w-0 gap-3">
+                  <Image
+                    src="/assets/devices-icon-link.png"
+                    alt="Linked device"
+                    width={44}
+                    height={44}
+                    className="h-11 w-11 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <h2 className="font-semibold text-[14px] truncate">{device.device_name}</h2>
+                    <p className="data text-[11.5px] muted mt-1">{device.device_id}</p>
+                  </div>
                 </div>
                 <span className={`status ${device.active ? "status-green" : "status-gray"}`}>
                   {device.active ? "Active" : "Inactive"}
