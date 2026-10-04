@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Bluetooth, CheckCircle2, Link2, Search, ShieldCheck } from "lucide-react";
 import { connectBasteonDevice, type BasteonBleDevice } from "@/lib/ble/basteon";
 
 const failed = (status: string) => status.startsWith("failed:");
@@ -146,14 +147,15 @@ export default function LinkDevicePage() {
 
   if (supported === false) {
     return (
-      <div className="space-y-5 max-w-[640px]">
-        <div>
-          <p className="eyebrow">Bluetooth setup</p>
-          <h1 className="page-title mt-1">Link a band</h1>
+      <div className="kiki-link-page">
+        <div className="kiki-link-title">
+          <span>HARDWARE GUARD</span>
+          <h1>Link a Kiki device</h1>
         </div>
-        <section className="panel p-6">
-          <p className="font-medium">Bluetooth isn&apos;t available in this browser.</p>
-          <p className="muted text-[12px] mt-2">
+        <section className="kiki-link-card">
+          <span className="kiki-link-icon"><Bluetooth size={24} /></span>
+          <h2>Bluetooth unavailable</h2>
+          <p>
             Use Chrome on an Android phone, or Chrome/Edge on a computer. iPhone, Safari and
             Firefox aren&apos;t supported yet.
           </p>
@@ -164,111 +166,73 @@ export default function LinkDevicePage() {
   }
 
   return (
-    <div className="max-w-[640px] space-y-5">
-      <div>
-        <p className="eyebrow">Bluetooth setup</p>
-        <h1 className="page-title mt-1">Link a band</h1>
+    <div className="kiki-link-page">
+      <div className="kiki-link-title">
+        <span>HARDWARE GUARD</span>
+        <h1>Link a Kiki device</h1>
+        <p>Pair your Kiki Smart Clip securely with your account.</p>
       </div>
 
-      <section className="panel">
-        <div className="pane-head"><span>Prepare your band</span></div>
-        <div className="p-5 space-y-4">
-          <div className="space-y-2 text-[13px] text-[var(--text-2)]">
-            <p className="text-[var(--text)]">Put your band into link mode:</p>
-            <ol className="list-decimal pl-5 space-y-1">
-              <li>Press and <b>hold</b> the button. The light stays on while you hold.</li>
-              <li>
-                After about 5 seconds you&apos;ll hear two quick beeps and the light starts
-                double-blinking. <b>Now let go.</b>
-              </li>
-              <li>Tap <b>Find band</b> below.</li>
-            </ol>
-            <p className="muted text-[12px]">
-              Link mode lasts 5 minutes. If you let go before the two beeps, the band starts an
-              alert countdown. Hold the button for 1.5 seconds to cancel it.
-            </p>
-          </div>
-
-          <label className="flex items-center gap-2 text-[13px]">
-            <input type="checkbox" checked={ready} onChange={(e) => setReady(e.target.checked)} />
-            The light is double-blinking
-          </label>
-
-          <button
-            className="btn btn-primary w-full"
-            style={{ height: 36 }}
-            disabled={!ready || busy}
-            onClick={() => void findDevice(false)}
-          >
-            {busy && !deviceId ? "Looking for your band…" : "Find band"}
-          </button>
-
-          <button
-            className="btn w-full"
-            disabled={!ready || busy}
-            onClick={() => void findDevice(true)}
-          >
-            Can&apos;t see it? Show all Bluetooth devices
-          </button>
-
-          <p className="muted text-[11.5px]">
-            Close any other Bluetooth app that&apos;s connected to the band (such as nRF Connect).
-            On Android, turn on Location before scanning. Bluetooth linking needs a secure (https)
-            connection.
-          </p>
-        </div>
+      <section className="kiki-link-card">
+        <div className="kiki-link-card-head"><span className="kiki-link-icon"><Bluetooth size={24} /></span><div><span>BLUETOOTH SETUP</span><h2>Pair your Smart Clip</h2><p>Use the device&apos;s secure link mode to protect ownership.</p></div></div>
+        <ol className="kiki-link-steps">
+          <li><b>1</b><span>Hold the device button until you hear two short beeps and its light double-blinks.</span></li>
+          <li><b>2</b><span>Confirm the device is ready, then open the browser&apos;s Bluetooth picker.</span></li>
+          <li><b>3</b><span>Select your Kiki device and confirm the secure account link.</span></li>
+        </ol>
+        <label className="kiki-link-ready">
+          <input type="checkbox" checked={ready} onChange={(e) => setReady(e.target.checked)} />
+          <span><CheckCircle2 size={17} />The light is double-blinking</span>
+        </label>
+        <button
+          className="btn btn-primary kiki-link-primary"
+          disabled={!ready || busy}
+          onClick={() => void findDevice(false)}
+        >
+          <Search size={17} />{busy && !deviceId ? "Looking for your device..." : "Find Kiki device"}
+        </button>
+        <button
+          className="btn kiki-link-secondary"
+          disabled={!ready || busy}
+          onClick={() => void findDevice(true)}
+        >
+          Can&apos;t see it? Show all Bluetooth devices
+        </button>
+        <p className="kiki-link-caption">Link mode lasts five minutes. Close any other Bluetooth app connected to your device before searching.</p>
       </section>
 
       {deviceId && (
-        <section className="panel">
-          <div className="pane-head"><span>Selected band</span></div>
-          <div className="p-5 space-y-3">
-            <p className="font-medium">{deviceName}</p>
-            <p className="data text-[11.5px] muted">{deviceId}</p>
-
-            <label className="block">
-              <span className="label">
-                Nickname <span className="normal-case text-[var(--muted-2)]">(optional)</span>
-              </span>
-              <input
-                className="input mt-1.5"
-                value={nickname}
-                maxLength={40}
-                onChange={(e) => setNickname(e.target.value)}
-              />
-            </label>
-
-            <button
-              className="btn btn-primary w-full"
-              style={{ height: 36 }}
-              disabled={busy}
-              onClick={() => void linkDevice()}
-            >
-              {busy ? "Linking…" : "Link this band"}
-            </button>
-
-            {status && (
-              <p
-                role="status"
-                className={`text-[12px] ${failed(status) ? "text-[var(--crit)]" : "text-[var(--ok)]"}`}
-              >
-                {status}
-              </p>
-            )}
-          </div>
+        <section className="kiki-link-card kiki-linked-device">
+          <div className="kiki-link-card-head"><span className="kiki-link-icon"><Link2 size={23} /></span><div><span>DEVICE FOUND</span><h2>{deviceName}</h2><p className="kiki-device-id">{deviceId}</p></div></div>
+          <label className="kiki-link-nickname">
+            <span>DEVICE NICKNAME <em>Optional</em></span>
+            <input
+              className="input"
+              value={nickname}
+              maxLength={40}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="My Kiki Smart Clip"
+            />
+          </label>
+          <button
+            className="btn btn-primary kiki-link-primary"
+            disabled={busy}
+            onClick={() => void linkDevice()}
+          >
+            <ShieldCheck size={17} />{busy ? "Linking securely..." : "Link this device"}
+          </button>
+          {status && <p role="status" className={`kiki-link-status ${failed(status) ? "is-error" : ""}`}>{status}</p>}
         </section>
       )}
 
       {error && (
-        <section className="panel" style={{ borderColor: "var(--crit-line)" }}>
-          <div className="p-5">
-            <p role="alert" className="text-[var(--crit)] text-[13px]">{error}</p>
-            <button className="btn mt-3" onClick={resetSession}>Try again</button>
-          </div>
+        <section className="kiki-link-card kiki-link-error">
+          <p role="alert">{error}</p>
+          <button className="btn kiki-link-secondary" onClick={resetSession}>Try again</button>
         </section>
       )}
 
-      <Link className="btn" href="/account/devices">Back to devices</Link>
+      <Link className="kiki-link-back" href="/account/devices">Back to devices</Link>
     </div>
   );
 }
