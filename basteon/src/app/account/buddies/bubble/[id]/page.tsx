@@ -26,7 +26,13 @@ export default function BubblePage({ params }: { params: Promise<{ id: string }>
       const response = await fetch(`/api/buddies/bubble/${id}/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { setMessage(data.error ?? "Could not update."); return; }
-      setMessage(confirmation); await load(id, false);
+      setBubble((current) => {
+        if (!current) return current;
+        if (path === "arrived") return { ...current, members: current.members.map((member) => member.you ? { ...member, arrived: true, met: true } : member) };
+        if (path === "message" && typeof body === "object" && body !== null && "key" in body && typeof body.key === "string") return { ...current, messages: [{ message_key: body.key, created_at: new Date().toISOString(), sender: "You" }, ...current.messages] };
+        return current;
+      });
+      setMessage(confirmation); void load(id, false);
     } catch { setMessage("Could not update. Check your connection and try again."); } finally { setPending(false); }
   }
   async function leave() {
