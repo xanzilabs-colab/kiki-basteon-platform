@@ -9,16 +9,16 @@ const labels: Record<string, string> = { on_my_way: "On my way", at_the_meeting_
 
 export default function BubblePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [id, setId] = useState(""); const [bubble, setBubble] = useState<Bubble | null>(null); const [message, setMessage] = useState(""); const [pending, setPending] = useState(false);
+  const [id, setId] = useState(""); const [bubble, setBubble] = useState<Bubble | null>(null); const [message, setMessage] = useState(""); const [pending, setPending] = useState(false); const [loadFailed, setLoadFailed] = useState(false);
   async function load(bubbleId: string, showError = true) {
     try {
       const response = await fetch(`/api/buddies/bubble/${bubbleId}`);
-      if (!response.ok) { if (showError && !bubble) setMessage("Bubble is unavailable."); return false; }
-      setBubble(await response.json()); if (showError) setMessage(""); return true;
-    } catch { if (showError && !bubble) setMessage("Could not load this Buddy bubble."); return false; }
+      if (!response.ok) { setLoadFailed(true); if (showError && !bubble) setMessage("Bubble is unavailable. Please return to Buddies and try again."); return false; }
+      setBubble(await response.json()); setLoadFailed(false); if (showError) setMessage(""); return true;
+    } catch { setLoadFailed(true); if (showError && !bubble) setMessage("Could not load this Buddy bubble. Please return to Buddies and try again."); return false; }
   }
   useEffect(() => { void params.then(({ id: bubbleId }) => { setId(bubbleId); void load(bubbleId); }); }, [params]);
-  useEffect(() => { if (!id) return; const refresh = () => { if (document.visibilityState === "visible") void load(id, false); }; const timer = window.setInterval(refresh, 1_500); window.addEventListener("visibilitychange", refresh); return () => { window.clearInterval(timer); window.removeEventListener("visibilitychange", refresh); }; }, [id]);
+  useEffect(() => { if (!id || loadFailed) return; const refresh = () => { if (document.visibilityState === "visible") void load(id, false); }; const timer = window.setInterval(refresh, 1_500); window.addEventListener("visibilitychange", refresh); return () => { window.clearInterval(timer); window.removeEventListener("visibilitychange", refresh); }; }, [id, loadFailed]);
   async function post(path: string, body?: object, confirmation = "Updated.") {
     if (pending) return;
     setPending(true); setMessage("");
