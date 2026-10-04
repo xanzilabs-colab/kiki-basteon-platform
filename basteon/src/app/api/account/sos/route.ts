@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const db = createAdminClient();
   const { data: device } = await db
     .from("devices")
-    .select("device_id,device_name,last_ctr")
+    .select("device_id,device_name")
     .eq("user_id", user.id)
     .eq("active", true)
     .order("linked_at", { ascending: false })
@@ -36,7 +36,9 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (!device) return NextResponse.json({ error: "no_active_device" }, { status: 409 });
 
-  const ctr = Number(device.last_ctr) + 1;
+  // Phone-generated SOS events must not advance the band-owned replay counter.
+  // Negative values keep the identifier unique without colliding with device counters.
+  const ctr = -Date.now();
   const { data: alert, error } = await db
     .from("alerts")
     .insert({
@@ -50,7 +52,6 @@ export async function POST(request: Request) {
     .single();
   if (error || !alert) return NextResponse.json({ error: error?.message ?? "Could not create SOS alert." }, { status: 400 });
 
-  await db.from("devices").update({ last_ctr: ctr, last_seen_at: new Date().toISOString() }).eq("device_id", device.device_id);
   const recipientName = profile.full_name?.trim() || device.device_name?.trim() || device.device_id;
   await sendPushNotifications({ title: "New panic alert", body: `${recipientName} needs assistance.`, tag: `basteon-alert-${alert.id}`, url: "/responder" });
 

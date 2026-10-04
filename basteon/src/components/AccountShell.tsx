@@ -149,7 +149,7 @@ export function AccountShell({ name, children }: { name: string; children: React
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
         () => resolve(null),
-        { enableHighAccuracy: true, timeout: 8_000, maximumAge: 30_000 },
+        { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
       );
     });
   }
@@ -162,10 +162,14 @@ export function AccountShell({ name, children }: { name: string; children: React
     setSosError("");
     try {
     const position = await location();
+    if (!position) {
+      setSosError("Phone location is required for an SOS. Enable precise location permission, then retry.");
+      return;
+    }
     const response = await fetch("/api/account/sos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(position ?? {}),
+      body: JSON.stringify(position),
     });
     const result = await response.json().catch(() => ({}));
     if (response.ok) {
