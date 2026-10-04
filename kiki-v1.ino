@@ -776,7 +776,7 @@ void loop() {
   maintainWifi();
   linkTick();
 
-  if (state == IDLE && !linkMode && millis() - lastTelemetryAt >= TELEMETRY_INTERVAL_MS) sendHeartbeat();
+  if (!linkMode && millis() - lastTelemetryAt >= TELEMETRY_INTERVAL_MS) sendHeartbeat();
 
   switch (state) {
     case COUNTDOWN:
