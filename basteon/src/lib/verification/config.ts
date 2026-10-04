@@ -34,5 +34,6 @@ export function assertBuddiesRuntime() {
 
 export function buddiesEnabled() {
   assertBuddiesRuntime();
-  return process.env.BUDDIES_ENABLED === "true" && (process.env.NODE_ENV !== "production" || VERIFICATION_CONFIG.mode === "live");
+  const enabled = process.env.BUDDIES_ENABLED ?? (process.env.NODE_ENV !== "production" ? "true" : "false");
+  return enabled === "true" && (process.env.NODE_ENV !== "production" || VERIFICATION_CONFIG.mode === "live");
 }

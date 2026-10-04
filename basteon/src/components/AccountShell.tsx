@@ -162,7 +162,7 @@ export function AccountShell({ name, children }: { name: string; children: React
             <span className="account-user-label">Signed in as</span>
             <span className="account-user-name">{name}</span>
           </div>
-          <button className="btn btn-ghost account-sign-out translate-y-1 md:hidden" title="Sign out" onClick={() => void signOut()}>
+          <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
             <LogOut size={17} aria-hidden="true" />
           </button>
         </header>
