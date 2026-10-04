@@ -1,16 +1,19 @@
-// ===== Basteon Panic Unit v2.4: ESP32 + GPS + AES-256-GCM + live tracking =====
+// ===== Basteon Panic Unit v2.5: ESP32 + GPS + AES-256-GCM + live tracking + BLE linking =====
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <TinyGPSPlus.h>
+#include <NimBLEDevice.h>
 #include "mbedtls/gcm.h"
 #include "mbedtls/base64.h"
 #include "esp_random.h"
 
+const char* FW_VERSION = "2.5";
+
 // ---------- Config (EDIT THESE) ----------
-const char* WIFI_SSID   = "YOUR_WIFI_SSID";
-const char* WIFI_PASS   = "YOUR_WIFI_PASSWORD";
+const char* WIFI_SSID   = "HUAWEI_B311_CC04"; //"OPPO A6x j2tk";
+const char* WIFI_PASS   =  "TLgNg6ih7NH";//"Pass12345";
 const char* BACKEND_URL = "https://xsfhstvydstxeadiynom.supabase.co/functions/v1/secure-alert";
 const bool  SILENT_MODE = false;              // true = no buzzer, no LED during countdown
 
@@ -23,7 +26,7 @@ const bool   USE_DEV_FALLBACK_LOCATION = true;
 const double DEV_FALLBACK_LAT = -23.9667;
 const double DEV_FALLBACK_LNG = 29.7;
 
-#define USE_BATTERY_SENSE 1
+#define USE_BATTERY_SENSE 0
 const int BATTERY_PIN = 34;
 
 // Dev key = ASCII "12345678901234567890123456789012". Replace via NVS in production.
@@ -53,7 +56,6 @@ const unsigned long TELEMETRY_INTERVAL_MS = 120000;
 
 // ---------- Live tracking (periodic updates after the first alert) ----------
 const bool          TRACKING_ENABLED     = true;
-// Schedule, measured from the moment the alert was activated:
 const unsigned long TRACK_PHASE1_END_MS  = 120000UL;    // 0-2 min
 const unsigned long TRACK_PHASE1_MS      = 10000UL;     //   every 10 s
 const unsigned long TRACK_PHASE2_END_MS  = 600000UL;    // 2-10 min
@@ -62,18 +64,27 @@ const unsigned long TRACK_PHASE3_END_MS  = 3600000UL;   // 10-60 min
 const unsigned long TRACK_PHASE3_MS      = 60000UL;     //   every 60 s
 const unsigned long TRACK_PHASE4_MS      = 300000UL;    // 60 min onward: every 5 min
 const unsigned long TRACK_MAX_MS         = 10800000UL;  // hard stop after 3 h
-// Motion-aware:
 const double        TRACK_MIN_MOVE_M     = 25.0;        // moved less than this => skip (unless heartbeat due)
 const unsigned long TRACK_HEARTBEAT_MS   = 120000UL;    // always send at least this often
 const double        TRACK_FAST_KMPH      = 30.0;        // faster than this => tighten interval
 const unsigned long TRACK_FAST_MS        = 10000UL;
-// Battery-aware (only active when USE_BATTERY_SENSE is 1):
 const int           TRACK_BAT_LOW_PCT    = 20;          // below: intervals x2
 const int           TRACK_BAT_CRIT_PCT   = 10;          // below: at most every 5 min
-// Failure handling and manual control:
 const unsigned long TRACK_RETRY_MS       = 5000UL;      // after a failed update, try again soon
-const unsigned long TRACK_STOP_HOLD_MS   = 1500UL; //5000UL;      // hold button this long to stop tracking
+const unsigned long TRACK_STOP_HOLD_MS   = 1500UL;      // hold button this long to stop tracking (use 3-5 s in production)
 
+// ---------- BLE device linking ----------
+// Link mode is entered by HOLDING THE BUTTON WHILE POWERING ON / RESETTING.
+// BLE is off at all other times.
+const bool          BLE_LINKING_ENABLED  = true;
+const unsigned long LINK_WINDOW_MS       = 300000UL;    // BLE stays on for 5 min
+const int           LINK_MAX_TRIES       = 5;           // server attempts per token
+const unsigned long LINK_TRY_INTERVAL_MS = 3000UL;
+const unsigned long LINK_HOLD_MS         = 5000UL;      // hold the button this long while idle to enter link mode
+#define BLE_SERVICE_UUID "7b1c0001-4e5a-4a6d-9c1b-8f3a2d5e6b00"
+#define BLE_CHR_INFO     "7b1c0002-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ   -> {"id":"...","fw":"..."}
+#define BLE_CHR_TOKEN    "7b1c0003-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // WRITE  <- one-time link token
+#define BLE_CHR_STATUS   "7b1c0004-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ+NOTIFY -> ready|linking|linked|failed:<reason>
 
 enum DeviceState { IDLE, COUNTDOWN, SENDING, TRACKING };
 DeviceState state = IDLE;
@@ -100,9 +111,9 @@ unsigned long nextUpdateAt = 0;
 unsigned long lastSentAt = 0;
 bool          haveLastSent = false;
 double        lastSentLat = 0, lastSentLng = 0;
-bool          forceUpdate = false;
 unsigned int  updatesSent = 0;
 int           lastTrackErr = 0;
+bool          resumeTrackingOnCancel = false;   // true if a new countdown interrupted active tracking
 
 bool btnDown = false, ignoreUntilRelease = false;
 int  lastRaw = HIGH;
@@ -116,7 +127,20 @@ unsigned int  wifiAttempt = 0;
 
 // GPS log-on-change state
 bool gpsHadFix = false, gpsNoDataWarned = false;
-bool resumeTrackingOnCancel = false;   // true if a new countdown interrupted active tracking
+
+// BLE link state
+bool linkMode = false;
+unsigned long linkModeUntil = 0;
+volatile bool linkTokenWritten = false;   // set by the BLE callback, handled in loop()
+String linkTokenRaw = "";
+bool linkRequested = false;
+String linkToken = "";
+int  linkTries = 0;
+unsigned long linkNextTry = 0;
+bool linkDone = false;
+unsigned long linkEndAt = 0;
+NimBLEServer* bleServer = nullptr;
+NimBLECharacteristic* bleStatusChr = nullptr;
 
 // ---------- LED / buzzer ----------
 void ledSet(bool on)  { digitalWrite(LED_PIN,    (on != LED_ACTIVE_LOW)    ? HIGH : LOW); }
@@ -269,6 +293,17 @@ String sendError(int code) {
   return "HTTP " + String(code);
 }
 
+// Tiny helper: extract a string value from a flat JSON response (spaces already stripped by caller)
+String jsonStr(const String& s, const char* key) {
+  String pat = "\"" + String(key) + "\":\"";
+  int i = s.indexOf(pat);
+  if (i < 0) return "";
+  i += pat.length();
+  int j = s.indexOf('"', i);
+  if (j < 0) return "";
+  return s.substring(i, j);
+}
+
 // ---------- Payload ----------
 // status: "panic_activated" (ref = 0) or "panic_update" (ref = ctr of the original alert)
 String buildPayload(const char* status, uint32_t ctr, uint32_t ref) {
@@ -314,6 +349,166 @@ void sendHeartbeat() {
   }
 }
 
+// ---------- BLE link mode ----------
+void setLinkStatus(const String& s) {
+  Serial.println("[LINK] status: " + s);
+  if (bleStatusChr) {
+    bleStatusChr->setValue(std::string(s.c_str()));
+    bleStatusChr->notify();
+  }
+}
+
+// Runs on the BLE task: keep it tiny. Real work happens in linkTick().
+class TokenCallbacks : public NimBLECharacteristicCallbacks {
+  void onWrite(NimBLECharacteristic* c, NimBLEConnInfo& connInfo) override {
+    auto v = c->getValue();
+    size_t n = v.length();
+    const char* p = v.c_str();
+    String t;
+    t.reserve(n);
+    for (size_t i = 0; i < n && i < 80; i++) {
+      char ch = p[i];
+      if (isalnum((unsigned char)ch)) t += ch;
+    }
+    linkTokenRaw = t;
+    linkTokenWritten = true;
+  }
+};
+TokenCallbacks tokenCallbacks;
+
+void enterLinkMode() {
+  if (!BLE_LINKING_ENABLED || linkMode) return;
+
+  // String name = "Basteon-" + deviceId.substring(deviceId.length() - 4);
+  String name = "Kiki-" + deviceId.substring(deviceId.length() - 4);
+  NimBLEDevice::init(name.c_str());
+  bleServer = NimBLEDevice::createServer();
+  NimBLEService* svc = bleServer->createService(BLE_SERVICE_UUID);
+
+  NimBLECharacteristic* info = svc->createCharacteristic(BLE_CHR_INFO, NIMBLE_PROPERTY::READ);
+  String infoJson = "{\"id\":\"" + deviceId + "\",\"fw\":\"" + String(FW_VERSION) + "\"}";
+  info->setValue(std::string(infoJson.c_str()));
+
+  NimBLECharacteristic* tok = svc->createCharacteristic(BLE_CHR_TOKEN, NIMBLE_PROPERTY::WRITE);
+  tok->setCallbacks(&tokenCallbacks);
+
+  bleStatusChr = svc->createCharacteristic(BLE_CHR_STATUS, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+  bleStatusChr->setValue(std::string("ready"));
+
+  svc->start();
+  NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+  adv->stop();
+
+  NimBLEAdvertisementData advData;
+  advData.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+  advData.addServiceUUID(NimBLEUUID(BLE_SERVICE_UUID));
+  adv->setAdvertisementData(advData);
+
+  NimBLEAdvertisementData scanData;
+  scanData.setName(name.c_str());
+  adv->setScanResponseData(scanData);
+
+  adv->enableScanResponse(true);
+  adv->start();
+
+  linkMode = true;
+  linkModeUntil = millis() + LINK_WINDOW_MS;
+  linkRequested = false;
+  linkDone = false;
+  linkTokenWritten = false;
+  Serial.println("[LINK] link mode ON as " + name + " (id " + deviceId + "), open the web app and tap Link device");
+}
+
+void endLinkMode(const char* why) {
+  if (!linkMode) return;
+  linkMode = false;
+  linkRequested = false;
+  linkDone = false;
+  NimBLEDevice::deinit(true);
+  bleServer = nullptr;
+  bleStatusChr = nullptr;
+  allOff();
+  Serial.println(String("[LINK] BLE off: ") + why);
+}
+
+void linkTick() {
+  if (!linkMode) return;
+  unsigned long now = millis();
+
+  // Idle pattern: double blink every 2 s
+  if (!SILENT_MODE && !linkRequested) {
+    unsigned long ph = now % 2000;
+    ledSet(ph < 100 || (ph > 250 && ph < 350));
+  }
+
+  // Keep advertising if a client dropped
+  if (bleServer && !linkDone && bleServer->getConnectedCount() == 0 &&
+      !NimBLEDevice::getAdvertising()->isAdvertising()) {
+    NimBLEDevice::getAdvertising()->start();
+  }
+
+  // Finish: give the "linked" notification a moment to flush, then power BLE down
+  if (linkDone) {
+    if ((long)(now - linkEndAt) >= 0) endLinkMode("linked");
+    return;
+  }
+
+  // Window expired (don't cut off an in-progress attempt)
+  if (!linkRequested && (long)(now - linkModeUntil) >= 0) {
+    endLinkMode("window expired");
+    return;
+  }
+
+  // New token from the browser
+  if (linkTokenWritten) {
+    linkTokenWritten = false;
+    String t = linkTokenRaw;
+    if (t.length() < 16 || t.length() > 64) {
+      setLinkStatus("failed:bad_token");
+    } else {
+      linkToken = t;
+      linkRequested = true;
+      linkTries = 0;
+      linkNextTry = now;
+      setLinkStatus("linking");
+    }
+  }
+
+  // Ask the server to bind this device to the user who issued the token
+  if (linkRequested && (long)(now - linkNextTry) >= 0) {
+    linkTries++;
+    linkNextTry = millis() + LINK_TRY_INTERVAL_MS;
+
+    uint32_t ctr = nextCtr();   // new ctr every attempt; the server treats a repeated successful claim as idempotent
+    String inner = "{\"status\":\"link_device\",\"ctr\":" + String(ctr) + ",\"token\":\"" + linkToken + "\"}";
+    String body = encryptPayload(inner);
+    String resp;
+    int code = body.length() ? postPayload(body, &resp) : -3;
+
+    if (code >= 200 && code < 300) {
+      resp.replace(" ", "");
+      if (resp.indexOf("\"linked\":true") >= 0) {
+        linkRequested = false;
+        linkDone = true;
+        linkEndAt = millis() + 3000;
+        setLinkStatus("linked");
+        signalSent();
+      } else {
+        String reason = jsonStr(resp, "reason");
+        if (reason.length() == 0) reason = "rejected";
+        linkRequested = false;               // user can retry with a fresh token inside the window
+        setLinkStatus("failed:" + reason);
+      }
+    } else {
+      Serial.println("[LINK] attempt " + String(linkTries) + " failed: " + sendError(code));
+      if (linkTries >= LINK_MAX_TRIES) {
+        linkRequested = false;
+        setLinkStatus("failed:network");
+      }
+    }
+  }
+}
+
 // ---------- Tracking ----------
 unsigned long currentInterval() {
   unsigned long el = millis() - alertStart;
@@ -342,7 +537,6 @@ void beginTracking() {
   state = TRACKING;
   updatesSent = 0;
   lastTrackErr = 0;
-  forceUpdate = false;
   nextUpdateAt = millis() + currentInterval();
   Serial.println("[TRACK] started, first update in " + String((nextUpdateAt - millis()) / 1000) + "s");
 }
@@ -359,14 +553,13 @@ void doTrackingUpdate() {
   unsigned long now = millis();
   bool haveLoc = resolveLocation();
 
-  // Skip if we are on a live GPS fix and have barely moved, unless a heartbeat is due or user forced it
-  if (!forceUpdate && haveLoc && haveLastSent && strcmp(locSrc, "gps") == 0 &&
+  // Skip if we are on a live GPS fix and have barely moved, unless a heartbeat is due
+  if (haveLoc && haveLastSent && strcmp(locSrc, "gps") == 0 &&
       (now - lastSentAt) < TRACK_HEARTBEAT_MS &&
       TinyGPSPlus::distanceBetween(locLat, locLng, lastSentLat, lastSentLng) < TRACK_MIN_MOVE_M) {
     nextUpdateAt = now + currentInterval();
     return;
   }
-  forceUpdate = false;
 
   uint32_t ctr = nextCtr();
   String body = encryptPayload(buildPayload("panic_update", ctr, activationCtr));
@@ -380,7 +573,7 @@ void doTrackingUpdate() {
     if (lastTrackErr != 0) { Serial.println("[TRACK] link restored"); lastTrackErr = 0; }
     Serial.println("[TRACK] #" + String(updatesSent) + " sent " + lastLocMsg);
 
-    // Optional downlink: server tells the device the alert was resolved / marked false alarm
+    // Downlink: server tells the device the alert was resolved / marked false alarm
     resp.replace(" ", "");
     if (resp.indexOf("\"stop\":true") >= 0) { stopTracking("server closed the alert", false); return; }
 
@@ -396,6 +589,7 @@ void doTrackingUpdate() {
 
 // ---------- State ----------
 void startCountdown() {
+  endLinkMode("alert started");                   // free BLE/heap for the alert
   resumeTrackingOnCancel = (state == TRACKING);   // remember if we interrupted tracking
   state = COUNTDOWN;
   countdownStart = millis();
@@ -439,28 +633,57 @@ void updateButton() {
   int raw = digitalRead(BUTTON_PIN);
   unsigned long now = millis();
   if (raw != lastRaw) { lastChange = now; lastRaw = raw; }
+
   if ((now - lastChange) > DEBOUNCE_MS) {
     bool down = (raw == LOW);
     if (down != btnDown) {
       btnDown = down;
       if (btnDown) {
-        pressStart = now;
-        if (state == IDLE && !ignoreUntilRelease) startCountdown();
+        pressStart = now;                       // press: only record it, decide on release
       } else {
-        // Released. A short tap while tracking = start a new alert.
-        // (A long hold already stopped tracking and set ignoreUntilRelease.)
-        if (state == TRACKING && !ignoreUntilRelease && (now - pressStart) < TRACK_STOP_HOLD_MS) {
-          startCountdown();
+        unsigned long held = now - pressStart;
+        if (!ignoreUntilRelease) {
+          if (state == IDLE) {
+            startCountdown();                   // tap or short hold => panic alert
+          } else if (state == TRACKING && held < TRACK_STOP_HOLD_MS) {
+            startCountdown();                   // tap while tracking => new alert
+          }
         }
         ignoreUntilRelease = false;
       }
     }
   }
+
+  // Hold 1.5 s during the countdown = cancel
   if (state == COUNTDOWN && btnDown && !ignoreUntilRelease && (now - pressStart) >= CANCEL_HOLD_MS) {
     cancelCountdown();
   }
+
+  // Hold 1.5 s while tracking = stop tracking
   if (state == TRACKING && btnDown && !ignoreUntilRelease && (now - pressStart) >= TRACK_STOP_HOLD_MS) {
     stopTracking("stopped by user", true);
+  }
+
+  // Hold 5 s while idle = link mode (this hold will NOT start an alert)
+  if (BLE_LINKING_ENABLED && state == IDLE && btnDown && !ignoreUntilRelease && !linkMode &&
+      (now - pressStart) >= LINK_HOLD_MS) {
+    ignoreUntilRelease = true;
+    enterLinkMode();
+    if (linkMode) { beep(80); delay(80); beep(80); }
+  }
+
+  // LED stays on while the button is held (idle only), so you can see the press registered
+  if (state == IDLE && !linkMode && !SILENT_MODE) ledSet(btnDown && !ignoreUntilRelease);
+}
+
+// Dev shortcut: type 'l' + Enter in the Serial Monitor to enter link mode
+void handleSerialCommands() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == 'l' || c == 'L') {
+      if (state == IDLE) enterLinkMode();
+      else Serial.println("[LINK] busy, finish the current alert first");
+    }
   }
 }
 
@@ -508,6 +731,10 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
   allOff();
 
+  // Button held at power-on = link mode
+  bool bootLink = (digitalRead(BUTTON_PIN) == LOW);
+  if (bootLink) { delay(60); bootLink = (digitalRead(BUTTON_PIN) == LOW); }
+
   prefs.begin("basteon", false);
   if (prefs.getBytesLength("key") == 32) prefs.getBytes("key", deviceKey, 32);
   else memcpy(deviceKey, DEV_KEY, 32);
@@ -528,19 +755,28 @@ void setup() {
   deviceId.replace(":", "");
 
   Serial.println();
-  Serial.println("[BOOT] Basteon Panic Unit v2.4, device id: " + deviceId);
+  Serial.println("[BOOT] Basteon Panic Unit v" + String(FW_VERSION) + ", device id: " + deviceId);
   Serial.println("[BOOT] pins: button=" + String(BUTTON_PIN) + " led=" + String(LED_PIN) + " buzzer=" + String(BUZZER_PIN));
   Serial.println(String("[BOOT] live tracking: ") + (TRACKING_ENABLED ? "on" : "off"));
+  // Serial.println("[BOOT] link mode: hold button 5 s, or send 'l' in Serial Monitor, or hold it while resetting");
+  Serial.println("[BOOT] link mode: hold button 5 s until two beeps, or send 'l' in Serial Monitor, or hold it while resetting");
   Serial.println("[WIFI] connecting to " + String(WIFI_SSID) + "...");
+
+  if (bootLink) {
+    ignoreUntilRelease = true;      // don't treat the held button as an alert
+    enterLinkMode();
+  }
 }
 
 void loop() {
   pollGps();
   trackGps();
   updateButton();
+  handleSerialCommands();
   maintainWifi();
+  linkTick();
 
-  if (state == IDLE && millis() - lastTelemetryAt >= TELEMETRY_INTERVAL_MS) sendHeartbeat();
+  if (state == IDLE && !linkMode && millis() - lastTelemetryAt >= TELEMETRY_INTERVAL_MS) sendHeartbeat();
 
   switch (state) {
     case COUNTDOWN:
