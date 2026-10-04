@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BadgeCheck, Bell, House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Smartphone, UserRound, UsersRound, Volume2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { BadgeCheck, Bell, House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, UsersRound, Volume2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
 import { primeRingtone, startRingtone } from "@/lib/ringtone";
@@ -20,10 +20,44 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [sosOpen, setSosOpen] = useState(false);
   const [sosBusy, setSosBusy] = useState(false);
   const [sosError, setSosError] = useState("");
+  const [sosDeadline, setSosDeadline] = useState<number | null>(null);
+  const [sosSeconds, setSosSeconds] = useState(3);
+  const sosSending = useRef(false);
+  const sosDialog = useRef<HTMLElement>(null);
   const [safetyCall, setSafetyCall] = useState<"idle" | "arming" | "incoming" | "active">("idle");
   const [callSeconds, setCallSeconds] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
+  function openSos() {
+    sosSending.current = false;
+    setSosError("");
+    setSosSeconds(3);
+    setSosDeadline(Date.now() + 3_000);
+    setSosOpen(true);
+  }
+
+  function cancelSos() {
+    if (sosSending.current) return;
+    setSosDeadline(null);
+    setSosOpen(false);
+  }
+
+  useEffect(() => {
+    if (!sosOpen || sosDeadline === null) return;
+    const timer = window.setInterval(() => {
+      const seconds = Math.max(0, Math.ceil((sosDeadline - Date.now()) / 1_000));
+      setSosSeconds(seconds);
+      if (seconds === 0) void triggerSos();
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [sosOpen, sosDeadline]);
+
+  useEffect(() => {
+    if (!sosOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    sosDialog.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    return () => previousFocus?.focus();
+  }, [sosOpen]);
   async function signOut() {
     await fetch("/api/verification/device/logout", { method: "POST" });
     await createClient().auth.signOut();
@@ -95,8 +129,12 @@ export function AccountShell({ name, children }: { name: string; children: React
   }
 
   async function triggerSos() {
+    if (sosSending.current) return;
+    sosSending.current = true;
+    setSosDeadline(null);
     setSosBusy(true);
     setSosError("");
+    try {
     const position = await location();
     const response = await fetch("/api/account/sos", {
       method: "POST",
@@ -104,12 +142,17 @@ export function AccountShell({ name, children }: { name: string; children: React
       body: JSON.stringify(position ?? {}),
     });
     const result = await response.json().catch(() => ({}));
-    setSosBusy(false);
     if (response.ok) {
       setSosOpen(false);
       return;
     }
     setSosError(result.error === "no_active_device" ? "Link an active Kiki device before sending an SOS." : "SOS could not be sent. Please try again or call emergency services.");
+    } catch {
+      setSosError("SOS delivery could not be confirmed. Please try again or call emergency services.");
+    } finally {
+      setSosBusy(false);
+      sosSending.current = false;
+    }
   }
 
   async function startSafetyCall() {
@@ -122,7 +165,7 @@ export function AccountShell({ name, children }: { name: string; children: React
   const callDuration = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
   return (
     <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr] md:overflow-hidden">
-      <aside className="sidebar hidden md:flex md:min-h-0 md:flex-col">
+      <aside inert={sosOpen} className="sidebar hidden md:flex md:min-h-0 md:flex-col">
         <div className="sidebar-head">
           <KikiMark size={100} />
           <span>KIKI CONNECT</span>
@@ -141,7 +184,7 @@ export function AccountShell({ name, children }: { name: string; children: React
           <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" ? "page" : undefined}>Trips</Link>
           <Link href="/account/buddies" className="sidebar-link" aria-current={pathname === "/account/buddies" ? "page" : undefined}><UsersRound size={18} /> Buddies</Link>
         </nav>
-        <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={() => setSosOpen(true)}>
+        <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={openSos}>
           <KikiMark size={48} /> Send SOS
         </button>
         <button className="account-desktop-call btn mx-3 mt-2" onClick={() => void startSafetyCall()}>
@@ -152,7 +195,7 @@ export function AccountShell({ name, children }: { name: string; children: React
         </button>
       </aside>
 
-      <div className="min-w-0 pb-[76px] md:min-h-0 md:overflow-y-auto md:pb-0">
+      <div inert={sosOpen} className="min-w-0 pb-[76px] md:min-h-0 md:overflow-y-auto md:pb-0">
         <header className="appbar account-mobile-appbar px-4">
           <Link className="account-user-summary" href="/account/profile" title="Open profile">
             <span className="account-user-avatar">{name.charAt(0).toUpperCase()}<i /></span>
@@ -172,14 +215,14 @@ export function AccountShell({ name, children }: { name: string; children: React
         <main className="mx-auto max-w-4xl p-5 md:p-6">{children}</main>
       </div>
 
-      <nav className="account-mobile-nav fixed inset-x-0 bottom-0 z-20 flex h-[68px] border-t border-[var(--line)] bg-[var(--chrome)] md:hidden">
+      <nav inert={sosOpen} className="account-mobile-nav fixed inset-x-0 bottom-0 z-20 flex h-[68px] border-t border-[var(--line)] bg-[var(--chrome)] md:hidden">
         {links.slice(0, 2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px] aria-[current=page]:border-t-[var(--text)]" aria-current={pathname === link.href ? "page" : undefined}>
             {link.href === "/account/devices" ? <Image src="/assets/devices-icon.png" alt="" width={44} height={44} className="-my-3 h-11 w-11" /> : <link.icon size={18} strokeWidth={2.2} aria-hidden="true" />}
             <span>{link.label}</span>
           </Link>
         ))}
-        <button className="account-mobile-sos" title="Send SOS" aria-label="Send SOS" onClick={() => setSosOpen(true)}>
+        <button className="account-mobile-sos" title="Send SOS" aria-label="Send SOS" onClick={openSos}>
           <KikiMark size={108} />
         </button>
         <button className="account-mobile-more nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px]" title="More options" aria-label="Open more options" onClick={() => setMoreOpen(true)}>
@@ -206,14 +249,24 @@ export function AccountShell({ name, children }: { name: string; children: React
       )}
       {sosOpen && (
         <div className="account-sos-scrim" role="presentation">
-          <section className="account-sos-dialog" role="dialog" aria-modal="true" aria-labelledby="sos-title">
-            <span className="account-sos-icon"><ShieldAlert size={30} /></span>
-            <h2 id="sos-title">Send an SOS alert?</h2>
-            <p>Your active Kiki device and available phone location will be shared with responders.</p>
+          <section ref={sosDialog} className="account-sos-dialog" role="dialog" aria-modal="true" aria-labelledby="sos-title" aria-describedby="sos-description" onKeyDown={(event) => {
+            if (event.key === "Escape") { event.preventDefault(); cancelSos(); }
+            if (event.key === "Tab") {
+              const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
+              const first = buttons[0]; const last = buttons.at(-1);
+              if (!first) { event.preventDefault(); return; }
+              if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+              else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+            }
+          }}>
+            <span className="account-sos-icon"><Siren size={40} /></span>
+            <h2 id="sos-title">Emergency alert</h2>
+            <p id="sos-description">Your active Kiki device and available phone location will be shared with authorised responders.</p>
+            <div className="account-sos-countdown" role="status" aria-live="polite"><b>{sosBusy ? <ShieldAlert size={44} /> : sosError ? "!" : sosSeconds}</b><span>{sosBusy ? "Sending emergency alert" : sosError ? "Delivery not confirmed" : "Seconds until alert is sent"}</span></div>
             {sosError && <p className="account-sos-error" role="alert">{sosError}</p>}
             <div className="account-sos-actions">
-              <button className="btn" disabled={sosBusy} onClick={() => setSosOpen(false)}>Cancel</button>
-              <button className="btn btn-danger" disabled={sosBusy} onClick={() => void triggerSos()}>{sosBusy ? "Sending..." : "Send SOS"}</button>
+              <button className="btn" disabled={sosBusy} onClick={cancelSos}><X size={17} />Cancel emergency alert</button>
+              <button className="btn btn-danger" disabled={sosBusy} onClick={() => void triggerSos()}><Siren size={17} />{sosBusy ? "Sending..." : sosError ? "Retry SOS" : "Send immediately now"}</button>
             </div>
           </section>
         </div>

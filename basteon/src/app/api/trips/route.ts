@@ -18,7 +18,7 @@ export async function GET() {
   const db = createAdminClient();
   const [{ data, error }, { data: recent }] = await Promise.all([
     db.from("trips").select("*").eq("owner_id", access.user.id).in("status", ["planned", "active", "concern", "alert"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    db.from("trips").select("id,destination_label,mode,status,created_at,ended_at").eq("owner_id", access.user.id).in("status", ["arrived", "cancelled"]).order("created_at", { ascending: false }).limit(5),
+    db.from("trips").select("id,destination_label,destination_lat,destination_lng,mode,status,created_at,ended_at").eq("owner_id", access.user.id).in("status", ["arrived", "cancelled"]).order("created_at", { ascending: false }).limit(5),
   ]);
   return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ trip: data, recent: recent ?? [] });
 }
