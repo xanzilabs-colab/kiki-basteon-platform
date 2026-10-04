@@ -151,7 +151,7 @@ describe("anti-trilateration", () => {
     expect(evaluateQueryPattern(evs, NOW).action).toBe("flag");
   });
   it("guard throttles bursts and blocks mass profile harvesting; allows normal use", () => {
-    const burst: QueryEvent[] = Array.from({ length: 6 }, (_, i) => ({ t: NOW - i * 5000, viewer: A0, refs: ["a"], bands: { a: 0 } }));
+    const burst: QueryEvent[] = Array.from({ length: 14 }, (_, i) => ({ t: NOW - i * 4000, viewer: A0, refs: ["a"], bands: { a: 0 } }));
     expect(evaluateQueryPattern(burst, NOW).action).toBe("throttle");
     const harvest: QueryEvent[] = Array.from({ length: 50 }, (_, i) => ({ t: NOW - i * 600_000, viewer: A0, refs: [`r${i}`], bands: { [`r${i}`]: 0 } }));
     expect(evaluateQueryPattern(harvest, NOW).action).toBe("block");

@@ -17,7 +17,7 @@ export const BUDDY_CONFIG = {
   destAreaMatchM: 1200, // destinations this close count as the same area
   maxAvatars: 12, // hard cap per response (limits harvesting)
   angleMinSepDeg: 26, // cosmetic spacing between avatars in a ring
-  minRefreshMs: 30_000, // API layer should not recompute faster than this
+  minRefreshMs: 5_000, // Keep Bubble grouping responsive without exposing exact positions.
   bandConfirmReadings: 2, // readings needed to confirm a band change
   minBandChangeIntervalMs: 120_000, // min time between band changes per pair
 
@@ -50,7 +50,7 @@ export const BUDDY_CONFIG = {
 
   // --- abuse guard ---
   guard: {
-    maxQueriesPerMinute: 4,
+    maxQueriesPerMinute: 12,
     maxDistinctProfilesPerDay: 40,
     trackWindowMs: 30 * 60_000,
     trackMinObservations: 6,
