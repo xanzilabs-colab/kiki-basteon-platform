@@ -1,4 +1,4 @@
-// ===== Basteon Panic Unit v2.5: ESP32 + GPS + AES-256-GCM + live tracking + BLE linking =====
+// ===== Kiki Band v2.6: ESP32 + GPS + AES-256-GCM + live tracking + BLE linking + PIN lock =====
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -6,14 +6,15 @@
 #include <TinyGPSPlus.h>
 #include <NimBLEDevice.h>
 #include "mbedtls/gcm.h"
+#include "mbedtls/md.h"
 #include "mbedtls/base64.h"
 #include "esp_random.h"
 
-const char* FW_VERSION = "2.5";
+const char* FW_VERSION = "2.6";
 
 // ---------- Config (EDIT THESE) ----------
-const char* WIFI_SSID   = "HUAWEI_B311_CC04"; //"OPPO A6x j2tk";
-const char* WIFI_PASS   =  "TLgNg6ih7NH";//"Pass12345";
+const char* WIFI_SSID   = "YOUR_WIFI_SSID";
+const char* WIFI_PASS   = "YOUR_WIFI_PASSWORD";
 const char* BACKEND_URL = "https://xsfhstvydstxeadiynom.supabase.co/functions/v1/secure-alert";
 const bool  SILENT_MODE = false;              // true = no buzzer, no LED during countdown
 
@@ -74,17 +75,40 @@ const unsigned long TRACK_RETRY_MS       = 5000UL;      // after a failed update
 const unsigned long TRACK_STOP_HOLD_MS   = 1500UL;      // hold button this long to stop tracking (use 3-5 s in production)
 
 // ---------- BLE device linking ----------
-// Link mode is entered by HOLDING THE BUTTON WHILE POWERING ON / RESETTING.
+// Link mode: hold the button ~5 s while idle (two quick beeps), or hold it while resetting, or send 'l' on Serial.
 // BLE is off at all other times.
 const bool          BLE_LINKING_ENABLED  = true;
 const unsigned long LINK_WINDOW_MS       = 300000UL;    // BLE stays on for 5 min
 const int           LINK_MAX_TRIES       = 5;           // server attempts per token
 const unsigned long LINK_TRY_INTERVAL_MS = 3000UL;
 const unsigned long LINK_HOLD_MS         = 5000UL;      // hold the button this long while idle to enter link mode
+const unsigned long LINK_AFTER_LINK_MS   = 20000UL;     // keep BLE up this long after "linked" so the app can set a PIN
 #define BLE_SERVICE_UUID "7b1c0001-4e5a-4a6d-9c1b-8f3a2d5e6b00"
-#define BLE_CHR_INFO     "7b1c0002-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ   -> {"id":"...","fw":"..."}
+#define BLE_CHR_INFO     "7b1c0002-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ   -> {"id","fw","locked","salt","iters","wait"}
 #define BLE_CHR_TOKEN    "7b1c0003-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // WRITE  <- one-time link token
-#define BLE_CHR_STATUS   "7b1c0004-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ+NOTIFY -> ready|linking|linked|failed:<reason>
+#define BLE_CHR_STATUS   "7b1c0004-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ+NOTIFY -> status strings
+#define BLE_CHR_CTRL     "7b1c0005-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // WRITE  <- UNLOCK:<proof> | SETPIN:<salt>:<verifier> | CLEARPIN
+#define BLE_CHR_NONCE    "7b1c0006-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ   -> 32 hex chars, one-time challenge
+
+// Set to 1 to require an encrypted BLE link (the phone will show a pairing prompt). Recommended once the basics work.
+#define BLE_REQUIRE_ENCRYPTION 0
+#if BLE_REQUIRE_ENCRYPTION
+  #define CTRL_PROPS  (NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_ENC)
+  #define TOKEN_PROPS (NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_ENC)
+#else
+  #define CTRL_PROPS  (NIMBLE_PROPERTY::WRITE)
+  #define TOKEN_PROPS (NIMBLE_PROPERTY::WRITE)
+#endif
+
+// ---------- PIN lock ----------
+// The band never stores the PIN. It stores a verifier (PBKDF2 output derived in the app) and checks a
+// challenge-response proof. The panic button is NEVER blocked by the PIN.
+const bool          PIN_LOCK_ENABLED            = true;
+const uint32_t      PIN_PBKDF2_ITERS            = 10000;     // reported to the app; the app derives the verifier
+const uint8_t       PIN_MAX_FAILS               = 5;
+const unsigned long PIN_LOCKOUT_MS              = 900000UL;  // 15 min after too many wrong PINs
+const bool          LOCKED_DISABLES_MANUAL_STOP = false;     // true: a locked band can't be silenced by hand (needs an app "I'm safe" feature first)
+const bool          DEV_SERIAL_COMMANDS         = true;      // 'l' = link mode, 'x' = wipe PIN. Set false for production.
 
 enum DeviceState { IDLE, COUNTDOWN, SENDING, TRACKING };
 DeviceState state = IDLE;
@@ -128,19 +152,33 @@ unsigned int  wifiAttempt = 0;
 // GPS log-on-change state
 bool gpsHadFix = false, gpsNoDataWarned = false;
 
+// PIN state
+bool          pinSet = false;
+uint8_t       pinSalt[16];
+uint8_t       pinVerifier[32];
+uint8_t       pinFails = 0;
+unsigned long pinLockoutUntil = 0;
+bool          sessionUnlocked = false;   // true after a valid UNLOCK proof, ends when the phone disconnects
+String        nonceHex = "";
+
 // BLE link state
 bool linkMode = false;
 unsigned long linkModeUntil = 0;
 volatile bool linkTokenWritten = false;   // set by the BLE callback, handled in loop()
 String linkTokenRaw = "";
+volatile bool ctrlWritten = false;        // set by the BLE callback, handled in loop()
+String ctrlRaw = "";
 bool linkRequested = false;
 String linkToken = "";
 int  linkTries = 0;
 unsigned long linkNextTry = 0;
 bool linkDone = false;
 unsigned long linkEndAt = 0;
+unsigned long lastInfoRefresh = 0;
 NimBLEServer* bleServer = nullptr;
 NimBLECharacteristic* bleStatusChr = nullptr;
+NimBLECharacteristic* bleInfoChr = nullptr;
+NimBLECharacteristic* bleNonceChr = nullptr;
 
 // ---------- LED / buzzer ----------
 void ledSet(bool on)  { digitalWrite(LED_PIN,    (on != LED_ACTIVE_LOW)    ? HIGH : LOW); }
@@ -304,6 +342,44 @@ String jsonStr(const String& s, const char* key) {
   return s.substring(i, j);
 }
 
+// ---------- Hex / HMAC helpers ----------
+static const char HEXCHARS[] = "0123456789abcdef";
+
+String bytesToHex(const uint8_t* d, size_t n) {
+  String s;
+  s.reserve(n * 2);
+  for (size_t i = 0; i < n; i++) { s += HEXCHARS[d[i] >> 4]; s += HEXCHARS[d[i] & 15]; }
+  return s;
+}
+
+int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+bool hexToBytes(const String& s, uint8_t* out, size_t n) {
+  if (s.length() != n * 2) return false;
+  for (size_t i = 0; i < n; i++) {
+    int a = hexNibble(s.charAt(2 * i)), b = hexNibble(s.charAt(2 * i + 1));
+    if (a < 0 || b < 0) return false;
+    out[i] = (uint8_t)((a << 4) | b);
+  }
+  return true;
+}
+
+bool ctEqual(const uint8_t* a, const uint8_t* b, size_t n) {
+  uint8_t d = 0;
+  for (size_t i = 0; i < n; i++) d |= (uint8_t)(a[i] ^ b[i]);
+  return d == 0;
+}
+
+void hmacSha256(const uint8_t* key, size_t klen, const uint8_t* data, size_t dlen, uint8_t out[32]) {
+  const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  mbedtls_md_hmac(info, key, klen, data, dlen, out);
+}
+
 // ---------- Payload ----------
 // status: "panic_activated" (ref = 0) or "panic_update" (ref = ctr of the original alert)
 String buildPayload(const char* status, uint32_t ctr, uint32_t ref) {
@@ -326,6 +402,7 @@ String buildHeartbeatPayload(uint32_t ctr) {
   int bat = readBatteryPercent();
   if (bat >= 0) inner += ",\"bat\":" + String(bat);
   if (WiFi.status() == WL_CONNECTED) inner += ",\"rssi\":" + String(WiFi.RSSI());
+  inner += ",\"lock\":" + String(pinSet ? 1 : 0);      // lets the server see/repair lock mismatches
   inner += "}";
   return inner;
 }
@@ -336,20 +413,57 @@ uint32_t nextCtr() {
   return c;
 }
 
-void sendHeartbeat() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  uint32_t ctr = nextCtr();
-  String body = encryptPayload(buildHeartbeatPayload(ctr));
-  int code = body.length() ? postPayload(body, nullptr) : -3;
-  if (code >= 200 && code < 300) {
-    lastTelemetryAt = millis();
-    Serial.println("[TELEMETRY] sent battery=" + String(readBatteryPercent()) + "% rssi=" + String(WiFi.RSSI()) + " dBm");
-  } else {
-    Serial.println("[TELEMETRY] failed: " + sendError(code));
+// ---------- PIN storage and rules ----------
+void loadPin() {
+  pinSet = false;
+  memset(pinSalt, 0, sizeof(pinSalt));
+  memset(pinVerifier, 0, sizeof(pinVerifier));
+  if (PIN_LOCK_ENABLED && prefs.getUChar("pin_on", 0) == 1 &&
+      prefs.getBytesLength("pin_salt") == 16 && prefs.getBytesLength("pin_ver") == 32) {
+    prefs.getBytes("pin_salt", pinSalt, 16);
+    prefs.getBytes("pin_ver", pinVerifier, 32);
+    pinSet = true;
   }
+  pinFails = prefs.getUChar("pin_fail", 0);
+  // Failures survive reboots: if the limit was reached, a reboot does not give a free retry
+  if (pinSet && pinFails >= PIN_MAX_FAILS) pinLockoutUntil = millis() + PIN_LOCKOUT_MS;
 }
 
-// ---------- BLE link mode ----------
+void storePin() {
+  prefs.putBytes("pin_salt", pinSalt, 16);
+  prefs.putBytes("pin_ver", pinVerifier, 32);
+  prefs.putUChar("pin_on", 1);
+  pinSet = true;
+}
+
+void wipePin() {
+  prefs.remove("pin_on");
+  prefs.remove("pin_salt");
+  prefs.remove("pin_ver");
+  prefs.putUChar("pin_fail", 0);
+  pinFails = 0;
+  pinSet = false;
+  sessionUnlocked = false;
+  memset(pinSalt, 0, sizeof(pinSalt));
+  memset(pinVerifier, 0, sizeof(pinVerifier));
+}
+
+bool pinLockedOut() {
+  return pinSet && pinFails >= PIN_MAX_FAILS && (long)(pinLockoutUntil - millis()) > 0;
+}
+
+void recordPinFailure() {
+  if (pinFails < 250) pinFails++;
+  prefs.putUChar("pin_fail", pinFails);
+  if (pinFails >= PIN_MAX_FAILS) pinLockoutUntil = millis() + PIN_LOCKOUT_MS;
+}
+
+void clearPinFailures() {
+  pinFails = 0;
+  prefs.putUChar("pin_fail", 0);
+}
+
+// ---------- BLE: status, info, nonce ----------
 void setLinkStatus(const String& s) {
   Serial.println("[LINK] status: " + s);
   if (bleStatusChr) {
@@ -358,7 +472,26 @@ void setLinkStatus(const String& s) {
   }
 }
 
-// Runs on the BLE task: keep it tiny. Real work happens in linkTick().
+void refreshInfo() {
+  if (!bleInfoChr) return;
+  String j = "{\"id\":\"" + deviceId + "\",\"fw\":\"" + String(FW_VERSION) + "\",\"locked\":" + String(pinSet ? 1 : 0);
+  if (pinSet) {
+    unsigned long wait = pinLockedOut() ? (pinLockoutUntil - millis()) / 1000 : 0;
+    j += ",\"salt\":\"" + bytesToHex(pinSalt, 16) + "\",\"iters\":" + String(PIN_PBKDF2_ITERS) +
+         ",\"wait\":" + String(wait);
+  }
+  j += "}";
+  bleInfoChr->setValue(std::string(j.c_str()));
+}
+
+void newNonce() {
+  uint8_t n[16];
+  esp_fill_random(n, sizeof(n));
+  nonceHex = bytesToHex(n, sizeof(n));
+  if (bleNonceChr) bleNonceChr->setValue(std::string(nonceHex.c_str()));
+}
+
+// Runs on the BLE task: keep these tiny. Real work happens in linkTick().
 class TokenCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* c, NimBLEConnInfo& connInfo) override {
     auto v = c->getValue();
@@ -376,24 +509,115 @@ class TokenCallbacks : public NimBLECharacteristicCallbacks {
 };
 TokenCallbacks tokenCallbacks;
 
+class CtrlCallbacks : public NimBLECharacteristicCallbacks {
+  void onWrite(NimBLECharacteristic* c, NimBLEConnInfo& connInfo) override {
+    auto v = c->getValue();
+    size_t n = v.length();
+    const char* p = v.c_str();
+    String t;
+    t.reserve(n);
+    for (size_t i = 0; i < n && i < 160; i++) {
+      char ch = p[i];
+      if (isalnum((unsigned char)ch) || ch == ':') t += ch;
+    }
+    ctrlRaw = t;
+    ctrlWritten = true;
+  }
+};
+CtrlCallbacks ctrlCallbacks;
+
+// UNLOCK:<64 hex proof>   proof = HMAC-SHA256(key = verifier, msg = ASCII nonce hex)
+// SETPIN:<32 hex salt>:<64 hex verifier>   (allowed if not locked, or after UNLOCK)
+// CLEARPIN                                 (allowed if not locked, or after UNLOCK)
+void handleCtrl() {
+  String c = ctrlRaw;
+
+  if (c.startsWith("UNLOCK:")) {
+    if (!pinSet) { sessionUnlocked = true; setLinkStatus("unlocked"); return; }
+    if (pinLockedOut()) { setLinkStatus("failed:locked_out"); refreshInfo(); return; }
+
+    uint8_t got[32], expect[32];
+    bool fmtOk = hexToBytes(c.substring(7), got, 32);
+    hmacSha256(pinVerifier, 32, (const uint8_t*)nonceHex.c_str(), nonceHex.length(), expect);
+    bool match = fmtOk && ctEqual(expect, got, 32);
+    newNonce();                                   // every attempt burns the challenge
+
+    if (match) {
+      sessionUnlocked = true;
+      clearPinFailures();
+      setLinkStatus("unlocked");
+    } else {
+      recordPinFailure();
+      setLinkStatus(pinLockedOut() ? "failed:locked_out" : "failed:bad_pin");
+    }
+    refreshInfo();
+    return;
+  }
+
+  if (c.startsWith("SETPIN:")) {
+    if (!PIN_LOCK_ENABLED) { setLinkStatus("failed:bad_command"); return; }
+    if (pinSet && !sessionUnlocked) { setLinkStatus("failed:not_unlocked"); return; }
+    int sep = c.indexOf(':', 7);
+    if (sep < 0) { setLinkStatus("failed:format"); return; }
+    uint8_t s[16], v[32];
+    if (!hexToBytes(c.substring(7, sep), s, 16) || !hexToBytes(c.substring(sep + 1), v, 32)) {
+      setLinkStatus("failed:format");
+      return;
+    }
+    memcpy(pinSalt, s, 16);
+    memcpy(pinVerifier, v, 32);
+    storePin();
+    clearPinFailures();
+    sessionUnlocked = true;
+    newNonce();
+    if (linkDone) linkEndAt = millis() + 5000;    // let the confirmation flush
+    setLinkStatus("pin_set");
+    refreshInfo();
+    return;
+  }
+
+  if (c == "CLEARPIN") {
+    if (pinSet && !sessionUnlocked) { setLinkStatus("failed:not_unlocked"); return; }
+    wipePin();
+    sessionUnlocked = true;
+    newNonce();
+    if (linkDone) linkEndAt = millis() + 5000;
+    setLinkStatus("pin_cleared");
+    refreshInfo();
+    return;
+  }
+
+  setLinkStatus("failed:bad_command");
+}
+
+// ---------- BLE link mode ----------
 void enterLinkMode() {
   if (!BLE_LINKING_ENABLED || linkMode) return;
 
-  // String name = "Basteon-" + deviceId.substring(deviceId.length() - 4);
   String name = "Kiki-" + deviceId.substring(deviceId.length() - 4);
   NimBLEDevice::init(name.c_str());
+#if BLE_REQUIRE_ENCRYPTION
+  NimBLEDevice::setSecurityAuth(false, false, true);
+  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+#endif
   bleServer = NimBLEDevice::createServer();
   NimBLEService* svc = bleServer->createService(BLE_SERVICE_UUID);
 
-  NimBLECharacteristic* info = svc->createCharacteristic(BLE_CHR_INFO, NIMBLE_PROPERTY::READ);
-  String infoJson = "{\"id\":\"" + deviceId + "\",\"fw\":\"" + String(FW_VERSION) + "\"}";
-  info->setValue(std::string(infoJson.c_str()));
+  sessionUnlocked = false;
+  bleInfoChr = svc->createCharacteristic(BLE_CHR_INFO, NIMBLE_PROPERTY::READ);
+  refreshInfo();
 
-  NimBLECharacteristic* tok = svc->createCharacteristic(BLE_CHR_TOKEN, NIMBLE_PROPERTY::WRITE);
+  NimBLECharacteristic* tok = svc->createCharacteristic(BLE_CHR_TOKEN, TOKEN_PROPS);
   tok->setCallbacks(&tokenCallbacks);
 
   bleStatusChr = svc->createCharacteristic(BLE_CHR_STATUS, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
   bleStatusChr->setValue(std::string("ready"));
+
+  NimBLECharacteristic* ctrl = svc->createCharacteristic(BLE_CHR_CTRL, CTRL_PROPS);
+  ctrl->setCallbacks(&ctrlCallbacks);
+
+  bleNonceChr = svc->createCharacteristic(BLE_CHR_NONCE, NIMBLE_PROPERTY::READ);
+  newNonce();
 
   svc->start();
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
@@ -416,7 +640,10 @@ void enterLinkMode() {
   linkRequested = false;
   linkDone = false;
   linkTokenWritten = false;
-  Serial.println("[LINK] link mode ON as " + name + " (id " + deviceId + "), open the web app and tap Link device");
+  ctrlWritten = false;
+  lastTelemetryAt = millis() - (TELEMETRY_INTERVAL_MS - 3000UL);   // heartbeat soon, so a stale PIN can self-heal
+  Serial.println("[LINK] link mode ON as " + name + " (id " + deviceId + ")" + (pinSet ? " [PIN locked]" : "") +
+                 ", open the web app and tap Find band");
 }
 
 void endLinkMode(const char* why) {
@@ -424,11 +651,18 @@ void endLinkMode(const char* why) {
   linkMode = false;
   linkRequested = false;
   linkDone = false;
+  sessionUnlocked = false;
   NimBLEDevice::deinit(true);
   bleServer = nullptr;
   bleStatusChr = nullptr;
+  bleInfoChr = nullptr;
+  bleNonceChr = nullptr;
   allOff();
   Serial.println(String("[LINK] BLE off: ") + why);
+}
+
+bool linkBusy() {
+  return linkMode && (linkRequested || linkDone || (bleServer && bleServer->getConnectedCount() > 0));
 }
 
 void linkTick() {
@@ -436,10 +670,13 @@ void linkTick() {
   unsigned long now = millis();
 
   // Idle pattern: double blink every 2 s
-  if (!SILENT_MODE && !linkRequested) {
+  if (!SILENT_MODE && !linkRequested && !linkDone) {
     unsigned long ph = now % 2000;
     ledSet(ph < 100 || (ph > 250 && ph < 350));
   }
+
+  // The PIN session only lives as long as the phone stays connected
+  if (bleServer && bleServer->getConnectedCount() == 0) sessionUnlocked = false;
 
   // Keep advertising if a client dropped
   if (bleServer && !linkDone && bleServer->getConnectedCount() == 0 &&
@@ -447,7 +684,13 @@ void linkTick() {
     NimBLEDevice::getAdvertising()->start();
   }
 
-  // Finish: give the "linked" notification a moment to flush, then power BLE down
+  // Keep the lockout countdown in INFO roughly current
+  if (pinSet && (now - lastInfoRefresh) > 5000) { lastInfoRefresh = now; refreshInfo(); }
+
+  // PIN / settings commands from the app
+  if (ctrlWritten) { ctrlWritten = false; handleCtrl(); }
+
+  // Finish: give notifications a moment to flush (and let the app set a PIN), then power BLE down
   if (linkDone) {
     if ((long)(now - linkEndAt) >= 0) endLinkMode("linked");
     return;
@@ -463,7 +706,9 @@ void linkTick() {
   if (linkTokenWritten) {
     linkTokenWritten = false;
     String t = linkTokenRaw;
-    if (t.length() < 16 || t.length() > 64) {
+    if (pinSet && !sessionUnlocked) {
+      setLinkStatus("failed:pin_required");          // locked band: no unlock proof, no linking
+    } else if (t.length() < 16 || t.length() > 64) {
       setLinkStatus("failed:bad_token");
     } else {
       linkToken = t;
@@ -488,9 +733,11 @@ void linkTick() {
     if (code >= 200 && code < 300) {
       resp.replace(" ", "");
       if (resp.indexOf("\"linked\":true") >= 0) {
+        wipePin();                            // new ownership = fresh start; the new owner sets their own PIN
+        refreshInfo();
         linkRequested = false;
         linkDone = true;
-        linkEndAt = millis() + 3000;
+        linkEndAt = millis() + LINK_AFTER_LINK_MS;
         setLinkStatus("linked");
         signalSent();
       } else {
@@ -506,6 +753,30 @@ void linkTick() {
         setLinkStatus("failed:network");
       }
     }
+  }
+}
+
+// ---------- Heartbeat ----------
+void sendHeartbeat() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  lastTelemetryAt = millis();
+  uint32_t ctr = nextCtr();
+  String body = encryptPayload(buildHeartbeatPayload(ctr));
+  String resp;
+  int code = body.length() ? postPayload(body, &resp) : -3;
+  if (code >= 200 && code < 300) {
+    Serial.println("[TELEMETRY] sent battery=" + String(readBatteryPercent()) + "% rssi=" + String(WiFi.RSSI()) +
+                   " dBm lock=" + String(pinSet ? 1 : 0));
+    resp.replace(" ", "");
+    // Server says this band is not locked but we are: stale PIN (e.g. after an admin reset). Drop it.
+    if (pinSet && resp.indexOf("\"pin_clear\":true") >= 0) {
+      wipePin();
+      refreshInfo();
+      Serial.println("[PIN] cleared: server says this band is not locked");
+    }
+  } else {
+    lastTelemetryAt = millis() - (TELEMETRY_INTERVAL_MS - 30000UL);   // retry in 30 s, not every loop
+    Serial.println("[TELEMETRY] failed: " + sendError(code));
   }
 }
 
@@ -644,7 +915,7 @@ void updateButton() {
         unsigned long held = now - pressStart;
         if (!ignoreUntilRelease) {
           if (state == IDLE) {
-            startCountdown();                   // tap or short hold => panic alert
+            startCountdown();                   // tap or short hold => panic alert (never PIN-gated)
           } else if (state == TRACKING && held < TRACK_STOP_HOLD_MS) {
             startCountdown();                   // tap while tracking => new alert
           }
@@ -659,8 +930,9 @@ void updateButton() {
     cancelCountdown();
   }
 
-  // Hold 1.5 s while tracking = stop tracking
-  if (state == TRACKING && btnDown && !ignoreUntilRelease && (now - pressStart) >= TRACK_STOP_HOLD_MS) {
+  // Hold 1.5 s while tracking = stop tracking (can be disabled on PIN-locked bands)
+  if (state == TRACKING && btnDown && !ignoreUntilRelease && (now - pressStart) >= TRACK_STOP_HOLD_MS &&
+      !(LOCKED_DISABLES_MANUAL_STOP && pinSet)) {
     stopTracking("stopped by user", true);
   }
 
@@ -676,13 +948,18 @@ void updateButton() {
   if (state == IDLE && !linkMode && !SILENT_MODE) ledSet(btnDown && !ignoreUntilRelease);
 }
 
-// Dev shortcut: type 'l' + Enter in the Serial Monitor to enter link mode
+// Dev shortcuts on the Serial Monitor: 'l' = link mode, 'x' = wipe the PIN stored on this band
 void handleSerialCommands() {
+  if (!DEV_SERIAL_COMMANDS) return;
   while (Serial.available()) {
     char c = Serial.read();
     if (c == 'l' || c == 'L') {
       if (state == IDLE) enterLinkMode();
       else Serial.println("[LINK] busy, finish the current alert first");
+    } else if (c == 'x' || c == 'X') {
+      wipePin();
+      refreshInfo();
+      Serial.println("[PIN] wiped on this band (dev command)");
     }
   }
 }
@@ -735,13 +1012,15 @@ void setup() {
   bool bootLink = (digitalRead(BUTTON_PIN) == LOW);
   if (bootLink) { delay(60); bootLink = (digitalRead(BUTTON_PIN) == LOW); }
 
-  prefs.begin("basteon", false);
+  prefs.begin("basteon", false);       // namespace name kept so existing counters/keys survive
   if (prefs.getBytesLength("key") == 32) prefs.getBytes("key", deviceKey, 32);
   else memcpy(deviceKey, DEV_KEY, 32);
 
   cachedLat = prefs.getDouble("lat", 999.0);
   cachedLng = prefs.getDouble("lng", 999.0);
   hasCached = (cachedLat >= -90 && cachedLat <= 90 && cachedLng >= -180 && cachedLng <= 180);
+
+  loadPin();
 
   Serial2.setRxBufferSize(1024);
   Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
@@ -755,10 +1034,10 @@ void setup() {
   deviceId.replace(":", "");
 
   Serial.println();
-  Serial.println("[BOOT] Basteon Panic Unit v" + String(FW_VERSION) + ", device id: " + deviceId);
+  Serial.println("[BOOT] Kiki Band v" + String(FW_VERSION) + ", device id: " + deviceId);
   Serial.println("[BOOT] pins: button=" + String(BUTTON_PIN) + " led=" + String(LED_PIN) + " buzzer=" + String(BUZZER_PIN));
-  Serial.println(String("[BOOT] live tracking: ") + (TRACKING_ENABLED ? "on" : "off"));
-  // Serial.println("[BOOT] link mode: hold button 5 s, or send 'l' in Serial Monitor, or hold it while resetting");
+  Serial.println(String("[BOOT] live tracking: ") + (TRACKING_ENABLED ? "on" : "off") +
+                 ", PIN lock: " + (pinSet ? "ON" : "off") + (pinSet && pinFails >= PIN_MAX_FAILS ? " (locked out)" : ""));
   Serial.println("[BOOT] link mode: hold button 5 s until two beeps, or send 'l' in Serial Monitor, or hold it while resetting");
   Serial.println("[WIFI] connecting to " + String(WIFI_SSID) + "...");
 
@@ -776,7 +1055,8 @@ void loop() {
   maintainWifi();
   linkTick();
 
-  if (!linkMode && millis() - lastTelemetryAt >= TELEMETRY_INTERVAL_MS) sendHeartbeat();
+  // Heartbeat only when idle, button up and no phone mid-conversation (it blocks for up to 8 s on a bad link)
+  if (state == IDLE && !btnDown && !linkBusy() && millis() - lastTelemetryAt >= TELEMETRY_INTERVAL_MS) sendHeartbeat();
 
   switch (state) {
     case COUNTDOWN:
