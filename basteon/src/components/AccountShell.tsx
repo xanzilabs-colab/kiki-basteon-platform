@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Smartphone, UserRound, UsersRound } from "lucide-react";
+import { BadgeCheck, Bell, House, LogOut, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Smartphone, UserRound, UsersRound, Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -154,13 +154,16 @@ export function AccountShell({ name, children }: { name: string; children: React
 
       <div className="min-w-0 pb-[76px] md:min-h-0 md:overflow-y-auto md:pb-0">
         <header className="appbar account-mobile-appbar px-4">
-          <div className="account-mobile-brand md:hidden">
-            <KikiMark size={92} />
-            <span>KIKI CONNECT</span>
-          </div>
-          <div className="account-user-summary" title={name}>
-            <span className="account-user-label">Signed in as</span>
-            <span className="account-user-name">{name}</span>
+          <Link className="account-user-summary" href="/account/profile" title="Open profile">
+            <span className="account-user-avatar">{name.charAt(0).toUpperCase()}<i /></span>
+            <span className="account-user-copy">
+              <span className="account-user-name">{name}<BadgeCheck size={14} /></span>
+              <span className="account-user-protected"><i />Protected · Active</span>
+            </span>
+          </Link>
+          <div className="account-header-actions md:hidden">
+            <button className="account-header-action" title="Start safety call" onClick={() => void startSafetyCall()}><Volume2 size={17} /></button>
+            <button className="account-header-action" title="Notifications" aria-label="Notifications"><Bell size={17} /><i /></button>
           </div>
           <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
             <LogOut size={17} aria-hidden="true" />
