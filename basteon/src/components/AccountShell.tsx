@@ -48,10 +48,20 @@ export function AccountShell({ name, children }: { name: string; children: React
   useEffect(() => {
     if (safetyCall !== "arming") return;
     const timer = window.setTimeout(() => {
-      navigator.vibrate?.([160, 80, 160, 80, 280]);
       setSafetyCall("incoming");
     }, 5_000);
     return () => window.clearTimeout(timer);
+  }, [safetyCall]);
+
+  useEffect(() => {
+    if (safetyCall !== "incoming") return;
+    const vibrate = () => navigator.vibrate?.([350, 180, 350, 1_100]);
+    vibrate();
+    const timer = window.setInterval(vibrate, 1_980);
+    return () => {
+      window.clearInterval(timer);
+      navigator.vibrate?.(0);
+    };
   }, [safetyCall]);
 
   useEffect(() => {
@@ -103,8 +113,7 @@ export function AccountShell({ name, children }: { name: string; children: React
 
   async function startSafetyCall() {
     if (safetyCall === "idle") {
-      primeRingtone();
-      await loadRingtone();
+      primeRingtone(ringtoneUrl);
       setSafetyCall("arming");
     }
   }

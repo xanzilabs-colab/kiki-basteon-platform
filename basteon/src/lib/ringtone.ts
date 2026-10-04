@@ -1,12 +1,27 @@
 let audioContext: AudioContext | null = null;
+let primedAudio: HTMLAudioElement | null = null;
+let primedUrl: string | null = null;
 
 function context() {
   audioContext ??= new AudioContext();
   return audioContext;
 }
 
-export function primeRingtone() {
+export function primeRingtone(url?: string | null) {
   void context().resume();
+  if (!url || primedUrl === url) return;
+  primedAudio?.pause();
+  const audio = new Audio(url);
+  audio.loop = true;
+  audio.muted = true;
+  primedAudio = audio;
+  primedUrl = url;
+  void audio.play().catch(() => {
+    if (primedAudio === audio) {
+      primedAudio = null;
+      primedUrl = null;
+    }
+  });
 }
 
 function defaultRingtone() {
@@ -37,6 +52,21 @@ function defaultRingtone() {
 }
 
 export function startRingtone(url?: string | null) {
+  if (url && primedAudio && primedUrl === url) {
+    const audio = primedAudio;
+    audio.muted = false;
+    primedAudio = null;
+    primedUrl = null;
+    const maximum = window.setTimeout(() => {
+      audio.pause();
+      audio.currentTime = 0;
+    }, 20_000);
+    return () => {
+      window.clearTimeout(maximum);
+      audio.pause();
+      audio.currentTime = 0;
+    };
+  }
   if (url) {
     const audio = new Audio(url);
     audio.loop = true;
