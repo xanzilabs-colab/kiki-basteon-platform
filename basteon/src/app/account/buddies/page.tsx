@@ -52,6 +52,7 @@ export default function BuddiesPage() {
   const face = useFaceCheck();
   const router = useRouter();
   const nearbyInFlight = useRef(false);
+  const positionInFlight = useRef(false);
   const lastNearbyAt = useRef(0);
   const autoRefresh = useRef<() => Promise<void>>(async () => {});
 
@@ -79,8 +80,11 @@ export default function BuddiesPage() {
   }, [query, destination]);
 
   useEffect(() => {
-    if (!active || !position) return;
-    void fetch("/api/buddies/trips/position", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(position) });
+    if (!active || !position || positionInFlight.current) return;
+    positionInFlight.current = true;
+    void fetch("/api/buddies/trips/position", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(position) })
+      .catch(() => undefined)
+      .finally(() => { positionInFlight.current = false; });
   }, [active, position?.lat, position?.lng]);
 
   async function createTrip() {
