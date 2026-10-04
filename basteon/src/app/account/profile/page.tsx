@@ -21,11 +21,11 @@ export default function ProfilePage() {
   return <div className="kiki-profile-hub">
     <header><span>MY ACCOUNT</span><h1>User Profile</h1></header>
     <section className="kiki-profile-card">
-      <div className="kiki-profile-identity">{avatarUrl ? <img src={avatarUrl} alt="Your profile" /> : <span>{name.charAt(0).toUpperCase()}</span>}<div><h2>{name}</h2><p>{email}</p><b>Premium Safety Subscriber</b></div></div>
+      <Link className="kiki-profile-identity" href="/account/profile/info">{avatarUrl ? <img src={avatarUrl} alt="Your profile" /> : <span>{name.charAt(0).toUpperCase()}</span>}<div><h2>{name}</h2><p>{email}</p><b>Premium Safety Subscriber</b></div><ChevronRight size={18} /></Link>
       <nav className="kiki-profile-menu" aria-label="Account settings">
         <Link href="/account/profile/medical"><span><FileText size={17} />Medical ID &amp; Emergency Info</span><ChevronRight size={17} /></Link>
-        <Link href="/account/guardians"><span><Lock size={17} />Security &amp; PIN Code</span><ChevronRight size={17} /></Link>
-        <Link href="/account/profile?section=ringtone"><span><Volume2 size={17} />Ringtones</span><ChevronRight size={17} /></Link>
+        <Link href="/account/profile/security"><span><Lock size={17} />Security &amp; PIN Code</span><ChevronRight size={17} /></Link>
+        <Link href="/account/profile/ringtones"><span><Volume2 size={17} />Ringtones</span><ChevronRight size={17} /></Link>
         <button type="button" onClick={() => void toggleTheme()}><span><Moon size={17} />Dark Theme Mode</span><b>{profile?.dark_theme ? "On" : "Off"}</b></button>
         <Link href="/account/guardians"><span><Shield size={17} />Guardian Circle</span><ChevronRight size={17} /></Link>
       </nav>
