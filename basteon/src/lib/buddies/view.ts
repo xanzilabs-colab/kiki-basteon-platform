@@ -66,9 +66,8 @@ export function buildNearbyView(ctx: BuildCtx, candidates: BuddyPresence[]): Nea
     nextPairStates[key] = st;
 
     const ev = evaluatePair(viewer, c, runsOf(viewer), runsOf(c), areaOf);
-    if (!ev) continue;
     const prox = C.weights.proximity * (1 - st.band / C.bandEdgesM.length);
-    scored.push({ c, score: ev.base + prox, band: st.band, rawDist, routeOk: ev.routeOk, sameArea: ev.sameArea });
+    scored.push({ c, score: (ev?.base ?? 0) + prox, band: st.band, rawDist, routeOk: ev?.routeOk ?? false, sameArea: ev?.sameArea ?? false });
   }
 
   scored.sort((a, b) => b.score - a.score);

@@ -63,6 +63,43 @@ export type ConnectOptions = {
 
 type Stage = "choose" | "connect" | "discover" | "read";
 
+type BluetoothCharacteristic = {
+  value?: DataView;
+  readValue(): Promise<DataView>;
+  startNotifications(): Promise<BluetoothCharacteristic>;
+  writeValueWithResponse(value: BufferSource): Promise<void>;
+  addEventListener(type: "characteristicvaluechanged", listener: (event: Event) => void): void;
+  removeEventListener(type: "characteristicvaluechanged", listener: (event: Event) => void): void;
+};
+
+type BluetoothService = {
+  getCharacteristic(uuid: string): Promise<BluetoothCharacteristic>;
+};
+
+type BluetoothServer = {
+  getPrimaryService(uuid: string): Promise<BluetoothService>;
+};
+
+type BluetoothDevice = {
+  id: string;
+  name?: string;
+  gatt?: {
+    connected: boolean;
+    connect(): Promise<BluetoothServer>;
+    disconnect(): void;
+  };
+};
+
+type BluetoothApi = {
+  requestDevice(options: RequestDeviceOptions): Promise<BluetoothDevice>;
+};
+
+type RequestDeviceOptions = {
+  acceptAllDevices?: boolean;
+  filters?: Array<{ services?: string[]; namePrefix?: string }>;
+  optionalServices?: string[];
+};
+
 const CONNECT_TIMEOUT_MS = 20_000;
 
 // Web Bluetooth rejects UUIDs that contain uppercase letters.
@@ -102,7 +139,10 @@ function friendlyError(error: unknown, stage: Stage): string {
 }
 
 export async function connectBasteonDevice(opts: ConnectOptions = {}): Promise<BasteonBleDevice> {
-  if (typeof navigator === "undefined" || !("bluetooth" in navigator)) {
+  const bluetooth = typeof navigator === "undefined"
+    ? undefined
+    : (navigator as Navigator & { bluetooth?: BluetoothApi }).bluetooth;
+  if (!bluetooth) {
     throw new Error("Web Bluetooth is not supported by this browser.");
   }
 
@@ -112,7 +152,7 @@ export async function connectBasteonDevice(opts: ConnectOptions = {}): Promise<B
   try {
     // Filters are OR'd: match by service UUID, or by name.
     // Kiki is the customer-facing name; "Basteon" is accepted for units flashed with older firmware.
-    device = await navigator.bluetooth.requestDevice(
+    device = await bluetooth.requestDevice(
       opts.showAll
         ? { acceptAllDevices: true, optionalServices: [SERVICE_UUID] }
         : {
@@ -151,7 +191,7 @@ export async function connectBasteonDevice(opts: ConnectOptions = {}): Promise<B
 
     const decode = (value: DataView | undefined) => (value ? new TextDecoder().decode(value) : "");
     const listen = (listener: (value: string) => void) => {
-      const handler = (event: Event) => listener(decode((event.target as BluetoothRemoteGATTCharacteristic).value));
+      const handler = (event: Event) => listener(decode((event.target as BluetoothCharacteristic | null)?.value));
       status.addEventListener("characteristicvaluechanged", handler);
       return () => status.removeEventListener("characteristicvaluechanged", handler);
     };
@@ -170,7 +210,7 @@ export async function connectBasteonDevice(opts: ConnectOptions = {}): Promise<B
           const reason = reply.slice(7);
           reject(new BandPinError(reason, PIN_STATUS_TEXT[reason] ?? `The band refused: ${reason.replaceAll("_", " ")}.`));
         });
-        ctrl.writeValueWithResponse(new TextEncoder().encode(value)).catch((error) => {
+        ctrl.writeValueWithResponse(new TextEncoder().encode(value)).catch((error: unknown) => {
           clearTimeout(timer);
           stop();
           reject(error);

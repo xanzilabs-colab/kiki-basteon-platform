@@ -89,17 +89,17 @@ describe("privacy zones", () => {
 
 describe("matching", () => {
   const viewer = person("v");
-  it("excludes people travelling the opposite direction to a different area", () => {
+  it("shows nearby visible people travelling in a different direction", () => {
     const opposite = person("o", {
       position: { lat: -23.8915, lng: 29.4502 },
       route: line({ lat: -23.855, lng: 29.4503 }, { lat: -23.895, lng: 29.4503 }),
       destination: { lat: -23.895, lng: 29.4503 },
     });
-    expect(view(viewer, [opposite]).avatars).toHaveLength(0);
+    expect(view(viewer, [opposite]).avatars).toHaveLength(1);
   });
-  it("excludes people whose departure window does not overlap", () => {
+  it("shows nearby visible people with a different departure window", () => {
     const late = person("l", { position: { lat: -23.8915, lng: 29.4502 }, leaveFrom: NOW + 3600_000, leaveTo: NOW + 4000_000 });
-    expect(view(viewer, [late]).avatars).toHaveLength(0);
+    expect(view(viewer, [late]).avatars).toHaveLength(1);
   });
   it("caps the number of avatars", () => {
     const many = Array.from({ length: 30 }, (_, i) => person(`m${i}`, { position: { lat: -23.8915, lng: 29.4502 } }));

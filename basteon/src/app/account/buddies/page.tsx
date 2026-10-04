@@ -47,6 +47,7 @@ export default function BuddiesPage() {
   const [nearbyLoaded, setNearbyLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [planningNewTrip, setPlanningNewTrip] = useState(false);
   const face = useFaceCheck();
   const router = useRouter();
   const nearbyInFlight = useRef(false);
@@ -91,7 +92,7 @@ export default function BuddiesPage() {
     const response = await fetch("/api/buddies/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: position, destination, route: routeData.routes[0].points, mode, leaveFrom: new Date().toISOString(), maxWaitMinutes: 30, maxWalkM: 800, groupSize: 3, audience: "all_verified" }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return setMessage(data.error === "not_verified" ? "Buddies requires verified enrolment." : tripErrorMessage[data.error] ?? "Trip could not be created.");
-    setActive(true); setAlias(data.alias); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
+    setActive(true); setPlanningNewTrip(false); setAlias(data.alias); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
     } catch { setMessage("Your Buddy trip could not be created. Check your connection and try again."); }
     finally { setBusy(false); }
   }
@@ -176,17 +177,19 @@ export default function BuddiesPage() {
       {visible && <><button className="btn buddies-refresh" onClick={() => void refreshNearby()} title={`Nearby also refreshes automatically every ${BUDDY_CONFIG.minRefreshMs / 1000} seconds`}><RefreshCw size={16} />Refresh nearby</button>{nearbyLoaded && avatars.length === 0 && <p className="buddies-privacy-note">No compatible visible Buddies nearby right now.</p>}</>}
     </section>
     <section className="buddies-panel buddies-plan-widget">
-      <h2><UserPlus size={18} />{active ? "Join a travel Buddy" : "Plan a Buddy walk / ride"}</h2>
-      {!active ? <>
+      <h2><UserPlus size={18} />{active && !planningNewTrip ? "Join a travel Buddy" : "Plan a Buddy walk / ride"}</h2>
+      {(!active || planningNewTrip) ? <>
         <label className="hamba-field-label" htmlFor="buddy-destination">Where are you going?</label>
         <div className="hamba-search"><MapPinned size={18} /><input id="buddy-destination" value={query} onChange={(event) => { setQuery(event.target.value); setDestination(null); }} placeholder="Type destination address..." autoComplete="off" /></div>
         {places.length > 0 && <div className="hamba-suggestions">{places.map((place) => <button key={`${place.lat}-${place.lng}`} type="button" onClick={() => { setDestination(place); setQuery(place.label); setPlaces([]); }}>{place.label}</button>)}</div>}
         <span className="hamba-field-label">Travel mode</span>
         <div className="hamba-mode" role="group" aria-label="Buddy travel mode">{modeTiles.map((item) => <button key={item.value} className={mode === item.value ? "active" : ""} aria-pressed={mode === item.value} type="button" onClick={() => setMode(item.value)}><item.icon size={18} /><span>{item.label}</span></button>)}</div>
         <p className="buddies-invite-notice"><ShieldCheck size={17} />Your trip starts hidden. Visibility requires consent and a fresh face check.</p>
-        <button className="btn btn-primary hamba-start" disabled={!position || !destination || busy} onClick={() => void createTrip()}><UserPlus size={16} />{busy ? "Creating..." : "Create Buddy trip"}</button>
+        <button className="btn btn-primary hamba-start" disabled={!position || !destination || busy} onClick={() => void createTrip()}><UserPlus size={16} />{busy ? "Creating..." : active ? "Replace Buddy trip" : "Create Buddy trip"}</button>
+        {active && <button className="btn hamba-start" disabled={busy} onClick={() => setPlanningNewTrip(false)}>Keep current trip</button>}
         {!position && <p className="hamba-note"><LocateFixed size={16} />{locationError ?? "Enable location to plan your trip."}</p>}
       </> : <>
+        <button className="btn hamba-start" onClick={() => { setPlanningNewTrip(true); setMessage("Plan a new trip. Your existing trip stays active until you create the replacement."); }}><UserPlus size={16} />Plan another trip</button>
         <div className="buddies-visibility"><div><h3>Be visible to Buddies</h3><p>{alias ? `Your alias: ${alias}. ` : ""}Only your alias, avatar, mode, destination area, and zone are shared.</p></div><button className={`buddies-toggle ${visible ? "on" : ""}`} type="button" aria-pressed={visible} onClick={() => visible ? void setVisibility(false) : setConsent(true)}>{visible ? <Eye size={17} /> : <EyeOff size={17} />}{visible ? "Visible" : "Off"}</button></div>
         <div className="buddies-invite-notice">{visible && selected ? <><span className="buddies-selected-avatar">{selected.avatar}</span><div><b>{selected.nickname}</b><span>{selected.mode}{selected.destinationArea ? ` to ${selected.destinationArea}` : ""}</span></div></> : <><UserPlus size={18} /><span>{visible ? "No Buddy selected" : "Your trip is hidden"}</span></>}</div>
         <button className="btn btn-primary hamba-start" disabled={!visible || !selected || joining} onClick={() => void join()}><Handshake size={16} />{joining ? "Joining..." : "Join Buddy"}</button>
