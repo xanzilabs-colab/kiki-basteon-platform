@@ -13,8 +13,8 @@
 const char* FW_VERSION = "2.6";
 
 // ---------- Config (EDIT THESE) ----------
-const char* WIFI_SSID   = "YOUR_WIFI_SSID";
-const char* WIFI_PASS   = "YOUR_WIFI_PASSWORD";
+const char* WIFI_SSID   = "HUAWEI_B311_CC04";
+const char* WIFI_PASS   = "TLgNg6ih7NH";
 const char* BACKEND_URL = "https://xsfhstvydstxeadiynom.supabase.co/functions/v1/secure-alert";
 const bool  SILENT_MODE = false;              // true = no buzzer, no LED during countdown
 

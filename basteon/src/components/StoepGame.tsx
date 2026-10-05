@@ -1,0 +1,35 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, Ear, Flower2, Hand, HeartHandshake, MoonStar, Music2, ShieldX, Sparkles, SunMedium, TreePine, Wind } from "lucide-react";
+import { useEffect, useState } from "react";
+import styles from "./stoep.module.css";
+
+type Route = "real" | "garden";
+type Phase = "choose" | "play" | "sky" | "complete";
+const senses = [
+  { name: "see", count: 5, icon: Eye, prompt: "Look around. Find five things you can see.", chips: ["Blue", "Round", "Near"] },
+  { name: "feel", count: 4, icon: Hand, prompt: "Notice four things you can feel.", chips: ["Soft", "Warm", "Steady"] },
+  { name: "hear", count: 3, icon: Ear, prompt: "Listen for three things you can hear.", chips: ["Near", "Far", "Rhythmic"] },
+  { name: "smell", count: 2, icon: Wind, prompt: "Notice two things you can smell.", chips: ["Fresh", "Familiar", "Imagine one"] },
+  { name: "taste", count: 1, icon: Flower2, prompt: "Notice one thing you can taste.", chips: ["Sweet", "Cool", "Imagine one"] },
+] as const;
+const gardenObjects = ["a sunbird", "a smooth stone", "a wind chime", "a jacaranda bloom", "a quiet path"];
+
+export function StoepGame() {
+  const router = useRouter(); const search = useSearchParams();
+  const [route, setRoute] = useState<Route | null>(null); const [phase, setPhase] = useState<Phase>("choose"); const [step, setStep] = useState(0); const [found, setFound] = useState(0); const [blooms, setBlooms] = useState<string[]>([]); const [helper, setHelper] = useState(false); const [discreet, setDiscreet] = useState(false); const [placed, setPlaced] = useState<number[]>([]);
+  useEffect(() => { if (search.get("assist") === "garden") { setRoute("garden"); setPhase("play"); } else if (search.get("mode") === "quick") { setDiscreet(true); } }, [search]);
+  const current = senses[step]; const SenseIcon = current?.icon ?? Sparkles;
+  function begin(next: Route) { setRoute(next); setPhase("play"); setStep(0); setFound(0); setBlooms([]); setHelper(false); }
+  function markFound(style: string) { if (!current) return; const nextFound = found + 1; setBlooms((items) => [...items, style]); setFound(nextFound); setHelper(false); if (!discreet) navigator.vibrate?.(18); if (nextFound >= current.count) { if (step === senses.length - 1) setPhase("sky"); else { setStep((value) => value + 1); setFound(0); } } }
+  function closeQuickly() { router.replace("/account"); }
+  if (phase === "choose") return <main className={`${styles.page} ${discreet ? styles.discreet : ""}`}><TopBar discreet={discreet} setDiscreet={setDiscreet} onClose={closeQuickly}/><section className={styles.intro}><p className={styles.eyebrow}>Stoep grounding</p><h1>Come back to this moment.</h1><p>Choose the way that feels safest. Nothing you notice is checked, saved, or sent.</p><div className={styles.routeChoices}><button onClick={() => begin("real")}><Eye size={24}/><span>Look around me</span><small>Notice what is real and present around you.</small></button><button onClick={() => begin("garden")}><TreePine size={24}/><span>Explore the garden</span><small>Use the in-app garden when looking around is not safe.</small></button></div><p className={styles.note}>If you do not feel safe looking around, choose the garden.</p></section><PersonLink/></main>;
+  if (phase === "sky") return <main className={`${styles.page} ${styles.skyPage} ${discreet ? styles.discreet : ""}`}><TopBar discreet={discreet} setDiscreet={setDiscreet} onClose={closeQuickly}/><section className={styles.sky}><p className={styles.eyebrow}>Night sky</p><h1>Place your fifteen small moments.</h1><p>Each piece is one thing you noticed. Tap them in any order.</p><div className={styles.constellation} aria-label={`${placed.length} of 15 night sky pieces placed`}>{Array.from({ length: 15 }, (_, index) => <button key={index} className={placed.includes(index) ? styles.placed : ""} aria-label={placed.includes(index) ? `Moment ${index + 1} placed` : `Place moment ${index + 1}`} onClick={() => { if (placed.includes(index)) return; const next = [...placed, index]; setPlaced(next); if (next.length === 15) setPhase("complete"); }}>{placed.includes(index) ? <MoonStar size={18}/> : <Sparkles size={18}/>}</button>)}</div><span className={styles.skyCount}>{placed.length} / 15 placed</span></section><PersonLink/></main>;
+  if (phase === "complete") return <main className={`${styles.page} ${discreet ? styles.discreet : ""}`}><TopBar discreet={discreet} setDiscreet={setDiscreet} onClose={closeQuickly}/><section className={styles.complete}><SunMedium size={38}/><p className={styles.eyebrow}>You made space</p><h1>One moment at a time.</h1><p>You did enough. Nothing from this activity was saved.</p><button onClick={() => { setPhase("choose"); setRoute(null); }}>Start again</button></section><PersonLink/></main>;
+  return <main className={`${styles.page} ${discreet ? styles.discreet : ""}`}><TopBar discreet={discreet} setDiscreet={setDiscreet} onClose={closeQuickly}/><section className={styles.play}><div className={styles.progress} aria-label={`Step ${step + 1} of 5`}><span>{step + 1} / 5</span><div><i style={{ width: `${((step + found / current.count) / senses.length) * 100}%` }}/></div></div><div className={styles.sense}><SenseIcon size={32}/><p className={styles.eyebrow}>{route === "real" ? "Where I am" : "Garden path"}</p><h1>{current.prompt}</h1><p className={styles.count}>{found} of {current.count} found</p></div>{route === "garden" || helper ? <div className={styles.gardenHelp}><span>{gardenObjects[(step + found) % gardenObjects.length]}</span><p>Tap when you have explored it.</p><button onClick={() => markFound("garden")}>I found it</button></div> : <div className={styles.realChoices}><button className={styles.foundButton} onClick={() => markFound("real")}>I found one</button><div className={styles.chips}>{current.chips.map((chip) => <button key={chip} onClick={() => markFound(chip)}>{chip}</button>)}</div><button className={styles.helpButton} onClick={() => setHelper(true)}>Garden, help me</button></div>}<button className={styles.switchRoute} onClick={() => { setRoute(route === "real" ? "garden" : "real"); setHelper(false); }}>{route === "real" ? "Explore the garden instead" : "Look around me instead"}</button></section><PersonLink/></main>;
+}
+
+function TopBar({ discreet, setDiscreet, onClose }: { discreet: boolean; setDiscreet: (value: boolean) => void; onClose: () => void }) { return <header className={styles.top}><button aria-pressed={discreet} onClick={() => setDiscreet(!discreet)}><ShieldX size={16}/>{discreet ? "Discreet on" : "Discreet"}</button><button onClick={onClose}>Quick close</button></header>; }
+function PersonLink() { return <Link className={styles.person} href="/account/guardians"><HeartHandshake size={18}/>I need a person</Link>; }

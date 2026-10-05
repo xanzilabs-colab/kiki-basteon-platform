@@ -8,7 +8,7 @@ const interactiveSelector = "button:not(:disabled), a[href], [role='button']";
 export function TouchSound() {
   useEffect(() => {
     let lastPlayed = 0;
-    const onPointerDown = (event: PointerEvent) => {
+    const onClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest(interactiveSelector) : null;
       if (!target || target.matches(".btn-danger, .account-mobile-sos, [data-no-touch-sound]")) return;
       const now = performance.now();
@@ -16,8 +16,8 @@ export function TouchSound() {
       lastPlayed = now;
       void unlockAlertSound().then(playTouchSound).catch(() => undefined);
     };
-    document.addEventListener("pointerdown", onPointerDown, { capture: true });
-    return () => document.removeEventListener("pointerdown", onPointerDown, { capture: true });
+    document.addEventListener("click", onClick, { capture: true });
+    return () => document.removeEventListener("click", onClick, { capture: true });
   }, []);
 
   return null;

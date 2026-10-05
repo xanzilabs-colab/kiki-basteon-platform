@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Handshake, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Gamepad2, Handshake, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -222,6 +222,7 @@ export function AccountShell({ name, children }: { name: string; children: React
           <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" ? "page" : undefined}><NavSigil><Route size={17} /></NavSigil>Trips</Link>
           <Link href="/account/buddies" className="sidebar-link" aria-current={pathname === "/account/buddies" ? "page" : undefined}><NavSigil><Handshake size={17} /></NavSigil>Buddies</Link>
           <Link href="/account/buddies/safe-places" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><NavSigil><MapPinned size={17} /></NavSigil>Safe places</Link>
+          <Link href="/account/stoep" className="sidebar-link" aria-current={pathname === "/account/stoep" ? "page" : undefined}><NavSigil><Gamepad2 size={17} /></NavSigil>Stoep</Link>
           <Link href="/w" className="sidebar-link" aria-current={pathname === "/w" ? "page" : undefined}><NavSigil><BookOpen size={17} /></NavSigil>Journal</Link>
         </nav>
         <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={openSos}>
@@ -282,6 +283,7 @@ export function AccountShell({ name, children }: { name: string; children: React
             <button className="account-more-option" onClick={() => navigate("/account/trips")}><span><NavSigil><Route size={17} /></NavSigil> Trips</span><small>Hamba travel safety</small></button>
             <button className="account-more-option" onClick={() => navigate("/account/buddies")}><span><NavSigil><Handshake size={17} /></NavSigil> Buddies</span><small>Find safer travel company</small></button>
             <button className="account-more-option" onClick={() => navigate("/account/buddies/safe-places")}><span><NavSigil><MapPinned size={17} /></NavSigil> Safe places</span><small>Browse and suggest reviewed meeting places</small></button>
+            <button className="account-more-option" onClick={() => navigate("/account/stoep")}><span><NavSigil><Gamepad2 size={17} /></NavSigil> Stoep</span><small>Unwind and play</small></button>
             <button className="account-more-option" onClick={() => navigate("/w")}><span><NavSigil><BookOpen size={17} /></NavSigil> Journal</span><small>Your private garden</small></button>
             <button className="account-more-option" onClick={() => navigate("/account/guardians")}><span><NavSigil><ShieldCheck size={17} /></NavSigil> Guardians</span><small>Your private Guardian Circle</small></button>
             <button className="account-more-option" onClick={() => closeMore(() => void startSafetyCall())}><span><NavSigil><PhoneCall size={17} /></NavSigil> Safety call</span><small>Start a discreet in-app call</small></button>
