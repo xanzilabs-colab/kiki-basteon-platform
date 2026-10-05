@@ -8,3 +8,7 @@
 .buddy-places .buddy-color { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: white; }
 .buddy-places .buddy-color[aria-checked="true"] { outline: 2px solid var(--accent); outline-offset: 3px; }
 .buddy-places .buddy-color-light { color: #1f3029; }
+.buddy-places .buddy-nearby-list { display:grid; gap:10px; margin-top:14px; }
+.buddy-places .buddy-nearby-spot { display:flex; align-items:center; justify-content:space-between; gap:14px; border:1px solid #d4c6e4; border-radius:12px; background:#fff; padding:14px; box-shadow:0 4px 12px rgba(50,24,63,.06); }
+.buddy-places .buddy-nearby-copy { min-width:0; }.buddy-places .buddy-nearby-copy h3 { margin:0; color:#21162d; font-size:15px; font-weight:800; }.buddy-places .buddy-nearby-meta { margin:4px 0 0; color:#553d69; font-size:12px; font-weight:800; text-transform:capitalize; }.buddy-places .buddy-nearby-address { margin:4px 0 0; color:#31233f; font-size:13px; font-weight:600; overflow-wrap:anywhere; }.buddy-places .buddy-reviewed { display:inline-flex; align-items:center; gap:5px; margin-top:9px; color:#176548; font-size:11px; font-weight:800; }.buddy-places .buddy-reviewed svg { color:#1e8a62; }.buddy-places .buddy-directions { flex:0 0 auto; background:#54256f; color:#fff; }.buddy-places .buddy-directions:hover { background:#32183f; }
+@media (max-width:480px) { .buddy-places .buddy-nearby-spot { align-items:flex-start; flex-direction:column; }.buddy-places .buddy-directions { width:100%; } }

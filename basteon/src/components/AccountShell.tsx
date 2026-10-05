@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BadgeCheck, BookOpen, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, UsersRound, Volume2, X } from "lucide-react";
+import { BookOpen, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, UsersRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -28,9 +28,16 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [safetyCall, setSafetyCall] = useState<"idle" | "arming" | "incoming" | "active">("idle");
   const [callSeconds, setCallSeconds] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [moreClosing, setMoreClosing] = useState(false);
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
   const ringtoneUrlRef = useRef<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  function closeMore(after?: () => void) {
+    if (!moreOpen || moreClosing) return;
+    setMoreClosing(true);
+    window.setTimeout(() => { setMoreOpen(false); setMoreClosing(false); after?.(); }, 220);
+  }
+  function navigate(path: string) { closeMore(() => router.push(path)); }
   function openSos() {
     sosSending.current = false;
     setSosError("");
@@ -209,14 +216,14 @@ export function AccountShell({ name, children }: { name: string; children: React
               className="sidebar-link"
               aria-current={pathname === link.href ? "page" : undefined}
             >
-              {link.label}
+              <NavSigil><link.icon size={17} aria-hidden="true" /></NavSigil>{link.label}
             </Link>
           ))}
-          <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" ? "page" : undefined}>Trips</Link>
-          <Link href="/account/buddies" className="sidebar-link" aria-current={pathname === "/account/buddies" ? "page" : undefined}><UsersRound size={18} /> Buddies</Link>
-          <Link href="/account/buddies/safe-places" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><MapPinned size={18} /> Safe places</Link>
-          <Link href="/account/buddies/safe-places#community-alerts" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><ShieldAlert size={18} /> Community alerts</Link>
-          <Link href="/w" className="sidebar-link" aria-current={pathname === "/w" ? "page" : undefined}><BookOpen size={18} /> Journal</Link>
+          <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" ? "page" : undefined}><NavSigil><Route size={17} /></NavSigil>Trips</Link>
+          <Link href="/account/buddies" className="sidebar-link" aria-current={pathname === "/account/buddies" ? "page" : undefined}><NavSigil><UsersRound size={17} /></NavSigil>Buddies</Link>
+          <Link href="/account/buddies/safe-places" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><NavSigil><MapPinned size={17} /></NavSigil>Safe places</Link>
+          <Link href="/account/buddies/safe-places#community-alerts" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><NavSigil><ShieldAlert size={17} /></NavSigil>Community alerts</Link>
+          <Link href="/w" className="sidebar-link" aria-current={pathname === "/w" ? "page" : undefined}><NavSigil><BookOpen size={17} /></NavSigil>Journal</Link>
         </nav>
         <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={openSos}>
           <KikiMark size={48} zoom={2} /> Send SOS
@@ -234,8 +241,8 @@ export function AccountShell({ name, children }: { name: string; children: React
           <Link className="account-user-summary" href="/account/profile" title="Open profile">
             <span className="account-user-avatar">{avatarUrl ? <img src={avatarUrl} alt={`${name}'s profile`} /> : name.charAt(0).toUpperCase()}<i /></span>
             <span className="account-user-copy">
-              <span className="account-user-name">{name}<BadgeCheck size={14} /></span>
-              <span className="account-user-protected"><i />Protected · Active</span>
+              <span className="account-user-name">{name}</span>
+              <span className="account-user-protected"><i />Protection is active</span>
             </span>
           </Link>
           <div className="account-header-actions">
@@ -246,13 +253,13 @@ export function AccountShell({ name, children }: { name: string; children: React
             <LogOut size={17} aria-hidden="true" />
           </button>
         </header>
-        <main className="mx-auto max-w-4xl p-5 md:p-6">{children}</main>
+        <main key={pathname} className="account-page-transition mx-auto max-w-4xl p-5 md:p-6">{children}</main>
       </div>
 
       <nav inert={sosOpen} className="account-mobile-nav fixed inset-x-0 bottom-0 z-20 flex h-[68px] border-t border-[var(--line)] bg-[var(--chrome)] md:hidden">
         {links.slice(0, 2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px] aria-[current=page]:border-t-[var(--text)]" aria-current={pathname === link.href ? "page" : undefined}>
-            {link.href === "/account/devices" ? <Image src="/assets/devices-icon.png" alt="" width={44} height={44} className="-my-3 h-11 w-11" /> : <link.icon size={18} strokeWidth={2.2} aria-hidden="true" />}
+            <NavSigil>{link.href === "/account/devices" ? <Image src="/assets/devices-icon.png" alt="" width={32} height={32} /> : <link.icon size={17} strokeWidth={2.2} aria-hidden="true" />}</NavSigil>
             <span>{link.label}</span>
           </Link>
         ))}
@@ -271,16 +278,16 @@ export function AccountShell({ name, children }: { name: string; children: React
         ))}
       </nav>
       {moreOpen && (
-        <div className="account-more-scrim" role="presentation" onClick={() => setMoreOpen(false)}>
+        <div className={`account-more-scrim ${moreClosing ? "is-closing" : ""}`} role="presentation" onClick={() => closeMore()}>
           <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
-            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/trips"); }}><span><Route size={20} /> Trips</span><small>Hamba travel safety</small></button>
-            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/buddies"); }}><span><UsersRound size={20} /> Buddies</span><small>Find safer travel company</small></button>
-            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/buddies/safe-places"); }}><span><MapPinned size={20} /> Safe places</span><small>Browse and suggest reviewed meeting places</small></button>
-            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/buddies/safe-places#community-alerts"); }}><span><ShieldAlert size={20} /> Community alerts</span><small>View and report nearby safety concerns</small></button>
-            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/w"); }}><span><BookOpen size={20} /> Journal</span><small>Your private garden</small></button>
-            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/guardians"); }}><span><ShieldCheck size={20} /> Guardians</span><small>Your private Guardian Circle</small></button>
-            <button className="account-more-option" onClick={() => { setMoreOpen(false); void startSafetyCall(); }}><span><PhoneCall size={20} /> Safety call</span><small>Start a discreet in-app call</small></button>
-            <button className="btn w-full" onClick={() => setMoreOpen(false)}>Close</button>
+            <button className="account-more-option" onClick={() => navigate("/account/trips")}><span><NavSigil><Route size={17} /></NavSigil> Trips</span><small>Hamba travel safety</small></button>
+            <button className="account-more-option" onClick={() => navigate("/account/buddies")}><span><NavSigil><UsersRound size={17} /></NavSigil> Buddies</span><small>Find safer travel company</small></button>
+            <button className="account-more-option" onClick={() => navigate("/account/buddies/safe-places")}><span><NavSigil><MapPinned size={17} /></NavSigil> Safe places</span><small>Browse and suggest reviewed meeting places</small></button>
+            <button className="account-more-option" onClick={() => navigate("/account/buddies/safe-places#community-alerts")}><span><NavSigil><ShieldAlert size={17} /></NavSigil> Community alerts</span><small>View and report nearby safety concerns</small></button>
+            <button className="account-more-option" onClick={() => navigate("/w")}><span><NavSigil><BookOpen size={17} /></NavSigil> Journal</span><small>Your private garden</small></button>
+            <button className="account-more-option" onClick={() => navigate("/account/guardians")}><span><NavSigil><ShieldCheck size={17} /></NavSigil> Guardians</span><small>Your private Guardian Circle</small></button>
+            <button className="account-more-option" onClick={() => closeMore(() => void startSafetyCall())}><span><NavSigil><PhoneCall size={17} /></NavSigil> Safety call</span><small>Start a discreet in-app call</small></button>
+            <button className="btn w-full" onClick={() => closeMore()}>Close</button>
           </section>
         </div>
       )}
@@ -346,4 +353,8 @@ export function AccountShell({ name, children }: { name: string; children: React
       )}
     </div>
   );
+}
+
+function NavSigil({ children }: { children: React.ReactNode }) {
+  return <span className="nav-sigil">{children}</span>;
 }
