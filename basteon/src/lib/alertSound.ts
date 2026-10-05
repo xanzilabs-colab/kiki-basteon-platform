@@ -45,3 +45,24 @@ export function playMessageSound() {
     });
   } catch {}
 }
+
+export function playTouchSound() {
+  try {
+    if (localStorage.getItem("basteon-sound") === "off") return;
+    const context = getAudioContext();
+    if (context.state !== "running") return;
+    [523.25, 659.25].forEach((frequency, index) => {
+      const start = context.currentTime + index * 0.035;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.035, start + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.07);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.08);
+    });
+  } catch {}
+}
