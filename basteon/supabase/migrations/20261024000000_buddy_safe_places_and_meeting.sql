@@ -1,17 +1,29 @@
 begin;
 
 alter table public.safe_places
-  add column category text not null default 'other_public',
-  add column address text,
-  add column suburb text,
-  add column open_now boolean,
-  add column open_24h boolean not null default false,
-  add column quality integer not null default 3 check (quality between 1 and 5),
-  add column review_status text not null default 'pending' check (review_status in ('pending', 'approved', 'rejected')),
-  add column suggested_by uuid references public.profiles(id) on delete set null,
-  add constraint safe_places_category_check check (category in ('petrol_station', 'mall', 'police_station', 'hospital', 'cafe_restaurant', 'transit_hub', 'other_public', 'supermarket', 'school', 'place_of_worship', 'bus_stop', 'taxi_rank'));
+  add column if not exists category text not null default 'other_public',
+  add column if not exists address text,
+  add column if not exists suburb text,
+  add column if not exists open_now boolean,
+  add column if not exists open_24h boolean not null default false,
+  add column if not exists quality integer not null default 3 check (quality between 1 and 5),
+  add column if not exists review_status text not null default 'pending' check (review_status in ('pending', 'approved', 'rejected')),
+  add column if not exists suggested_by uuid references public.profiles(id) on delete set null;
 update public.safe_places set category = case when kind in ('petrol_station', 'mall', 'police_station', 'hospital', 'cafe_restaurant', 'transit_hub', 'supermarket', 'school', 'place_of_worship', 'bus_stop', 'taxi_rank') then kind else 'other_public' end,
   review_status = case when verified_at is not null then 'approved' else 'pending' end;
+alter table public.safe_places alter column category set not null;
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.safe_places'::regclass and conname = 'safe_places_category_check'
+  ) then
+    alter table public.safe_places add constraint safe_places_category_check check (category in (
+      'petrol_station', 'mall', 'police_station', 'hospital', 'cafe_restaurant', 'transit_hub',
+      'other_public', 'supermarket', 'school', 'place_of_worship', 'bus_stop', 'taxi_rank'
+    ));
+  end if;
+end $$;
 
 create table public.buddy_community_alerts (
   id uuid primary key default gen_random_uuid(),
