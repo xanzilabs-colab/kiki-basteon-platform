@@ -11,7 +11,7 @@ export function meetingJson(data: unknown, status = 200) {
 
 export function meetingError(error: unknown) {
   const message = error instanceof Error ? error.message : "unavailable";
-  const statuses: Record<string, number> = { unauthenticated: 401, forbidden: 403, not_member: 403, not_found: 404, stale_round: 409, membership_changed: 409, waiting_for_locations: 409, invalid_candidate: 409, invalid_location: 400, invalid_bounds: 400, invalid_place: 400, rate_limited: 429, BUDDIES_UNAVAILABLE: 503 };
+  const statuses: Record<string, number> = { unauthenticated: 401, forbidden: 403, not_member: 403, not_found: 404, stale_round: 409, membership_changed: 409, waiting_for_locations: 409, invalid_candidate: 409, invalid_location: 400, invalid_bounds: 400, invalid_place: 400, invalid_alert: 400, rate_limited: 429, BUDDIES_UNAVAILABLE: 503 };
   return meetingJson({ error: message in statuses ? message : "unavailable" }, statuses[message] ?? 503);
 }
 

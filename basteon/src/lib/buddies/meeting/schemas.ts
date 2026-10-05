@@ -3,7 +3,7 @@ import { MEET_CATEGORIES } from "./types";
 
 export const coordinates = z.object({ lat: z.number().finite().min(-90).max(90), lng: z.number().finite().min(-180).max(180) });
 export const placeSchema = coordinates.extend({ name: z.string().trim().min(2).max(200), category: z.enum(MEET_CATEGORIES), address: z.string().trim().max(300).nullable().optional() }).strict();
-export const alertSchema = coordinates.extend({ kind: z.enum(["unsafe_area", "poor_lighting", "harassment", "road_hazard"]) }).strict();
+export const alertSchema = coordinates.extend({ kind: z.enum(["unsafe_area", "poor_lighting", "harassment", "road_hazard"]), locationLabel: z.string().trim().min(3).max(300), detail: z.string().trim().min(4).max(500) }).strict();
 export const searchSchema = coordinates.extend({ radius: z.number().int().min(100).max(20000).default(3000) }).strict();
 export const spotActionSchema = z.discriminatedUnion("action", [
   coordinates.extend({ action: z.literal("location"), allowLandmarks: z.boolean().default(false) }).strict(),

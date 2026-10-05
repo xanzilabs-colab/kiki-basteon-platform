@@ -24,7 +24,7 @@ export async function currentMeetingLocation(): Promise<{ lat: number; lng: numb
 }
 
 export type PublicSpot = { id: string; name: string; category: string; lat: number; lng: number; address: string | null; quality: number; open_24h: boolean };
-export type CommunityAlert = { id: string; kind: string; lat: number; lng: number; created_at: string; expires_at: string };
+export type CommunityAlert = { id: string; kind: string; lat: number; lng: number; location_label: string | null; detail: string | null; created_at: string; expires_at: string; upvotes: number; voted: boolean };
 export type MeetingCandidate = { id: string; name: string; category: string; source: string; lat: number; lng: number; address: string | null; distanceM: number; maxDistanceM: number; balanced: boolean; votes: number; yourVote: boolean; rejected: boolean };
 export type MeetingView = { round: number; selectedCandidateId: string | null; total: number; ready: number; membershipChanged: boolean; candidates: MeetingCandidate[]; lookFor: Array<{ alias: string; you: boolean; topColor: string | null; carryingBag: boolean | null }> };
 export const directionsUrl = (lat: number, lng: number) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
