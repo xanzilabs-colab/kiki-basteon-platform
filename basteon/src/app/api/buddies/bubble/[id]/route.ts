@@ -10,7 +10,8 @@ const NO_STORE = { "Cache-Control": "no-store" };
 
 type RawMember = { userId?: unknown; arrived?: unknown; met?: unknown };
 type RawMessage = { senderId?: unknown; messageKey?: unknown; createdAt?: unknown };
-type RawBubble = { meetingCode?: unknown; closed?: unknown; expiresAt?: unknown; members?: unknown; messages?: unknown };
+type RawWalk = { id?: unknown; status?: unknown; callerId?: unknown; calleeId?: unknown; stale?: unknown };
+type RawBubble = { meetingCode?: unknown; closed?: unknown; expiresAt?: unknown; members?: unknown; messages?: unknown; virtualWalk?: RawWalk | null; stale?: unknown };
 
 // `stage` + `detail` are debugging aids. Once it works, remove `detail` from the response.
 function fail(status: number, stage: string, detail?: string) {
@@ -42,6 +43,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const bubble = data as RawBubble;
     const members = Array.isArray(bubble.members) ? (bubble.members as RawMember[]) : [];
     const messages = Array.isArray(bubble.messages) ? (bubble.messages as RawMessage[]) : [];
+    const walk = bubble.virtualWalk;
 
     return NextResponse.json(
       {
@@ -64,7 +66,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
             created_at: typeof m.createdAt === "string" ? m.createdAt : new Date(0).toISOString(),
             sender: m.senderId === user.id ? "You" : "Buddy",
           })),
-        virtualWalk: null,
+        userId: user.id,
+        stale: bubble.stale === true,
+        virtualWalk: walk && typeof walk.id === "string" && typeof walk.callerId === "string" && (walk.status === "ringing" || walk.status === "active") ? {
+          id: walk.id, status: walk.status, callerId: walk.callerId,
+          calleeId: typeof walk.calleeId === "string" ? walk.calleeId : null,
+          incoming: walk.status === "ringing" && walk.callerId !== user.id,
+          stale: walk.stale === true,
+        } : null,
       },
       { headers: NO_STORE },
     );

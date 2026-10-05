@@ -67,6 +67,20 @@ Use the admin API endpoint `POST /api/admin/simulate-alert` while signed in as a
 
 The service role key is used only by server-side route handlers and the Supabase Edge Function. Do not expose it in browser code or commit populated environment files.
 
+## Buddy Safe Spots And Meetings
+
+The non-audio features require migration `20261024000000_buddy_safe_places_and_meeting.sql`, after all migrations through `20261023000000`. This implementation does not apply migrations automatically.
+
+- Account entry: `/account/buddies/safe-places`. Members open their active Bubble meeting at `/account/buddies/meeting/[id]`; the existing Bubble page and privacy-preserving map remain unchanged.
+- Admin entry: `/admin/buddy-places`. Admins create reviewed public spots, approve or reject suggestions, set quality and 24-hour availability, deactivate listings, and resolve community reports. Approval expires for ranking after 90 days unless renewed.
+- Meeting locations require explicit sharing and are eligible for 10 minutes. Browser responses never contain another member's coordinates, destination, individual distance breakdown, or user ID. Options expose your estimate and the group's longest estimate. Location eligibility expiry is not physical data deletion; deployments should configure retention separately.
+- New rounds require current locations from every member. Landmark lookup requires unanimous opt-in. Configure `KIKI_HTTP_UA` with a contact email for OpenStreetMap requests; lookup sends the meeting-zone centre, not individual member records. OSM landmarks are unreviewed and may be unavailable.
+- Voting is round-scoped and unanimous across the active group. Membership changes invalidate options; feedback excludes a spot from subsequent rounds in that Bubble. Generation has a 30-second cooldown before external lookup. Distances are estimates, not live walking routes or guarantees of safety.
+- Community alerts are approximate, expire after four hours, and never expose reporter identity. Limits are five reports per hour and ten spot suggestions per day per account.
+- New operations use authenticated, role-checked SECURITY DEFINER RPCs. Only the existing meeting engine's raw-input and candidate-save contracts use service role. New tables remain inaccessible to browser table queries.
+
+Focused checks: `npm test -- src/lib/buddies/meeting/__tests__` and `npx tsc --noEmit --incremental false`. Database integration must be verified in a controlled environment after the migration is deployed.
+
 ## User Accounts And Device Linking
 
 Apply `supabase/migrations/20261005000000_accounts_and_device_linking.sql`, then redeploy the Edge Function. In Vercel, configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` for the Production environment. Add the Vercel production URL and local development URL to Supabase Auth redirect URLs.

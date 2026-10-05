@@ -1,6 +1,30 @@
+import { NextResponse } from "next/server";
 import { z } from "zod";
-import { safeJson, sameOrigin } from "@/lib/verification/http";
-import { recordBuddyAudit } from "../../../_audit";
-import { requireBubbleMember } from "../_shared";
-const schema = z.object({ action: z.enum(["start", "answer", "end"]) });
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) { const { id } = await params; if (!sameOrigin(request)) return safeJson({ error: "forbidden" }, { status: 403 }); const access = await requireBubbleMember(id); if ("error" in access) return access.error; const actorAlias = (access as { alias?: string | null }).alias ?? null; const input = schema.safeParse(await request.json().catch(() => null)); if (!input.success) return safeJson({ error: "invalid_action" }, { status: 400 }); if (input.data.action === "start") { const { data, error } = await access.db.from("buddy_virtual_walks").insert({ bubble_id: id, caller_id: access.user.id, status: "ringing" }).select("id").single(); if (error) return safeJson({ error: "virtual_walk_unavailable" }, { status: 409 }); await recordBuddyAudit(access.db, { bubbleId: id, actorId: access.user.id, actorAlias, event: "virtual_walk_started" }); return safeJson({ id: data.id, status: "ringing" }); } const { data: walk } = await access.db.from("buddy_virtual_walks").select("id").eq("bubble_id", id).in("status", ["ringing", "active"]).maybeSingle(); if (!walk) return safeJson({ error: "virtual_walk_not_found" }, { status: 404 }); await access.db.from("buddy_virtual_walks").update(input.data.action === "answer" ? { status: "active", answered_at: new Date().toISOString() } : { status: "ended", ended_at: new Date().toISOString() }).eq("id", walk.id); await recordBuddyAudit(access.db, { bubbleId: id, actorId: access.user.id, actorAlias, event: input.data.action === "answer" ? "virtual_walk_answered" : "virtual_walk_ended" }); return safeJson({ status: input.data.action === "answer" ? "active" : "ended" }); }
+import { createClient } from "@/lib/supabase/server";
+import { sameOrigin } from "@/lib/verification/http";
+
+export const dynamic = "force-dynamic";
+const schema = z.union([
+	z.object({ action: z.literal("start") }).strict(),
+	z.object({ action: z.enum(["answer", "end", "heartbeat"]), walkId: z.string().uuid() }).strict(),
+]);
+const headers = { "Cache-Control": "no-store" };
+
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+	if (!sameOrigin(request)) return NextResponse.json({ error: "forbidden" }, { status: 403, headers });
+	const { id } = await params;
+	const input = schema.safeParse(await request.json().catch(() => null));
+	if (!z.string().uuid().safeParse(id).success || !input.success) return NextResponse.json({ error: "invalid_action" }, { status: 400, headers });
+	const client = await createClient();
+	const { data: { user } } = await client.auth.getUser();
+	if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401, headers });
+	const action = input.data;
+	const { data, error } = await client.rpc(`${action.action}_buddy_virtual_walk`, {
+		p_bubble_id: id, ...(action.action === "start" ? {} : { p_walk_id: action.walkId }),
+	});
+	if (error) {
+		const forbidden = /not_bubble_member|forbidden|unauthenticated/.test(error.message);
+		return NextResponse.json({ error: forbidden ? "forbidden" : "virtual_walk_unavailable" }, { status: forbidden ? 403 : 503, headers });
+	}
+	return NextResponse.json(data, { status: data?.error ? 409 : 200, headers });
+}

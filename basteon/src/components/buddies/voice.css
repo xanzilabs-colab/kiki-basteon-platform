@@ -1,0 +1,12 @@
+.buddy-voice .buddy-voice-status { margin: 12px 0; font-size: 13px; font-weight: 600; }
+.buddy-voice .buddy-voice-actions, .buddy-voice .buddy-voice-modes, .buddy-voice .buddy-voice-levels { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.buddy-voice .buddy-voice-modes button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--border, #cad3d0); border-radius: 6px; font-size: 12px; }
+.buddy-voice .buddy-voice-modes button[aria-pressed="true"] { border-color: #167c62; background: #e7f5ed; color: #145b48; }
+.buddy-voice button { max-width: 100%; white-space: normal; }
+.buddy-voice button:focus-visible { outline: 2px solid #167c62; outline-offset: 3px; }
+.buddy-voice .buddy-voice-hold { min-width: 148px; min-height: 48px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.buddy-voice .buddy-voice-hold[aria-pressed="true"] { background: #167c62; color: #fff; }
+.buddy-voice .buddy-voice-levels { font-size: 12px; }
+.buddy-voice .buddy-voice-levels span { overflow-wrap: anywhere; }
+.buddy-voice .buddy-voice-levels span[data-live="true"] { color: #167c62; font-weight: 600; }
+.buddy-voice button:disabled { opacity: .5; cursor: not-allowed; }

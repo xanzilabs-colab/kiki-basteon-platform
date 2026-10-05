@@ -1,0 +1,10 @@
+.buddy-places .field { display: grid; min-width: 0; max-width: 100%; gap: 6px; font-size: 12px; font-weight: 600; }
+.buddy-places .field input, .buddy-places .field select { width: 100%; min-width: 0; min-height: 38px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-1); padding: 8px 10px; color: var(--text); font-size: 14px; font-weight: 400; }
+.buddy-places .btn { min-height: 36px; height: auto; max-width: 100%; padding: 8px 14px; white-space: normal; }
+.buddy-places svg { flex-shrink: 0; }
+.buddy-places h2 { display: flex; align-items: center; gap: 8px; }
+.buddy-places .buddies-heading { flex-wrap: wrap; }
+.buddy-places .buddies-heading > div { min-width: 0; }
+.buddy-places .buddy-color { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: white; }
+.buddy-places .buddy-color[aria-checked="true"] { outline: 2px solid var(--accent); outline-offset: 3px; }
+.buddy-places .buddy-color-light { color: #1f3029; }
