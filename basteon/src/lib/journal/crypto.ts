@@ -1,0 +1,29 @@
+const te = new TextEncoder();
+const td = new TextDecoder();
+export const KDF_ITERATIONS = 600_000;
+export const ENC_VERSION = 1;
+export class WrongSecretError extends Error { constructor() { super("wrong_secret"); this.name = "WrongSecretError"; } }
+export class DecryptError extends Error { constructor() { super("decrypt_failed"); this.name = "DecryptError"; } }
+const bs = (value: Uint8Array) => value as unknown as BufferSource;
+function subtle(): SubtleCrypto { if (typeof crypto === "undefined" || !crypto.subtle) throw new Error("webcrypto_unavailable"); return crypto.subtle; }
+export function toB64(bytes: Uint8Array): string { let text = ""; const chunk = 0x8000; for (let index = 0; index < bytes.length; index += chunk) text += String.fromCharCode(...bytes.subarray(index, index + chunk)); return btoa(text); }
+export function fromB64(value: string): Uint8Array { const binary = atob(value); return Uint8Array.from(binary, (character) => character.charCodeAt(0)); }
+export function randomBytes(length: number): Uint8Array { const bytes = new Uint8Array(length); crypto.getRandomValues(bytes); return bytes; }
+export async function deriveKek(secret: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
+  const base = await subtle().importKey("raw", bs(te.encode(secret.normalize("NFKC"))), "PBKDF2", false, ["deriveKey"]);
+  return subtle().deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: bs(salt), iterations }, base, { name: "AES-GCM", length: 256 }, false, ["wrapKey", "unwrapKey"]);
+}
+const B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+export function generateRecoveryBytes(): Uint8Array { return randomBytes(16); }
+export function formatRecoveryCode(bytes: Uint8Array): string { let bits = 0; let value = 0; let output = ""; for (const byte of bytes) { value = (value << 8) | byte; bits += 8; while (bits >= 5) { output += B32[(value >>> (bits - 5)) & 31]; bits -= 5; value &= (1 << bits) - 1; } } if (bits > 0) output += B32[(value << (5 - bits)) & 31]; return (output.match(/.{1,4}/g) as string[]).join("-"); }
+export function parseRecoveryCode(input: string): Uint8Array | null { const clean = input.toUpperCase().replace(/[\s-]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1"); if (clean.length !== 26) return null; let bits = 0; let value = 0; const output: number[] = []; for (const character of clean) { const index = B32.indexOf(character); if (index < 0) return null; value = (value << 5) | index; bits += 5; if (bits >= 8) { output.push((value >>> (bits - 8)) & 255); bits -= 8; value &= (1 << bits) - 1; } } return output.length >= 16 ? Uint8Array.from(output.slice(0, 16)) : null; }
+export async function recoveryKeyFromBytes(bytes: Uint8Array): Promise<CryptoKey> { return subtle().importKey("raw", bs(bytes), { name: "AES-GCM" }, false, ["wrapKey", "unwrapKey"]); }
+export async function generateDek(): Promise<CryptoKey> { return subtle().generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]); }
+export async function wrapDek(dek: CryptoKey, wrapKey: CryptoKey) { const iv = randomBytes(12); const wrapped = await subtle().wrapKey("raw", dek, wrapKey, { name: "AES-GCM", iv: bs(iv) }); return { wrapped: toB64(new Uint8Array(wrapped)), iv: toB64(iv) }; }
+export async function unwrapDek(wrappedB64: string, ivB64: string, wrapKey: CryptoKey, extractable = false): Promise<CryptoKey> { try { return await subtle().unwrapKey("raw", bs(fromB64(wrappedB64)), wrapKey, { name: "AES-GCM", iv: bs(fromB64(ivB64)) }, { name: "AES-GCM", length: 256 }, extractable, ["encrypt", "decrypt"]); } catch { throw new WrongSecretError(); } }
+export async function createKeyBundle(secret: string) { const salt = randomBytes(16); const kek = await deriveKek(secret, salt, KDF_ITERATIONS); const dek = await generateDek(); const main = await wrapDek(dek, kek); const recoveryBytes = generateRecoveryBytes(); const recovery = await wrapDek(dek, await recoveryKeyFromBytes(recoveryBytes)); const sessionKey = await unwrapDek(main.wrapped, main.iv, kek, false); return { rpcArgs: { p_kdf_iterations: KDF_ITERATIONS, p_salt: toB64(salt), p_wrapped_dek: main.wrapped, p_wrap_iv: main.iv, p_recovery_wrapped_dek: recovery.wrapped, p_recovery_iv: recovery.iv }, recoveryCode: formatRecoveryCode(recoveryBytes), sessionKey }; }
+const aad = (context: string) => bs(te.encode(`kiki-journal:v${ENC_VERSION}:${context}`));
+export async function encryptJson(dek: CryptoKey, value: unknown, context: string) { const iv = randomBytes(12); const ciphertext = await subtle().encrypt({ name: "AES-GCM", iv: bs(iv), additionalData: aad(context) }, dek, bs(te.encode(JSON.stringify(value)))); return { enc: toB64(new Uint8Array(ciphertext)), iv: toB64(iv) }; }
+export async function decryptJson<T>(dek: CryptoKey, enc: string, iv: string, context: string): Promise<T> { try { const plaintext = await subtle().decrypt({ name: "AES-GCM", iv: bs(fromB64(iv)), additionalData: aad(context) }, dek, bs(fromB64(enc))); return JSON.parse(td.decode(plaintext)) as T; } catch { throw new DecryptError(); } }
+export async function encryptBytes(dek: CryptoKey, bytes: Uint8Array, context: string): Promise<Uint8Array> { const iv = randomBytes(12); const ciphertext = new Uint8Array(await subtle().encrypt({ name: "AES-GCM", iv: bs(iv), additionalData: aad(context) }, dek, bs(bytes))); const output = new Uint8Array(12 + ciphertext.length); output.set(iv); output.set(ciphertext, 12); return output; }
+export async function decryptBytes(dek: CryptoKey, data: Uint8Array, context: string): Promise<Uint8Array> { try { return new Uint8Array(await subtle().decrypt({ name: "AES-GCM", iv: bs(data.slice(0, 12)), additionalData: aad(context) }, dek, bs(data.slice(12)))); } catch { throw new DecryptError(); } }

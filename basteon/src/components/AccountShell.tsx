@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BadgeCheck, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, UsersRound, Volume2, X } from "lucide-react";
+import { BadgeCheck, BookOpen, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, UsersRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -216,6 +216,7 @@ export function AccountShell({ name, children }: { name: string; children: React
           <Link href="/account/buddies" className="sidebar-link" aria-current={pathname === "/account/buddies" ? "page" : undefined}><UsersRound size={18} /> Buddies</Link>
           <Link href="/account/buddies/safe-places" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><MapPinned size={18} /> Safe places</Link>
           <Link href="/account/buddies/safe-places#community-alerts" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><ShieldAlert size={18} /> Community alerts</Link>
+          <Link href="/w" className="sidebar-link" aria-current={pathname === "/w" ? "page" : undefined}><BookOpen size={18} /> Journal</Link>
         </nav>
         <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={openSos}>
           <KikiMark size={48} zoom={2} /> Send SOS
@@ -276,6 +277,7 @@ export function AccountShell({ name, children }: { name: string; children: React
             <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/buddies"); }}><span><UsersRound size={20} /> Buddies</span><small>Find safer travel company</small></button>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/buddies/safe-places"); }}><span><MapPinned size={20} /> Safe places</span><small>Browse and suggest reviewed meeting places</small></button>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/buddies/safe-places#community-alerts"); }}><span><ShieldAlert size={20} /> Community alerts</span><small>View and report nearby safety concerns</small></button>
+            <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/w"); }}><span><BookOpen size={20} /> Journal</span><small>Your private garden</small></button>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); router.push("/account/guardians"); }}><span><ShieldCheck size={20} /> Guardians</span><small>Your private Guardian Circle</small></button>
             <button className="account-more-option" onClick={() => { setMoreOpen(false); void startSafetyCall(); }}><span><PhoneCall size={20} /> Safety call</span><small>Start a discreet in-app call</small></button>
             <button className="btn w-full" onClick={() => setMoreOpen(false)}>Close</button>
