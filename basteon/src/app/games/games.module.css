@@ -148,5 +148,15 @@
 @media (max-width: 640px) {
   .page {
     padding-inline: 14px;
+    padding-bottom: 96px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .card {
+    min-height: 170px;
   }
 }
