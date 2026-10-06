@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
 import { NotificationBell } from "@/components/NotificationBell";
 import { primeRingtone, startRingtone } from "@/lib/ringtone";
-import { SosActionButton } from "@/components/sos/SosActionButton";
+import { SosActionButton } from "./sos/SosActionButton";
 import { alertSetType } from "@/lib/sos/client";
 import type { SosType } from "@/lib/sos/sosGesture";
 import { enqueueSos, flushSosOutbox, removeQueuedSos, type SosRequest } from "@/lib/sos/outbox";
