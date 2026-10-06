@@ -3,7 +3,7 @@ import { ArrowRight, Flower2, Gamepad2, Map, Sparkles } from "lucide-react";
 import styles from "./games.module.css";
 
 const games = [
-  { href: "/account/stoep", title: "Stoep", description: "A calming in-app grounding game: look around, notice, and grow a quiet bloom.", icon: Flower2, accent: "Stoep" },
+  { href: "/games/calm/five-things", title: "Five Things", description: "Ground yourself by noticing what is real, safe, and present.", icon: Flower2, accent: "Stoep" },
   { href: "/games/calm", title: "Calm games", description: "Short, gentle solo games designed to help you settle back into the moment.", icon: Sparkles, accent: "Solo" },
   { href: "/games/play", title: "Play with a buddy", description: "Find an open nearby player and enjoy a light two-player round.", icon: Map, accent: "Buddy" },
 ];
@@ -12,10 +12,10 @@ export default function GamesPage() {
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
-        <p className={styles.eyebrow}>Kiki games</p>
-        <h1 className={styles.title}>A calm corner to reset.</h1>
+        <p className={styles.eyebrow}>Stoep</p>
+        <h1 className={styles.title}>Unwind and play.</h1>
         <p className={styles.subtitle}>
-          The stoep is the home for low-pressure games. Choose a quiet path, a gentle reset, or a quick bridge with a buddy.
+          Choose a quiet reset, a gentle distraction, or a quick bridge with a buddy.
         </p>
 
         <div className={styles.grid}>
