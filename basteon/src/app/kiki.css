@@ -268,6 +268,37 @@
 @keyframes sos-bubble-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 @media (prefers-reduced-motion: reduce) { .sos-medical-bubble { animation: sos-bubble-fade 120ms ease-out both; } .sos-medical-bubble.is-armed { animation: sos-bubble-fade 120ms ease-out both; transform: none; } }
 @keyframes sos-bubble-fade { from { opacity: 0; } to { opacity: 1; } }
+/* SOS fluid bubble and tether effects */
+@keyframes bubble-float {
+  0%, 100% { transform: translateY(0px) scale(1) rotate(0deg); }
+  33% { transform: translateY(-4px) scale(1.02, 0.98) rotate(1deg); }
+  66% { transform: translateY(3px) scale(0.98, 1.02) rotate(-1deg); }
+}
+@keyframes bubble-pulse-armed {
+  0%, 100% { transform: scale(1.08); box-shadow: 0 0 25px rgba(239,68,68,.6), inset 0 0 15px rgba(255,255,255,.5); }
+  50% { transform: scale(1.14); box-shadow: 0 0 40px rgba(239,68,68,.8), inset 0 0 22px rgba(255,255,255,.7); }
+}
+@keyframes flow-particles {
+  from { stroke-dashoffset: 40; }
+  to { stroke-dashoffset: 0; }
+}
+.sos-fluid-bubble {
+  animation: bubble-float 4s ease-in-out infinite;
+  transition: all .35s cubic-bezier(.34,1.56,.64,1);
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), rgba(225,29,72,.85) 70%, rgba(159,18,57,.95));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 25px -5px rgba(225,29,72,.4), inset 0 2px 4px rgba(255,255,255,.6), inset 0 -4px 8px rgba(0,0,0,.2);
+}
+.sos-fluid-bubble.is-armed {
+  animation: bubble-pulse-armed 1.2s ease-in-out infinite;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.4), rgba(239,68,68,.95) 60%, rgba(185,28,28,1));
+}
+.sos-tether-particle { stroke-dasharray: 6 12; animation: flow-particles .8s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sos-fluid-bubble, .sos-fluid-bubble.is-armed, .sos-tether-particle { animation: none; }
+  .sos-fluid-bubble { transition: opacity .12s ease-out; }
+}
 .kiki-activity-list { display: grid; gap: 8px; }
 .kiki-activity-row { display: flex; align-items: center; gap: 10px; min-width: 0; border: 1px solid var(--divider); border-radius: 16px; background: #faf8fc; padding: 14px; color: var(--accent); text-decoration: none; }
 .kiki-activity-row svg { flex-shrink: 0; }
