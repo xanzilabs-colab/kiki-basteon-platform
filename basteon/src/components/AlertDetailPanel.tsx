@@ -9,6 +9,7 @@ import { StatusBadge } from "./StatusBadge";
 import { LocationSourceBadge } from "./LocationSourceBadge";
 import { StatusActions } from "./StatusActions";
 import { AlertTimeline } from "./AlertTimeline";
+import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
 
 export function AlertDetailPanel({
   alert,
@@ -56,8 +57,12 @@ export function AlertDetailPanel({
     <div className="flex h-full min-h-0 flex-col">
       <div className="pane-head">
         <StatusBadge status={alert.status} />
+        <AlertTypeBadge typeCode={alert.type_code} size="header" />
         <span className="data text-[11px] muted">#{alert.ctr}</span>
       </div>
+
+      {alert.type_source === "upgrade" && alert.type_updated_at && <div className="mx-4 mt-3 border-l-4 border-[#087f70] bg-[#087f70]/15 px-3 py-2 text-[12px] font-semibold text-[#70e1d0]">Updated to {alert.type_code === "medical" ? "Medical" : "SOS"} at {new Date(alert.type_updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
+      {alert.type_code === "medical" && <p className="mx-4 mt-2 text-[12px] text-[#8ddfd2]">Caller reports a medical emergency.</p>}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="section">

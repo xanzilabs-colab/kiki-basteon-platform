@@ -110,8 +110,8 @@ const dispatchPush = async (deviceId: string, deviceName: string | null, ownerNa
       method: "POST",
       headers: { "Content-Type": "application/json", "x-push-dispatch-secret": secret },
       body: JSON.stringify({
-        title: "New panic alert",
-        body: `${recipientName} needs assistance.`,
+        title: "SOS alert",
+        body: `SOS alert from ${recipientName}.`,
         tag: `basteon-alert-${deviceId}-${Date.now()}`,
         url: "/responder",
       }),
@@ -213,6 +213,8 @@ Deno.serve(async (request) => {
       loc_source: tracking.lat === null ? null : tracking.src,
       fix_age_s: tracking.lat === null ? null : tracking.age,
       battery: tracking.battery,
+      type_code: "sos",
+      type_source: "device",
     });
     if (insertError) return json({ error: "db_error" }, 500);
 

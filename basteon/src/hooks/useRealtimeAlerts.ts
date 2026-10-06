@@ -10,10 +10,12 @@ import type { Alert, AlertEvent, Device } from "@/lib/types";
 const alertQuery = "*, assignee:profiles!alerts_assigned_to_fkey(full_name)";
 
 function announceAlert(alert: Alert) {
-	toast("NEW PANIC ALERT", { description: "A wearable device has activated an emergency alert." });
+	const medical = alert.type_code === "medical";
+	const title = medical ? "Medical alert" : "SOS alert";
+	toast(title.toUpperCase(), { description: `${alert.device?.device_name ?? alert.device_id} needs assistance.` });
 	if (localStorage.getItem("basteon-sound") !== "off") playAlertSound();
 	if (document.hidden && Notification.permission === "granted") {
-		new Notification("New panic alert", {
+		new Notification(title, {
 			body: `${alert.device?.device_name ?? alert.device_id} needs assistance.`,
 			tag: `basteon-alert-${alert.id}`,
 		});
@@ -30,6 +32,7 @@ export function useRealtimeAlerts() {
 	const [connection, setConnection] = useState("connecting");
 	const [error, setError] = useState("");
 	const knownAlertIds = useRef(new Set<string>());
+	const knownAlerts = useRef(new Map<string, Alert>());
 	const hasInitialSnapshot = useRef(false);
 
 	useEffect(() => {
@@ -39,8 +42,16 @@ export function useRealtimeAlerts() {
 		const addOrUpdateAlert = (alert: Alert, notify: boolean) => {
 			const isNew = !knownAlertIds.current.has(alert.id);
 			knownAlertIds.current.add(alert.id);
+			knownAlerts.current.set(alert.id, alert);
 			setAlerts((current) => [alert, ...current.filter((item) => item.id !== alert.id)]);
 			if (notify && isNew) announceAlert(alert);
+		};
+
+		const announceTypeChange = (alert: Alert) => {
+			const label = alert.type_code === "medical" ? "Medical" : "SOS";
+			toast(`Alert updated to ${label}`, { description: `${alert.device?.device_name ?? alert.device_id} incident type changed.` });
+			if (localStorage.getItem("basteon-sound") !== "off") playAlertSound();
+			if (document.hidden && Notification.permission === "granted") new Notification(`Alert updated to ${label}`, { body: `${alert.device?.device_name ?? alert.device_id} incident type changed.`, tag: `basteon-alert-type-${alert.id}` });
 		};
 
 		const syncAlerts = async () => {
@@ -80,6 +91,7 @@ export function useRealtimeAlerts() {
 				: [];
 
 			knownAlertIds.current = new Set(nextAlerts.map((alert) => alert.id));
+			knownAlerts.current = new Map(nextAlerts.map((alert) => [alert.id, alert]));
 			hasInitialSnapshot.current = true;
 			setAlerts(nextAlerts);
 			newAlerts.forEach(announceAlert);
@@ -105,7 +117,13 @@ export function useRealtimeAlerts() {
 			})
 			.on("postgres_changes", { event: "UPDATE", schema: "public", table: "alerts" }, (payload) => {
 				const changed = payload.new as Partial<Alert>;
-				setAlerts((current) => current.map((alert) => alert.id === changed.id ? { ...alert, ...changed } : alert));
+				if (!changed.id) return;
+				const previous = knownAlerts.current.get(changed.id);
+				const updated = { ...previous, ...changed } as Alert;
+				const typeChanged = previous && changed.type_source === "upgrade" && changed.type_code !== previous.type_code;
+				knownAlerts.current.set(changed.id, updated);
+				if (typeChanged) announceTypeChange(updated);
+				setAlerts((current) => current.map((alert) => alert.id === changed.id ? updated : alert));
 			})
 			.on("postgres_changes", { event: "INSERT", schema: "public", table: "alert_events" }, (payload) => {
 				setEvents((current) => [...current, payload.new as AlertEvent]);

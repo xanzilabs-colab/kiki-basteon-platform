@@ -3,12 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Gamepad2, Handshake, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Gamepad2, Handshake, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
 import { NotificationBell } from "@/components/NotificationBell";
 import { primeRingtone, startRingtone } from "@/lib/ringtone";
+import { SosActionButton } from "@/components/sos/SosActionButton";
+import { alertSetType } from "@/lib/sos/client";
+import type { SosType } from "@/lib/sos/sosGesture";
+import { enqueueSos, flushSosOutbox, removeQueuedSos, type SosRequest } from "@/lib/sos/outbox";
 
 const links = [
   { href: "/account", label: "Overview", icon: House },
@@ -23,7 +27,14 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [sosError, setSosError] = useState("");
   const [sosDeadline, setSosDeadline] = useState<number | null>(null);
   const [sosSeconds, setSosSeconds] = useState(3);
+  const [sosType, setSosType] = useState<SosType>("sos");
+  const [sosTypeSource, setSosTypeSource] = useState<"tap" | "hold_slide">("tap");
+  const [sosSent, setSosSent] = useState<{ id: string; type: SosType } | null>(null);
+  const [sosUpgradeBusy, setSosUpgradeBusy] = useState(false);
+  const [sosSentError, setSosSentError] = useState("");
+  const [sosQueued, setSosQueued] = useState(false);
   const sosSending = useRef(false);
+  const sosRequestId = useRef("");
   const sosDialog = useRef<HTMLElement>(null);
   const [safetyCall, setSafetyCall] = useState<"idle" | "arming" | "incoming" | "active">("idle");
   const [callSeconds, setCallSeconds] = useState(0);
@@ -38,9 +49,13 @@ export function AccountShell({ name, children }: { name: string; children: React
     window.setTimeout(() => { setMoreOpen(false); setMoreClosing(false); after?.(); }, 220);
   }
   function navigate(path: string) { closeMore(() => router.push(path)); }
-  function openSos() {
+  function openSos(type: SosType = "sos", source: "tap" | "hold_slide" = "tap") {
     sosSending.current = false;
+    sosRequestId.current = crypto.randomUUID();
+    setSosQueued(false);
     setSosError("");
+    setSosType(type);
+    setSosTypeSource(source);
     setSosSeconds(3);
     setSosDeadline(Date.now() + 3_000);
     setSosOpen(true);
@@ -48,6 +63,8 @@ export function AccountShell({ name, children }: { name: string; children: React
 
   function cancelSos() {
     if (sosSending.current) return;
+    if (sosRequestId.current) removeQueuedSos(sosRequestId.current);
+    setSosQueued(false);
     setSosDeadline(null);
     setSosOpen(false);
   }
@@ -61,6 +78,22 @@ export function AccountShell({ name, children }: { name: string; children: React
     }, 100);
     return () => window.clearInterval(timer);
   }, [sosOpen, sosDeadline]);
+
+  useEffect(() => {
+    const flush = () => {
+      void flushSosOutbox().then((delivered) => {
+        const last = delivered.at(-1);
+        if (!last) return;
+        setSosOpen(false);
+        setSosSent({ id: last.id, type: last.type === "medical" ? "medical" : "sos" });
+        setSosError("");
+      });
+    };
+    window.addEventListener("online", flush);
+    if (navigator.onLine) flush();
+    const retryTimer = window.setInterval(() => { if (navigator.onLine) flush(); }, 15_000);
+    return () => { window.removeEventListener("online", flush); window.clearInterval(retryTimer); };
+  }, []);
 
   useEffect(() => {
     if (!sosOpen) return;
@@ -167,29 +200,53 @@ export function AccountShell({ name, children }: { name: string; children: React
     setSosDeadline(null);
     setSosBusy(true);
     setSosError("");
+    let requestPayload: SosRequest | null = null;
     try {
     const position = await location();
     if (!position) {
       setSosError("Phone location is required for an SOS. Enable precise location permission, then retry.");
       return;
     }
+    requestPayload = {
+      request_id: sosRequestId.current || crypto.randomUUID(),
+      lat: position.lat,
+      lng: position.lng,
+      type_code: sosType,
+      type_source: sosTypeSource,
+    };
+    sosRequestId.current = requestPayload.request_id;
     const response = await fetch("/api/account/sos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(position),
+      body: JSON.stringify(requestPayload),
     });
     const result = await response.json().catch(() => ({}));
     if (response.ok) {
+      setSosQueued(false);
       setSosOpen(false);
+      setSosSent({ id: result.id, type: result.type_code === "medical" ? "medical" : "sos" });
       return;
     }
     setSosError(result.error === "no_active_device" ? "Link an active Kiki device before sending an SOS." : "SOS could not be sent. Please try again or call emergency services.");
     } catch {
-      setSosError("SOS delivery could not be confirmed. Please try again or call emergency services.");
+      const queued = requestPayload ? await enqueueSos(requestPayload) : false;
+      setSosQueued(queued);
+      setSosError(queued ? "Connection lost. Your alert is queued and will send when you reconnect." : "SOS delivery could not be confirmed. Please try again or call emergency services.");
     } finally {
       setSosBusy(false);
       sosSending.current = false;
     }
+  }
+
+  async function upgradeSentSos() {
+    if (!sosSent || sosUpgradeBusy) return;
+    setSosUpgradeBusy(true);
+    setSosSentError("");
+    const nextType: SosType = sosSent.type === "sos" ? "medical" : "sos";
+    const result = await alertSetType(sosSent.id, nextType);
+    if (result.error) setSosSentError("Couldn't update the type. Your alert is still active.");
+    else setSosSent({ ...sosSent, type: nextType });
+    setSosUpgradeBusy(false);
   }
 
   async function startSafetyCall() {
@@ -225,9 +282,9 @@ export function AccountShell({ name, children }: { name: string; children: React
           <Link href="/games" className="sidebar-link" aria-current={pathname === "/games" ? "page" : undefined}><NavSigil><Gamepad2 size={17} /></NavSigil>Stoep</Link>
           <Link href="/w" className="sidebar-link" aria-current={pathname === "/w" ? "page" : undefined}><NavSigil><BookOpen size={17} /></NavSigil>Journal</Link>
         </nav>
-        <button className="account-desktop-sos btn btn-danger mx-3 mt-auto" onClick={openSos}>
+        <SosActionButton className="account-desktop-sos btn btn-danger mx-3 mt-auto" title="Send emergency alert" onSelect={openSos}>
           <KikiMark size={48} zoom={2} /> Send SOS
-        </button>
+        </SosActionButton>
         <button className="account-desktop-call btn mx-3 mt-2" onClick={() => void startSafetyCall()}>
           <PhoneCall size={18} /> Safety call
         </button>
@@ -263,9 +320,9 @@ export function AccountShell({ name, children }: { name: string; children: React
             <span>{link.label}</span>
           </Link>
         ))}
-        <button className="account-mobile-sos" title="Send SOS" aria-label="Send SOS" onClick={openSos}>
+        <SosActionButton className="account-mobile-sos" title="Send SOS" onSelect={openSos}>
           <KikiMark size={108} />
-        </button>
+        </SosActionButton>
         <button className="account-mobile-more nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px]" title="More options" aria-label="Open more options" onClick={() => setMoreOpen(true)}>
           <NavSigil><Menu size={20} strokeWidth={2.2} aria-hidden="true" /></NavSigil>
           <span>More</span>
@@ -303,14 +360,32 @@ export function AccountShell({ name, children }: { name: string; children: React
               else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
             }
           }}>
-            <span className="account-sos-icon"><Siren size={40} /></span>
+            <span className={`account-sos-icon ${sosType === "medical" ? "is-medical" : ""}`}>{sosType === "medical" ? <HeartPulse size={40} /> : <Siren size={40} />}</span>
             <h2 id="sos-title">Emergency alert</h2>
             <p id="sos-description">Your active Kiki device and available phone location will be shared with authorised responders.</p>
-            <div className="account-sos-countdown" role="status" aria-live="polite"><b>{sosBusy ? <ShieldAlert size={44} /> : sosError ? "!" : sosSeconds}</b><span>{sosBusy ? "Sending emergency alert" : sosError ? "Delivery not confirmed" : "Seconds until alert is sent"}</span></div>
+            <div className="account-sos-type-switch" role="group" aria-label="Emergency type">
+              <button type="button" disabled={sosBusy || sosQueued} aria-pressed={sosType === "sos"} onClick={() => setSosType("sos")}><Siren size={16} />SOS</button>
+              <button type="button" disabled={sosBusy || sosQueued} aria-pressed={sosType === "medical"} onClick={() => setSosType("medical")}><HeartPulse size={16} />Medical</button>
+            </div>
+            <div className="account-sos-countdown" role="status" aria-live="polite"><b>{sosBusy ? <ShieldAlert size={44} /> : sosError ? "!" : sosSeconds}</b><span>{sosBusy ? `Sending ${sosType === "medical" ? "Medical emergency" : "SOS"}` : sosError ? "Delivery not confirmed" : `Sending ${sosType === "medical" ? "Medical emergency" : "SOS"} in`}</span></div>
             {sosError && <p className="account-sos-error" role="alert">{sosError}</p>}
             <div className="account-sos-actions">
               <button className="btn" disabled={sosBusy} onClick={cancelSos}><X size={17} />Cancel emergency alert</button>
-              <button className="btn btn-danger" disabled={sosBusy} onClick={() => void triggerSos()}><Siren size={17} />{sosBusy ? "Sending..." : sosError ? "Retry SOS" : "Send immediately now"}</button>
+              <button className="btn btn-danger" disabled={sosBusy} onClick={() => void triggerSos()}>{sosType === "medical" ? <HeartPulse size={17} /> : <Siren size={17} />}{sosBusy ? "Sending..." : sosError ? "Retry alert" : "Send immediately now"}</button>
+            </div>
+          </section>
+        </div>
+      )}
+      {sosSent && (
+        <div className="account-sos-scrim" role="presentation">
+          <section className="account-sos-dialog account-sos-sent" role="dialog" aria-modal="true" aria-labelledby="sos-sent-title">
+            <span className={`account-sos-icon ${sosSent.type === "medical" ? "is-medical" : ""}`}>{sosSent.type === "medical" ? <HeartPulse size={40} /> : <Siren size={40} />}</span>
+            <h2 id="sos-sent-title">Alert sent</h2>
+            <p>{sosSent.type === "medical" ? "Medical emergency alert sent to authorised responders." : "SOS alert sent to authorised responders."}</p>
+            {sosSentError && <p className="account-sos-error" role="alert">{sosSentError}</p>}
+            <div className="account-sos-actions">
+              <button className="btn" onClick={() => setSosSent(null)}>Close</button>
+              <button className="btn btn-danger" disabled={sosUpgradeBusy} onClick={() => void upgradeSentSos()}>{sosSent.type === "sos" ? <><HeartPulse size={17} />This is a medical emergency</> : <><Siren size={17} />Change to SOS</>}</button>
             </div>
           </section>
         </div>

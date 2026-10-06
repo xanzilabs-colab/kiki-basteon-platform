@@ -5,6 +5,7 @@ import L from "leaflet";
 import type { Alert, AlertLocation } from "@/lib/types";
 import type { Position } from "@/lib/geo";
 import { hasLocation, haversineKm } from "@/lib/geo";
+import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
 
 const TONE: Record<string, string> = { new: "mk-new", acknowledged: "mk-ack", enroute: "mk-enr", on_scene: "mk-sce" };
 const HEX: Record<string, string> = {
@@ -50,10 +51,10 @@ function DeferredTileLayer() {
   return <TileLayer url={process.env.NEXT_PUBLIC_MAP_TILE_URL!} attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION} subdomains="abcd" keepBuffer={4} maxZoom={19} />;
 }
 
-const pin = (status: string, selected: boolean) =>
+const pin = (status: string, selected: boolean, medical: boolean) =>
   L.divIcon({
     className: "",
-    html: `<div class="mk ${TONE[status] ?? "mk-enr"} ${selected ? "mk-sel" : ""} ${status === "new" ? "live" : ""}"><span class="mk-ring"></span><span class="mk-dot"></span></div>`,
+    html: `<div class="mk ${TONE[status] ?? "mk-enr"} ${medical ? "mk-medical" : ""} ${selected ? "mk-sel" : ""} ${status === "new" ? "live" : ""}"><span class="mk-ring"></span><span class="mk-dot">${medical ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/><path d="M3 12h4l2-4 3 8 2-4h7"/></svg>' : ""}</span></div>`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   });
@@ -133,13 +134,14 @@ export default function AlertMap({
         const isSel = selected?.id === a.id;
         return (
           <Marker
-            key={`${a.id}-${a.status}-${isSel}`}
+            key={`${a.id}-${a.status}-${a.type_code}-${isSel}`}
             position={[a.lat!, a.lng!]}
-            icon={pin(a.status, isSel)}
+            icon={pin(a.status, isSel, a.type_code === "medical")}
             zIndexOffset={isSel ? 1000 : a.status === "new" ? 500 : 0}
             eventHandlers={{ click: () => onSelect?.(a) }}
           >
             {isSel && <Tooltip permanent direction="top" offset={[0, -14]} className="mk-tip">{a.device?.device_name ?? a.device_id}</Tooltip>}
+            <Popup><div className="grid gap-2"><AlertTypeBadge typeCode={a.type_code} size="marker" /><strong>{a.device?.device_name ?? a.device_id}</strong><span>{a.type_code === "medical" ? "Caller reports a medical emergency." : "Emergency alert"}</span></div></Popup>
           </Marker>
         );
       })}

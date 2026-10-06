@@ -5,6 +5,8 @@ import { Activity, AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, ShieldChec
 import { useRealtimeAlerts } from "@/hooks/useRealtimeAlerts";
 import { activeStatuses } from "@/lib/status";
 import { StatusBadge } from "@/components/StatusBadge";
+import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
+import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 
 function initials(name: string | null | undefined) {
   return (name ?? "Kiki").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
@@ -21,6 +23,7 @@ const stages = [
 
 export default function AdminPage() {
   const { alerts } = useRealtimeAlerts();
+  const emergencyTypes = useEmergencyTypes();
   const active = alerts.filter((alert) => activeStatuses.includes(alert.status));
   const unacknowledged = active.filter((alert) => alert.status === "new").length;
   const today = alerts.filter((alert) => new Date(alert.triggered_at).toDateString() === new Date().toDateString());
@@ -67,7 +70,7 @@ export default function AdminPage() {
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="panel">
           <div className="pane-head"><div><span>Response queue</span><p className="muted mt-0.5 font-[var(--font-ui)] text-[11px] font-normal">Most recent alerts across the platform</p></div><Link className="btn" style={{ height: 30 }} href="/admin/alerts">View all</Link></div>
-          {latest.length === 0 ? <div className="p-8 text-center"><Activity className="mx-auto text-[var(--muted)]" size={24} /><p className="mt-3 font-medium">No alerts recorded</p><p className="muted mt-1 text-[12px]">New emergency activity will appear here.</p></div> : <div className="divide-y divide-[var(--line)]">{latest.map((alert) => <Link key={alert.id} href="/responder" className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 transition-colors hover:bg-[var(--surface-2)]"><span className="grid h-9 w-9 overflow-hidden place-items-center rounded-full bg-[var(--surface-2)] text-[11px] font-bold text-[var(--text)]">{alert.device?.owner?.avatar_url ? <img src={alert.device.owner.avatar_url} alt={`${alert.device.owner.full_name ?? "Device owner"} profile`} className="h-full w-full object-cover" /> : initials(alert.device?.owner?.full_name)}</span><span className="min-w-0"><b className="block truncate text-[13px]">{alert.device?.device_name ?? `Device ${alert.device_id}`}</b><span className="muted mt-1 block truncate text-[11px]">{alert.device?.owner?.full_name ? `${alert.device.owner.full_name} · ` : ""}{new Date(alert.triggered_at).toLocaleString()}</span></span><span className="flex flex-col items-end gap-2"><StatusBadge status={alert.status} /><ArrowUpRight className="text-[var(--muted)] group-hover:text-[var(--text)]" size={15} /></span></Link>)}</div>}
+          {latest.length === 0 ? <div className="p-8 text-center"><Activity className="mx-auto text-[var(--muted)]" size={24} /><p className="mt-3 font-medium">No alerts recorded</p><p className="muted mt-1 text-[12px]">New emergency activity will appear here.</p></div> : <div className="divide-y divide-[var(--line)]">{latest.map((alert) => <Link key={alert.id} href="/responder" className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 transition-colors hover:bg-[var(--surface-2)]"><span className="grid h-9 w-9 overflow-hidden place-items-center rounded-full bg-[var(--surface-2)] text-[11px] font-bold text-[var(--text)]">{alert.device?.owner?.avatar_url ? <img src={alert.device.owner.avatar_url} alt={`${alert.device.owner.full_name ?? "Device owner"} profile`} className="h-full w-full object-cover" /> : initials(alert.device?.owner?.full_name)}</span><span className="min-w-0"><b className="block truncate text-[13px]">{alert.device?.device_name ?? `Device ${alert.device_id}`}</b><span className="muted mt-1 block truncate text-[11px]">{alert.device?.owner?.full_name ? `${alert.device.owner.full_name} · ` : ""}{new Date(alert.triggered_at).toLocaleString()}</span></span><span className="flex flex-col items-end gap-2"><AlertTypeBadge typeCode={alert.type_code} /><StatusBadge status={alert.status} /><ArrowUpRight className="text-[var(--muted)] group-hover:text-[var(--text)]" size={15} /></span></Link>)}</div>}
         </section>
 
         <aside className="space-y-5">
@@ -77,6 +80,11 @@ export default function AdminPage() {
               const count = alerts.filter((alert) => alert.status === stage.key).length;
               return <div key={stage.key} className="grid grid-cols-[98px_minmax(0,1fr)_auto] items-center gap-3"><span className="muted text-[11px] font-medium">{stage.label}</span><span className="h-1.5 overflow-hidden bg-[var(--surface-2)]"><span className="block h-full" style={{ width: `${(count / maxCount) * 100}%`, background: stage.color }} /></span><b className="data text-[12px]">{count}</b></div>;
             })}</div>
+          </section>
+
+          <section className="panel">
+            <div className="pane-head"><span>Emergency types</span></div>
+            <div className="space-y-3 p-5">{emergencyTypes.map((type) => <div key={type.code} className="flex items-center justify-between gap-3"><AlertTypeBadge typeCode={type.code} /><b className="data text-[13px]">{alerts.filter((alert) => (alert.type_code ?? "sos") === type.code).length}</b></div>)}</div>
           </section>
 
           <section className="panel p-5">

@@ -14,6 +14,7 @@ import { SoundToggle } from "@/components/SoundToggle";
 import { Navbar } from "@/components/Navbar";
 import { UserProfileDrawer } from "@/components/UserProfileDrawer";
 import type { Alert, ProfileContact } from "@/lib/types";
+import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 
 const AlertMap = dynamic(() => import("@/components/AlertMap"), {
   ssr: false,
@@ -30,6 +31,8 @@ export default function ResponderPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "all">("active");
   const [profile, setProfile] = useState<ProfileContact | null>(null);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const emergencyTypes = useEmergencyTypes();
 
   const active = useMemo(
     () => alerts.filter((a) => activeStatuses.includes(a.status)),
@@ -50,12 +53,12 @@ export default function ResponderPage() {
 
   const displayed = useMemo(
     () =>
-      [...(tab === "active" ? active : alerts)].sort((a, b) =>
+      [...(tab === "active" ? active : alerts)].filter((alert) => typeFilter === "all" || (alert.type_code ?? "sos") === typeFilter).sort((a, b) =>
         a.status === "new" && b.status !== "new" ? -1
         : b.status === "new" && a.status !== "new" ? 1
         : +new Date(b.triggered_at) - +new Date(a.triggered_at),
       ),
-    [alerts, active, tab],
+    [alerts, active, tab, typeFilter],
   );
 
   return (
@@ -132,6 +135,8 @@ export default function ResponderPage() {
               All ({alerts.length})
             </button>
           </div>
+
+          <div className="px-3 pb-2"><label className="sr-only" htmlFor="responder-type-filter">Filter by alert type</label><select id="responder-type-filter" className="input h-8 text-[12px]" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All alert types</option>{emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}</select></div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <AlertList

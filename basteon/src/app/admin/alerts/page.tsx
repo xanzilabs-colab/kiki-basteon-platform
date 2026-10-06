@@ -5,13 +5,17 @@ import { useMemo, useState } from "react";
 import { useRealtimeAlerts } from "@/hooks/useRealtimeAlerts";
 import { StatusBadge } from "@/components/StatusBadge";
 import { createClient } from "@/lib/supabase/client";
+import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
+import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 
 export default function AlertsPage() {
   const { alerts } = useRealtimeAlerts();
-  const [filter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const emergencyTypes = useEmergencyTypes();
   const rows = useMemo(
-    () => alerts.filter((a) => filter === "all" || a.status === filter),
-    [alerts, filter],
+    () => alerts.filter((a) => (statusFilter === "all" || a.status === statusFilter) && (typeFilter === "all" || (a.type_code ?? "sos") === typeFilter)),
+    [alerts, statusFilter, typeFilter],
   );
 
   function download(name: string, csv: string) {
@@ -25,9 +29,9 @@ export default function AlertsPage() {
 
   function exportCsv() {
     const csv = [
-      "id,device,status,lat,lng,loc_source,triggered_at",
+      "id,device,status,type_code,type_source,type_updated_at,lat,lng,loc_source,triggered_at",
       ...rows.map((a) =>
-        [a.id, a.device_id, a.status, a.lat, a.lng, a.loc_source, a.triggered_at].join(","),
+        [a.id, a.device_id, a.status, a.type_code ?? "sos", a.type_source ?? "legacy", a.type_updated_at ?? "", a.lat, a.lng, a.loc_source, a.triggered_at].join(","),
       ),
     ].join("\n");
     download("basteon-alerts.csv", csv);
@@ -69,13 +73,17 @@ export default function AlertsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <select
             className="h-9 rounded border border-[#282930] bg-[#0B0C0E] px-3 text-xs text-slate-200 outline-none focus:border-[#3B82F6]"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="all">All statuses</option>
             {["new", "acknowledged", "enroute", "on_scene", "resolved", "false_alarm"].map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
+          </select>
+          <select aria-label="Filter by emergency type" className="h-9 rounded border border-[#282930] bg-[#0B0C0E] px-3 text-xs text-slate-200 outline-none focus:border-[#087f70]" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="all">All alert types</option>
+            {emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}
           </select>
           <button className="inline-flex h-9 items-center gap-2 rounded bg-[#3B82F6] px-3.5 text-xs font-medium text-white transition-colors hover:bg-[#2563EB]" onClick={exportCsv}>
             <FileDown size={15} />
@@ -91,6 +99,7 @@ export default function AlertsPage() {
               <th className="p-3 font-medium">TIMESTAMP</th>
               <th className="p-3 font-medium">DEVICE ID</th>
               <th className="p-3 font-medium">STATUS</th>
+              <th className="p-3 font-medium">TYPE</th>
               <th className="p-3 font-medium">LATITUDE</th>
               <th className="p-3 font-medium">LONGITUDE</th>
               <th className="p-3 font-medium">SOURCE</th>
@@ -103,6 +112,7 @@ export default function AlertsPage() {
                 <td className="p-3 font-mono text-slate-300">{new Date(a.triggered_at).toLocaleString("en-ZA")}</td>
                 <td className="p-3 font-mono font-bold text-white">{a.device_id}</td>
                 <td className="p-3"><StatusBadge status={a.status} /></td>
+                <td className="p-3"><AlertTypeBadge typeCode={a.type_code} /></td>
                 <td className="p-3 font-mono text-slate-300">{a.lat?.toFixed(6) ?? "—"}</td>
                 <td className="p-3 font-mono text-slate-300">{a.lng?.toFixed(6) ?? "—"}</td>
                 <td className="p-3 font-mono text-[11px] text-slate-400 uppercase">{a.loc_source ?? "no fix"}</td>
@@ -114,7 +124,7 @@ export default function AlertsPage() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={7} className="p-10 text-center text-slate-500"><MapPin className="mx-auto mb-2" size={20} />No alerts match this filter.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-slate-500"><MapPin className="mx-auto mb-2" size={20} />No alerts match this filter.</td></tr>}
           </tbody>
         </table>
       </section>

@@ -6,6 +6,7 @@ import { locationHealth } from "@/lib/locationTracking";
 import type { Alert } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
 import { LocationSourceBadge } from "./LocationSourceBadge";
+import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
 
 export function AlertCard({
   alert,
@@ -40,6 +41,7 @@ export function AlertCard({
     >
       <div className="flex items-center justify-between gap-2">
         <StatusBadge status={alert.status} />
+        <AlertTypeBadge typeCode={alert.type_code} />
         <span className="data text-[11px] muted">
           {formatDistanceToNow(new Date(alert.triggered_at), { addSuffix: true })}
         </span>

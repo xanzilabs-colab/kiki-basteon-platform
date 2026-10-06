@@ -252,6 +252,22 @@
 .account-sos-countdown { display: grid; gap: 8px; padding: 20px 0 4px; }
 .account-sos-countdown b { display: grid; height: 72px; place-items: center; color: var(--crit); font-size: 60px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
 .account-sos-countdown span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.account-sos-icon.is-medical { background: #d9f5ef; color: #087f70; }
+.account-sos-type-switch { display: flex; gap: 8px; margin: 18px 0 4px; }
+.account-sos-type-switch button { display: flex; min-height: 44px; flex: 1; align-items: center; justify-content: center; gap: 7px; border: 1px solid #ded6e7; border-radius: 999px; background: #fff; color: #54465d; font: inherit; font-size: 13px; font-weight: 800; }
+.account-sos-type-switch button[aria-pressed="true"] { border-color: #d94362; background: #fff1f3; color: #a31e3e; }
+.account-sos-type-switch button:last-child[aria-pressed="true"] { border-color: #087f70; background: #d9f5ef; color: #075d54; }
+.account-sos-countdown { padding-top: 12px; }
+.account-sos-sent .account-sos-actions .btn-danger { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.sos-medical-arc { position: fixed; z-index: 149; inset: 0; width: 100vw; height: 100dvh; pointer-events: none; overflow: visible; }
+.sos-medical-arc path { fill: none; stroke: rgba(8, 127, 112, .55); stroke-width: 2; stroke-dasharray: 5 7; }
+.sos-medical-bubble { position: fixed; z-index: 151; display: flex; min-height: 66px; align-items: center; justify-content: center; gap: 9px; border: 2px solid rgba(255,255,255,.9); border-radius: 999px; background: #087f70; box-shadow: 0 8px 24px rgba(5, 73, 64, .25), 0 0 20px rgba(8, 127, 112, .3); color: #fff; font-size: 14px; font-weight: 800; animation: sos-bubble-enter 180ms cubic-bezier(.18,.88,.3,1.25), sos-bubble-bob 2.4s ease-in-out 180ms infinite; }
+.sos-medical-bubble.is-armed { transform: scale(1.15); border-width: 4px; box-shadow: 0 8px 30px rgba(5,73,64,.32), 0 0 28px rgba(8,127,112,.62); }
+.sos-hold-coach { position: fixed; z-index: 152; right: 12px; bottom: 82px; border-radius: 14px; background: #32183f; padding: 10px 14px; color: #fff; font-size: 12px; font-weight: 700; box-shadow: 0 6px 20px rgba(50,24,63,.2); }
+@keyframes sos-bubble-enter { from { opacity: 0; scale: .6; } to { opacity: 1; scale: 1; } }
+@keyframes sos-bubble-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+@media (prefers-reduced-motion: reduce) { .sos-medical-bubble { animation: sos-bubble-fade 120ms ease-out both; } .sos-medical-bubble.is-armed { animation: sos-bubble-fade 120ms ease-out both; transform: none; } }
+@keyframes sos-bubble-fade { from { opacity: 0; } to { opacity: 1; } }
 .kiki-activity-list { display: grid; gap: 8px; }
 .kiki-activity-row { display: flex; align-items: center; gap: 10px; min-width: 0; border: 1px solid var(--divider); border-radius: 16px; background: #faf8fc; padding: 14px; color: var(--accent); text-decoration: none; }
 .kiki-activity-row svg { flex-shrink: 0; }
@@ -372,6 +388,10 @@
 .account-notification-panel { position: absolute; z-index: 60; top: calc(100% + 8px); right: 0; width: 340px; max-height: min(70vh, 440px); overflow-y: auto; border: 1px solid #eee8f3; border-radius: 16px; background: #fff; box-shadow: 0 16px 40px rgba(50, 24, 63, .2); color: #32183f; }
 .account-notification-panel header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #eee8f3; }
 .account-notification-panel h2 { font-size: 14px; font-weight: 900; }
+.mk-medical { --c: #12b8a5; }
+.mk-medical .mk-ring { position: absolute; inset: 1px; display: block; border: 2px solid #12b8a5; border-radius: 50%; box-shadow: 0 0 0 3px rgba(18,184,165,.2); }
+.mk-medical .mk-dot { display: grid; place-items: center; border-color: #fff; background: #087f70; color: #fff; }
+.mk-medical .mk-dot svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .account-notification-panel header button { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; color: #4a154b; font-size: 11px; font-weight: 800; }
 .account-notification-panel li button { display: flex; width: 100%; gap: 10px; border: 0; border-bottom: 1px solid #f4f0f7; background: transparent; padding: 12px 14px; color: inherit; text-align: left; }
 .account-notification-panel li button.unread { background: #faf6fc; }
