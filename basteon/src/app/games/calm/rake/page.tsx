@@ -6,6 +6,9 @@ export default function SandRakePage() {
   return (
     <main className={styles.page}>
       <div className={styles.routePage}>
+        <div className={styles.backBar}>
+          <Link href="/games/calm" className={styles.backLink}>← Back</Link>
+        </div>
         <SandRakeGame />
         <div className={styles.list}><Link href="/games/calm" className={styles.link}>Back to calm games</Link></div>
       </div>

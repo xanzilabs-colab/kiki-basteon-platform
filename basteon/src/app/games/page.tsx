@@ -12,6 +12,9 @@ export default function GamesPage() {
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
+        <div className={styles.backBar}>
+          <Link href="/account" className={styles.backLink}>← Back</Link>
+        </div>
         <p className={styles.eyebrow}>Stoep</p>
         <h1 className={styles.title}>Unwind and play.</h1>
         <p className={styles.subtitle}>
