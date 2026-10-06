@@ -12,8 +12,6 @@ export function useSosGesture(onSelect: Selection) {
   const bubbleRef = useRef<HTMLDivElement>(null);
   const timer = useRef<number | null>(null);
   const pointerId = useRef<number | null>(null);
-  const previousHolding = useRef(false);
-  const previousArmed = useRef(false);
   const handledDone = useRef(false);
   const selectRef = useRef(onSelect);
   selectRef.current = onSelect;
@@ -67,16 +65,13 @@ export function useSosGesture(onSelect: Selection) {
   useEffect(() => () => clearTimer(), [clearTimer]);
 
   useEffect(() => {
-    const holding = state.phase === "holding";
-    const armed = holding && state.armed;
-    if (holding && !previousHolding.current) navigator.vibrate?.(10);
-    if (armed && !previousArmed.current) navigator.vibrate?.(15);
-    previousHolding.current = holding;
-    previousArmed.current = armed;
-
     if (state.phase !== "done" || handledDone.current) return;
     handledDone.current = true;
-    navigator.vibrate?.([30, 40, 30]);
+    try {
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate([30, 40, 30]);
+    } catch {
+      // Haptics are best-effort.
+    }
     selectRef.current(state.type, typeSourceFor(state.via));
     dispatch({ kind: "reset" });
     pointerId.current = null;
@@ -84,13 +79,6 @@ export function useSosGesture(onSelect: Selection) {
     setAnchor(null);
     handledDone.current = false;
   }, [state, clearTimer]);
-
-  useEffect(() => {
-    if (state.phase === "idle") {
-      previousHolding.current = false;
-      previousArmed.current = false;
-    }
-  }, [state.phase]);
 
   return {
     state,
