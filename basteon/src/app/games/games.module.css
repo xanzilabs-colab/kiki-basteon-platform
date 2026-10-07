@@ -322,6 +322,17 @@
 .selectionCopy small { color: var(--garden-muted); font-size: 10px; line-height: 1.4; }
 .clearSelection { width: 34px; height: 34px; display: grid; flex: none; place-items: center; margin-left: auto; border: 0; border-radius: 50%; background: var(--garden-purple-soft); color: var(--garden-purple); cursor: pointer; }
 .gardenFooter { display: grid; gap: 9px; }
+.gardenOpenRooms { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid rgba(118,85,138,.14); border-radius: 12px; background: rgba(255,255,255,.72); }
+.gardenOpenRooms h3 { margin: 0; color: var(--garden-purple); font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.gardenOpenRooms ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+.gardenOpenRoomItem { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gardenOpenRoomItem div { min-width: 0; display: grid; gap: 2px; }
+.gardenOpenRoomItem strong { color: var(--garden-ink); font-size: 11px; font-weight: 800; }
+.gardenOpenRoomItem small { color: var(--garden-muted); font-size: 10px; text-transform: capitalize; }
+.gardenOpenRoomActions { display: inline-flex; gap: 6px; }
+.gardenOpenRoomActions button { min-height: 30px; padding: 0 10px; border: 1px solid rgba(118,85,138,.2); border-radius: 999px; background: #f7f1f8; color: var(--garden-purple); font: inherit; font-size: 10px; font-weight: 800; cursor: pointer; }
+.gardenOpenRoomActions button:last-child { border-color: rgba(169,73,90,.28); color: #8a4358; background: #fff4f6; }
+.gardenOpenRoomActions button:disabled { opacity: .6; cursor: wait; }
 .createGardenRoom { min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 0 16px; border: 0; border-radius: 12px; background: linear-gradient(100deg, #b97482, #81658f 55%, #789781); color: white; box-shadow: 0 8px 18px rgba(118,85,138,.18); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; }
 .createGardenRoom:hover { transform: translateY(-1px); box-shadow: 0 11px 22px rgba(118,85,138,.24); }
 .createGardenRoom:disabled { cursor: wait; opacity: .7; }
@@ -414,3 +425,4 @@
   .boatsPage .paper { min-height: 68px; }
   .boatsPage .textarea { min-height: 38px; }
 }
+

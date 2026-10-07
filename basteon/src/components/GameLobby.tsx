@@ -20,6 +20,14 @@ type NearbyBuddy = {
 };
 type IncomingInvite = { id: string; host_id: string; invite_expires_at: string | null };
 type OutgoingInvite = { id: string; buddy: string; expiresAt: string | null };
+type ActiveRoom = {
+  id: string;
+  status: "waiting" | "ready_check" | "playing" | "paused";
+  invite_status: "pending" | "accepted" | "declined" | "expired";
+  host_id: string;
+  guest_id: string | null;
+  invite_expires_at: string | null;
+};
 
 const buddyEmojis = ["🐰", "🦊", "🐼", "🐻", "🐝", "🌼", "🦋", "🐧", "🌙", "🌿"];
 
@@ -35,6 +43,8 @@ export function GameLobby() {
   const [incomingInvite, setIncomingInvite] = useState<IncomingInvite | null>(null);
   const [outgoingInvite, setOutgoingInvite] = useState<OutgoingInvite | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [activeRooms, setActiveRooms] = useState<ActiveRoom[]>([]);
+  const [leavingRoomId, setLeavingRoomId] = useState<string | null>(null);
   const positionRef = useRef(position);
   positionRef.current = position;
 
@@ -75,7 +85,7 @@ export function GameLobby() {
       loadingNearby = true;
 
       try {
-        const [{ data, error }, { data: invites }] = await Promise.all([
+        const [{ data, error }, { data: invites }, { data: rooms, error: roomsError }] = await Promise.all([
           db.rpc("game_nearby", {
             p_lat: currentPosition.lat,
             p_lng: currentPosition.lng,
@@ -89,6 +99,12 @@ export function GameLobby() {
             .gt("invite_expires_at", new Date().toISOString())
             .order("created_at", { ascending: false })
             .limit(1),
+          db.from("game_rooms")
+            .select("id,status,invite_status,host_id,guest_id,invite_expires_at")
+            .or(`host_id.eq.${currentUserId},guest_id.eq.${currentUserId}`)
+            .in("status", ["waiting", "ready_check", "playing", "paused"] )
+            .order("updated_at", { ascending: false })
+            .limit(8),
         ]);
 
         const rows = (!error && data ? data : []) as Array<{ user_id: string; lat: number; lng: number }>;
@@ -115,10 +131,12 @@ export function GameLobby() {
           .slice(0, 6);
 
         const pendingInvites = (invites ?? []) as IncomingInvite[];
+        const openRooms = (!roomsError && rooms ? rooms : []) as ActiveRoom[];
         if (!ignore) {
           setBuddies(nextBuddies);
           setSelected((current) => current && nextBuddies.some((buddy) => buddy.userId === current.userId) ? current : null);
           setIncomingInvite(pendingInvites[0] ?? null);
+          setActiveRooms(openRooms);
         }
       } finally {
         loadingNearby = false;
@@ -187,7 +205,7 @@ export function GameLobby() {
       }
 
       if (selectedBuddy) {
-        setMessage("You already have an open game room. Finish or leave it before inviting another Buddy.");
+        setMessage("You already have an open game room. Open it or leave it from My active rooms, then invite again.");
         setBusy(false);
         return;
       }
@@ -212,7 +230,7 @@ export function GameLobby() {
     if (error) {
       setMessage(
         error.message.includes("room_already_open") || error.message.includes("duplicate key")
-          ? "You already have an open game room. Use its invite link to continue."
+          ? "You already have an open game room. Open or leave it from My active rooms below."
           : error.message.includes("buddy_has_open_room")
             ? "That Buddy is already in an open game room. Try inviting them again when they're free."
           : error.message.includes("buddy_unavailable")
@@ -259,6 +277,32 @@ export function GameLobby() {
     const timer = window.setInterval(() => { void checkInvite(); }, 2_000);
     return () => { active = false; window.clearInterval(timer); };
   }, [outgoingInvite, router]);
+
+
+  async function leaveOpenRoom(roomId: string) {
+    if (leavingRoomId) return;
+    setLeavingRoomId(roomId);
+    setMessage("");
+    const { error } = await createClient().rpc("game_leave_room", { p_room_id: roomId });
+    if (error) {
+      setMessage("This room could not be left right now. Please try again.");
+      setLeavingRoomId(null);
+      return;
+    }
+    setActiveRooms((current) => current.filter((room) => room.id !== roomId));
+    if (outgoingInvite?.id === roomId) setOutgoingInvite(null);
+    if (incomingInvite?.id === roomId) setIncomingInvite(null);
+    setMessage("Room closed. You can invite a Buddy now.");
+    setLeavingRoomId(null);
+  }
+
+  function roomStatusLabel(room: ActiveRoom) {
+    if (room.invite_status === "pending") return "Invite pending";
+    if (room.status === "playing") return "Playing";
+    if (room.status === "paused") return "Paused";
+    if (room.status === "ready_check") return "Ready check";
+    return "Waiting";
+  }
 
   async function respondToInvite(accept: boolean) {
     if (!incomingInvite || inviteBusy) return;
@@ -345,6 +389,29 @@ export function GameLobby() {
         </section>
 
         <footer className={styles.gardenFooter}>
+          {activeRooms.length > 0 && (
+            <section className={styles.gardenOpenRooms} aria-label="Your active Morabaraba rooms">
+              <h3>My active rooms</h3>
+              <ul>
+                {activeRooms.map((room) => {
+                  return (
+                    <li key={room.id} className={styles.gardenOpenRoomItem}>
+                      <div>
+                        <strong>Room {room.id.slice(0, 6)}</strong>
+                        <small>{roomStatusLabel(room)} · {room.status.replace("_", " ")}</small>
+                      </div>
+                      <span className={styles.gardenOpenRoomActions}>
+                        <button type="button" onClick={() => router.push(`/games/play/${room.id}`)}>Open</button>
+                        <button type="button" onClick={() => void leaveOpenRoom(room.id)} disabled={leavingRoomId === room.id}>
+                          {leavingRoomId === room.id ? "Leaving…" : "Leave"}
+                        </button>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
           <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)}>
             {selected ? <UsersRound size={19} /> : <Plus size={20} />}
             <span>{busy ? "Sending invite…" : outgoingInvite ? `Waiting for ${outgoingInvite.buddy}…` : selected ? `Invite ${selected.label}` : "Create a Morabaraba Room"}</span>
@@ -384,3 +451,8 @@ export function GameLobby() {
     </main>
   );
 }
+
+
+
+
+
