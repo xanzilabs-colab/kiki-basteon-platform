@@ -161,10 +161,9 @@ export function GameLobby() {
       return;
     }
 
-    const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,invite_status")
+    const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,status,invite_status,guest_id,invite_expires_at")
       .or(`host_id.eq.${user.id},guest_id.eq.${user.id}`)
-      .in("status", ["waiting", "ready_check", "playing"])
-      .neq("invite_status", "pending")
+      .in("status", ["waiting", "ready_check", "playing", "paused"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -176,6 +175,17 @@ export function GameLobby() {
     }
 
     if (existingRoom) {
+      const inviteStillPending = existingRoom.invite_status === "pending"
+        && existingRoom.status === "ready_check"
+        && existingRoom.invite_expires_at
+        && new Date(existingRoom.invite_expires_at).getTime() > Date.now();
+
+      if (selectedBuddy && inviteStillPending && existingRoom.guest_id === selectedBuddy.userId) {
+        setOutgoingInvite({ id: existingRoom.id, buddy: selectedBuddy.label, expiresAt: existingRoom.invite_expires_at });
+        setBusy(false);
+        return;
+      }
+
       if (selectedBuddy) {
         setMessage("You already have an open game room. Finish or leave it before inviting another Buddy.");
         setBusy(false);
@@ -184,6 +194,18 @@ export function GameLobby() {
       router.push(`/games/play/${existingRoom.id}`);
       setBusy(false);
       return;
+    }
+
+    if (selectedBuddy && positionRef.current) {
+      const { error: presenceRefreshError } = await db.rpc("game_set_presence", {
+        p_lat: positionRef.current.lat,
+        p_lng: positionRef.current.lng,
+      });
+      if (presenceRefreshError) {
+        setMessage("Your garden presence could not be refreshed. Please try inviting again.");
+        setBusy(false);
+        return;
+      }
     }
 
     const { data, error } = await db.rpc("game_create_room", { p_guest_id: selectedBuddy?.userId ?? null });
