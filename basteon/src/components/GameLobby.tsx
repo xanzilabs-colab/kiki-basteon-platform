@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Flower2, LockKeyhole, MapPin, Plus, UsersRound, X } from "lucide-react";
+import { ArrowLeft, Flower2, LockKeyhole, Plus, UsersRound, X } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { createClient } from "@/lib/supabase/client";
 import styles from "@/app/games/games.module.css";
@@ -18,6 +18,8 @@ type NearbyBuddy = {
   angleDeg: number;
   radialPct: number;
 };
+type IncomingInvite = { id: string; host_id: string; invite_expires_at: string | null };
+type OutgoingInvite = { id: string; buddy: string; expiresAt: string | null };
 
 const buddyEmojis = ["🐰", "🦊", "🐼", "🐻", "🐝", "🌼", "🦋", "🐧", "🌙", "🌿"];
 
@@ -26,69 +28,121 @@ export function GameLobby() {
   const { position, error: locationError } = useGeolocation();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [presenceError, setPresenceError] = useState("");
   const [buddies, setBuddies] = useState<NearbyBuddy[]>([]);
   const [selected, setSelected] = useState<NearbyBuddy | null>(null);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [incomingInvite, setIncomingInvite] = useState<IncomingInvite | null>(null);
+  const [outgoingInvite, setOutgoingInvite] = useState<OutgoingInvite | null>(null);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const positionRef = useRef(position);
+  positionRef.current = position;
 
   useEffect(() => {
     if (!position) return;
-
-    const currentPosition = position;
     let ignore = false;
+    let userIdPromise: Promise<string> | null = null;
+    let loadingNearby = false;
+    const db = createClient();
 
-    async function loadNearbyBuddies() {
-      const db = createClient();
-      const { data: { user } } = await db.auth.getUser();
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+    function getUserId() {
+      userIdPromise ??= (async () => {
+        const { data: { user } } = await db.auth.getUser();
+        if (!user) {
+          router.replace("/login");
+          return "";
+        }
+        return user.id;
+      })();
+      return userIdPromise;
+    }
 
-      const { data, error } = await db.rpc("game_nearby", {
+    async function publishPresence() {
+      const currentPosition = positionRef.current;
+      if (!currentPosition || !(await getUserId())) return;
+      const { error } = await db.rpc("game_set_presence", {
         p_lat: currentPosition.lat,
         p_lng: currentPosition.lng,
-        p_radius_km: 3,
       });
+      if (!ignore) setPresenceError(error ? "Your garden presence could not be updated." : "");
+    }
 
-      if (error || !data) {
-        if (!ignore) setBuddies([]);
-        return;
-      }
+    async function loadNearbyBuddies() {
+      const currentPosition = positionRef.current;
+      if (!currentPosition || loadingNearby) return;
+      const currentUserId = await getUserId();
+      if (!currentUserId) return;
+      loadingNearby = true;
 
-      const rows = data as Array<{ user_id: string; lat: number; lng: number }>;
-      const nextBuddies = rows
-        .filter((row) => row.user_id !== user.id)
-        .map((row, index) => {
-          const latDelta = row.lat - currentPosition.lat;
-          const lngDelta = row.lng - currentPosition.lng;
-          const distanceKm = Math.hypot(latDelta * 111, lngDelta * 111);
-          const angleDeg = ((Math.atan2(latDelta, lngDelta) * 180) / Math.PI + 360 + 90) % 360;
+      try {
+        const [{ data, error }, { data: invites }] = await Promise.all([
+          db.rpc("game_nearby", {
+            p_lat: currentPosition.lat,
+            p_lng: currentPosition.lng,
+            p_radius_km: 3,
+          }),
+          db.from("game_rooms")
+            .select("id,host_id,invite_expires_at")
+            .eq("guest_id", currentUserId)
+            .eq("status", "ready_check")
+            .eq("invite_status", "pending")
+            .gt("invite_expires_at", new Date().toISOString())
+            .order("created_at", { ascending: false })
+            .limit(1),
+        ]);
 
-          return {
-            userId: row.user_id,
-            avatar: buddyEmojis[index % buddyEmojis.length],
-            label: `Buddy ${index + 1}`,
-            lat: row.lat,
-            lng: row.lng,
-            distanceKm,
-            angleDeg,
-            radialPct: 0.2 + (index % 5) * 0.12,
-          } satisfies NearbyBuddy;
-        })
-        .filter((buddy) => buddy.distanceKm <= 3)
-        .slice(0, 6);
+        const rows = (!error && data ? data : []) as Array<{ user_id: string; lat: number; lng: number }>;
+        const nextBuddies = rows
+          .filter((row) => row.user_id !== currentUserId)
+          .map((row, index) => {
+            const latDelta = row.lat - currentPosition.lat;
+            const lngDelta = row.lng - currentPosition.lng;
+            const distanceKm = Math.hypot(latDelta * 111, lngDelta * 111);
+            const angleDeg = ((Math.atan2(latDelta, lngDelta) * 180) / Math.PI + 360 + 90) % 360;
 
-      if (!ignore) {
-        setBuddies(nextBuddies);
-        setSelected((current) => current && nextBuddies.some((buddy) => buddy.userId === current.userId) ? current : nextBuddies[0] ?? null);
+            return {
+              userId: row.user_id,
+              avatar: buddyEmojis[index % buddyEmojis.length],
+              label: `Buddy ${index + 1}`,
+              lat: row.lat,
+              lng: row.lng,
+              distanceKm,
+              angleDeg,
+              radialPct: 0.2 + (index % 5) * 0.12,
+            } satisfies NearbyBuddy;
+          })
+          .filter((buddy) => buddy.distanceKm <= 3)
+          .slice(0, 6);
+
+        const pendingInvites = (invites ?? []) as IncomingInvite[];
+        if (!ignore) {
+          setBuddies(nextBuddies);
+          setSelected((current) => current && nextBuddies.some((buddy) => buddy.userId === current.userId) ? current : null);
+          setIncomingInvite(pendingInvites[0] ?? null);
+        }
+      } finally {
+        loadingNearby = false;
       }
     }
 
+    void publishPresence();
     void loadNearbyBuddies();
+    const nearbyTimer = window.setInterval(() => { void loadNearbyBuddies(); }, 3_000);
+    const presenceTimer = window.setInterval(() => { void publishPresence(); }, 60_000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      void publishPresence();
+      void loadNearbyBuddies();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       ignore = true;
+      window.clearInterval(nearbyTimer);
+      window.clearInterval(presenceTimer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      void db.rpc("game_clear_presence");
     };
-  }, [position?.lat, position?.lng, router]);
+  }, [Boolean(position), router]);
 
   async function createRoom(selectedBuddy?: NearbyBuddy) {
     setBusy(true);
@@ -101,9 +155,16 @@ export function GameLobby() {
       return;
     }
 
-    const { data: existingRoom } = await db.from("game_rooms").select("id")
+    if (incomingInvite) {
+      setMessage("Accept or decline your pending Buddy invite first.");
+      setBusy(false);
+      return;
+    }
+
+    const { data: existingRoom } = await db.from("game_rooms").select("id,invite_status")
       .or(`host_id.eq.${user.id},guest_id.eq.${user.id}`)
       .neq("status", "ended")
+      .neq("invite_status", "pending")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -119,6 +180,8 @@ export function GameLobby() {
       setMessage(
         error.message.includes("room_already_open") || error.message.includes("duplicate key")
           ? "You already have an open game room. Use its invite link to continue."
+          : error.message.includes("buddy_unavailable")
+            ? "That Buddy is no longer available nearby. Choose someone else or create an open room."
           : selectedBuddy
             ? "This buddy is not open for a game right now. Try another nearby match."
             : "A game room could not be created. Please try again."
@@ -127,7 +190,59 @@ export function GameLobby() {
       return;
     }
 
-    router.push(`/games/play/${(data as { id: string }).id}`);
+    const room = data as { id: string; invite_expires_at: string | null };
+    if (selectedBuddy) {
+      setOutgoingInvite({ id: room.id, buddy: selectedBuddy.label, expiresAt: room.invite_expires_at });
+      setBusy(false);
+      return;
+    }
+    router.push(`/games/play/${room.id}`);
+  }
+
+  useEffect(() => {
+    if (!outgoingInvite) return;
+    let active = true;
+    const db = createClient();
+    async function checkInvite() {
+      const { data, error } = await db.from("game_rooms")
+        .select("status,invite_status,guest_id,invite_expires_at")
+        .eq("id", outgoingInvite!.id)
+        .maybeSingle();
+      if (!active || error || !data) return;
+      if (data.invite_status === "accepted" && data.guest_id && data.status !== "ended") {
+        setOutgoingInvite(null);
+        router.push(`/games/play/${outgoingInvite!.id}`);
+      } else if (data.invite_status === "declined" || data.invite_status === "expired" || data.status === "ended") {
+        setOutgoingInvite(null);
+        setMessage(`${outgoingInvite!.buddy} couldn't join this time. You can invite another Buddy or create an open room.`);
+      } else if (data.invite_expires_at && Date.parse(data.invite_expires_at) <= Date.now()) {
+        setOutgoingInvite(null);
+        setMessage(`The invite to ${outgoingInvite!.buddy} expired. Try again when they're in the Garden.`);
+      }
+    }
+    void checkInvite();
+    const timer = window.setInterval(() => { void checkInvite(); }, 2_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [outgoingInvite, router]);
+
+  async function respondToInvite(accept: boolean) {
+    if (!incomingInvite || inviteBusy) return;
+    setInviteBusy(true);
+    setMessage("");
+    const { data, error } = await createClient().rpc("game_respond_invite", {
+      p_room_id: incomingInvite.id,
+      p_accept: accept,
+    });
+    setInviteBusy(false);
+    if (error) {
+      setMessage(error.message.includes("invite_unavailable") ? "This invite has expired or is no longer available." : "Your response could not be sent. Please try again.");
+      setIncomingInvite(null);
+      return;
+    }
+    const room = data as { invite_status: string };
+    setIncomingInvite(null);
+    if (accept && room.invite_status === "accepted") router.push(`/games/play/${incomingInvite.id}`);
+    else setMessage(room.invite_status === "expired" ? "This invite expired before you could accept it." : "Invite declined.");
   }
 
   return (
@@ -167,9 +282,10 @@ export function GameLobby() {
                   type="button"
                   className={`${styles.gardenBuddy} ${styles[`gardenBuddyTone${index % 4}`]}`}
                   aria-pressed={selected?.userId === buddy.userId}
-                  onClick={() => setSelected(buddy)}
+                  disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)}
+                  onClick={() => { setSelected(buddy); void createRoom(buddy); }}
                   style={{ left: `${left}%`, top: `${top}%` }}
-                  aria-label={`Select ${buddy.label}, approximately ${buddy.distanceKm.toFixed(1)} kilometres away`}
+                  aria-label={`Invite ${buddy.label}, approximately ${buddy.distanceKm.toFixed(1)} kilometres away to play Morabaraba`}
                 >
                   <span className={styles.gardenBuddyMark}>{buddy.avatar}</span>
                   <span className={styles.gardenBuddyLabel}><strong>{buddy.label}</strong><small>{buddy.distanceKm.toFixed(1)} km</small></span>
@@ -187,20 +303,36 @@ export function GameLobby() {
             <span className={styles.selectionMark}>{selected ? selected.avatar : <UsersRound size={20} />}</span>
             <span className={styles.selectionCopy}>
               <strong>{selected ? selected.label : buddies.length ? "Choose a nearby Buddy" : "Your garden is quiet"}</strong>
-              <small>{locationError ? "Enable location to see nearby players." : selected ? `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length ? "Tap a Buddy to invite them to play." : position ? "You can still create an open room." : "Nearby players appear when location is available."}</small>
+              <small>{presenceError || (locationError ? "Enable location to see nearby players." : selected ? `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length ? "Tap a Buddy to invite them to play." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
             </span>
             {selected && <button type="button" className={styles.clearSelection} aria-label="Clear selected Buddy" onClick={() => setSelected(null)}><X size={18} /></button>}
           </div>
         </section>
 
         <footer className={styles.gardenFooter}>
-          <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy}>
+          <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)}>
             {selected ? <UsersRound size={19} /> : <Plus size={20} />}
-            <span>{busy ? "Opening room…" : selected ? `Invite ${selected.label}` : "Create a Morabaraba Room"}</span>
+            <span>{busy ? "Sending invite…" : outgoingInvite ? `Waiting for ${outgoingInvite.buddy}…` : selected ? `Invite ${selected.label}` : "Create a Morabaraba Room"}</span>
           </button>
+          {outgoingInvite && <p className={styles.gardenInviteWaiting} role="status">Invite sent. The room opens for both of you when {outgoingInvite.buddy} accepts.</p>}
           <p className={styles.gardenPrivacyNote}><LockKeyhole size={13} /> Only broad distance rings are shown here.</p>
           {message && <p role="status" className={styles.gardenMessage}>{message}</p>}
         </footer>
+
+        {incomingInvite && (
+          <div className={styles.gardenInviteBackdrop} role="presentation">
+            <section className={styles.gardenInviteDialog} role="dialog" aria-modal="true" aria-labelledby="garden-invite-title">
+              <span className={styles.gardenInviteIcon}><Flower2 size={26} /></span>
+              <p>Morabaraba invitation</p>
+              <h2 id="garden-invite-title">A nearby Buddy wants to play.</h2>
+              <small>Accept to join their private room. You can decline without sharing your exact location.</small>
+              <div className={styles.gardenInviteActions}>
+                <button type="button" onClick={() => void respondToInvite(false)} disabled={inviteBusy}>Decline</button>
+                <button type="button" onClick={() => void respondToInvite(true)} disabled={inviteBusy}>{inviteBusy ? "One moment…" : "Accept & join"}</button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {privacyOpen && (
           <div className={styles.gardenPrivacyBackdrop} role="presentation" onClick={() => setPrivacyOpen(false)}>

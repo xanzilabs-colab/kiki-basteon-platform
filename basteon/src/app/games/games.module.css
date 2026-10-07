@@ -172,8 +172,9 @@
 .gamesHome {
   --font-ui: "Plus Jakarta Sans", "Manrope", sans-serif;
   --font-display: "Manrope", sans-serif;
+  width: calc(100% + 40px);
   min-height: calc(100dvh - 170px);
-  padding: 0;
+  margin: -20px;
   background: transparent;
   color: #2d173a;
   font-family: var(--font-ui), sans-serif;
@@ -181,7 +182,7 @@
 
 .mobileFrame {
   position: relative;
-  width: min(100%, 448px);
+  width: min(100%, 640px);
   min-height: inherit;
   margin: 0 auto;
   background-color: #f8f5f8;
@@ -190,7 +191,7 @@
   box-shadow: 0 0 50px rgba(58, 31, 66, .07);
 }
 
-.homeContent { display: grid; gap: 18px; padding: 22px 18px 30px; }
+.homeContent { display: grid; gap: 16px; padding: 18px 12px 24px; }
 .intro { display: grid; gap: 4px; }
 .eyebrow { margin: 0; color: #76508a; font-size: 10px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
 .homeTitle { margin: 0; color: #32183f; font-family: var(--font-display), sans-serif; font-size: 28px; font-weight: 900; line-height: 1.1; }
@@ -227,8 +228,12 @@
   .mobileFrame { border-inline: 1px solid rgba(84, 37, 111, .1); }
 }
 
+@media (min-width: 768px) {
+  .gamesHome { width: calc(100% + 48px); margin: -24px; }
+}
+
 @media (max-width: 350px) {
-  .homeContent { padding-inline: 12px; }
+  .homeContent { padding-inline: 10px; }
   .gameRow { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 10px; }
   .gameIcon { width: 40px; height: 40px; }
   .cardAction { padding-inline: 8px; }
@@ -329,6 +334,18 @@
 .gardenPrivacyDialog p { margin: 0; color: var(--garden-muted); font-size: 12px; line-height: 1.6; }
 .gardenPrivacyClose { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--garden-purple-soft); color: var(--garden-purple); cursor: pointer; }
 .gardenPrivacyOkay { min-height: 40px; justify-self: stretch; border: 0; border-radius: 8px; background: var(--garden-purple); color: #fff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.gardenInviteWaiting { margin: 0; color: var(--garden-purple); font-size: 11px; font-weight: 750; line-height: 1.45; text-align: center; }
+.gardenBuddy:disabled { cursor: wait; opacity: .65; }
+.gardenInviteBackdrop { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(57,43,64,.38); backdrop-filter: blur(7px); }
+.gardenInviteDialog { width: min(100%, 360px); display: grid; justify-items: center; gap: 11px; padding: 24px 20px 20px; border: 1px solid rgba(217,154,156,.3); border-radius: 14px; background: #fffafc; color: var(--garden-ink); box-shadow: 0 20px 55px rgba(57,43,64,.22); text-align: center; }
+.gardenInviteIcon { width: 54px; height: 54px; display: grid; place-items: center; border: 3px solid #fff; border-radius: 50%; background: linear-gradient(140deg, var(--garden-rose), var(--garden-purple-soft)); color: #fff; box-shadow: 0 6px 16px rgba(118,85,138,.17); }
+.gardenInviteDialog p { margin: 0; color: var(--garden-purple); font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.gardenInviteDialog h2 { margin: 0; font-family: var(--font-display), Georgia, serif; font-size: 23px; line-height: 1.15; }
+.gardenInviteDialog small { color: var(--garden-muted); font-size: 11px; line-height: 1.5; }
+.gardenInviteActions { width: 100%; display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; margin-top: 4px; }
+.gardenInviteActions button { min-height: 42px; border: 1px solid rgba(118,85,138,.2); border-radius: 8px; background: #f7f1f8; color: var(--garden-purple); font: inherit; font-size: 11px; font-weight: 850; cursor: pointer; }
+.gardenInviteActions button:last-child { border-color: transparent; background: linear-gradient(100deg, #b97482, #81658f 55%, #789781); color: #fff; }
+.gardenInviteActions button:disabled { cursor: wait; opacity: .6; }
 
 @keyframes pondRipple { 0% { transform: scale(.6); opacity: .55; } 55% { opacity: .24; } 100% { transform: scale(1.32); opacity: 0; } }
 @keyframes lotusPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
@@ -347,4 +364,54 @@
   .gardenPond { width: min(72vw, 290px); }
   .gardenBuddyMark { width: 40px; height: 40px; }
   .gardenFooter { gap: 6px; }
+}
+
+/* Full-viewport Worry Boats */
+.boatsPage { display: flex; width: 100%; min-height: 100dvh; margin: 0; padding: 0; overflow: hidden; background: #111128; color: #f8f3ff; }
+.boatsRoutePage { position: relative; display: flex; width: 100%; max-width: none; min-height: 100dvh; height: 100dvh; flex-direction: column; margin: 0; padding: 0; }
+.boatsBackBar { position: absolute; z-index: 10; top: max(10px, env(safe-area-inset-top)); left: 12px; margin: 0; }
+.boatsPage .backLink { min-height: 36px; padding: 0 12px; border-color: rgba(235,226,255,.24); background: rgba(25,20,48,.42); color: #f8f3ff; font-size: 12px; box-shadow: none; backdrop-filter: blur(10px); }
+.boatsPage .card { box-sizing: border-box; display: flex; width: 100%; min-height: 0; height: 100dvh; flex: 1 1 0; flex-direction: column; gap: 10px; margin: 0; padding: calc(58px + env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom)); overflow: hidden; border: 0; border-radius: 0; background: linear-gradient(180deg, #101125 0%, #1a173b 44%, #211842 100%); color: #f8f3ff; box-shadow: none; }
+.boatsPage .header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding-inline: 44px 2px; }
+.boatsPage .header h2, .boatsPage .title { margin: 0; color: #f8f3ff; font-family: var(--font-display), Georgia, serif; font-size: clamp(20px, 5vw, 28px); line-height: 1.1; }
+.boatsPage .eyebrow { margin: 0 0 4px; color: #d4bde8; font-size: 10px; }
+.boatsPage .subtitle { margin: 5px 0 0; color: rgba(248,243,255,.7); font-size: 11px; line-height: 1.45; }
+.boatsPage .headerSide { display: grid; justify-items: end; gap: 7px; }
+.boatsPage .soundBtn { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid rgba(235,226,255,.22); border-radius: 999px; background: rgba(255,255,255,.08); color: #e9dcf7; font: inherit; font-size: 10px; font-weight: 750; }
+.boatsPage .soundOn { border-color: rgba(191,162,219,.4); color: #fff; }
+.boatsPage .stats { display: flex; gap: 7px; }
+.boatsPage .stat { padding: 4px 7px; border: 1px solid rgba(235,226,255,.16); border-radius: 999px; background: rgba(255,255,255,.06); color: rgba(248,243,255,.74); font-size: 9px; white-space: nowrap; }
+.boatsPage .stat b { color: #f4d58e; }
+.boatsPage .stage { position: relative; width: 100%; min-height: 0; flex: 1 1 auto; overflow: hidden; border: 1px solid rgba(206,183,231,.14); border-radius: 12px; background: #171431; }
+.boatsPage .scene { position: absolute; inset: 0; overflow: hidden; }
+.boatsPage .canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.boatsPage .hint { position: absolute; top: 48%; left: 50%; padding: 6px 10px; transform: translate(-50%,-50%); border: 1px solid rgba(235,226,255,.16); border-radius: 999px; background: rgba(20,17,43,.5); color: rgba(248,243,255,.65); font-size: 10px; pointer-events: none; }
+.boatsPage .caption { position: absolute; right: 12px; bottom: 12px; left: 12px; display: flex; justify-content: center; pointer-events: none; }
+.boatsPage .captionText { max-width: min(100%, 440px); margin: 0; padding: 7px 11px; border: 1px solid rgba(235,226,255,.16); border-radius: 8px; background: rgba(20,17,43,.7); color: #f8f3ff; font-size: 11px; text-align: center; }
+.boatsPage .desk { width: min(100%, 760px); display: grid; gap: 8px; align-self: center; }
+.boatsPage .paper { position: relative; display: grid; min-height: 82px; padding: 12px 13px 23px; border: 1px solid #e8d6bc; border-radius: 6px; background: #fff8ed; box-shadow: 0 7px 18px rgba(0,0,0,.17); }
+.boatsPage .paperHidden { visibility: hidden; }
+.boatsPage .tape { position: absolute; top: -5px; left: 50%; width: 56px; height: 12px; transform: translateX(-50%) rotate(-2deg); background: rgba(230,203,166,.7); }
+.boatsPage .textarea { width: 100%; min-height: 50px; resize: vertical; border: 0; outline: 0; background: transparent; color: #463849; font: inherit; font-size: 13px; line-height: 1.45; }
+.boatsPage .textarea::placeholder { color: #958596; opacity: 1; }
+.boatsPage .counter { justify-self: end; color: #887887; font-size: 9px; }
+.boatsPage .starters { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.boatsPage .starters::-webkit-scrollbar { display: none; }
+.boatsPage .starter { flex: none; min-height: 30px; padding: 0 9px; border: 1px solid rgba(235,226,255,.16); border-radius: 999px; background: rgba(255,255,255,.06); color: rgba(248,243,255,.76); font: inherit; font-size: 9px; }
+.boatsPage .actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.boatsPage .actions button { min-height: 38px; display: inline-flex; flex: 1 1 auto; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; border: 1px solid rgba(235,226,255,.2); border-radius: 7px; font: inherit; font-size: 10px; font-weight: 800; }
+.boatsPage .primary { background: #74548e; color: #fff; }
+.boatsPage .soft { background: rgba(255,255,255,.08); color: #f8f3ff; }
+.boatsPage .ghost { background: transparent; color: #d7c5e8; }
+.boatsPage .actions button:disabled { cursor: not-allowed; opacity: .45; }
+.boatsPage .privacy { margin: 0; color: rgba(248,243,255,.55); font-size: 9px; line-height: 1.4; text-align: center; }
+.boatsPage .flyer { position: fixed; z-index: 30; top: 0; left: 0; pointer-events: none; }
+.boatsPage .flyerText { margin: 0; }
+.boatsPage .crease { position: absolute; }
+
+@media (max-height: 700px) {
+  .boatsPage .card { gap: 8px; padding-top: calc(52px + env(safe-area-inset-top)); }
+  .boatsPage .stage { min-height: 160px; }
+  .boatsPage .paper { min-height: 68px; }
+  .boatsPage .textarea { min-height: 38px; }
 }

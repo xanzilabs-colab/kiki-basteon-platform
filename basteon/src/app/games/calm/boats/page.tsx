@@ -4,13 +4,12 @@ import styles from "../../games.module.css";
 
 export default function WorryBoatsPage() {
   return (
-    <main className={styles.page}>
-      <div className={styles.routePage}>
-        <div className={styles.backBar}>
+    <main className={`${styles.page} ${styles.boatsPage}`}>
+      <div className={`${styles.routePage} ${styles.boatsRoutePage}`}>
+        <div className={`${styles.backBar} ${styles.boatsBackBar}`}>
           <Link href="/games/calm" className={styles.backLink}>← Back</Link>
         </div>
-        <WorryBoatsGame />
-        <div className={styles.list}><Link href="/games/calm" className={styles.link}>Back to calm games</Link></div>
+        <WorryBoatsGame fullScreen />
       </div>
     </main>
   );

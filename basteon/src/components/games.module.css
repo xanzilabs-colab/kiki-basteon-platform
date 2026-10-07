@@ -418,6 +418,77 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.fullScreenCard {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  padding: calc(54px + env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, #101125 0%, #1a173b 44%, #211842 100%);
+  box-shadow: none;
+}
+
+.fullScreenCard .header {
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding-left: 44px;
+}
+
+.fullScreenCard .header > div:first-child { min-width: 0; }
+.fullScreenCard .title { font-size: clamp(1.35rem, 4vw, 2rem); }
+.fullScreenCard .subtitle { margin-top: 5px; font-size: .82rem; }
+.fullScreenCard .headerSide { display: flex; flex: none; align-items: center; gap: 7px; }
+.fullScreenCard .soundBtn { min-height: 34px; padding: 0 9px; font-size: .68rem; }
+.fullScreenCard .stats { gap: 5px; }
+.fullScreenCard .stat { gap: 4px; padding: 4px 7px; font-size: .65rem; }
+
+.fullScreenCard .stage {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  background: #0d0620;
+  box-shadow: none;
+}
+
+.fullScreenCard .scene { position: relative; height: 0; min-height: 0; flex: 1 1 0; overflow: hidden; }
+.fullScreenCard .canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.fullScreenCard .desk { flex: none; gap: 8px; padding: 9px 12px 10px; }
+.fullScreenCard .paper { min-height: 70px; padding: 11px 12px 21px 44px; transform: none; }
+.fullScreenCard .paper::before { left: 34px; }
+.fullScreenCard .paper::after { left: 5px; width: 16px; background-size: 16px 58px; }
+.fullScreenCard .textarea { min-height: 48px; font-size: 1rem; line-height: 25px; }
+.fullScreenCard .starters { flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.fullScreenCard .starters::-webkit-scrollbar { display: none; }
+.fullScreenCard .starter { min-height: 30px; flex: none; padding: 0 9px; font-size: .68rem; white-space: nowrap; }
+.fullScreenCard .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.fullScreenCard .actions button { min-height: 40px; justify-content: center; padding: 0 8px; border-radius: 10px; font-size: .7rem; }
+.fullScreenCard .primary { padding-inline: 8px; }
+.fullScreenCard .ghost { grid-column: 1 / -1; min-height: 30px; margin: 0; padding: 3px; }
+.fullScreenCard .privacy { font-size: .65rem; text-align: center; }
+
+@media (max-height: 700px) {
+  .fullScreenCard { gap: 6px; padding-top: calc(48px + env(safe-area-inset-top)); }
+  .fullScreenCard .title { font-size: 1.3rem; }
+  .fullScreenCard .subtitle { font-size: .72rem; }
+  .fullScreenCard .paper { min-height: 58px; padding-top: 8px; padding-bottom: 19px; }
+  .fullScreenCard .textarea { min-height: 36px; font-size: .92rem; line-height: 22px; }
+  .fullScreenCard .desk { gap: 6px; padding-block: 7px; }
+}
+
+@media (min-width: 768px) {
+  .fullScreenCard .desk { width: min(100%, 900px); align-self: center; }
+}
 .crease {
   position: absolute;
   inset: 0;

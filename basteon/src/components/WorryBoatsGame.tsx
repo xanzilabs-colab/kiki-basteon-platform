@@ -854,7 +854,7 @@ type Scene = ReturnType<typeof createRiverScene>;
 const RECT_CLIP = "polygon(0% 0%, 50% 0%, 100% 0%, 100% 50%, 100% 100%, 50% 100%, 0% 100%, 0% 50%)";
 const BOAT_CLIP = "polygon(26% 58%, 50% 0%, 74% 58%, 100% 58%, 82% 100%, 50% 100%, 18% 100%, 0% 58%)";
 
-export function WorryBoatsGame() {
+export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [stars, setStars] = useState(0);
@@ -920,7 +920,8 @@ export function WorryBoatsGame() {
 
     const fit = () => {
       const w = box.clientWidth;
-      const h = Math.round(clamp(w * 0.6, 300, 470));
+      const h = fullScreen ? box.clientHeight : Math.round(clamp(w * 0.6, 300, 470));
+      if (!w || !h) return;
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       scene.resize(w, h, Math.min(window.devicePixelRatio || 1, 2));
@@ -934,7 +935,7 @@ export function WorryBoatsGame() {
       scene.destroy();
       sceneRef.current = null;
     };
-  }, [showCaption]);
+  }, [showCaption, fullScreen]);
 
   /* rotating placeholder */
   useEffect(() => {
@@ -1086,7 +1087,7 @@ export function WorryBoatsGame() {
   const hasText = draft.trim().length > 0;
 
   return (
-    <section className={styles.card}>
+    <section className={`${styles.card} ${fullScreen ? styles.fullScreenCard : ""}`}>
       <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Worry Boats</p>
