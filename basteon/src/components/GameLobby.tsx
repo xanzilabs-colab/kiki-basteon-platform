@@ -161,13 +161,19 @@ export function GameLobby() {
       return;
     }
 
-    const { data: existingRoom } = await db.from("game_rooms").select("id,invite_status")
+    const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,invite_status")
       .or(`host_id.eq.${user.id},guest_id.eq.${user.id}`)
-      .neq("status", "ended")
+      .in("status", ["waiting", "ready_check", "playing"])
       .neq("invite_status", "pending")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (roomLookupError) {
+      setMessage("Your existing game rooms could not be checked. Please try again.");
+      setBusy(false);
+      return;
+    }
 
     if (existingRoom) {
       router.push(`/games/play/${existingRoom.id}`);
@@ -180,6 +186,8 @@ export function GameLobby() {
       setMessage(
         error.message.includes("room_already_open") || error.message.includes("duplicate key")
           ? "You already have an open game room. Use its invite link to continue."
+          : error.message.includes("buddy_has_open_room")
+            ? "That Buddy is already in an open game room. Try inviting them again when they're free."
           : error.message.includes("buddy_unavailable")
             ? "That Buddy is no longer available nearby. Choose someone else or create an open room."
           : selectedBuddy

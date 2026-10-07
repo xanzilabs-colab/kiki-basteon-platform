@@ -585,11 +585,16 @@
 .turnPill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.45rem 0.8rem; background: #f1e9f8; border: 1px solid #d8c5eb; color: #402c3d; font-weight: 700; }
 .boardWrap { display: flex; justify-content: center; padding: 4px 0; }
 .board { display: block; width: min(100%, 440px); height: auto; aspect-ratio: 1; padding: 10px; overflow: visible; border: 1px solid rgba(70, 47, 68, 0.15); border-radius: 20px; background: #efe1d2; }
-.board rect, .board path { fill: none; stroke: rgba(59, 38, 51, 0.62); stroke-width: 0.9; }
+.board:not(.roomBoard) rect, .board:not(.roomBoard) path { fill: none; stroke: rgba(59, 38, 51, 0.62); stroke-width: 0.9; }
 .boardDot { fill: #fffaf4; stroke: rgba(44, 27, 49, 0.58); stroke-width: 0.7; }
 .playerOneDot { fill: #9871bd; stroke: #563776; stroke-width: 0.8; }
 .playerTwoDot { fill: #e6879a; stroke: #8d4052; stroke-width: 0.8; }
 .noticeBox { padding: 0.8rem 1rem; border: 1px solid #d7bfef; border-radius: 14px; background: #f5ecfb; color: #402c3d; font-weight: 700; }
+.millNotice, .roundResult { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #d7bfef; border-radius: 14px; background: #f5ecfb; color: #402c3d; animation: morabaraba-notice-in .3s ease-out both; }
+.millNotice strong, .roundResult strong { line-height: 1.4; }
+.millNotice small, .roundResult small { font-size: .8rem; line-height: 1.5; }
+.roundResult .eyebrow { margin-bottom: 2px; }
+@keyframes morabaraba-notice-in { from { opacity: 0; transform: translateY(5px); } }
 .inlineButton { appearance: none; margin-left: 8px; border: 0; background: transparent; color: #5a337a; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
 .roomLayout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(250px, 0.6fr); gap: 16px; width: min(100%, 1120px); margin: 0 auto; align-items: start; }
 .chatPanel { display: grid; grid-template-rows: auto minmax(180px, 1fr) auto; gap: 12px; min-height: 320px; max-height: min(620px, calc(100dvh - 150px)); padding: 18px; border: 1px solid #dbcfe8; border-radius: 20px; background: rgba(255, 255, 255, 0.82); color: #2d173a; }
@@ -602,6 +607,146 @@
 .buddyMessage { align-self: start; background: #f8e9e7; }
 .chatForm { display: flex; gap: 8px; }
 .chatForm input { min-width: 0; flex: 1; border: 1px solid #cbb9d4; border-radius: 12px; padding: 0.7rem 0.8rem; background: #fff; color: #2d173a; font: inherit; }
+
+.morabarabaPage {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  color: #f6ead7;
+  background:
+    radial-gradient(520px 460px at 88% -4%, rgba(255,184,92,.3), transparent 70%),
+    radial-gradient(700px 500px at 0% 100%, rgba(232,80,74,.14), transparent 70%),
+    linear-gradient(180deg, #1d1226 0%, #2a1829 55%, #1a0f1f 100%);
+}
+.morabarabaPage::before {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 16px;
+  background:
+    linear-gradient(135deg,#e8504a 25%,transparent 25%) -9px 0/18px 16px,
+    linear-gradient(225deg,#f2b84b 25%,transparent 25%) -9px 0/18px 16px,
+    linear-gradient(315deg,#2fa6a0 25%,transparent 25%) 0 0/18px 16px,
+    linear-gradient(45deg,#f6efe3 25%,#3a2433 25%) 0 0/18px 16px;
+  box-shadow: 0 3px 12px rgba(0,0,0,.45);
+  content: "";
+}
+.morabarabaPage .roomLayout { position: relative; z-index: 0; }
+.morabarabaCard {
+  border-color: rgba(255,214,160,.2);
+  background: rgba(38,22,40,.82);
+  color: #f6ead7;
+  box-shadow: 0 24px 50px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(10px);
+}
+.morabarabaCard .eyebrow { color: #ffb85c; letter-spacing: .18em; }
+.morabarabaCard .gameHeader h1,
+.morabarabaChat .chatHeading h2 { color: #f6ead7; }
+.morabarabaCard .softButton,
+.morabarabaChat .primaryButton {
+  border-color: rgba(255,214,160,.22);
+  background: rgba(255,255,255,.07);
+  color: #f6ead7;
+}
+.morabarabaCard .softButton:hover { background: rgba(255,255,255,.13); }
+.morabarabaCard .turnPill {
+  border-color: rgba(255,214,160,.18);
+  background: rgba(255,255,255,.07);
+  color: #f6ead7;
+}
+.morabarabaCard .millNotice,
+.morabarabaCard .roundResult,
+.morabarabaCard .noticeBox {
+  border-color: rgba(255,184,92,.35);
+  background: rgba(255,184,92,.1);
+  color: #fff0d4;
+}
+.morabarabaCard .gameNote,
+.morabarabaCard .millNotice small,
+.morabarabaCard .roundResult small { color: #c9b8a6; }
+.morabarabaCard .inlineButton { color: #ffbd68; }
+.morabarabaChat {
+  border-color: rgba(255,214,160,.18);
+  background: rgba(38,22,40,.8);
+  color: #f6ead7;
+  backdrop-filter: blur(10px);
+}
+.morabarabaChat .chatHeading span,
+.morabarabaChat .ownMessage small,
+.morabarabaChat .buddyMessage small { color: #c9b8a6; }
+.morabarabaChat .ownMessage { background: linear-gradient(180deg,#ffc978,#ff9a45); color: #2a1408; }
+.morabarabaChat .buddyMessage { background: rgba(255,255,255,.1); }
+.morabarabaChat .chatForm input {
+  border-color: rgba(255,214,160,.2);
+  background: rgba(0,0,0,.28);
+  color: #f6ead7;
+}
+.morabarabaChat .chatForm input::placeholder { color: #aa958f; }
+.morabarabaChat .primaryButton { background: linear-gradient(180deg,#ffc978,#ff9a45); color: #2a1408; }
+
+.morabarabaBoardWrap {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid rgba(255,214,160,.2);
+  border-radius: 28px;
+  background:
+    repeating-linear-gradient(45deg,rgba(255,255,255,.055) 0 4px,transparent 4px 8px),
+    repeating-linear-gradient(-45deg,rgba(0,0,0,.14) 0 4px,transparent 4px 8px),
+    linear-gradient(160deg,#7d4038,#4b2231);
+  box-shadow: inset 0 0 0 2px rgba(255,214,160,.1), inset 0 8px 24px rgba(0,0,0,.45), 0 10px 30px rgba(0,0,0,.4);
+}
+.board.roomBoard {
+  width: min(100%, 500px);
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(0 12px 14px rgba(0,0,0,.42));
+}
+.roomBoard .boardOuterRim { fill: #552c17; stroke: #32190e; stroke-width: 1; }
+.roomBoard .boardInnerRim { fill: none; stroke: rgba(255,230,184,.58); stroke-width: .7; }
+.roomBoard .beadShadow { fill: none; stroke: rgba(43,21,7,.42); stroke-width: 2.4; }
+.roomBoard .beadwork rect { fill: none; stroke-width: .5; stroke-dasharray: .1 2.55; stroke-linecap: round; }
+.roomBoard .boardStudShadow { fill: #351c0d; opacity: .7; }
+.roomBoard .boardStud { stroke: #ffe1a1; stroke-opacity: .5; stroke-width: .25; }
+.roomBoard .boardStudMark { stroke: #5a3a0c; stroke-width: .28; stroke-linecap: round; }
+.roomBoard .boardLines { fill: none; stroke: #361d10; stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round; }
+.roomBoard .boardRosette { stroke: rgba(255,230,184,.36); stroke-width: .35; }
+.roomBoard .boardRosetteCenter { fill: #d7a75f; stroke: #4b2815; stroke-width: .35; }
+.roomBoard .boardRosetteRay { stroke: rgba(255,230,184,.46); stroke-width: .38; stroke-linecap: round; }
+.roomBoard .boardSocket { stroke: #d59c5b; stroke-width: .3; }
+.roomBoard .boardSocketInner { fill: none; stroke: rgba(10,5,3,.66); stroke-width: .65; }
+.roomBoard .boardDot { fill: #ffe2a8; stroke: rgba(255,238,200,.55); stroke-width: .3; }
+.roomBoard .tokenRim { fill: #392114; stroke: rgba(255,235,198,.7); stroke-width: .3; }
+.roomBoard .tokenFace { transform-box: fill-box; transform-origin: center; transition: transform .2s ease, filter .2s ease; }
+.roomBoard .tokenFace:hover { filter: drop-shadow(0 0 1.1px rgba(255,211,107,.9)); }
+.roomBoard .tokenSelectionRing { fill: none; stroke: #fff7de; stroke-width: .48; filter: drop-shadow(0 0 .7px #ffd36b); }
+.roomBoard .tokenRemovalRing { fill: rgba(255,70,50,.08); stroke: #ff7454; stroke-width: .62; animation: morabaraba-ring .85s ease-in-out infinite; }
+.roomBoard .legalTarget { fill: rgba(255,215,120,.32); stroke: #ffe9b8; stroke-width: .55; animation: morabaraba-target 1.1s ease-in-out infinite; }
+.roomBoard .removalTarget { fill: none; stroke: #ff7454; stroke-width: .62; animation: morabaraba-ring .85s ease-in-out infinite; }
+.roomBoard .millFlash { fill: none; stroke: #ffd36b; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 1px #ffb340); animation: morabaraba-mill .8s ease-in-out infinite alternate; }
+.roomBoard .tokenDrop { transform-box: fill-box; transform-origin: center; animation: morabaraba-drop .36s cubic-bezier(.3,1.2,.5,1) both; }
+.roomBoard .movingPiece { filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+.roomBoard .capturedPiece { transform-box: fill-box; transform-origin: center; animation: morabaraba-capture .34s ease-in forwards; }
+@keyframes morabaraba-ring { 50% { stroke-opacity: .42; transform: scale(1.06); } }
+@keyframes morabaraba-target { 50% { fill: rgba(255,215,120,.72); transform: scale(1.12); } }
+@keyframes morabaraba-mill { to { stroke-opacity: .3; stroke-width: 2; } }
+@keyframes morabaraba-drop { 0% { opacity: 0; transform: translateY(-5px) scale(1.25); } 72% { opacity: 1; transform: translateY(.4px) scale(.94); } 100% { opacity: 1; transform: none; } }
+@keyframes morabaraba-capture { to { opacity: 0; transform: scale(.15) translateY(-3px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .roomBoard .tokenRemovalRing,
+  .roomBoard .legalTarget,
+  .roomBoard .removalTarget,
+  .roomBoard .millFlash,
+  .roomBoard .tokenDrop,
+  .roomBoard .capturedPiece { animation: none; }
+  .roomBoard .tokenFace { transition: none; }
+  .millNotice, .roundResult { animation: none; }
+}
 
 @media (max-width: 760px) {
   .roomLayout { grid-template-columns: minmax(0, 1fr); }

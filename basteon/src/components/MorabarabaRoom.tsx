@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { MorabarabaBoard } from "./MorabarabaBoard";
@@ -29,9 +29,39 @@ type GameRoom = {
   rematch_guest: boolean;
 };
 type GameMessage = { id: string; author_id: string; body: string; created_at: string };
+type GameSound = "move" | "mill" | "capture";
+
+function playGameSound(context: AudioContext, sound: GameSound) {
+  const now = context.currentTime;
+  const notes = sound === "mill"
+    ? [523.25, 659.25, 783.99, 1046.5].map((frequency, index) => ({ frequency, start: index * 0.075, duration: 0.34, volume: 0.12 }))
+    : sound === "capture"
+      ? [{ frequency: 145, endFrequency: 72, start: 0, duration: 0.16, volume: 0.16 }, { frequency: 420, endFrequency: 250, start: 0.015, duration: 0.08, volume: 0.045 }]
+      : [{ frequency: 210, endFrequency: 105, start: 0, duration: 0.13, volume: 0.12 }, { frequency: 510, endFrequency: 260, start: 0.008, duration: 0.07, volume: 0.035 }];
+
+  for (const note of notes) {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const start = now + note.start;
+    const end = start + note.duration;
+    oscillator.type = sound === "mill" ? "triangle" : "sine";
+    oscillator.frequency.setValueAtTime(note.frequency, start);
+    if ("endFrequency" in note && note.endFrequency) {
+      oscillator.frequency.exponentialRampToValueAtTime(note.endFrequency, end);
+    }
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(note.volume, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(start);
+    oscillator.stop(end + 0.02);
+  }
+}
 
 export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
+  const audioContextRef = useRef<AudioContext | null>(null);
   const [room, setRoom] = useState<GameRoom | null>(null);
   const [userId, setUserId] = useState("");
   const [messages, setMessages] = useState<GameMessage[]>([]);
@@ -39,6 +69,32 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  const getAudioContext = useCallback(() => {
+    const AudioContextConstructor = window.AudioContext;
+    if (!AudioContextConstructor) {
+      setMessage("This browser does not support game sound.");
+      return null;
+    }
+    let context: AudioContext;
+    try {
+      context = audioContextRef.current ?? new AudioContextConstructor();
+    } catch {
+      setMessage("Sound could not start. Check your browser’s audio settings.");
+      return null;
+    }
+    audioContextRef.current = context;
+    if (context.state === "suspended") {
+      void context.resume().catch(() => setMessage("Sound could not start. Check your browser’s audio settings."));
+    }
+    return context;
+  }, []);
+
+  useEffect(() => () => {
+    const context = audioContextRef.current;
+    if (context && context.state !== "closed") void context.close();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -54,7 +110,11 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
       setUserId(user.id);
       const { data, error } = await db.rpc("game_join_room", { p_host_id: roomId });
       if (error) {
-        if (active) setMessage("This invite is unavailable or the room has already ended.");
+        if (active) {
+          setMessage(error.message.includes("room_unavailable")
+            ? "This game room is no longer active. Go back to the Garden and send a fresh invite."
+            : "The game room could not be opened. Please go back to the Garden and try again.");
+        }
         return;
       }
       const joined = data as GameRoom;
@@ -79,6 +139,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
 
   const act = useCallback(async (action: "place" | "move" | "remove", from?: number, to?: number) => {
     if (!room || busy) return;
+    const audio = soundEnabled ? getAudioContext() : null;
     setBusy(true);
     setMessage("");
     const { data, error } = await createClient().rpc("game_apply_move", {
@@ -95,10 +156,20 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
       };
       setMessage(details[error.message] ?? "That move was not accepted. The board has not changed.");
     } else {
-      setRoom(data as GameRoom);
+      const nextRoom = data as GameRoom;
+      setRoom(nextRoom);
+      if (audio) {
+        const localPlayer: Player = userId === room.host_id ? 1 : 2;
+        const madeMill = room.state.pendingRemoval === null && nextRoom.state.pendingRemoval === localPlayer;
+        try {
+          playGameSound(audio, madeMill ? "mill" : action === "remove" ? "capture" : "move");
+        } catch {
+          setMessage("Your move was saved, but the sound effect could not play.");
+        }
+      }
     }
     setBusy(false);
-  }, [room, busy]);
+  }, [room, busy, getAudioContext, soundEnabled, userId]);
 
   async function sendMessage(event: React.FormEvent) {
     event.preventDefault();
@@ -156,12 +227,24 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const placed = state.placed ?? { "1": 0, "2": 0 };
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${styles.morabarabaPage}`}>
       <div className={styles.roomLayout}>
-        <section className={styles.gameCard}>
+        <section className={`${styles.gameCard} ${styles.morabarabaCard}`}>
           <div className={styles.gameHeader}>
             <div><p className={styles.eyebrow}>Morabaraba · Round {room.round_no}</p><h1>Make a little space.</h1></div>
             <div className={styles.actionRow}>
+              <button
+                className={styles.softButton}
+                type="button"
+                aria-pressed={soundEnabled}
+                aria-label={soundEnabled ? "Turn game sound off" : "Turn game sound on"}
+                onClick={() => {
+                  if (!soundEnabled) getAudioContext();
+                  setSoundEnabled((enabled) => !enabled);
+                }}
+              >
+                Sound: {soundEnabled ? "on" : "off"}
+              </button>
               {room.status === "waiting" && <button className={styles.softButton} onClick={copyInvite}>Copy invite</button>}
               {room.guest_id && room.status !== "ended" && <button className={styles.softButton} onClick={reportBuddy}>Report</button>}
               <button className={styles.softButton} onClick={leave}>Leave</button>
@@ -176,20 +259,34 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
             <>
               <div className={styles.scoreRow}>
                 <span className={styles.turnPill}>{turnLabel}</span>
-                <span className={styles.turnPill}>You {player === 1 ? room.host_wins : room.guest_wins} · Buddy {player === 1 ? room.guest_wins : room.host_wins}</span>
+                <span className={styles.turnPill}>Wins · You {player === 1 ? room.host_wins : room.guest_wins} · Buddy {player === 1 ? room.guest_wins : room.host_wins}</span>
                 <span className={styles.turnPill}>Cows {placed[String(player) as "1" | "2"]}/12</span>
               </div>
               <MorabarabaBoard snapshot={state} player={player} busy={busy} onAction={(action, from, to) => void act(action, from, to)} />
-              {state.pendingRemoval !== null && <div className={styles.noticeBox}>A mill! Remove one of your buddy’s cows.</div>}
-              {state.winner && <div className={styles.noticeBox}>{state.winner === player ? "You won this round." : "Your buddy won this round."} <button className={styles.inlineButton} onClick={() => void rematch()}>{(player === 1 ? room.rematch_host : room.rematch_guest) ? "Waiting for buddy" : "Play again"}</button></div>}
-              {!state.winner && <p className={styles.gameNote}>{state.phase === "place" ? "Place 12 cows each. Make three in a row to form a mill." : "Move along a line. With three cows left, you may fly to any open point."}</p>}
+              {state.pendingRemoval !== null && (
+                <div className={styles.millNotice} role="status">
+                  <strong>{state.pendingRemoval === player ? "Mill! Remove one Buddy cow to finish your turn." : "Mill made. Your turn waits while your Buddy removes a cow."}</strong>
+                  <small>The other turn stays locked until the capture is complete.</small>
+                </div>
+              )}
+              {state.winner !== null && (
+                <div className={styles.roundResult} role="status">
+                  <p className={styles.eyebrow}>Round complete</p>
+                  <strong>{state.winner === player ? "You won this round." : "Your Buddy won this round."}</strong>
+                  <small>A round ends when a player has fewer than three cows or no legal move. Mills capture cows; wins are added only when a round ends.</small>
+                  <button className={styles.inlineButton} onClick={() => void rematch()}>
+                    {(player === 1 ? room.rematch_host : room.rematch_guest) ? "Waiting for Buddy…" : "Play another round"}
+                  </button>
+                </div>
+              )}
+              {!state.winner && state.pendingRemoval === null && <p className={styles.gameNote}>{state.phase === "place" ? "Place 12 cows each. Make three in a row to form a mill." : "Move along a line. With three cows left, you may fly to any open point."}</p>}
             </>
           )}
           {message && <p className={styles.gameNote} role="status">{message}</p>}
         </section>
 
         {room.status !== "waiting" && room.status !== "ended" && (
-          <section className={styles.chatPanel} aria-label="Game chat">
+          <section className={`${styles.chatPanel} ${styles.morabarabaChat}`} aria-label="Game chat">
             <div className={styles.chatHeading}><h2>Room chat</h2><span>Only you two</span></div>
             <div className={styles.chatMessages} aria-live="polite">
               {messages.map((item) => <p key={item.id} className={item.author_id === userId ? styles.ownMessage : styles.buddyMessage}><small>{item.author_id === userId ? "You" : "Buddy"}</small>{item.body}</p>)}
