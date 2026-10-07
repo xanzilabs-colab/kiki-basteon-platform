@@ -6,7 +6,7 @@ import {
   ArrowLeft, BedDouble, Car, Compass, CookingPot, Ear, Eye, Flower2, GraduationCap, Hand, HeartHandshake,
   Library, Send, ShieldX, Sofa, Sparkles, Trees, Wind, X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type ComponentType, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { askAi } from "@/lib/stoep/ai";
 import {
   applyAnswer, buildGuesses, describeMove, guessText, matchesGuess, needsPerson, newRound, nextMove, questionsAsked,
@@ -31,12 +31,131 @@ const SENSES: { key: SenseKey; count: number; icon: Icon; glow: string; ask: str
 ];
 const empty = (): Items => ({ see: [], feel: [], hear: [], smell: [], taste: [] });
 
-/* ---------------- Kiki the firefly ---------------- */
-function Kiki({ mood = "idle", size = 84 }: { mood?: Mood; size?: number }) {
+/* ---------------- Kiki the hummingbird (logo, in 3D) ---------------- */
+type Look = { x: number; y: number };
+const VB = "-10 -10 447 298";
+const BIRD = "M157 278V140C157 60 190 0 270 0H427C360 8 315 50 312 120C308 200 250 278 157 278Z";
+const WING = "M0 0H157V139A157 139 0 0 1 0 0Z";
+const CX = 157, CY = 139, RX = 153, RY = 139;
+function band(ro: number, ri: number) {
+  const xo = CX - RX * ro, yo = CY + RY * ro;
+  if (ri === 0) return `M${xo} ${CY}A${RX * ro} ${RY * ro} 0 0 0 ${CX} ${yo}L${CX} ${CY}Z`;
+  const xi = CX - RX * ri, yi = CY + RY * ri;
+  return `M${xo} ${CY}A${RX * ro} ${RY * ro} 0 0 0 ${CX} ${yo}L${CX} ${yi}A${RX * ri} ${RY * ri} 0 0 1 ${xi} ${CY}Z`;
+}
+const RINGS = [
+  { d: band(1, 0.72), fill: "#b999d0", z: -6 },
+  { d: band(0.64, 0.36), fill: "#c57fb4", z: -3 },
+  { d: band(0.28, 0), fill: "#d27ab0", z: 0 },
+];
+
+function Layer({ z, s, cls, dim, children }: { z: number; s: number; cls?: string; dim?: number; children: ReactNode }) {
   return (
-    <div className={`${g.kiki} ${g[mood]}`} style={{ width: size, height: size }} aria-hidden="true">
-      <span className={g.wingL} /><span className={g.wingR} />
-      <span className={g.body}><i /><i /></span>
+    <div className={`${g.layer} ${cls ?? ""}`} style={{ transform: `translateZ(${(z * s) / 100}px)` }}>
+      <svg viewBox={VB} style={dim ? { filter: `brightness(${dim})` } : undefined}>{children}</svg>
+    </div>
+  );
+}
+const slabs = (key: string, d: string, fill: string, zs: number[], s: number, cls?: string) =>
+  zs.map((z, i) => (
+    <Layer key={key + i} z={z} s={s} cls={cls} dim={i === 0 ? undefined : Math.max(0.45, 0.85 - i * 0.08)}>
+      <path d={d} fill={fill} />
+    </Layer>
+  ));
+
+function Kiki({ mood = "idle", size = 84, look, follow = true }: { mood?: Mood; size?: number; look?: Look; follow?: boolean }) {
+  const root = useRef<HTMLDivElement>(null);
+  const cur = useRef({ x: 0, y: 0 });
+  const ptr = useRef<{ x: number; y: number; t: number } | null>(null);
+  const moodRef = useRef(mood);
+  const lookRef = useRef(look);
+  const gid = useId().replace(/:/g, "");
+  moodRef.current = mood;
+  lookRef.current = look;
+
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const onMove = (event: PointerEvent) => {
+      ptr.current = { x: event.clientX, y: event.clientY, t: performance.now() };
+    };
+    if (follow) window.addEventListener("pointermove", onMove, { passive: true });
+
+    let raf = 0;
+    const tick = (now: number) => {
+      const time = now / 1000;
+      const currentMood = moodRef.current;
+      let targetX = 0, targetY = 0;
+      if (lookRef.current) {
+        targetX = Math.max(-1, Math.min(1, lookRef.current.x));
+        targetY = Math.max(-1, Math.min(1, lookRef.current.y));
+      } else if (currentMood === "think") {
+        targetX = 0.7;
+        targetY = -0.8;
+      } else if (currentMood === "puzzled") {
+        targetX = Math.sin(time * 2.2) * 0.9;
+        targetY = 0.25;
+      } else if (ptr.current && now - ptr.current.t < 5000) {
+        const rect = el.getBoundingClientRect();
+        const dx = ptr.current.x - (rect.left + rect.width / 2);
+        const dy = ptr.current.y - (rect.top + rect.height / 2);
+        const distance = Math.hypot(dx, dy) || 1;
+        const strength = Math.min(1, distance / 220);
+        targetX = (dx / distance) * strength;
+        targetY = (dy / distance) * strength;
+      } else {
+        targetX = Math.sin(time * 0.6) * 0.55;
+        targetY = Math.sin(time * 0.43) * 0.25;
+      }
+      if (calm) { targetX = 0; targetY = 0; }
+
+      cur.current.x += (targetX - cur.current.x) * 0.08;
+      cur.current.y += (targetY - cur.current.y) * 0.08;
+      el.style.setProperty("--lx", cur.current.x.toFixed(3));
+      el.style.setProperty("--ly", cur.current.y.toFixed(3));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onMove);
+    };
+  }, [follow]);
+
+  return (
+    <div
+      ref={root}
+      className={`${g.kiki} ${g[mood]}`}
+      style={{ width: size, height: (size * 298) / 447, "--persp": `${size * 6}px` } as CSSProperties}
+      aria-hidden="true"
+    >
+      <div className={g.glow} />
+      <div className={g.shadow} />
+      <div className={g.stage}>
+        <div className={g.spin}>
+          <div className={g.rig}>
+            <div className={g.wingRig}>{slabs("w", WING, "#ec8ab5", [-12, -14.5, -17], size)}</div>
+            <div className={g.ringRig}>
+              {RINGS.map((ring, index) => slabs(`r${index}`, ring.d, ring.fill, [ring.z, ring.z - 2.5], size, `${g.ring} ${g[`r${index}`]}`))}
+            </div>
+            <div className={g.head}>
+              {slabs("b", BIRD, "#6b45a3", [9, 6, 3, 0, -3, -6, -9], size)}
+              <Layer z={9.5} s={size}>
+                <defs>
+                  <radialGradient id={gid} cx="230" cy="40" r="210" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stopColor="#fff" stopOpacity=".3" />
+                    <stop offset="1" stopColor="#fff" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                <path d={BIRD} fill={`url(#${gid})`} />
+              </Layer>
+              <Layer z={10} s={size} cls={g.blink}><circle cx="269" cy="63" r="19" fill="#fff" /></Layer>
+              <Layer z={10.6} s={size} cls={`${g.blink} ${g.pupil}`}><circle cx="269" cy="63" r="10" fill="#2d1650" /></Layer>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -114,6 +233,11 @@ export function StoepGame() {
           ))}
         </div>
       </div>
+      {mode === "hub" && (
+        <div className={styles.gardenKiki} aria-hidden="true">
+          <Kiki mood="idle" size={104} />
+        </div>
+      )}
 
       <header className={styles.top}>
         <button onClick={() => (mode === "hub" ? router.back() : restart())}><ArrowLeft size={16} />{mode === "hub" ? "Back" : "Menu"}</button>
@@ -131,7 +255,6 @@ export function StoepGame() {
 
       {mode === "hub" && (
         <section className={g.panel}>
-          <Kiki mood="idle" size={96} />
           <h1 className={g.title}>Hi, I&apos;m Kiki. I can&apos;t see your world.</h1>
           <p className={g.lede}>Help me out? The more closely you look, the better we both play. Nothing is saved.</p>
           <label className={g.check}>
@@ -474,7 +597,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
   return (
     <section className={g.chatWrap}>
       <div className={g.chatHead}>
-        <Kiki mood={mood} size={52} />
+        <Kiki mood={mood} size={52} look={draft ? { x: 0, y: 0.9 } : undefined} />
         <div><strong>Kiki</strong><small>{outcome ? `Kiki ${stats.kiki}, you ${stats.rounds - stats.kiki}` : `Clue ${used} of 5`}</small></div>
       </div>
       <div className={g.chat} aria-live="polite">
