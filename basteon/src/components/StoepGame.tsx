@@ -14,7 +14,7 @@ import {
 } from "@/lib/stoep/engine";
 import { SETTINGS, type SenseKey, type SettingId } from "@/lib/stoep/knowledge";
 import styles from "./stoep.module.css"; // scene, top bar, person link (unchanged)
-import g from "./stoepPlay.module.css"; // new game UI
+import g from "./Stoepplay.module.css"; // new game UI
 
 type Icon = ComponentType<{ size?: number; strokeWidth?: number }>;
 type Mood = "idle" | "think" | "happy" | "puzzled";
