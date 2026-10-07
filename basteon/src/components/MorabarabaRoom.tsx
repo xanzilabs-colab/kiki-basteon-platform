@@ -31,6 +31,31 @@ type GameRoom = {
 type GameMessage = { id: string; author_id: string; body: string; created_at: string };
 type GameSound = "move" | "mill" | "capture";
 
+function normalizeSnapshot(value: unknown): Snapshot {
+  if (!value || typeof value !== "object") {
+    return { board: new Array(24).fill(0), turn: 1, phase: "place", placed: { "1": 0, "2": 0 }, pendingRemoval: null, winner: null };
+  }
+  const snapshot = value as Partial<Snapshot>;
+  if (
+    !Array.isArray(snapshot.board)
+    || snapshot.board.length !== 24
+    || snapshot.board.some((piece) => piece !== 0 && piece !== 1 && piece !== 2)
+  ) {
+    return { board: new Array(24).fill(0), turn: 1, phase: "place", placed: { "1": 0, "2": 0 }, pendingRemoval: null, winner: null };
+  }
+  return {
+    board: snapshot.board,
+    turn: snapshot.turn === 2 ? 2 : 1,
+    phase: snapshot.phase === "move" ? "move" : "place",
+    placed: {
+      "1": snapshot.placed?.["1"] ?? 0,
+      "2": snapshot.placed?.["2"] ?? 0,
+    },
+    pendingRemoval: snapshot.pendingRemoval === 1 || snapshot.pendingRemoval === 2 ? snapshot.pendingRemoval : null,
+    winner: snapshot.winner === 1 || snapshot.winner === 2 ? snapshot.winner : null,
+  };
+}
+
 function playGameSound(context: AudioContext, sound: GameSound) {
   const now = context.currentTime;
   const notes = sound === "mill"
@@ -119,12 +144,15 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
       }
       const joined = data as GameRoom;
       if (!active) return;
-      setRoom(joined);
+      setRoom({ ...joined, state: normalizeSnapshot(joined.state) });
       const { data: initialMessages } = await db.from("game_messages").select("id,author_id,body,created_at").eq("room_id", roomId).order("created_at");
       if (active) setMessages((initialMessages ?? []) as GameMessage[]);
       channel = db.channel(`morabaraba-${roomId}`)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_rooms", filter: `id=eq.${roomId}` }, (payload) => {
-          if (active) setRoom(payload.new as GameRoom);
+          if (active) {
+            const updated = payload.new as GameRoom;
+            setRoom({ ...updated, state: normalizeSnapshot(updated.state) });
+          }
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_messages", filter: `room_id=eq.${roomId}` }, (payload) => {
           if (active) setMessages((current) => current.some((item) => item.id === (payload.new as GameMessage).id) ? current : [...current, payload.new as GameMessage]);
@@ -157,7 +185,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
       setMessage(details[error.message] ?? "That move was not accepted. The board has not changed.");
     } else {
       const nextRoom = data as GameRoom;
-      setRoom(nextRoom);
+      setRoom({ ...nextRoom, state: normalizeSnapshot(nextRoom.state) });
       if (audio) {
         const localPlayer: Player = userId === room.host_id ? 1 : 2;
         const madeMill = room.state.pendingRemoval === null && nextRoom.state.pendingRemoval === localPlayer;
@@ -192,7 +220,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
     if (error) setMessage("A new round could not be started.");
     else {
       const nextRoom = data as GameRoom;
-      setRoom(nextRoom);
+      setRoom({ ...nextRoom, state: normalizeSnapshot(nextRoom.state) });
       if (nextRoom.status === "post_game") setMessage("Waiting for your buddy to agree to another round.");
     }
     setBusy(false);

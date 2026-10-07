@@ -13,6 +13,7 @@ type Snapshot = {
   pendingRemoval: Player | null;
   winner: Player | null;
 };
+const EMPTY_BOARD: Snapshot["board"] = new Array(24).fill(0);
 type BoardMotion =
   | { kind: "move"; player: Player; from: number; to: number; id: number }
   | { kind: "capture"; player: Player; at: number; id: number }
@@ -60,19 +61,20 @@ export function MorabarabaBoard({
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [motion, setMotion] = useState<BoardMotion | null>(null);
-  const previousBoard = useRef([...snapshot.board]);
+  const board = Array.isArray(snapshot?.board) && snapshot.board.length === 24 ? snapshot.board : EMPTY_BOARD;
+  const previousBoard = useRef([...board]);
   const motionId = useRef(0);
   const idPrefix = useId().replace(/:/g, "");
   const canPlay = player === snapshot.turn && !snapshot.winner && !busy && (snapshot.pendingRemoval === null || snapshot.pendingRemoval === player);
   const opponent = player === 1 ? 2 : 1;
-  const opponentPieces = snapshot.board.map((piece, index) => piece === opponent ? index : -1).filter((index) => index >= 0);
-  const canRemoveAnyCow = opponentPieces.some((index) => !inMill(snapshot.board, opponent, index));
-  const ownPieces = snapshot.board.filter((piece) => piece === player).length;
+  const opponentPieces = board.map((piece, index) => piece === opponent ? index : -1).filter((index) => index >= 0);
+  const canRemoveAnyCow = opponentPieces.some((index) => !inMill(board, opponent, index));
+  const ownPieces = board.filter((piece) => piece === player).length;
   const canFly = ownPieces === 3;
 
   useEffect(() => {
     const before = previousBoard.current;
-    const after = snapshot.board;
+    const after = board;
     const removed = before.map((piece, index) => piece !== 0 && after[index] === 0 ? index : -1).filter((index) => index >= 0);
     const added = after.map((piece, index) => piece !== 0 && before[index] === 0 ? index : -1).filter((index) => index >= 0);
     let nextMotion: BoardMotion | null = null;
@@ -88,38 +90,38 @@ export function MorabarabaBoard({
     setMotion(nextMotion);
     const timer = window.setTimeout(() => setMotion((current) => current?.id === nextMotion?.id ? null : current), nextMotion.kind === "move" ? 420 : 360);
     return () => window.clearTimeout(timer);
-  }, [snapshot.board]);
+  }, [board]);
 
   useEffect(() => { setSelected(null); }, [snapshot.turn, snapshot.phase, snapshot.pendingRemoval]);
 
   function choosePoint(index: number) {
     if (!canPlay) return;
     if (snapshot.pendingRemoval === player) {
-      if (snapshot.board[index] !== opponent || (canRemoveAnyCow && inMill(snapshot.board, opponent, index))) return;
+      if (board[index] !== opponent || (canRemoveAnyCow && inMill(board, opponent, index))) return;
       onAction("remove", undefined, index);
       setSelected(null);
       return;
     }
     if (snapshot.phase === "place") {
-      if (snapshot.board[index] !== 0) return;
+      if (board[index] !== 0) return;
       onAction("place", undefined, index);
       return;
     }
-    if (snapshot.board[index] === player) {
+    if (board[index] === player) {
       setSelected((current) => current === index ? null : index);
       return;
     }
-    if (selected !== null && snapshot.board[index] === 0 && (canFly || ADJACENCY[selected].has(index))) {
+    if (selected !== null && board[index] === 0 && (canFly || ADJACENCY[selected].has(index))) {
       onAction("move", selected, index);
       setSelected(null);
     }
   }
 
   const canRemove = (index: number) => snapshot.pendingRemoval === player
-    && snapshot.board[index] === opponent
-    && (!canRemoveAnyCow || !inMill(snapshot.board, opponent, index));
+    && board[index] === opponent
+    && (!canRemoveAnyCow || !inMill(board, opponent, index));
   const isMoveTarget = (index: number) => canPlay && snapshot.phase === "move" && selected !== null
-    && snapshot.board[index] === 0 && (canFly || ADJACENCY[selected].has(index));
+    && board[index] === 0 && (canFly || ADJACENCY[selected].has(index));
   const renderToken = (piece: Player, index: number, isSelected = false, isRemovable = false) => {
     const spots = [
       [[-1.1, -1, 1.2, 0.8, -25], [1.25, 1.1, 0.85, 0.65, 20]],
@@ -241,7 +243,7 @@ export function MorabarabaBoard({
           })}
         </g>
         {snapshot.pendingRemoval !== null && MILLS
-          .filter((mill) => mill.every((index) => snapshot.board[index] === snapshot.pendingRemoval))
+          .filter((mill) => mill.every((index) => board[index] === snapshot.pendingRemoval))
           .map((mill) => (
             <path
               key={`mill-${mill[0]}-${mill[1]}-${mill[2]}`}
@@ -258,7 +260,7 @@ export function MorabarabaBoard({
           </g>
         ))}
         {POINTS.map(([x, y], index) => {
-          const piece = snapshot.board[index];
+          const piece = board[index];
           const showPiece = piece !== 0 && !(motion?.kind === "move" && motion.to === index);
           const target = isMoveTarget(index);
           const removable = canRemove(index);
