@@ -233,12 +233,6 @@ export function StoepGame() {
           ))}
         </div>
       </div>
-      {mode === "hub" && (
-        <div className={styles.gardenKiki} aria-hidden="true">
-          <Kiki mood="idle" size={104} />
-        </div>
-      )}
-
       <header className={styles.top}>
         <button onClick={() => (mode === "hub" ? router.back() : restart())}><ArrowLeft size={16} />{mode === "hub" ? "Back" : "Menu"}</button>
         <button aria-pressed={discreet} onClick={() => setDiscreet(!discreet)}><ShieldX size={16} />{discreet ? "Discreet is on" : "Discreet mode"}</button>
@@ -255,6 +249,7 @@ export function StoepGame() {
 
       {mode === "hub" && (
         <section className={g.panel}>
+          <Kiki mood="idle" size={96} />
           <h1 className={g.title}>Hi, I&apos;m Kiki. I can&apos;t see your world.</h1>
           <p className={g.lede}>Help me out? The more closely you look, the better we both play. Nothing is saved.</p>
           <label className={g.check}>

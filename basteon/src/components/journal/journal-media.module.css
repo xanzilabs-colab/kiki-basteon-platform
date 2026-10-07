@@ -1,0 +1,18 @@
+.mediaPicker { display: grid; gap: 10px; }
+.fileInput { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.mediaActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mediaActions button { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #c7b2d1; border-radius: 7px; background: #fff; color: #54256f; font: inherit; font-weight: 800; box-shadow: none; }
+.mediaActions button:disabled { cursor: not-allowed; opacity: .55; }
+.recordingStatus { margin: 0; color: #8b3150; font-size: 13px; font-weight: 800; }
+.mediaPreview { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; padding: 10px; border: 1px solid #b89fca; border-radius: 7px; background: #f7eef6; }
+.mediaPreview img, .mediaPreview audio { grid-column: 1 / -1; width: 100%; }
+.mediaPreview img { max-height: 180px; border-radius: 5px; object-fit: contain; }
+.fileDetails { min-width: 0; display: grid; gap: 3px; }
+.fileDetails strong { overflow-wrap: anywhere; color: #32183f; font-size: 13px; }
+.fileDetails small { color: #684d72; font-size: 11px; }
+.removeMedia { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: #54256f; cursor: pointer; }
+.removeMedia:hover { background: #eadcf0; }
+.savedMedia { display: grid; gap: 10px; padding: 12px; border: 1px solid #c7b2d1; border-radius: 7px; background: #f7eef6; }
+.savedMedia img { display: block; width: 100%; max-height: min(60dvh, 520px); object-fit: contain; }
+.savedMedia audio { width: 100%; }
+.savedMedia p { margin: 0; color: #684d72; font-size: 13px; }
