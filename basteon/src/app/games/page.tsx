@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Flower2, Gamepad2, Sailboat, Sparkles, WandSparkles } from "lucide-react";
+import { ArrowRight, Flower2, Gamepad2, Sailboat, Sparkles } from "lucide-react";
 import { AccountShell } from "@/components/AccountShell";
 import { createClient } from "@/lib/supabase/client";
 import styles from "./games.module.css";
@@ -20,7 +20,6 @@ const filters: { id: Category; label: string }[] = [
 
 const games = [
   { href: "/games/calm/five-things", title: "Five Things", description: "Notice what is around you", category: "grounding" as const, icon: Flower2, action: "Start" },
-  { href: "/games/calm/rake", title: "Sand Rake", description: "Draw lines and let thoughts settle", category: "calm" as const, icon: WandSparkles, action: "Rake" },
   { href: "/games/calm/boats", title: "Worry Boats", description: "Name a worry and send it off", category: "release" as const, icon: Sailboat, action: "Launch" },
   { href: "/games/play", title: "Play with a Buddy", description: "A quick, light two-player game", category: "buddy" as const, icon: Gamepad2, action: "Play" },
   { href: "/games/calm", title: "Calm games", description: "Browse all your gentle solo games", category: "calm" as const, icon: Sparkles, action: "Explore" },
@@ -94,3 +93,4 @@ export default function GamesPage() {
     </AccountShell>
   );
 }
+

@@ -557,7 +557,7 @@
   }
 }
 
-/* Shared styles retained for Sand Rake and Morabaraba. */
+/* Shared styles retained for Morabaraba. */
 .page { min-height: 100dvh; padding: 24px 18px 72px; background: linear-gradient(180deg, #f7eef6 0%, #f2ecff 100%); color: #2d173a; }
 .gameCard {
   display: grid;
@@ -712,4 +712,47 @@
   .gameHeader { align-items: flex-start; flex-direction: column; }
   .gameHeader .actionRow { width: 100%; }
   .gameHeader .actionRow button { flex: 1; }
+}
+
+
+/* Morabaraba room full-width mobile overrides */
+.morabarabaCard { width: 100%; }
+@media (max-width: 760px) {
+  .morabarabaPage {
+    padding-inline: 0;
+    padding-block: 0 22px;
+  }
+  .morabarabaPage .roomLayout {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    margin: 0;
+    gap: 12px;
+  }
+  .morabarabaPage .morabarabaCard {
+    border-radius: 0;
+    border-inline: 0;
+    box-shadow: none;
+    padding: 14px 10px 18px;
+  }
+  .morabarabaPage .morabarabaBoardWrap {
+    padding: 8px;
+    border-radius: 18px;
+  }
+  .morabarabaPage .board.roomBoard {
+    width: 100%;
+  }
+  .morabarabaPage .chatPanel {
+    min-height: 260px;
+    max-height: 420px;
+    border-radius: 14px;
+    margin-inline: 10px;
+  }
+}
+@media (max-width: 520px) {
+  .morabarabaPage .morabarabaCard {
+    padding: 12px 8px 16px;
+  }
+  .morabarabaPage .morabarabaBoardWrap {
+    padding: 6px;
+  }
 }

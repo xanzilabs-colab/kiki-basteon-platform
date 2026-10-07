@@ -3,7 +3,6 @@ import styles from "../games.module.css";
 
 const calmGames = [
   { href: "/games/calm/five-things", title: "Five Things", blurb: "Grounding in the moment, with a quiet garden that responds to what you notice." },
-  { href: "/games/calm/rake", title: "Sand Rake", blurb: "Rake soft lines in the sand and let them wash away with the breeze." },
   { href: "/games/calm/boats", title: "Worry Boats", blurb: "Write a worry, launch it, and let it drift away." },
 ];
 
@@ -28,3 +27,5 @@ export default function CalmGamesPage() {
     </main>
   );
 }
+
+
