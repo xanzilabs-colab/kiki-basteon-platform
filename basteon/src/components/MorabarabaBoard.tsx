@@ -256,8 +256,9 @@ export function MorabarabaBoard({
         {POINTS.map(([x, y], index) => (
           <g key={`socket-${index}`} pointerEvents="none">
             <circle cx={x + 0.25} cy={y + 0.35} r="2.75" fill="#31180e" opacity=".45" filter={`url(#${idPrefix}-board-shadow)`} />
-            <circle cx={x} cy={y} r="2.65" fill={`url(#${idPrefix}-socket)`} className={styles.boardSocket} />
-            <circle cx={x - 0.25} cy={y - 0.32} r="1.6" className={styles.boardSocketInner} />
+            <circle cx={x} cy={y} r="2.72" fill={`url(#${idPrefix}-socket)`} className={styles.boardSocket} />
+            <circle cx={x - 0.25} cy={y - 0.32} r="1.68" className={styles.boardSocketInner} />
+            <circle cx={x} cy={y} r="0.72" className={styles.boardSocketCore} />
           </g>
         ))}
         {POINTS.map(([x, y], index) => {
@@ -301,10 +302,10 @@ export function MorabarabaBoard({
               type="translate"
               from={`${POINTS[motion.from][0]} ${POINTS[motion.from][1]}`}
               to={`${POINTS[motion.to][0]} ${POINTS[motion.to][1]}`}
-              dur=".36s"
+              dur=".48s"
               calcMode="spline"
               keyTimes="0;1"
-              keySplines=".2 .8 .25 1"
+              keySplines=".18 .86 .2 1"
               fill="freeze"
             />
             {renderToken(motion.player, motion.to)}
@@ -322,3 +323,4 @@ export function MorabarabaBoard({
     </div>
   );
 }
+

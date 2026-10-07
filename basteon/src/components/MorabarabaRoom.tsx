@@ -283,6 +283,14 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
 
   return (
     <main className={`${styles.page} ${styles.morabarabaPage}`}>
+      <div className={styles.morabarabaAmbient} aria-hidden="true">
+        <span className={styles.ambientBloomOne} />
+        <span className={styles.ambientBloomTwo} />
+        <span className={styles.ambientBloomThree} />
+        <span className={styles.ambientPetalOne} />
+        <span className={styles.ambientPetalTwo} />
+        <span className={styles.ambientPetalThree} />
+      </div>
       <div className={styles.roomLayout}>
         <section className={`${styles.gameCard} ${styles.morabarabaCard}`}>
           <div className={styles.gameHeader}>
@@ -358,3 +366,4 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
     </main>
   );
 }
+
