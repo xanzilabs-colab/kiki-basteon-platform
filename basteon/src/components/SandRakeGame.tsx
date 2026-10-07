@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import styles from "./games.module.css";
+import styles from "./SandRake.module.css";
 
 type Stone = { x: number; y: number; radius: number };
 
@@ -35,8 +35,23 @@ export function SandRakeGame() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [patternOn, setPatternOn] = useState(false);
   const [raking, setRaking] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [calm, setCalm] = useState(0);
+  const [toast, setToast] = useState("");
   const [stones, setStones] = useState<Stone[]>([]);
   const prevPointRef = useRef<{ x: number; y: number } | null>(null);
+  const lastCalmUpdateRef = useRef(0);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(""), 1_800);
+  };
+
+  useEffect(() => () => {
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+  }, []);
 
   useEffect(() => {
     const width = 720;
@@ -62,7 +77,7 @@ export function SandRakeGame() {
     canvas.width = 720 * dpr;
     canvas.height = 420 * dpr;
     canvas.style.width = "100%";
-    canvas.style.height = "420px";
+    canvas.style.height = "auto";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const width = 720;
@@ -101,6 +116,7 @@ export function SandRakeGame() {
     const x = ((event.clientX - rect.left) / rect.width) * 720;
     const y = ((event.clientY - rect.top) / rect.height) * 420;
     prevPointRef.current = { x, y };
+    setTouched(true);
     setRaking(true);
   };
 
@@ -109,6 +125,11 @@ export function SandRakeGame() {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 720;
     const y = ((event.clientY - rect.top) / rect.height) * 420;
+    const now = performance.now();
+    if (now - lastCalmUpdateRef.current > 140) {
+      lastCalmUpdateRef.current = now;
+      setCalm((value) => Math.min(100, value + 1));
+    }
     const prev = prevPointRef.current;
     if (!prev) {
       prevPointRef.current = { x, y };
@@ -181,29 +202,53 @@ export function SandRakeGame() {
         ctx.stroke();
       }
     }
+    showToast("The sand is smooth again.");
   };
 
   return (
-    <section className={styles.gameCard}>
-      <div className={styles.gameHeader}>
+    <section className={styles.card}>
+      <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Sand Rake</p>
-          <h2>Draw gentle lines in the sand.</h2>
+          <h2 className={styles.title}>Draw gentle lines in the sand.</h2>
         </div>
-        <div className={styles.inlineControls}>
-          <button className={styles.softButton} onClick={() => setPatternOn((value) => !value)}>{patternOn ? "Hide guides" : "Pattern"}</button>
-          <button className={styles.softButton} onClick={smoothSand}>Smooth the sand</button>
+        <div className={styles.calm}>
+          <span>Calm settling · {calm}%</span>
+          <div className={styles.calmBar} role="progressbar" aria-label="Calm settling" aria-valuemin={0} aria-valuemax={100} aria-valuenow={calm}>
+            <i style={{ width: `${calm}%` }} />
+          </div>
         </div>
+      </header>
+      <div className={styles.stage}>
+        <canvas
+          ref={canvasRef}
+          className={styles.canvas}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        />
+        <div className={styles.vignette} />
+        {!touched && <div className={styles.hint}>Drag your fingers through the sand</div>}
+        {toast && <div className={styles.toast} role="status">{toast}</div>}
       </div>
-      <canvas
-        ref={canvasRef}
-        className={styles.rakeCanvas}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-      />
-      <p className={styles.gameNote}>The sand resets when you leave. That is the point.</p>
+      <div className={styles.tools}>
+        <div className={styles.chips}>
+          <button
+            type="button"
+            className={`${styles.chip} ${patternOn ? styles.on : ""}`}
+            aria-pressed={patternOn}
+            onClick={() => {
+              setPatternOn((value) => !value);
+              showToast(patternOn ? "Guides hidden." : "Guides shown.");
+            }}
+          >
+            {patternOn ? "Hide guides" : "Pattern"}
+          </button>
+        </div>
+        <button type="button" className={styles.primary} onClick={smoothSand}>Smooth the sand</button>
+      </div>
+      <p className={styles.note}>The sand resets when you leave. That is the point.</p>
     </section>
   );
 }
