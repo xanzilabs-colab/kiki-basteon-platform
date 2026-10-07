@@ -496,6 +496,7 @@ const INTRO: Record<string, string> = {
 };
 
 function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi: () => void; onLevel: (n: number) => void; onMenu: () => void }) {
+  const CLUE_TARGET = 7;
   const [round, setRound] = useState<Round | null>(null);
   const [move, setMove] = useState<Move | null>(null);
   const [log, setLog] = useState<Msg[]>([]);
@@ -523,10 +524,10 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
     turn(r);
   }
 
-  function turn(r: Round, lead = "") {
+  function turn(r: Round, lead = "", forced?: Move) {
     setRound(r); setMove(null); setThinking(true); setMood("think");
     later(() => {
-      const m = nextMove(r);
+      const m = forced ?? nextMove(r);
       if (m.kind === "stuck") { void giveUp(r, lead); return; }
       setThinking(false); setMove(m); setMood("idle");
       push("kiki", `${lead ? lead + " " : ""}${describeMove(m, r)}`);
@@ -567,6 +568,11 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
     if (move.kind === "reveal") return finish(false, `Ahh, ${text}! I'd never have guessed. Point to you.`);
     const res = applyAnswer(round, move, text);
     if (move.kind === "guess" && res.yes) return finish(true, `Yes! I got it in ${questionsAsked(round)} questions. Kiki's brain is glowing.`);
+    const inferred = res.inferredGuess;
+    if (inferred && move.kind !== "guess" && !res.round.rejected.some((x) => same(x, inferred))) {
+      turn(res.round, `${reaction(move, res, res.round)} I think I caught your clue.`, { kind: "guess", label: inferred });
+      return;
+    }
     turn(res.round, reaction(move, res, res.round));
   }
 
@@ -574,7 +580,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
     move?.kind === "setting" ? SETTINGS.map((s) => s.name)
     : move?.kind === "posture" ? ["Lying down", "Sitting", "Standing"]
     : move?.kind === "ask" || move?.kind === "guess" ? ["Yes", "No", "Not sure"] : [];
-  const used = round ? Math.min(questionsAsked(round), 5) : 0;
+  const used = round ? Math.min(questionsAsked(round), CLUE_TARGET) : 0;
 
   if (!round) {
     return (
@@ -593,7 +599,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
     <section className={g.chatWrap}>
       <div className={g.chatHead}>
         <Kiki mood={mood} size={52} look={draft ? { x: 0, y: 0.9 } : undefined} />
-        <div><strong>Kiki</strong><small>{outcome ? `Kiki ${stats.kiki}, you ${stats.rounds - stats.kiki}` : `Clue ${used} of 5`}</small></div>
+        <div><strong>Kiki</strong><small>{outcome ? `Kiki ${stats.kiki}, you ${stats.rounds - stats.kiki}` : `Clue ${used} of ${CLUE_TARGET}`}</small></div>
       </div>
       <div className={g.chat} aria-live="polite">
         {log.map((m, i) => <p key={i} className={`${g.msg} ${m.from === "you" ? g.you : ""}`}>{m.text}</p>)}

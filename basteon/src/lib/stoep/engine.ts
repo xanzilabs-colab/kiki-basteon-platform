@@ -182,13 +182,19 @@ const entropy = (p: number) => (p <= 0 || p >= 1 ? 0 : -(p * Math.log2(p) + (1 -
 export function nextMove(r: Round): Move {
   if (!r.settingAsked) return { kind: "setting" };
   if (!r.postureAsked && (r.sense === "see" || r.sense === "feel")) return { kind: "posture" };
+
   const cand = rank(r);
-  if (!cand.length || r.guesses >= 3) return { kind: "stuck" };
+  if (!cand.length || r.guesses >= 4) return { kind: "stuck" };
+
   const total = cand.reduce((s, c) => s + c.w, 0);
   const top = cand[0];
   const used = questionsAsked(r);
-  const budget = 5 + (r.guesses > 0 ? 1 : 0);
-  if (used >= budget || cand.length === 1 || (used >= 3 && top.w / total >= 0.5)) return { kind: "guess", label: top.o.label };
+  const budget = 7 + (r.guesses > 0 ? 1 : 0);
+  const confidence = top.w / Math.max(total, 0.0001);
+
+  if (used >= budget || cand.length === 1 || (used >= 4 && confidence >= 0.58) || confidence >= 0.74) {
+    return { kind: "guess", label: top.o.label };
+  }
 
   let best: { q: Q; e: number } | null = null;
   for (const q of QS) {
@@ -197,16 +203,17 @@ export function nextMove(r: Round): Move {
     const e = entropy(yes);
     if (!best || e > best.e) best = { q, e };
   }
-  if (!best || best.e < 0.15) return { kind: "guess", label: top.o.label };
+
+  if (!best || best.e < 0.11) return { kind: "guess", label: top.o.label };
   return { kind: "ask", id: best.q.id, text: best.q.text };
 }
 
 /* ---------- Understanding free-text answers ---------- */
 export function parseYesNo(text: string): "yes" | "no" | "maybe" {
-  const t = text.toLowerCase();
-  if (/\b(not sure|maybe|kinda|kind of|sort of|idk|dunno|don'?t know|unsure|perhaps|i guess|hard to say)\b/.test(t)) return "maybe";
-  if (/^\s*(no|nope|nah|nay|negative)\b|\bnot\b|\bno\b|n't\b/.test(t)) return "no";
-  if (/\b(yes|yeah|yep|yup|ya|yea|sure|correct|right|exactly|it is|definitely|uh huh|mhm|ok|okay|y)\b/.test(t)) return "yes";
+  const t = ` ${text.toLowerCase().replace(/[^a-z0-9\s']/g, " ").replace(/\s+/g, " ").trim()} `;
+  if (/\b(not sure|maybe|kinda|kind of|sort of|idk|dunno|don'?t know|unsure|perhaps|i guess|hard to say|not really sure)\b/.test(t)) return "maybe";
+  if (/\b(no|nope|nah|nay|negative|not really|not at all|wrong guess|incorrect)\b/.test(t)) return "no";
+  if (/\b(yes|yeah|yep|yup|ya|yea|sure|correct|right|exactly|definitely|absolutely|it is|that's it|that is it|you got it|spot on|mhm|uh huh|ok|okay)\b/.test(t)) return "yes";
   return "maybe";
 }
 export function parseSetting(text: string): SettingId | null {
@@ -224,33 +231,135 @@ export function parsePosture(text: string): Posture | null {
   return null;
 }
 
-export function applyAnswer(r: Round, m: Move, text: string): { round: Round; ok: boolean; yes?: boolean } {
+function noteFactsFromText(next: Round, text: string) {
+  const t = ` ${norm(text)} `;
+  const setFact = (id: string, value: boolean) => {
+    next.facts[id] = value;
+    if (!next.asked.includes(id)) next.asked.push(id);
+  };
+
+  const has = (re: RegExp) => re.test(t);
+  if (has(/\b(blue|navy|azure)\b/)) setFact("c:blue", true);
+  if (has(/\b(green|olive|lime)\b/)) setFact("c:green", true);
+  if (has(/\b(white|pale)\b/)) setFact("c:white", true);
+  if (has(/\b(black|dark)\b/)) setFact("c:black", true);
+  if (has(/\b(brown|wooden|tan|beige)\b/)) setFact("c:brown", true);
+
+  if (has(/\b(table|desk|shelf|counter|surface|top)\b/)) setFact("z:surface", true);
+  if (has(/\b(window|curtain|blind)\b/)) setFact("z:window", true);
+  if (has(/\b(floor|ground|tile|carpet|rug)\b/)) setFact("z:floor", true);
+  if (has(/\b(wall|poster|frame)\b/)) setFact("z:wall", true);
+  if (has(/\b(ceiling|roof|fan above)\b/)) setFact("z:ceiling", true);
+  if (has(/\b(hand|holding|wearing|touching|in my pocket|on me)\b/)) setFact("z:body", true);
+
+  if (has(/\b(move|moving|vibrat|shak|rolling|walking)\b/)) setFact("f:moves", true);
+  if (has(/\b(still|static|not moving|doesn't move|doesnt move)\b/)) setFact("f:moves", false);
+
+  if (has(/\b(light|bright|glow|lit|shiny)\b/)) setFact("f:light", true);
+  if (has(/\b(dark|not lit|no light|dim)\b/)) setFact("f:light", false);
+
+  if (has(/\b(soft|fluffy|squishy|smooth)\b/)) setFact("f:soft", true);
+  if (has(/\b(hard|rough|solid|sharp)\b/)) setFact("f:soft", false);
+
+  if (has(/\b(noisy|loud|buzz|ring|humm|tick|talk|voice|music|song|sound)\b/)) setFact("f:noisy", true);
+  if (has(/\b(quiet|silent|no sound)\b/)) setFact("f:noisy", false);
+
+  if (has(/\b(warm|hot|heated)\b/)) setFact("f:warm", true);
+  if (has(/\b(cold|cool|chilly|icy)\b/)) setFact("f:cold", true);
+  if (has(/\b(big|large|huge|massive)\b/)) setFact("f:big", true);
+  if (has(/\b(alive|animal|person|human|pet|dog|cat|bird)\b/)) setFact("f:alive", true);
+  if (has(/\b(outside|far away|distant|across)\b/)) setFact("f:far", true);
+  if (has(/\b(food|drink|coffee|tea|snack|meal|fruit)\b/)) setFact("f:food", true);
+  if (has(/\b(fresh|clean|minty)\b/)) setFact("f:fresh", true);
+  if (has(/\b(steady|constant|continuous)\b/)) setFact("f:steady", true);
+  if (has(/\b(voice|voices|talking|music|song|speech)\b/)) setFact("f:speech", true);
+}
+
+function inferObjectGuess(text: string, r: Round): string | undefined {
+  const clue = base(text);
+  if (!clue || clue.length < 2) return undefined;
+
+  let best: { label: string; score: number } | null = null;
+  for (const o of OBJECTS) {
+    if (!o.senses.includes(r.sense) || r.rejected.includes(o.label)) continue;
+    const aliases = [o.label, ...o.alias];
+    let score = 0;
+    for (const a of aliases) {
+      const normAlias = base(a);
+      if (!normAlias) continue;
+      if (same(clue, normAlias)) score = Math.max(score, 1);
+      else if ((clue.length >= 4 && wordIn(clue, normAlias)) || (normAlias.length >= 4 && wordIn(normAlias, clue))) score = Math.max(score, 0.86);
+      else {
+        const clueTokens = clue.split(" ");
+        const aliasTokens = normAlias.split(" ");
+        const overlap = clueTokens.filter((t) => aliasTokens.includes(t)).length;
+        const ratio = overlap / Math.max(1, aliasTokens.length);
+        if (ratio >= 0.66 && overlap > 0) score = Math.max(score, 0.7);
+      }
+    }
+
+    if (score > 0) {
+      if (r.setting && r.setting !== "other") {
+        if (o.any) score *= 0.95;
+        else if (o.at.includes(r.setting)) score *= 1.08;
+        else score *= 0.62;
+      }
+      if (r.posture && o.postures.length && !o.postures.includes(r.posture)) score *= 0.78;
+    }
+
+    if (score > (best?.score ?? 0)) best = { label: o.label, score };
+  }
+
+  return best && best.score >= 0.68 ? best.label : undefined;
+}
+export function applyAnswer(r: Round, m: Move, text: string): { round: Round; ok: boolean; yes?: boolean; inferredGuess?: string } {
   const next: Round = { ...r, facts: { ...r.facts }, asked: [...r.asked], rejected: [...r.rejected] };
+  const inferredSetting = parseSetting(text);
+  const inferredPosture = parsePosture(text);
+
+  if (inferredSetting && !next.setting) next.setting = inferredSetting;
+  if (inferredPosture && !next.posture) next.posture = inferredPosture;
+
+  noteFactsFromText(next, text);
+  const inferredGuess = inferObjectGuess(text, next);
+
   if (m.kind === "setting") {
     next.settingAsked = true;
     const s = parseSetting(text);
-    next.setting = s ?? "other";
-    return { round: next, ok: !!s };
+    next.setting = s ?? next.setting ?? "other";
+    return { round: next, ok: !!s || !!inferredSetting, inferredGuess };
   }
+
   if (m.kind === "posture") {
     next.postureAsked = true;
     const p = parsePosture(text);
     if (p) next.posture = p;
-    return { round: next, ok: !!p };
+    return { round: next, ok: !!p || !!inferredPosture, inferredGuess };
   }
+
   if (m.kind === "ask") {
     next.asked.push(m.id);
     const a = parseYesNo(text);
     if (a !== "maybe") next.facts[m.id] = a === "yes";
-    return { round: next, ok: a !== "maybe", yes: a === "yes" };
+    return { round: next, ok: a !== "maybe" || !!inferredGuess, yes: a === "yes", inferredGuess };
   }
+
   if (m.kind === "guess") {
-    if (parseYesNo(text) === "yes") return { round: next, ok: true, yes: true };
+    const answer = parseYesNo(text);
+    if (answer === "yes" || same(text, m.label)) return { round: next, ok: true, yes: true, inferredGuess };
+
+    if (inferredGuess && !same(inferredGuess, m.label) && !next.rejected.some((x) => same(x, inferredGuess))) {
+      next.guesses++;
+      next.rejected.push(m.label);
+      return { round: next, ok: true, yes: false, inferredGuess };
+    }
+
     next.guesses++;
     next.rejected.push(m.label);
-    return { round: next, ok: true, yes: false };
+    return { round: next, ok: true, yes: false, inferredGuess };
   }
-  return { round: next, ok: true };
+
+  return { round: next, ok: true, inferredGuess };
 }
 
 /* ---------- Kiki's voice ---------- */
@@ -262,12 +371,27 @@ export function guessText(label: string, sense: SenseKey) {
 }
 export function describeMove(m: Move, r: Round): string {
   switch (m.kind) {
-    case "setting": return pickOne(["First things first: where are you right now?", "Where are you? A room, a car, outside?"]);
-    case "posture": return "Are you lying down, sitting or standing?";
-    case "ask": return m.text;
-    case "guess": return guessText(m.label, r.sense);
-    case "reveal": return "You got me! What was it?";
-    default: return "Hmm.";
+    case "setting":
+      return pickOne([
+        "Paint me the scene first: where are you right now?",
+        "Set the stage for me — are you in a room, in a car, or outside?",
+      ]);
+    case "posture":
+      return pickOne([
+        "Quick body clue: are you lying down, sitting, or standing?",
+        "What posture are you in right now — lying, sitting, or standing?",
+      ]);
+    case "ask":
+      return m.text;
+    case "guess":
+      return pickOne([
+        `I think I've got it… ${guessText(m.label, r.sense)}`,
+        `Let me lock in a guess: ${guessText(m.label, r.sense)}`,
+      ]);
+    case "reveal":
+      return "You outsmarted me this round. What was it?";
+    default:
+      return "Hmm.";
   }
 }
 export function reaction(m: Move, res: { ok: boolean; yes?: boolean }, r: Round): string {
