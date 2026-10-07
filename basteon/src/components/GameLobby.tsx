@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, Flower2, LockKeyhole, MapPin, Plus, UsersRound, X } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { createClient } from "@/lib/supabase/client";
 import styles from "@/app/games/games.module.css";
@@ -27,6 +28,7 @@ export function GameLobby() {
   const [message, setMessage] = useState("");
   const [buddies, setBuddies] = useState<NearbyBuddy[]>([]);
   const [selected, setSelected] = useState<NearbyBuddy | null>(null);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   useEffect(() => {
     if (!position) return;
@@ -95,6 +97,7 @@ export function GameLobby() {
     const { data: { user } } = await db.auth.getUser();
     if (!user) {
       router.push("/login");
+      setBusy(false);
       return;
     }
 
@@ -107,6 +110,7 @@ export function GameLobby() {
 
     if (existingRoom) {
       router.push(`/games/play/${existingRoom.id}`);
+      setBusy(false);
       return;
     }
 
@@ -126,72 +130,89 @@ export function GameLobby() {
     router.push(`/games/play/${(data as { id: string }).id}`);
   }
 
-  async function openBuddyRoom(buddy: NearbyBuddy) {
-    setSelected(buddy);
-    await createRoom(buddy);
-  }
-
   return (
-    <main className={styles.page}>
-      <div className={styles.routePage}>
-        <div className={styles.backBar}>
-          <Link href="/games" className={styles.backLink}>← Back</Link>
-        </div>
+    <main className={styles.gardenPage}>
+      <div className={styles.gardenShell}>
+        <header className={styles.gardenHeader}>
+          <Link href="/games" className={styles.gardenIconButton} aria-label="Back to games"><ArrowLeft size={19} /></Link>
+          <div className={styles.gardenHeading}>
+            <h1>Morabaraba Garden</h1>
+            <span><i />{locationError ? "Location access needed" : position ? "Broad location rings active" : "Finding your garden…"}</span>
+          </div>
+          <button type="button" className={styles.gardenIconButton} aria-label="Location privacy information" onClick={() => setPrivacyOpen(true)}><LockKeyhole size={18} /></button>
+        </header>
 
-        <section className={styles.routeCard}>
-          <p className={styles.eyebrow}>Play with a buddy</p>
-          <h1>Nearby players.</h1>
-          <p>
-            Tap a buddy on the map and jump straight into a Morabaraba room. Your map uses broad location rings only, and a room opens when you choose a friend.
-          </p>
-
-          <div className="buddies-panel" style={{ marginTop: 18 }}>
-            <div className="buddies-map" aria-label="Nearby game players map">
-              {[0, 1, 2].map((ring) => (
-                <i key={ring} className={`buddies-ring ring-${ring}`} />
-              ))}
-              <span className="buddies-me">YOU</span>
-              {buddies.map((buddy) => {
-                const radius = 26 + buddy.radialPct * 56;
-                const radians = (buddy.angleDeg * Math.PI) / 180;
-                const left = 50 + Math.sin(radians) * radius;
-                const top = 50 - Math.cos(radians) * radius;
-
-                return (
-                  <button
-                    key={buddy.userId}
-                    type="button"
-                    className="buddies-avatar"
-                    aria-pressed={selected?.userId === buddy.userId}
-                    onClick={() => void openBuddyRoom(buddy)}
-                    style={{ left: `${left}%`, top: `${top}%` }}
-                    title={`${buddy.label} • ${buddy.distanceKm.toFixed(1)} km away`}
-                    aria-label={`Open Morabaraba with ${buddy.label}`}
-                  >
-                    <span>{buddy.avatar}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <p className={styles.muted} style={{ marginTop: 12 }}>
-              {locationError
-                ? "Enable location to see nearby players."
-                : buddies.length > 0
-                  ? selected
-                    ? `${selected.label} is ${selected.distanceKm.toFixed(1)} km nearby.`
-                    : "Pick a nearby buddy to start a room."
-                  : "No nearby buddies are currently visible on the map."}
-            </p>
+        <section className={styles.gardenMain}>
+          <div className={styles.gardenIntro}>
+            <p>Nearby play</p>
+            <h2>Find your circle.</h2>
           </div>
 
-          <div className={styles.list}>
-            <button type="button" className={styles.link} onClick={() => void createRoom()} disabled={busy}>
-              {busy ? "Opening room…" : "Create a Morabaraba room"}
+          <div className={styles.gardenPond} role="group" aria-label="Nearby game players, shown as broad location rings">
+            <div className={styles.pondWash} />
+            <div className={`${styles.pondRipple} ${styles.rippleOne}`} />
+            <div className={`${styles.pondRipple} ${styles.rippleTwo}`} />
+            <div className={`${styles.pondRipple} ${styles.rippleThree}`} />
+            <div className={styles.pondGuide} />
+            <div className={styles.pondGuideInner} />
+
+            {buddies.map((buddy, index) => {
+              const radius = 24 + buddy.radialPct * 43;
+              const radians = (buddy.angleDeg * Math.PI) / 180;
+              const left = 50 + Math.sin(radians) * radius;
+              const top = 50 - Math.cos(radians) * radius;
+              return (
+                <button
+                  key={buddy.userId}
+                  type="button"
+                  className={`${styles.gardenBuddy} ${styles[`gardenBuddyTone${index % 4}`]}`}
+                  aria-pressed={selected?.userId === buddy.userId}
+                  onClick={() => setSelected(buddy)}
+                  style={{ left: `${left}%`, top: `${top}%` }}
+                  aria-label={`Select ${buddy.label}, approximately ${buddy.distanceKm.toFixed(1)} kilometres away`}
+                >
+                  <span className={styles.gardenBuddyMark}>{buddy.avatar}</span>
+                  <span className={styles.gardenBuddyLabel}><strong>{buddy.label}</strong><small>{buddy.distanceKm.toFixed(1)} km</small></span>
+                </button>
+              );
+            })}
+
+            <button type="button" className={styles.gardenYou} onClick={() => setPrivacyOpen(true)} aria-label="Your location is represented by the broad center ring">
+              <span className={styles.gardenYouMark}><Flower2 size={34} /></span>
+              <span className={styles.gardenYouLabel}>YOU</span>
             </button>
-            {message && <p role="status" className={styles.muted}>{message}</p>}
+          </div>
+
+          <div className={styles.gardenSelection} aria-live="polite">
+            <span className={styles.selectionMark}>{selected ? selected.avatar : <UsersRound size={20} />}</span>
+            <span className={styles.selectionCopy}>
+              <strong>{selected ? selected.label : buddies.length ? "Choose a nearby Buddy" : "Your garden is quiet"}</strong>
+              <small>{locationError ? "Enable location to see nearby players." : selected ? `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length ? "Tap a Buddy to invite them to play." : position ? "You can still create an open room." : "Nearby players appear when location is available."}</small>
+            </span>
+            {selected && <button type="button" className={styles.clearSelection} aria-label="Clear selected Buddy" onClick={() => setSelected(null)}><X size={18} /></button>}
           </div>
         </section>
+
+        <footer className={styles.gardenFooter}>
+          <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy}>
+            {selected ? <UsersRound size={19} /> : <Plus size={20} />}
+            <span>{busy ? "Opening room…" : selected ? `Invite ${selected.label}` : "Create a Morabaraba Room"}</span>
+          </button>
+          <p className={styles.gardenPrivacyNote}><LockKeyhole size={13} /> Only broad distance rings are shown here.</p>
+          {message && <p role="status" className={styles.gardenMessage}>{message}</p>}
+        </footer>
+
+        {privacyOpen && (
+          <div className={styles.gardenPrivacyBackdrop} role="presentation" onClick={() => setPrivacyOpen(false)}>
+            <section className={styles.gardenPrivacyDialog} role="dialog" aria-modal="true" aria-labelledby="garden-privacy-title" onClick={(event) => event.stopPropagation()}>
+              <button type="button" className={styles.gardenPrivacyClose} aria-label="Close privacy details" onClick={() => setPrivacyOpen(false)}><X size={18} /></button>
+              <LockKeyhole size={22} />
+              <h2 id="garden-privacy-title">Your location stays broad.</h2>
+              <p>The garden shows nearby players as distance rings, not precise map pins. Choose a Buddy only when you’re ready to open a private game room.</p>
+              <button type="button" className={styles.gardenPrivacyOkay} onClick={() => setPrivacyOpen(false)}>Got it</button>
+            </section>
+          </div>
+        )}
       </div>
     </main>
   );

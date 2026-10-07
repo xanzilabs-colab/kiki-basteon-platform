@@ -1,40 +1,96 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight, Flower2, Gamepad2, Map, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Flower2, Gamepad2, Sailboat, Sparkles, WandSparkles } from "lucide-react";
+import { AccountShell } from "@/components/AccountShell";
+import { createClient } from "@/lib/supabase/client";
 import styles from "./games.module.css";
 
+type Category = "all" | "grounding" | "calm" | "release" | "buddy";
+
+const filters: { id: Category; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "grounding", label: "Grounding" },
+  { id: "calm", label: "Calm" },
+  { id: "release", label: "Release" },
+  { id: "buddy", label: "Buddy" },
+];
+
 const games = [
-  { href: "/games/calm/five-things", title: "Five Things", description: "Ground yourself by noticing what is real, safe, and present.", icon: Flower2, accent: "Stoep" },
-  { href: "/games/calm", title: "Calm games", description: "Short, gentle solo games designed to help you settle back into the moment.", icon: Sparkles, accent: "Solo" },
-  { href: "/games/play", title: "Play with a buddy", description: "Find an open nearby player and enjoy a light two-player round.", icon: Map, accent: "Buddy" },
+  { href: "/games/calm/five-things", title: "Five Things", description: "Notice what is around you", category: "grounding" as const, icon: Flower2, action: "Start" },
+  { href: "/games/calm/rake", title: "Sand Rake", description: "Draw lines and let thoughts settle", category: "calm" as const, icon: WandSparkles, action: "Rake" },
+  { href: "/games/calm/boats", title: "Worry Boats", description: "Name a worry and send it off", category: "release" as const, icon: Sailboat, action: "Launch" },
+  { href: "/games/play", title: "Play with a Buddy", description: "A quick, light two-player game", category: "buddy" as const, icon: Gamepad2, action: "Play" },
+  { href: "/games/calm", title: "Calm games", description: "Browse all your gentle solo games", category: "calm" as const, icon: Sparkles, action: "Explore" },
 ];
 
 export default function GamesPage() {
-  return (
-    <main className={styles.page}>
-      <div className={styles.shell}>
-        <div className={styles.backBar}>
-          <Link href="/account" className={styles.backLink}>← Back</Link>
-        </div>
-        <p className={styles.eyebrow}>Stoep</p>
-        <h1 className={styles.title}>Unwind and play.</h1>
-        <p className={styles.subtitle}>
-          Choose a quiet reset, a gentle distraction, or a quick bridge with a buddy.
-        </p>
+  const router = useRouter();
+  const [accountName, setAccountName] = useState("Account");
+  const [category, setCategory] = useState<Category>("all");
+  const visibleGames = category === "all" ? games : games.filter((game) => game.category === category);
 
-        <div className={styles.grid}>
-          {games.map(({ href, title, description, icon: Icon, accent }) => (
-            <Link key={title} href={href} className={styles.card}>
-              <div className={styles.cardHeader}>
-                <span className={styles.badge}><Icon size={18} /></span>
-                <span className={styles.muted}>{accent}</span>
-              </div>
-              <h2>{title}</h2>
-              <p>{description}</p>
-              <small>Open <ArrowRight size={14} style={{ display: "inline-block", verticalAlign: "middle" }} /></small>
-            </Link>
-          ))}
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.replace("/login"); return; }
+      const { data: profile } = await supabase.from("profiles").select("full_name,role").eq("id", user.id).single();
+      if (!profile || profile.role !== "user") { router.replace(profile?.role === "admin" ? "/admin" : "/responder"); return; }
+      if (active) setAccountName(profile.full_name ?? user.email ?? "Account");
+    })();
+    return () => { active = false; };
+  }, [router]);
+
+  return (
+    <AccountShell name={accountName}>
+    <div className={styles.gamesHome}>
+      <div className={styles.mobileFrame}>
+        <div className={styles.homeContent}>
+          <section className={styles.intro}>
+            <h1 className={styles.homeTitle}>Unwind &amp; Play</h1>
+            <p className={styles.homeSubtitle}>Quick, gentle, and private mental resets.</p>
+          </section>
+
+          <div className={styles.filters} role="group" aria-label="Filter games">
+            {filters.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                className={`${styles.filter} ${category === filter.id ? styles.filterActive : ""}`}
+                aria-pressed={category === filter.id}
+                onClick={() => setCategory(filter.id)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.gameList} aria-live="polite">
+            {visibleGames.map(({ href, title, description, category: gameCategory, icon: Icon, action }, index) => (
+              <Link
+                key={href}
+                href={href}
+                className={`${styles.gameRow} ${styles[gameCategory]}`}
+                style={{ animationDelay: `${index * 45}ms` }}
+              >
+                <span className={styles.gameIcon} aria-hidden="true"><Icon size={22} strokeWidth={2.1} /></span>
+                <span className={styles.gameCopy}>
+                  <span className={styles.gameCategory}>{gameCategory}</span>
+                  <strong>{title}</strong>
+                  <small>{description}</small>
+                </span>
+                <span className={styles.cardAction}>{action}<ArrowRight size={13} /></span>
+              </Link>
+            ))}
+          </div>
         </div>
+
       </div>
-    </main>
+    </div>
+    </AccountShell>
   );
 }
