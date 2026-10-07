@@ -14,6 +14,7 @@ type Snapshot = {
   winner: Player | null;
 };
 const EMPTY_BOARD: Snapshot["board"] = new Array(24).fill(0);
+const EGG_SHAPE = "M0-4.25C2.2-4.25 3.75-2.15 3.75.25C3.75 2.55 1.75 4.25 0 4.25S-3.75 2.55-3.75.25C-3.75-2.15-2.2-4.25 0-4.25Z";
 type BoardMotion =
   | { kind: "move"; player: Player; from: number; to: number; id: number }
   | { kind: "capture"; player: Player; at: number; id: number }
@@ -124,16 +125,16 @@ export function MorabarabaBoard({
     && board[index] === 0 && (canFly || ADJACENCY[selected].has(index));
   const renderToken = (piece: Player, index: number, isSelected = false, isRemovable = false) => {
     const spots = [
-      [[-1.1, -1, 1.2, 0.8, -25], [1.25, 1.1, 0.85, 0.65, 20]],
-      [[0.9, -1.1, 1.1, 0.78, 25], [-1.35, 0.9, 0.9, 0.65, -18]],
-      [[-0.1, -0.25, 0.85, 1.35, 0], [1.55, -1.5, 0.55, 0.5, 0]],
+      [[-1.1, -1, 1.2, 0.8, -25], [1.25, 1.1, 0.85, 0.65, 20], [1.65, -1.65, 0.45, 0.42, 0]],
+      [[0.9, -1.1, 1.1, 0.78, 25], [-1.35, 0.9, 0.9, 0.65, -18], [-1.8, -0.55, 0.42, 0.42, 0]],
+      [[-0.1, -0.25, 0.85, 1.35, 0], [1.45, 1.45, 0.85, 0.62, 0], [-1.55, -1.65, 0.48, 0.42, 0]],
     ][index % 3];
     const clipId = `${idPrefix}-cow-${piece}-clip`;
     const isPlayerOne = piece === 1;
     return (
       <g className={`${styles.tokenFace} ${isSelected ? styles.tokenSelected : ""} ${isRemovable ? styles.tokenRemovable : ""}`}>
-        <circle cy="0.6" r="3.45" className={styles.tokenRim} />
-        <circle r="3.15" fill={isPlayerOne ? `url(#${idPrefix}-cow-one)` : `url(#${idPrefix}-cow-two)`} />
+        <path d={EGG_SHAPE} transform="translate(0 .42)" className={styles.tokenRim} />
+        <path d={EGG_SHAPE} fill={isPlayerOne ? `url(#${idPrefix}-cow-one)` : `url(#${idPrefix}-cow-two)`} />
         <g clipPath={`url(#${clipId})`}>
           {spots.map(([cx, cy, rx, ry, angle], spotIndex) => (
             <ellipse
@@ -147,10 +148,10 @@ export function MorabarabaBoard({
             />
           ))}
         </g>
-        <circle r="3.15" fill={`url(#${idPrefix}-cow-shade)`} />
-        <ellipse cx="-0.95" cy="-1.55" rx="1.4" ry="0.72" transform="rotate(-28 -0.95 -1.55)" fill={`url(#${idPrefix}-cow-gloss)`} />
-        {isSelected && <circle r="3.8" className={styles.tokenSelectionRing} />}
-        {isRemovable && <circle r="4.15" className={styles.tokenRemovalRing} />}
+        <path d={EGG_SHAPE} fill={`url(#${idPrefix}-cow-shade)`} />
+        <ellipse cx="-0.85" cy="-1.65" rx="1.25" ry="0.62" transform="rotate(-28 -0.85 -1.65)" fill={`url(#${idPrefix}-cow-gloss)`} />
+        {isSelected && <path d={EGG_SHAPE} transform="scale(1.12)" className={styles.tokenSelectionRing} />}
+        {isRemovable && <path d={EGG_SHAPE} transform="scale(1.17)" className={styles.tokenRemovalRing} />}
       </g>
     );
   };
@@ -186,8 +187,8 @@ export function MorabarabaBoard({
             <stop offset="0" stopColor="#70472b" />
             <stop offset="1" stopColor="#28170f" />
           </radialGradient>
-          <clipPath id={`${idPrefix}-cow-1-clip`}><circle r="3.15" /></clipPath>
-          <clipPath id={`${idPrefix}-cow-2-clip`}><circle r="3.15" /></clipPath>
+          <clipPath id={`${idPrefix}-cow-1-clip`}><path d={EGG_SHAPE} /></clipPath>
+          <clipPath id={`${idPrefix}-cow-2-clip`}><path d={EGG_SHAPE} /></clipPath>
           <linearGradient id={`${idPrefix}-brass`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#fff0b8" />
             <stop offset=".55" stopColor="#cf9b40" />
@@ -270,6 +271,7 @@ export function MorabarabaBoard({
                 cx={x}
                 cy={y}
                 r="6.5"
+                className={styles.boardPointHitArea}
                 fill="transparent"
                 stroke="transparent"
                 onClick={() => choosePoint(index)}

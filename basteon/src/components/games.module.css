@@ -609,82 +609,34 @@
 .chatForm input { min-width: 0; flex: 1; border: 1px solid #cbb9d4; border-radius: 12px; padding: 0.7rem 0.8rem; background: #fff; color: #2d173a; font: inherit; }
 
 .morabarabaPage {
-  position: relative;
-  isolation: isolate;
   overflow-x: clip;
-  color: #f6ead7;
-  background:
-    radial-gradient(520px 460px at 88% -4%, rgba(255,184,92,.3), transparent 70%),
-    radial-gradient(700px 500px at 0% 100%, rgba(232,80,74,.14), transparent 70%),
-    linear-gradient(180deg, #1d1226 0%, #2a1829 55%, #1a0f1f 100%);
 }
-.morabarabaPage::before {
-  position: absolute;
-  z-index: 0;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 16px;
-  background:
-    linear-gradient(135deg,#e8504a 25%,transparent 25%) -9px 0/18px 16px,
-    linear-gradient(225deg,#f2b84b 25%,transparent 25%) -9px 0/18px 16px,
-    linear-gradient(315deg,#2fa6a0 25%,transparent 25%) 0 0/18px 16px,
-    linear-gradient(45deg,#f6efe3 25%,#3a2433 25%) 0 0/18px 16px;
-  box-shadow: 0 3px 12px rgba(0,0,0,.45);
-  content: "";
+
+.cowReserve {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #e1d4e8;
+  border-radius: 16px;
+  background: rgba(248, 242, 251, 0.8);
 }
-.morabarabaPage .roomLayout { position: relative; z-index: 0; }
-.morabarabaCard {
-  border-color: rgba(255,214,160,.2);
-  background: rgba(38,22,40,.82);
-  color: #f6ead7;
-  box-shadow: 0 24px 50px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);
-  backdrop-filter: blur(10px);
-}
-.morabarabaCard .eyebrow { color: #ffb85c; letter-spacing: .18em; }
-.morabarabaCard .gameHeader h1,
-.morabarabaChat .chatHeading h2 { color: #f6ead7; }
-.morabarabaCard .softButton,
-.morabarabaChat .primaryButton {
-  border-color: rgba(255,214,160,.22);
-  background: rgba(255,255,255,.07);
-  color: #f6ead7;
-}
-.morabarabaCard .softButton:hover { background: rgba(255,255,255,.13); }
-.morabarabaCard .turnPill {
-  border-color: rgba(255,214,160,.18);
-  background: rgba(255,255,255,.07);
-  color: #f6ead7;
-}
-.morabarabaCard .millNotice,
-.morabarabaCard .roundResult,
-.morabarabaCard .noticeBox {
-  border-color: rgba(255,184,92,.35);
-  background: rgba(255,184,92,.1);
-  color: #fff0d4;
-}
-.morabarabaCard .gameNote,
-.morabarabaCard .millNotice small,
-.morabarabaCard .roundResult small { color: #c9b8a6; }
-.morabarabaCard .inlineButton { color: #ffbd68; }
-.morabarabaChat {
-  border-color: rgba(255,214,160,.18);
-  background: rgba(38,22,40,.8);
-  color: #f6ead7;
-  backdrop-filter: blur(10px);
-}
-.morabarabaChat .chatHeading span,
-.morabarabaChat .ownMessage small,
-.morabarabaChat .buddyMessage small { color: #c9b8a6; }
-.morabarabaChat .ownMessage { background: linear-gradient(180deg,#ffc978,#ff9a45); color: #2a1408; }
-.morabarabaChat .buddyMessage { background: rgba(255,255,255,.1); }
-.morabarabaChat .chatForm input {
-  border-color: rgba(255,214,160,.2);
-  background: rgba(0,0,0,.28);
-  color: #f6ead7;
-}
-.morabarabaChat .chatForm input::placeholder { color: #aa958f; }
-.morabarabaChat .primaryButton { background: linear-gradient(180deg,#ffc978,#ff9a45); color: #2a1408; }
+.reservePlayer { display: flex; flex: 0 0 86px; align-items: center; gap: 8px; min-width: 0; }
+.reserveAvatar { width: 25px; height: 25px; flex: none; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(45,23,58,.2); }
+.reserveAvatarOne { background: radial-gradient(circle at 35% 30%, #f4d5a6, #bd8050 58%, #754027); }
+.reserveAvatarTwo { background: radial-gradient(circle at 35% 30%, #fff6df, #d8c6a8 58%, #a89881); }
+.reserveName { display: grid; min-width: 0; line-height: 1.2; }
+.reserveName strong { overflow: hidden; color: #38224b; font-size: .78rem; text-overflow: ellipsis; }
+.reserveName small { color: #71617a; font-size: .67rem; }
+.cowSlots { display: flex; flex: 1; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; }
+.reserveCow, .reserveCowEmpty { width: 22px; height: 22px; flex: none; }
+.reserveCowOne path:first-child { fill: #bd8050; stroke: #754027; }
+.reserveCowOne ellipse:not(.reserveCowShine) { fill: #5a301b; }
+.reserveCowTwo path:first-child { fill: #d8c6a8; stroke: #8f7c65; }
+.reserveCowTwo ellipse:not(.reserveCowShine) { fill: #68584a; }
+.reserveCowShine { fill: none; stroke: rgba(255,255,255,.55); stroke-width: .7; }
+.reserveCowEmpty { box-sizing: border-box; width: 18px; height: 18px; margin: 2px; border: 1.5px dashed #d8ccdf; border-radius: 50%; }
 
 .morabarabaBoardWrap {
   width: 100%;
@@ -720,6 +672,9 @@
 .roomBoard .boardSocket { stroke: #d59c5b; stroke-width: .3; }
 .roomBoard .boardSocketInner { fill: none; stroke: rgba(10,5,3,.66); stroke-width: .65; }
 .roomBoard .boardDot { fill: #ffe2a8; stroke: rgba(255,238,200,.55); stroke-width: .3; }
+.roomBoard .boardPointHitArea { outline: none; }
+.roomBoard .boardPointHitArea:focus { outline: none; }
+.roomBoard .boardPointHitArea:focus-visible { fill: rgba(255,255,255,.12); stroke: #fff0c9; stroke-width: .45; stroke-dasharray: .8 .7; }
 .roomBoard .tokenRim { fill: #392114; stroke: rgba(255,235,198,.7); stroke-width: .3; }
 .roomBoard .tokenFace { transform-box: fill-box; transform-origin: center; transition: transform .2s ease, filter .2s ease; }
 .roomBoard .tokenFace:hover { filter: drop-shadow(0 0 1.1px rgba(255,211,107,.9)); }

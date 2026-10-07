@@ -176,6 +176,11 @@ export function GameLobby() {
     }
 
     if (existingRoom) {
+      if (selectedBuddy) {
+        setMessage("You already have an open game room. Finish or leave it before inviting another Buddy.");
+        setBusy(false);
+        return;
+      }
       router.push(`/games/play/${existingRoom.id}`);
       setBusy(false);
       return;
@@ -291,7 +296,7 @@ export function GameLobby() {
                   className={`${styles.gardenBuddy} ${styles[`gardenBuddyTone${index % 4}`]}`}
                   aria-pressed={selected?.userId === buddy.userId}
                   disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)}
-                  onClick={() => { setSelected(buddy); void createRoom(buddy); }}
+                  onClick={() => setSelected(buddy)}
                   style={{ left: `${left}%`, top: `${top}%` }}
                   aria-label={`Invite ${buddy.label}, approximately ${buddy.distanceKm.toFixed(1)} kilometres away to play Morabaraba`}
                 >

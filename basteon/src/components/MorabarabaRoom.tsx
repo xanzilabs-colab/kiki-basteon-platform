@@ -31,6 +31,28 @@ type GameRoom = {
 type GameMessage = { id: string; author_id: string; body: string; created_at: string };
 type GameSound = "move" | "mill" | "capture";
 
+function CowReserve({ label, wins, placed, player }: { label: string; wins: number; placed: number; player: Player }) {
+  const remaining = Math.max(0, 12 - placed);
+  return (
+    <div className={styles.cowReserve} aria-label={`${label}: ${remaining} of 12 cows remain to place`}>
+      <div className={styles.reservePlayer}>
+        <span className={`${styles.reserveAvatar} ${player === 1 ? styles.reserveAvatarOne : styles.reserveAvatarTwo}`} aria-hidden="true" />
+        <span className={styles.reserveName}><strong>{label}</strong><small>{wins} wins</small></span>
+      </div>
+      <div className={styles.cowSlots} aria-hidden="true">
+        {Array.from({ length: 12 }, (_, index) => index < remaining ? (
+          <svg key={index} className={`${styles.reserveCow} ${player === 1 ? styles.reserveCowOne : styles.reserveCowTwo}`} viewBox="0 0 28 28">
+            <path d="M14 2C20 2 24 7 24 14C24 20 19 26 14 26S4 20 4 14C4 7 8 2 14 2Z" />
+            <ellipse cx="10" cy="10" rx="3.5" ry="2.4" transform="rotate(-25 10 10)" />
+            <ellipse cx="18" cy="17" rx="3" ry="2" transform="rotate(20 18 17)" />
+            <path d="M14 2.6C19.5 2.6 23.5 7.4 23.5 14C23.5 19.7 18.8 25.4 14 25.4S4.5 19.7 4.5 14C4.5 7.4 8.5 2.6 14 2.6Z" className={styles.reserveCowShine} />
+          </svg>
+        ) : <span key={index} className={styles.reserveCowEmpty} />)}
+      </div>
+    </div>
+  );
+}
+
 function normalizeSnapshot(value: unknown): Snapshot {
   if (!value || typeof value !== "object") {
     return { board: new Array(24).fill(0), turn: 1, phase: "place", placed: { "1": 0, "2": 0 }, pendingRemoval: null, winner: null };
@@ -253,6 +275,11 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const state = room.state;
   const turnLabel = state.pendingRemoval === player ? "Choose a buddy cow to remove" : state.turn === player ? "Your turn" : "Your buddy’s turn";
   const placed = state.placed ?? { "1": 0, "2": 0 };
+  const buddyPlayer: Player = player === 1 ? 2 : 1;
+  const ownWins = player === 1 ? room.host_wins : room.guest_wins;
+  const buddyWins = player === 1 ? room.guest_wins : room.host_wins;
+  const ownPlaced = placed[String(player) as "1" | "2"];
+  const buddyPlaced = placed[String(buddyPlayer) as "1" | "2"];
 
   return (
     <main className={`${styles.page} ${styles.morabarabaPage}`}>
@@ -287,10 +314,11 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
             <>
               <div className={styles.scoreRow}>
                 <span className={styles.turnPill}>{turnLabel}</span>
-                <span className={styles.turnPill}>Wins · You {player === 1 ? room.host_wins : room.guest_wins} · Buddy {player === 1 ? room.guest_wins : room.host_wins}</span>
-                <span className={styles.turnPill}>Cows {placed[String(player) as "1" | "2"]}/12</span>
+                <span className={styles.turnPill}>Wins · You {ownWins} · Buddy {buddyWins}</span>
               </div>
+              <CowReserve label="Buddy" wins={buddyWins} placed={buddyPlaced} player={buddyPlayer} />
               <MorabarabaBoard snapshot={state} player={player} busy={busy} onAction={(action, from, to) => void act(action, from, to)} />
+              <CowReserve label="You" wins={ownWins} placed={ownPlaced} player={player} />
               {state.pendingRemoval !== null && (
                 <div className={styles.millNotice} role="status">
                   <strong>{state.pendingRemoval === player ? "Mill! Remove one Buddy cow to finish your turn." : "Mill made. Your turn waits while your Buddy removes a cow."}</strong>
