@@ -3,350 +3,499 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, Bell, Bird, CloudRain, Coffee, Droplets, Ear, Eye, Feather, Flower2, Footprints, Gem, Hand,
-  HeartHandshake, Lamp, Leaf, MoonStar, Music2, ShieldX, Sparkles, Sprout, SunMedium, TreePine, Waves, Wind, X,
+  ArrowLeft, BedDouble, Car, Compass, CookingPot, Ear, Eye, Flower2, GraduationCap, Hand, HeartHandshake,
+  Library, Send, ShieldX, Sofa, Sparkles, Trees, Wind, X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from "react";
-import styles from "./stoep.module.css";
+import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type FormEvent } from "react";
+import { askAi } from "@/lib/stoep/ai";
+import {
+  applyAnswer, buildGuesses, describeMove, guessText, matchesGuess, needsPerson, newRound, nextMove, questionsAsked,
+  reaction, same, scoreSense, type Guess, type Move, type Round, type SenseResult,
+} from "@/lib/stoep/engine";
+import { SETTINGS, type SenseKey, type SettingId } from "@/lib/stoep/knowledge";
+import styles from "./stoep.module.css"; // scene, top bar, person link (unchanged)
+import g from "./stoepPlay.module.css"; // new game UI
 
-type Route = "real" | "garden";
-type Phase = "choose" | "play" | "sky" | "complete";
 type Icon = ComponentType<{ size?: number; strokeWidth?: number }>;
-type GardenItem = { name: string; line: string; icon: Icon };
-type Sense = {
-  name: string;
-  past: string;
-  count: number;
-  icon: Icon;
-  glow: string;
-  prompt: string;
-  hints: string[];
-  garden: GardenItem[];
-};
-type Spark = { id: number; sx: number; sy: number; dx: number; dy: number };
+type Mood = "idle" | "think" | "happy" | "puzzled";
+type Mode = "hub" | "name" | "setting" | "guess" | "results" | "clues";
+type Items = Record<SenseKey, string[]>;
 
-const senses: Sense[] = [
-  {
-    name: "see", past: "seen", count: 5, icon: Eye, glow: "#ffd98a",
-    prompt: "Find five things you can see.",
-    hints: ["Something blue", "Something round", "Something very small", "Something far away", "Something you like"],
-    garden: [
-      { name: "Jacaranda bloom", line: "A purple bell, loose on the grass.", icon: Flower2 },
-      { name: "Sunbird", line: "A flash of green and copper, gone and back.", icon: Bird },
-      { name: "Smooth stone", line: "Grey, flat, and worn round by water.", icon: Gem },
-      { name: "Quiet path", line: "It bends away between the aloes.", icon: Footprints },
-      { name: "Paraffin lamp", line: "A small flame, perfectly still.", icon: Lamp },
-    ],
-  },
-  {
-    name: "feel", past: "felt", count: 4, icon: Hand, glow: "#ffa6bd",
-    prompt: "Notice four things you can feel.",
-    hints: ["Your feet on the ground", "Your clothes on your skin", "Something you are touching", "Air on your face"],
-    garden: [
-      { name: "Warm step", line: "The stoep still holds the afternoon sun.", icon: SunMedium },
-      { name: "Soft moss", line: "Cool and springy under your fingers.", icon: Sprout },
-      { name: "Rough bark", line: "Ridged and dry, solid and steady.", icon: Leaf },
-      { name: "Evening breeze", line: "It lifts the hair off your neck.", icon: Wind },
-    ],
-  },
-  {
-    name: "hear", past: "heard", count: 3, icon: Ear, glow: "#8fd6ff",
-    prompt: "Listen for three things you can hear.",
-    hints: ["The closest sound", "A sound far away", "The quietest sound"],
-    garden: [
-      { name: "Wind chime", line: "Three soft notes, then silence.", icon: Bell },
-      { name: "Crickets", line: "A slow, steady shimmer in the grass.", icon: Music2 },
-      { name: "Running water", line: "A little stream, somewhere below.", icon: Waves },
-    ],
-  },
-  {
-    name: "smell", past: "smelled", count: 2, icon: Wind, glow: "#a6f0c4",
-    prompt: "Notice two things you can smell.",
-    hints: ["The air around you", "Something familiar. Or imagine one."],
-    garden: [
-      { name: "Rain on dry earth", line: "That first-storm smell, green and mineral.", icon: CloudRain },
-      { name: "Jasmine", line: "Sweet and heavy, drifting over the wall.", icon: Feather },
-    ],
-  },
-  {
-    name: "taste", past: "tasted", count: 1, icon: Flower2, glow: "#ffb98a",
-    prompt: "Notice one thing you can taste.",
-    hints: ["What is in your mouth now? Or imagine a favourite."],
-    garden: [{ name: "Rooibos with honey", line: "Warm, round and a little sweet.", icon: Coffee }],
-  },
+const ICONS: Record<string, Icon> = { BedDouble, Sofa, CookingPot, Library, GraduationCap, Car, Trees, Compass };
+const SENSES: { key: SenseKey; count: number; icon: Icon; glow: string; ask: string; imagine: string; ph: string; noun: string }[] = [
+  { key: "see", count: 5, icon: Eye, glow: "#ffd98a", noun: "see", ph: "blue mug", ask: "Look around. Type 5 things you can see.", imagine: "Picture a calm place. Type 5 things you can see there." },
+  { key: "feel", count: 4, icon: Hand, glow: "#ffa6bd", noun: "feel", ph: "soft blanket", ask: "What can you feel? Type 4 things: your feet, your clothes, whatever you're touching.", imagine: "In your calm place, type 4 things you can feel." },
+  { key: "hear", count: 3, icon: Ear, glow: "#8fd6ff", noun: "hear", ph: "a distant dog", ask: "Listen closely. Type 3 things you can hear.", imagine: "In your calm place, type 3 things you can hear." },
+  { key: "smell", count: 2, icon: Wind, glow: "#a6f0c4", noun: "smell", ph: "fresh laundry", ask: "Type 2 things you can smell. Can't smell anything? Imagine one.", imagine: "In your calm place, type 2 things you can smell." },
+  { key: "taste", count: 1, icon: Flower2, glow: "#ffb98a", noun: "taste", ph: "mint tea", ask: "Type 1 thing you can taste. A memory or a favourite is fine.", imagine: "Type 1 taste you'd have in your calm place." },
 ];
+const empty = (): Items => ({ see: [], feel: [], hear: [], smell: [], taste: [] });
 
-const TOTAL = senses.reduce((sum, sense) => sum + sense.count, 0);
-const affirm = ["Got it.", "Nice noticing.", "Good one.", "Steady.", "Keep going."];
-const STARS: [number, number][] = [
-  [50, 90], [50, 74], [50, 58], [36, 50], [22, 42], [26, 27], [50, 42], [50, 27],
-  [50, 12], [64, 50], [78, 42], [74, 27], [38, 18], [62, 18], [30, 64],
-];
-const EDGES: [number, number][] = [
-  [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [2, 6], [6, 7], [7, 8],
-  [2, 9], [9, 10], [10, 11], [7, 12], [7, 13], [3, 14],
-];
+/* ---------------- Kiki the firefly ---------------- */
+function Kiki({ mood = "idle", size = 84 }: { mood?: Mood; size?: number }) {
+  return (
+    <div className={`${g.kiki} ${g[mood]}`} style={{ width: size, height: size }} aria-hidden="true">
+      <span className={g.wingL} /><span className={g.wingR} />
+      <span className={g.body}><i /><i /></span>
+    </div>
+  );
+}
 
+/* ---------------- Main ---------------- */
 export function StoepGame() {
   const router = useRouter();
   const search = useSearchParams();
-  const [route, setRoute] = useState<Route>(() => (search.get("assist") === "garden" ? "garden" : "real"));
-  const [phase, setPhase] = useState<Phase>(() => (search.get("intro") === "1" ? "choose" : "play"));
+  const [mode, setMode] = useState<Mode>("hub");
+  const [level, setLevel] = useState(0);
+  const [imagine, setImagine] = useState(() => search.get("assist") === "garden");
   const [discreet, setDiscreet] = useState(() => search.get("mode") === "quick");
-  const [step, setStep] = useState(0);
-  const [found, setFound] = useState(0);
-  const [banked, setBanked] = useState(0);
-  const [taken, setTaken] = useState<number[]>([]);
-  const [caption, setCaption] = useState("");
+  const [night, setNight] = useState(false);
+  const [items, setItems] = useState<Items>(empty);
+  const [guesses, setGuesses] = useState<Record<SenseKey, Guess[]> | null>(null);
+  const [results, setResults] = useState<Partial<Record<SenseKey, SenseResult>>>({});
+  const [care, setCare] = useState(false);
+  const [aiUsed, setAiUsed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [placed, setPlaced] = useState<number[]>([]);
-  const [rising, setRising] = useState(false);
-  const [sparks, setSparks] = useState<Spark[]>([]);
-  const jarRef = useRef<HTMLDivElement>(null);
-  const timers = useRef<number[]>([]);
-  const sparkId = useRef(0);
-
-  function later(fn: () => void, ms: number) {
-    timers.current.push(window.setTimeout(fn, ms));
-  }
-
-  useEffect(() => () => timers.current.forEach(window.clearTimeout), []);
 
   useEffect(() => {
-    if (search.get("intro") === "1") {
-      setPhase("choose");
-      return;
-    }
+    const h = new Date().getHours();
+    setNight(h >= 18 || h < 6);
+  }, []);
+  useEffect(() => {
     setDiscreet(search.get("mode") === "quick");
-    setRoute(search.get("assist") === "garden" ? "garden" : "real");
-    setPhase("play");
+    setImagine(search.get("assist") === "garden");
   }, [search]);
 
-  useEffect(() => {
-    if (phase !== "sky" || placed.length < STARS.length) return;
-    const timer = window.setTimeout(() => setPhase("complete"), 3200);
-    return () => window.clearTimeout(timer);
-  }, [phase, placed.length]);
-
-  const current = senses[step];
-  const SenseIcon = current.icon;
-  const level = phase === "choose" ? 0 : phase === "play" ? step : phase === "sky" ? 4 : 5;
-
-  function reset(next: Route) {
-    timers.current.forEach(window.clearTimeout);
-    timers.current = [];
-    setRoute(next);
-    setStep(0);
-    setFound(0);
-    setBanked(0);
-    setTaken([]);
-    setCaption("");
-    setBusy(false);
-    setPlaced([]);
-    setRising(false);
-    setSparks([]);
-  }
-
-  function begin(next: Route) {
-    reset(next);
-    setPhase("play");
-  }
-
-  function launchSpark(origin: HTMLElement | null) {
-    const originRect = origin?.getBoundingClientRect();
-    const jarRect = jarRef.current?.getBoundingClientRect();
-    if (!originRect || !jarRect) return;
-    const sx = originRect.left + originRect.width / 2;
-    const sy = originRect.top + originRect.height / 2;
-    const id = ++sparkId.current;
-    setSparks((all) => [...all, { id, sx, sy, dx: jarRect.left + jarRect.width / 2 - sx, dy: jarRect.top + jarRect.height / 2 - sy }]);
-    later(() => setSparks((all) => all.filter((spark) => spark.id !== id)), 950);
-  }
-
-  function collect(origin: HTMLElement | null, gardenIndex?: number, line?: string) {
-    if (busy || phase !== "play") return;
-    setBusy(true);
-    if (!discreet) {
-      navigator.vibrate?.(18);
-      launchSpark(origin);
-    }
-    if (gardenIndex !== undefined) setTaken((items) => [...items, gardenIndex]);
-    const nextFound = found + 1;
-    setFound(nextFound);
-    setCaption(line ?? affirm[(banked + step) % affirm.length]);
-    later(() => setBanked((value) => value + 1), discreet ? 0 : 860);
-
-    const finished = nextFound >= current.count;
-    later(() => {
-      setBusy(false);
-      if (!finished) return;
-      setCaption("");
-      setTaken([]);
-      setFound(0);
-      if (step === senses.length - 1) setPhase("sky");
-      else setStep((value) => value + 1);
-    }, discreet ? 250 : finished ? 1300 : 700);
-  }
-
-  function light(index: number) {
-    if (placed.includes(index)) return;
-    if (!discreet) navigator.vibrate?.(12);
-    setPlaced((items) => (items.includes(index) ? items : [...items, index]));
-  }
-
-  function riseAll() {
-    if (rising) return;
-    setRising(true);
-    STARS.map((_, index) => index)
-      .filter((index) => !placed.includes(index))
-      .forEach((index, order) => later(() => setPlaced((items) => (items.includes(index) ? items : [...items, index])), 170 * (order + 1)));
-  }
-
   const closeQuickly = () => router.replace("/account");
-  const remaining = senses[step].garden
-    .map((item, index) => ({ item, index }))
-    .filter(({ index }) => !taken.includes(index))
-    .slice(0, current.count - found);
-  const hint = current.hints[Math.min(found, current.hints.length - 1)];
-  const lit = (index: number) => placed.includes(index);
+  const glow = mode === "name" ? SENSES[Math.min(level, 4)].glow : "#ffd98a";
+  const skyLevel = mode === "results" ? 5 : mode === "guess" ? 3 : mode === "setting" ? 4 : level;
+
+  async function pickSetting(id: SettingId | "other", text = "") {
+    setBusy(true);
+    let extra: Partial<Record<SenseKey, string[]>> | undefined;
+    if (id === "other" && text) {
+      const ai = await askAi<Partial<Record<SenseKey, string[]>>>({ task: "predict", setting: text, night });
+      if (ai) { extra = ai; setAiUsed(true); }
+    }
+    setGuesses(buildGuesses(id, night, extra));
+    setResults({});
+    setBusy(false);
+    setMode("guess");
+  }
+
+  function restart() {
+    setItems(empty());
+    setGuesses(null);
+    setResults({});
+    setLevel(0);
+    setMode("hub");
+  }
 
   return (
-    <main className={`${styles.page} ${styles[`lv${level}`]} ${discreet ? styles.discreet : ""}`} style={{ "--glow": current.glow } as CSSProperties}>
-      <Scene />
+    <main
+      className={`${styles.page} ${styles[`lv${skyLevel}`]} ${discreet ? styles.discreet : ""}`}
+      style={{ "--glow": glow } as CSSProperties}
+    >
+      <div className={styles.scene} aria-hidden="true">
+        {[0, 1, 2, 3, 4, 5].map((n) => <div key={n} className={`${styles.sky_} ${styles[`sky${n}`]}`} />)}
+        <div className={styles.sun} /><div className={styles.moon} />
+        <div className={styles.stars}>
+          {Array.from({ length: 44 }, (_, i) => (
+            <span key={i} style={{ left: `${(i * 37 + 11) % 100}%`, top: `${(i * 23 + 5) % 58}%`, width: 1 + (i % 3), height: 1 + (i % 3), animationDelay: `${(i % 7) * 0.6}s` }} />
+          ))}
+        </div>
+        <svg className={styles.hills} viewBox="0 0 400 220" preserveAspectRatio="none">
+          <path d="M0 120 Q80 70 170 110 T400 90 V220 H0Z" className={styles.hillFar} />
+          <path d="M0 160 Q110 110 210 150 T400 135 V220 H0Z" className={styles.hillNear} />
+        </svg>
+        <div className={styles.flies}>
+          {Array.from({ length: 16 }, (_, i) => (
+            <span key={i} style={{ left: `${(i * 61 + 7) % 100}%`, top: `${42 + ((i * 17) % 48)}%`, animationDelay: `${(i % 6) * -1.7}s`, animationDuration: `${8 + (i % 5) * 2}s` }} />
+          ))}
+        </div>
+      </div>
+
       <header className={styles.top}>
-        <button type="button" onClick={() => router.back()}><ArrowLeft size={16} />Back</button>
-        <button type="button" aria-pressed={discreet} onClick={() => setDiscreet(!discreet)}><ShieldX size={16} />{discreet ? "Discreet is on" : "Discreet mode"}</button>
-        <button type="button" onClick={closeQuickly}><X size={16} />Quick close</button>
+        <button onClick={() => (mode === "hub" ? router.back() : restart())}><ArrowLeft size={16} />{mode === "hub" ? "Back" : "Menu"}</button>
+        <button aria-pressed={discreet} onClick={() => setDiscreet(!discreet)}><ShieldX size={16} />{discreet ? "Discreet is on" : "Discreet mode"}</button>
+        <button onClick={closeQuickly}><X size={16} />Quick close</button>
       </header>
 
-      {phase === "choose" && (
-        <section className={styles.intro}>
-          <h1>Come back to this moment.</h1>
-          <p className={styles.lede}>Find five small things around you, then four, three, two and one. Each one becomes a light in tonight&apos;s sky.</p>
-          <ol className={styles.ladder} aria-label="The five steps">
-            {senses.map((sense) => {
-              const IconComponent = sense.icon;
-              return <li key={sense.name} style={{ "--glow": sense.glow } as CSSProperties}><IconComponent size={18} /><b>{sense.count}</b><span>{sense.name}</span></li>;
-            })}
-          </ol>
-          <div className={styles.routeChoices}>
-            <button type="button" onClick={() => begin("real")}><Eye size={26} /><span>Look around me</span><small>Notice real things where you are right now.</small></button>
-            <button type="button" onClick={() => begin("garden")}><TreePine size={26} /><span>Explore the garden</span><small>Tap glowing things in a quiet garden. Pick this if looking around doesn&apos;t feel safe.</small></button>
+      {care && (
+        <div className={g.care} role="status">
+          <p>It sounds like things might be hard or unsafe right now. You don&apos;t have to do this alone.</p>
+          <Link href="/account/guardians">Reach a person</Link>
+          <button onClick={() => setCare(false)} aria-label="Dismiss"><X size={14} /></button>
+        </div>
+      )}
+
+      {mode === "hub" && (
+        <section className={g.panel}>
+          <Kiki mood="idle" size={96} />
+          <h1 className={g.title}>Hi, I&apos;m Kiki. I can&apos;t see your world.</h1>
+          <p className={g.lede}>Help me out? The more closely you look, the better we both play. Nothing is saved.</p>
+          <label className={g.check}>
+            <input type="checkbox" checked={imagine} onChange={(e) => setImagine(e.target.checked)} />
+            Looking around isn&apos;t safe right now. I&apos;ll picture a calm place instead.
+          </label>
+          <div className={g.modes}>
+            <button onClick={() => { setItems(empty()); setLevel(0); setMode("name"); }}>
+              <Eye size={26} /><strong>Name it, Kiki guesses it</strong>
+              <small>Type what you notice. Then I try to guess your answers. Can you spot my wrong guesses?</small>
+            </button>
+            <button onClick={() => { setLevel(0); setMode("clues"); }}>
+              <Sparkles size={26} /><strong>Be my eyes</strong>
+              <small>Give me a clue. I&apos;ll ask a few questions and guess what you&apos;re looking at.</small>
+            </button>
           </div>
-          <p className={styles.note}>Nothing you notice is checked, saved or sent.</p>
         </section>
       )}
 
-      {phase === "play" && (
-        <section className={styles.play}>
-          <div className={styles.hud}>
-            <div className={styles.jar} ref={jarRef} role="img" aria-label={`${banked} of ${TOTAL} lights collected`}>
-              <span className={styles.jarFill} style={{ height: `${(banked / TOTAL) * 100}%` }} />
-              <i key={banked} className={styles.jarFlash} />
-              <b>{banked}</b>
-            </div>
-            <ol className={styles.steps} aria-label={`Step ${step + 1} of 5`}>
-              {senses.map((sense, index) => <li key={sense.name} className={index < step ? styles.done : index === step ? styles.active : ""}>{sense.count}</li>)}
-            </ol>
-          </div>
-
-          <div className={styles.stage} key={step}>
-            <div className={styles.badge}><SenseIcon size={32} /></div>
-            <p className={styles.eyebrow}>{route === "real" ? "Look around you" : "Garden path"}</p>
-            <h1>{current.prompt}</h1>
-            <ul className={styles.pips} aria-label={`${found} of ${current.count} found`}>
-              {Array.from({ length: current.count }, (_, index) => <li key={index} className={index < found ? styles.on : ""} />)}
-            </ul>
-
-            {route === "real" ? (
-              <button type="button" className={styles.orb} disabled={busy} onClick={(event) => collect(event.currentTarget)}>
-                <span className={styles.ring} /><span className={styles.ring} /><Sparkles size={26} /><strong>I noticed one</strong>
-              </button>
-            ) : (
-              <div className={styles.tiles}>
-                {remaining.map(({ item, index }, order) => {
-                  const IconComponent = item.icon;
-                  return <button type="button" key={item.name} className={styles.tile} style={{ "--d": `${order * 0.45}s` } as CSSProperties} disabled={busy} onClick={(event) => collect(event.currentTarget, index, item.line)}><IconComponent size={26} /><span>{item.name}</span></button>;
-                })}
-              </div>
-            )}
-
-            <p className={styles.caption} aria-live="polite" key={caption || hint}>{caption || (route === "real" ? `Try: ${hint}` : "Tap a glowing thing to explore it.")}</p>
-          </div>
-
-          <button type="button" className={styles.switchRoute} onClick={() => { setRoute(route === "real" ? "garden" : "real"); setCaption(""); }}>
-            {route === "real" ? "Explore the garden instead" : "Look around me instead"}
-          </button>
-        </section>
+      {mode === "name" && (
+        <NameGame
+          imagine={imagine}
+          onStep={setLevel}
+          onCare={() => setCare(true)}
+          onDone={(it) => { setItems(it); setMode("setting"); }}
+        />
       )}
 
-      {phase === "sky" && (
-        <section className={styles.sky}>
-          <h1>{placed.length === STARS.length ? "The Jacaranda" : "Light up your sky."}</h1>
-          <p className={styles.lede}>{placed.length === STARS.length ? "Fifteen things you noticed, shining together." : "Tap each star. Every one is something you noticed."}</p>
-          <div className={styles.constellation} aria-label={`${placed.length} of ${STARS.length} stars lit`}>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              {EDGES.filter(([a, b]) => lit(a) && lit(b)).map(([a, b]) => <line key={`${a}-${b}`} x1={STARS[a][0]} y1={STARS[a][1]} x2={STARS[b][0]} y2={STARS[b][1]} pathLength={1} className={styles.edge} />)}
-            </svg>
-            {STARS.map(([x, y], index) => (
-              <button type="button" key={index} className={`${styles.star} ${lit(index) ? styles.lit : ""}`} style={{ left: `${x}%`, top: `${y}%`, "--d": `${(index % 5) * 0.4}s` } as CSSProperties} aria-label={lit(index) ? `Star ${index + 1} lit` : `Light star ${index + 1}`} onClick={() => light(index)}>
-                {lit(index) ? <MoonStar size={18} /> : <Sparkles size={18} />}
-              </button>
-            ))}
-          </div>
-          <span className={styles.skyCount}>{placed.length} of {STARS.length} lit</span>
-          {placed.length < STARS.length && <button type="button" className={styles.ghost} onClick={riseAll} disabled={rising}>Let them rise</button>}
-        </section>
+      {mode === "setting" && (
+        <SettingPick imagine={imagine} night={night} setNight={setNight} busy={busy} onPick={pickSetting} onCare={() => setCare(true)} />
       )}
 
-      {phase === "complete" && (
-        <section className={styles.complete}>
-          <div className={styles.sunrise}><SunMedium size={40} /></div>
-          <h1>You made space.</h1>
-          <p className={styles.lede}>You noticed fifteen things. That was enough. Nothing from this was saved.</p>
-          <ul className={styles.recap}>{senses.map((sense) => <li key={sense.name}><b>{sense.count}</b> {sense.past}</li>)}</ul>
-          <div className={styles.endActions}>
-            <button type="button" onClick={() => { reset("real"); setPhase("choose"); }}>Go again</button>
-            <button type="button" className={styles.ghost} onClick={() => router.back()}>I&apos;m done</button>
-          </div>
-        </section>
+      {mode === "guess" && guesses && (
+        <GuessGame items={items} guesses={guesses} onDone={(r) => { setResults(r); setMode("results"); }} />
+      )}
+
+      {mode === "results" && (
+        <Results results={results} aiUsed={aiUsed} onClues={() => { setLevel(0); setMode("clues"); }} onAgain={restart} />
+      )}
+
+      {mode === "clues" && (
+        <CluesGame onCare={() => setCare(true)} onAi={() => setAiUsed(true)} onLevel={setLevel} onMenu={restart} />
       )}
 
       <Link className={styles.person} href="/account/guardians"><HeartHandshake size={18} />I need a person</Link>
-
-      {sparks.map((spark) => (
-        <span key={spark.id} className={styles.sparkX} style={{ left: spark.sx, top: spark.sy, "--dx": `${spark.dx}px`, "--dy": `${spark.dy}px` } as CSSProperties}>
-          <span className={styles.sparkY}><i /></span>
-        </span>
-      ))}
     </main>
   );
 }
 
-function Scene() {
+/* ---------------- Mode 1, part 1: type what you notice ---------------- */
+function NameGame({ imagine, onStep, onCare, onDone }: { imagine: boolean; onStep: (n: number) => void; onCare: () => void; onDone: (i: Items) => void }) {
+  const [step, setStep] = useState(0);
+  const [items, setItems] = useState<Items>(empty);
+  const [draft, setDraft] = useState("");
+  const [err, setErr] = useState("");
+  const [said, setSaid] = useState("");
+  const s = SENSES[step];
+  const list = items[s.key];
+  const full = list.length >= s.count;
+  const Icon = s.icon;
+
+  useEffect(() => { onStep(step); }, [step, onStep]);
+
+  function add(e: FormEvent) {
+    e.preventDefault();
+    const t = draft.trim().slice(0, 40);
+    if (full) return;
+    if (t.length < 2 || !/[a-z]/i.test(t)) return setErr("Type a word or two.");
+    if (list.some((x) => same(x, t))) return setErr("You already have that one. Find something new.");
+    if (needsPerson(t)) onCare();
+    setItems((cur) => ({ ...cur, [s.key]: [...cur[s.key], t] }));
+    setSaid(["Ooh, nice one.", "Good eye.", "Got it. I'm curious.", "Mm, noted.", "I wouldn't have guessed that."][list.length % 5]);
+    setDraft("");
+    setErr("");
+  }
+  const remove = (i: number) => setItems((cur) => ({ ...cur, [s.key]: cur[s.key].filter((_, k) => k !== i) }));
+
   return (
-    <div className={styles.scene} aria-hidden="true">
-      {[0, 1, 2, 3, 4, 5].map((level) => <div key={level} className={`${styles.sky_} ${styles[`sky${level}`]}`} />)}
-      <div className={styles.sun} />
-      <div className={styles.moon} />
-      <div className={styles.stars}>
-        {Array.from({ length: 44 }, (_, index) => (
-          <span key={index} style={{ left: `${(index * 37 + 11) % 100}%`, top: `${(index * 23 + 5) % 58}%`, width: 1 + (index % 3), height: 1 + (index % 3), animationDelay: `${(index % 7) * 0.6}s` }} />
+    <section className={g.panel} key={step} style={{ "--glow": s.glow } as CSSProperties}>
+      <ol className={g.steps} aria-label={`Step ${step + 1} of 5`}>
+        {SENSES.map((x, i) => <li key={x.key} className={i < step ? g.done : i === step ? g.active : ""}>{x.count}</li>)}
+      </ol>
+      <Kiki mood={full ? "happy" : "idle"} size={72} />
+      <p className={g.say}><Icon size={18} /> {imagine ? s.imagine : s.ask}</p>
+      <ul className={g.chipsOut}>
+        {list.map((t, i) => (
+          <li key={t + i} style={{ animationDelay: `${i * 0.05}s` }}>
+            {t}<button onClick={() => remove(i)} aria-label={`Remove ${t}`}><X size={12} /></button>
+          </li>
         ))}
+        {Array.from({ length: Math.max(0, s.count - list.length) }, (_, i) => <li key={`e${i}`} className={g.slot} aria-hidden="true" />)}
+      </ul>
+      {!full ? (
+        <form className={g.inputRow} onSubmit={add}>
+          <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={`e.g. ${s.ph}`} maxLength={40} autoFocus aria-label={`Type something you ${s.noun}`} autoComplete="off" />
+          <button type="submit" aria-label="Add"><Send size={18} /></button>
+        </form>
+      ) : (
+        <button className={g.primary} onClick={() => { if (step === 4) onDone(items); else { setStep(step + 1); setSaid(""); setErr(""); } }}>
+          {step === 4 ? "Done. Let Kiki guess" : "Next"}
+        </button>
+      )}
+      <p className={g.helper} aria-live="polite">{err || said || `${list.length} of ${s.count}`}</p>
+    </section>
+  );
+}
+
+/* ---------------- Mode 1, part 2: where are you? ---------------- */
+function SettingPick({ imagine, night, setNight, busy, onPick, onCare }: {
+  imagine: boolean; night: boolean; setNight: (v: boolean) => void; busy: boolean;
+  onPick: (id: SettingId | "other", text?: string) => void; onCare: () => void;
+}) {
+  const [other, setOther] = useState("");
+  const [showOther, setShowOther] = useState(false);
+  return (
+    <section className={g.panel}>
+      <Kiki mood="think" size={72} />
+      <h1 className={g.title}>{imagine ? "Where is your calm place?" : "Where are you?"}</h1>
+      <p className={g.lede}>Pick the closest one. I&apos;ll try to guess everything you just typed.</p>
+      <div className={g.settings}>
+        {SETTINGS.map((s) => {
+          const Ic = ICONS[s.icon];
+          return <button key={s.id} disabled={busy} onClick={() => onPick(s.id)}><Ic size={22} />{s.name}</button>;
+        })}
+        <button disabled={busy} onClick={() => setShowOther(true)}><Compass size={22} />Somewhere else</button>
       </div>
-      <svg className={styles.hills} viewBox="0 0 400 220" preserveAspectRatio="none">
-        <path d="M0 120 Q80 70 170 110 T400 90 V220 H0Z" className={styles.hillFar} />
-        <path d="M0 160 Q110 110 210 150 T400 135 V220 H0Z" className={styles.hillNear} />
-      </svg>
-      <svg className={styles.tree} viewBox="0 0 160 220">
-        <path d="M78 220 C80 170 74 140 80 100 L88 100 C84 140 92 170 92 220Z" className={styles.trunk} />
-        <g className={styles.canopy}>
-          <circle cx="80" cy="70" r="46" /><circle cx="42" cy="92" r="30" /><circle cx="120" cy="90" r="32" /><circle cx="80" cy="34" r="28" />
-        </g>
-      </svg>
-      <div className={styles.flies}>
-        {Array.from({ length: 16 }, (_, index) => <span key={index} style={{ left: `${(index * 61 + 7) % 100}%`, top: `${42 + ((index * 17) % 48)}%`, animationDelay: `${(index % 6) * -1.7}s`, animationDuration: `${8 + (index % 5) * 2}s` }} />)}
+      {showOther && (
+        <form className={g.inputRow} onSubmit={(e) => { e.preventDefault(); if (other.trim().length > 1) { if (needsPerson(other)) onCare(); onPick("other", other.trim()); } }}>
+          <input value={other} onChange={(e) => setOther(e.target.value)} placeholder="e.g. a hair salon" maxLength={40} autoFocus aria-label="Where are you?" />
+          <button type="submit" aria-label="Go"><Send size={18} /></button>
+        </form>
+      )}
+      <label className={g.check}><input type="checkbox" checked={night} onChange={(e) => setNight(e.target.checked)} />It&apos;s dark where I am</label>
+      {busy && <p className={g.helper}>Kiki is thinking…</p>}
+    </section>
+  );
+}
+
+/* ---------------- Mode 1, part 3: pop the wrong guesses ---------------- */
+function GuessGame({ items, guesses, onDone }: { items: Items; guesses: Record<SenseKey, Guess[]>; onDone: (r: Partial<Record<SenseKey, SenseResult>>) => void }) {
+  const [gi, setGi] = useState(0);
+  const [popped, setPopped] = useState<string[]>([]);
+  const [shake, setShake] = useState("");
+  const [nudge, setNudge] = useState("");
+  const [revealed, setRevealed] = useState(false);
+  const [acc, setAcc] = useState<Partial<Record<SenseKey, SenseResult>>>({});
+  const s = SENSES[gi];
+  const gs = guesses[s.key];
+  const mine = items[s.key];
+  const wrong = gs.filter((x) => !mine.some((t) => matchesGuess(t, x)));
+  const allGone = wrong.every((w) => popped.includes(w.label));
+  const result = scoreSense(mine, gs);
+  const Icon = s.icon;
+
+  useEffect(() => {
+    if (!allGone || revealed) return;
+    const t = window.setTimeout(() => setRevealed(true), 750);
+    return () => window.clearTimeout(t);
+  }, [allGone, revealed]);
+
+  function tap(x: Guess) {
+    if (revealed || popped.includes(x.label)) return;
+    const match = mine.find((t) => matchesGuess(t, x));
+    if (!match) {
+      setPopped((p) => [...p, x.label]);
+      setNudge(["Pop! Good catch.", "Nope, not there. Nice.", "Right, Kiki was way off.", "Sharp eyes."][popped.length % 4]);
+      navigator.vibrate?.(10);
+    } else {
+      setShake(x.label);
+      setNudge(`That one matches "${match}", which you typed. Keep it.`);
+      window.setTimeout(() => setShake(""), 500);
+    }
+  }
+  function next() {
+    const merged = { ...acc, [s.key]: result };
+    if (gi === SENSES.length - 1) return onDone(merged);
+    setAcc(merged); setGi(gi + 1); setPopped([]); setRevealed(false); setNudge("");
+  }
+
+  return (
+    <section className={g.panel} key={gi} style={{ "--glow": s.glow } as CSSProperties}>
+      <Kiki mood={revealed ? (result.hits.length > 0 ? "happy" : "puzzled") : "think"} size={64} />
+      <p className={g.say}><Icon size={18} /> {revealed ? `Kiki got ${result.hits.length} of your ${result.mine} ${s.noun}${s.count > 1 ? "s" : ""}.` : `These are my guesses for what you ${s.noun}. Tap the wrong ones to pop them.`}</p>
+      <div className={g.cloud}>
+        {gs.map((x, i) => {
+          const isPopped = popped.includes(x.label);
+          const right = mine.some((t) => matchesGuess(t, x));
+          return (
+            <button
+              key={x.label}
+              onClick={() => tap(x)}
+              className={`${g.bubble} ${g[`b${i % 4}`]} ${isPopped ? g.popped : ""} ${shake === x.label ? g.shake : ""} ${revealed && right ? g.hit : ""}`}
+              style={{ "--d": `${(i % 5) * 0.5}s` } as CSSProperties}
+              disabled={isPopped || revealed}
+            >{x.label}</button>
+          );
+        })}
       </div>
-    </div>
+      {revealed && result.surprises.length > 0 && <p className={g.surprise}>Kiki never guessed: {result.surprises.join(", ")}. Nice noticing.</p>}
+      <p className={g.helper} aria-live="polite">{nudge || `${popped.length} of ${wrong.length} wrong guesses popped`}</p>
+      <div className={g.mine}>You typed: {mine.join(", ")}</div>
+      {revealed && <button className={g.primary} onClick={next}>{gi === SENSES.length - 1 ? "See my score" : "Next"}</button>}
+    </section>
+  );
+}
+
+/* ---------------- Mode 1, part 4: score ---------------- */
+function Results({ results, aiUsed, onClues, onAgain }: { results: Partial<Record<SenseKey, SenseResult>>; aiUsed: boolean; onClues: () => void; onAgain: () => void }) {
+  const all = Object.values(results) as SenseResult[];
+  const hits = all.reduce((n, r) => n + r.hits.length, 0);
+  const mine = all.reduce((n, r) => n + r.mine, 0);
+  const surprises = all.flatMap((r) => r.surprises);
+  const pct = mine ? hits / mine : 0;
+  const title = pct >= 0.7 ? "Kiki read your mind" : pct >= 0.4 ? "Kiki had a good feeling" : "You were too unpredictable";
+  return (
+    <section className={g.panel}>
+      <Kiki mood="happy" size={88} />
+      <h1 className={g.title}>{title}.</h1>
+      <p className={g.big}>{hits}<span> of {mine}</span></p>
+      <p className={g.lede}>Kiki guessed {hits} of the {mine} things you noticed. You surprised me {surprises.length} time{surprises.length === 1 ? "" : "s"}.</p>
+      {surprises.length > 0 && <ul className={g.chipsOut}>{surprises.slice(0, 8).map((t) => <li key={t}>{t}</li>)}</ul>}
+      {aiUsed && <p className={g.helper}>Kiki used an AI helper this round. Your words were sent to it, not saved.</p>}
+      <div className={g.actions}>
+        <button className={g.primary} onClick={onClues}>Now be my eyes</button>
+        <button className={g.ghost} onClick={onAgain}>Menu</button>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------- Mode 2: Be my eyes ---------------- */
+type Msg = { from: "kiki" | "you"; text: string };
+const STARTERS: { sense: SenseKey; label: string; icon: Icon }[] = [
+  { sense: "see", label: "I see something", icon: Eye },
+  { sense: "feel", label: "I'm holding something", icon: Hand },
+  { sense: "hear", label: "I hear something", icon: Ear },
+  { sense: "smell", label: "I smell something", icon: Wind },
+];
+const INTRO: Record<string, string> = {
+  see: "Ooh, you see something! I can't see anything from in here.",
+  feel: "You're holding something? Don't tell me. I'll ask.",
+  hear: "You hear something! My ears are only little.",
+  smell: "A smell! Fireflies have terrible noses.",
+};
+
+function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi: () => void; onLevel: (n: number) => void; onMenu: () => void }) {
+  const [round, setRound] = useState<Round | null>(null);
+  const [move, setMove] = useState<Move | null>(null);
+  const [log, setLog] = useState<Msg[]>([]);
+  const [thinking, setThinking] = useState(false);
+  const [mood, setMood] = useState<Mood>("idle");
+  const [draft, setDraft] = useState("");
+  const [outcome, setOutcome] = useState<"won" | "lost" | null>(null);
+  const [stats, setStats] = useState({ rounds: 0, kiki: 0 });
+  const logRef = useRef<Msg[]>([]);
+  const timers = useRef<number[]>([]);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => () => timers.current.forEach(window.clearTimeout), []);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [log, thinking]);
+  useEffect(() => { onLevel(round ? Math.min(4, questionsAsked(round)) : 0); }, [round, onLevel]);
+
+  const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
+  const push = (from: Msg["from"], text: string) => { logRef.current = [...logRef.current, { from, text }]; setLog(logRef.current); };
+
+  function start(sense: SenseKey) {
+    const r = newRound(sense);
+    logRef.current = [];
+    setLog([]); setOutcome(null); setMood("idle");
+    push("kiki", `${INTRO[sense]} Be my eyes? A few questions and I'll guess.`);
+    turn(r);
+  }
+
+  function turn(r: Round, lead = "") {
+    setRound(r); setMove(null); setThinking(true); setMood("think");
+    later(() => {
+      const m = nextMove(r);
+      if (m.kind === "stuck") { void giveUp(r, lead); return; }
+      setThinking(false); setMove(m); setMood("idle");
+      push("kiki", `${lead ? lead + " " : ""}${describeMove(m, r)}`);
+    }, 800);
+  }
+
+  async function giveUp(r: Round, lead: string) {
+    let guess: string | undefined;
+    if (!r.aiTried) {
+      const ai = await askAi<{ guess?: string }>({ task: "clue", sense: r.sense, transcript: logRef.current, wrong: r.rejected });
+      guess = ai?.guess;
+      if (ai) onAi();
+    }
+    setRound({ ...r, aiTried: true });
+    setThinking(false);
+    if (guess && !r.rejected.some((x) => same(x, guess))) {
+      setMove({ kind: "guess", label: guess });
+      push("kiki", `${lead ? lead + " " : ""}Let me think harder. ${guessText(guess, r.sense)}`);
+    } else {
+      setMove({ kind: "reveal" });
+      setMood("puzzled");
+      push("kiki", `${lead ? lead + " " : ""}You got me! What was it?`);
+    }
+  }
+
+  function finish(won: boolean, text: string) {
+    setOutcome(won ? "won" : "lost"); setMood(won ? "happy" : "puzzled"); setMove(null);
+    setStats((s) => ({ rounds: s.rounds + 1, kiki: s.kiki + (won ? 1 : 0) }));
+    push("kiki", text);
+  }
+
+  function submit(raw: string) {
+    const text = raw.trim().slice(0, 120);
+    if (!text || !move || !round || thinking || outcome) return;
+    if (needsPerson(text)) onCare();
+    push("you", text);
+    setDraft("");
+    if (move.kind === "reveal") return finish(false, `Ahh, ${text}! I'd never have guessed. Point to you.`);
+    const res = applyAnswer(round, move, text);
+    if (move.kind === "guess" && res.yes) return finish(true, `Yes! I got it in ${questionsAsked(round)} questions. Kiki's brain is glowing.`);
+    turn(res.round, reaction(move, res, res.round));
+  }
+
+  const quick: string[] =
+    move?.kind === "setting" ? SETTINGS.map((s) => s.name)
+    : move?.kind === "posture" ? ["Lying down", "Sitting", "Standing"]
+    : move?.kind === "ask" || move?.kind === "guess" ? ["Yes", "No", "Not sure"] : [];
+  const used = round ? Math.min(questionsAsked(round), 5) : 0;
+
+  if (!round) {
+    return (
+      <section className={g.panel}>
+        <Kiki mood="idle" size={88} />
+        <h1 className={g.title}>Give me a clue.</h1>
+        <p className={g.lede}>Pick where to start. I&apos;ll ask a few questions and guess what you&apos;re noticing.</p>
+        <div className={g.settings}>
+          {STARTERS.map((s) => <button key={s.sense} onClick={() => start(s.sense)}><s.icon size={22} />{s.label}</button>)}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className={g.chatWrap}>
+      <div className={g.chatHead}>
+        <Kiki mood={mood} size={52} />
+        <div><strong>Kiki</strong><small>{outcome ? `Kiki ${stats.kiki}, you ${stats.rounds - stats.kiki}` : `Clue ${used} of 5`}</small></div>
+      </div>
+      <div className={g.chat} aria-live="polite">
+        {log.map((m, i) => <p key={i} className={`${g.msg} ${m.from === "you" ? g.you : ""}`}>{m.text}</p>)}
+        {thinking && <p className={`${g.msg} ${g.typing}`}><i /><i /><i /></p>}
+        <div ref={endRef} />
+      </div>
+      {outcome ? (
+        <div className={g.actions}>
+          <button className={g.primary} onClick={() => { setRound(null); setLog([]); logRef.current = []; setOutcome(null); setMood("idle"); }}>Another round</button>
+          <button className={g.ghost} onClick={onMenu}>Menu</button>
+        </div>
+      ) : (
+        <>
+          {quick.length > 0 && <div className={g.quick}>{quick.map((q) => <button key={q} onClick={() => submit(q)}>{q}</button>)}</div>}
+          <form className={g.inputRow} onSubmit={(e) => { e.preventDefault(); submit(draft); }}>
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={thinking ? "Kiki is thinking…" : "Type your answer"} disabled={thinking || !move} maxLength={120} aria-label="Your answer" autoComplete="off" />
+            <button type="submit" disabled={thinking || !move} aria-label="Send"><Send size={18} /></button>
+          </form>
+        </>
+      )}
+    </section>
   );
 }
