@@ -50,8 +50,7 @@ create table if not exists public.organisation_domains (
   membership_type text not null default 'general',
   role_hint text not null default 'member',
   priority smallint not null default 100,
-  created_at timestamptz not null default now(),
-  unique (organisation_id, lower(domain))
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.organisation_work_id_rules (
@@ -163,6 +162,8 @@ create index if not exists organisation_memberships_org_idx on public.organisati
 create index if not exists organisation_user_links_user_idx on public.organisation_user_links (user_id);
 create index if not exists organisation_user_links_org_idx on public.organisation_user_links (organisation_id);
 create index if not exists organisation_coverage_org_idx on public.organisation_emergency_coverage (organisation_id);
+create unique index if not exists organisation_domains_org_domain_lower_uidx
+on public.organisation_domains (organisation_id, lower(domain));
 
 create or replace function public.organisations_touch_updated_at()
 returns trigger language plpgsql as $$
