@@ -89,7 +89,7 @@ export default function ResponderPage() {
             selected={selected}
             me={position}
             trail={trail}
-            onSelect={(a: Alert) => setSelectedId(a.id)}
+            onSelect={(a) => setSelectedId(a.id)}
           />
         </div>
 
