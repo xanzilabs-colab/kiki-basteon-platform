@@ -455,6 +455,11 @@ export function OrganisationConsole() {
   const showMembersPanel = !inOnboardingMode && activeTab === "members";
   const showSettingsPanel = !inOnboardingMode && activeTab === "settings";
   const showConfigurationsPanel = inOnboardingMode || activeTab === "configurations";
+  const availableResponderCount = responders.filter((presence) => presence.availability === "available").length;
+  const recentPresence = [...responders]
+    .filter((presence) => presence.last_seen_at)
+    .sort((a, b) => +new Date(b.last_seen_at) - +new Date(a.last_seen_at))
+    .slice(0, 4);
 
   if (!state) return <div className="panel p-5">Loading organisation console...</div>;
 
@@ -462,12 +467,15 @@ export function OrganisationConsole() {
     <>
     <div className="org-console w-full space-y-5">
       <header className="org-console-header flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="eyebrow">Organisation operations</p>
-          <h1 className="page-title mt-1">{state.organisation.name}</h1>
-          <p className="muted text-sm mt-1">
-            {state.organisation.organisation_type} · {state.memberships[0]?.role ?? "member"}
-          </p>
+        <div className="org-console-heading">
+          <div className="org-console-mark">{String(state.organisation.name ?? "O").trim().charAt(0).toUpperCase()}</div>
+          <div>
+            <p className="eyebrow">Organisation operations</p>
+            <h1 className="page-title mt-1">{state.organisation.name}</h1>
+            <p className="muted text-sm mt-1">
+              {state.organisation.organisation_type} · {state.memberships[0]?.role ?? "member"}
+            </p>
+          </div>
         </div>
         <button className="btn" disabled={busy} onClick={() => void refresh()}><RefreshCw size={16} />Refresh</button>
       </header>
@@ -533,16 +541,49 @@ export function OrganisationConsole() {
             <button className="btn" type="button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />Reload org data</button>
           </div>
           <div className="org-console-metrics grid gap-3 md:grid-cols-4">
-            <div className="org-console-metric panel p-3"><p className="muted text-xs">Branches</p><p className="text-2xl font-semibold">{branchOptions.length}</p></div>
-            <div className="org-console-metric panel p-3"><p className="muted text-xs">Units</p><p className="text-2xl font-semibold">{units.length}</p></div>
-            <div className="org-console-metric panel p-3"><p className="muted text-xs">Responder accounts</p><p className="text-2xl font-semibold">{responderMembers.length + presenceOnlyResponders.length}</p></div>
-            <div className="org-console-metric panel p-3"><p className="muted text-xs">Beneficiaries / members</p><p className="text-2xl font-semibold">{beneficiaryMembers.length}</p></div>
+            <div className="org-console-metric panel p-3">
+              <p className="muted text-xs uppercase tracking-wider">Branches</p>
+              <p className="text-2xl font-semibold">{branchOptions.length}</p>
+              <p className="muted text-xs mt-1">Operational structure</p>
+            </div>
+            <div className="org-console-metric panel p-3">
+              <p className="muted text-xs uppercase tracking-wider">Units</p>
+              <p className="text-2xl font-semibold">{units.length}</p>
+              <p className="muted text-xs mt-1">Configured teams / vehicles</p>
+            </div>
+            <div className="org-console-metric panel p-3">
+              <p className="muted text-xs uppercase tracking-wider">Responders</p>
+              <p className="text-2xl font-semibold">{responderMembers.length + presenceOnlyResponders.length}</p>
+              <p className="muted text-xs mt-1">{availableResponderCount} available now</p>
+            </div>
+            <div className="org-console-metric panel p-3">
+              <p className="muted text-xs uppercase tracking-wider">Beneficiaries / members</p>
+              <p className="text-2xl font-semibold">{beneficiaryMembers.length}</p>
+              <p className="muted text-xs mt-1">Linked protected users</p>
+            </div>
           </div>
-          <div className="org-console-quick-actions grid gap-3 md:grid-cols-2">
-            <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("responders")}><span>Manage responders</span><span>Open</span></button>
-            <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("members")}><span>Manage staff / members</span><span>Open</span></button>
-            <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("beneficiaries")}><span>View beneficiaries</span><span>Open</span></button>
-            <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("configurations")}><span>Open configurations</span><span>Open</span></button>
+          <div className="grid gap-3 lg:grid-cols-5">
+            <div className="org-console-surface-block panel p-4 space-y-2 lg:col-span-3">
+              <h3 className="text-sm font-bold">Quick actions</h3>
+              <div className="org-console-quick-actions grid gap-3 md:grid-cols-2">
+                <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("responders")}><span>Manage responders</span><span>Open</span></button>
+                <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("members")}><span>Manage staff / members</span><span>Open</span></button>
+                <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("beneficiaries")}><span>View beneficiaries</span><span>Open</span></button>
+                <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("configurations")}><span>Open configurations</span><span>Open</span></button>
+              </div>
+            </div>
+            <div className="org-console-surface-block panel p-4 space-y-2 lg:col-span-2">
+              <h3 className="text-sm font-bold">Recent operations log</h3>
+              {recentPresence.length > 0 ? recentPresence.map((presence) => (
+                <div key={`presence-log-${presence.user_id}-${presence.last_seen_at}`} className="org-console-log-row">
+                  <div>
+                    <p className="text-xs font-semibold">{presence.profiles?.full_name ?? presence.user_id} set {presence.availability}</p>
+                    <p className="muted text-[11px]">{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "No branch"}</p>
+                  </div>
+                  <span className="muted text-[10px]">{presence.last_seen_at ? new Date(presence.last_seen_at).toLocaleTimeString() : "—"}</span>
+                </div>
+              )) : <p className="muted text-xs">No recent responder activity yet.</p>}
+            </div>
           </div>
         </section>
       )}
@@ -873,24 +914,39 @@ export function OrganisationConsole() {
         color: #29212f;
       }
       .account-shell .org-console-header {
-        padding: 4px 2px 2px;
+        padding: 4px 2px 6px;
+      }
+      .account-shell .org-console-heading {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .account-shell .org-console-mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        background: #5b2c73;
+        color: #fff;
       }
       .account-shell .org-console .panel {
-        border: 1px solid #e5d9ee;
+        border: 1px solid #dfd1ea;
         border-radius: 18px;
         background: #fff;
-        box-shadow: 0 8px 28px rgba(87, 44, 102, 0.06);
+        box-shadow: none;
       }
       .account-shell .org-console .pane-head {
         border-radius: 18px 18px 0 0;
         min-height: 52px;
         padding-inline: 16px;
-        border-bottom: 1px solid #f1e9f6;
-        background: linear-gradient(135deg, #f8ecff, #f2efff);
+        border-bottom: 1px solid #eadff2;
+        background: #f7f0fc;
       }
       .account-shell .org-console-tabs-shell {
         padding: 12px;
-        background: linear-gradient(145deg, #fbf5ff, #f8f3ff);
+        background: #f4eafc;
       }
       .account-shell .org-console-tabs {
         display: flex;
@@ -910,7 +966,7 @@ export function OrganisationConsole() {
         white-space: nowrap;
       }
       .account-shell .org-console-tab:hover {
-        background: #f7efff;
+        background: #f1e6fb;
       }
       .account-shell .org-console-tab.is-active {
         border-color: #5b2c73;
@@ -922,26 +978,42 @@ export function OrganisationConsole() {
       }
       .account-shell .org-console-hero {
         border-color: #d9c7e8;
-        background: linear-gradient(135deg, #fff8fe, #f8efff);
+        background: #f8efff;
       }
       .account-shell .org-console-metric {
         border: 1px solid #e8def0;
         border-radius: 14px;
         box-shadow: none;
-        background: linear-gradient(160deg, #fff, #fbf5ff);
+        background: #fcf7ff;
       }
       .account-shell .org-console-metric p:last-child {
         color: #301a3d;
+      }
+      .account-shell .org-console-surface-block {
+        border: 1px solid #e8def0;
+        border-radius: 14px;
+        box-shadow: none;
+        background: #fcf7ff;
       }
       .account-shell .org-console-action {
         border: 1px solid #e6d8f2;
         min-height: 44px;
         border-radius: 12px;
-        background: #fcf7ff;
+        background: #fff;
         color: #3f2450;
       }
       .account-shell .org-console-action:hover {
-        background: #f3e7ff;
+        background: #f4e9fd;
+      }
+      .account-shell .org-console-log-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        border: 1px solid #e9e0f0;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #fff;
       }
       .account-shell .org-console .field input,
       .account-shell .org-console .field select,
@@ -962,7 +1034,7 @@ export function OrganisationConsole() {
         outline-offset: 1px;
       }
       .account-shell .org-console .tbl thead th {
-        background: #f8f1ff;
+        background: #f5ecfc;
         color: #442856;
       }
       .account-shell .org-console .tbl tbody td {
