@@ -33,6 +33,7 @@ export function OrganisationConsole() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [lastSyncedAt, setLastSyncedAt] = useState("");
   const [branchName, setBranchName] = useState("");
   const [branchAddress, setBranchAddress] = useState("");
   const [branchCity, setBranchCity] = useState("");
@@ -79,6 +80,7 @@ export function OrganisationConsole() {
       return;
     }
     setState(body as MeResponse);
+    setLastSyncedAt(new Date().toISOString());
     setBusy(false);
   }
 
@@ -524,6 +526,12 @@ export function OrganisationConsole() {
       {showHomePanel && (
         <section className="org-console-surface panel p-4 space-y-3">
           <h2 className="pane-head">Organisation dashboard</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="muted text-xs">
+              Last synced: <span className="font-semibold text-[var(--text)]">{lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Not synced yet"}</span>
+            </p>
+            <button className="btn" type="button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />Reload org data</button>
+          </div>
           <div className="org-console-metrics grid gap-3 md:grid-cols-4">
             <div className="org-console-metric panel p-3"><p className="muted text-xs">Branches</p><p className="text-2xl font-semibold">{branchOptions.length}</p></div>
             <div className="org-console-metric panel p-3"><p className="muted text-xs">Units</p><p className="text-2xl font-semibold">{units.length}</p></div>
