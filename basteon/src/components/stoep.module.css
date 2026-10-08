@@ -28,7 +28,7 @@
 }
 
 /* Scene */
-.scene { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.scene { position: absolute; inset: 0; z-index: -1; overflow: hidden; transition: filter .8s ease; }
 .sky_ { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s ease; }
 .sky0 { background: linear-gradient(180deg, #3b2a66 0%, #8e4f8f 40%, #f0966b 80%, #ffd08a 100%); }
 .sky1 { background: linear-gradient(180deg, #2c2260 0%, #6d3f87 42%, #d9747f 82%, #f6a67a 100%); }
@@ -57,6 +57,10 @@
 .canopy circle:nth-child(3) { fill: #7a45a8; }
 .flies { position: absolute; inset: 0; opacity: var(--flies); transition: opacity 1.8s ease; }
 .flies span { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #ffe9a0; box-shadow: 0 0 10px 3px rgba(255,226,140,.7); animation: drift 10s ease-in-out infinite; }
+.calm .scene { filter: hue-rotate(42deg) saturate(1.06) brightness(1.02); }
+.calm .hillFar { fill: #3f6f74; opacity: 0.72; }
+.calm .hillNear { fill: #22484d; }
+.calm .flies span { background: #d4ffe0; box-shadow: 0 0 10px 3px rgba(158, 243, 186, 0.72); }
 
 /* Top bar */
 .top { position: absolute; z-index: 3; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; gap: 8px; }

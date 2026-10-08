@@ -212,7 +212,7 @@ export function StoepGame() {
 
   return (
     <main
-      className={`${styles.page} ${styles[`lv${skyLevel}`]} ${discreet ? styles.discreet : ""}`}
+      className={`${styles.page} ${styles[`lv${skyLevel}`]} ${imagine ? styles.calm : ""} ${discreet ? styles.discreet : ""}`}
       style={{ "--glow": glow } as CSSProperties}
     >
       <div className={styles.scene} aria-hidden="true">
