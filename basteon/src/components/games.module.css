@@ -598,7 +598,7 @@
 }
 
 .boatsSheet.boatsSheetLaunching {
-  transform: translateY(10vh);
+  transform: translateY(28vh);
   transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
 
