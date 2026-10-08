@@ -7,12 +7,13 @@
   --glass-line: rgba(255, 236, 255, 0.28);
   position: relative;
   display: grid;
-  min-height: calc(100dvh - 112px);
+  min-height: 100dvh;
   align-content: center;
   overflow: hidden;
   padding: 76px 20px 104px;
   color: var(--ink);
   isolation: isolate;
+  background: linear-gradient(180deg, #3b2a66 0%, #8e4f8f 40%, #f0966b 80%, #ffd08a 100%);
 }
 .page button { font-family: var(--font-ui); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .page button:focus-visible, .person:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
@@ -173,7 +174,7 @@
 }
 
 @media (max-width: 480px) {
-  .page { min-height: calc(100dvh - 92px); padding-inline: 16px; }
+  .page { min-height: 100dvh; padding-inline: 16px; }
   .page h1 { font-size: 32px; }
   .routeChoices { grid-template-columns: 1fr; }
   .routeChoices button { min-height: 120px; }
