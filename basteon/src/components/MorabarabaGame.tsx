@@ -1,202 +1,423 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import styles from "./games.module.css";
 
 type Player = 1 | 2;
+type Difficulty = "easy" | "medium" | "hard";
 type Board = Array<Player | 0>;
+type Phase = "place" | "move";
+type Action = { type: "place"; to: number } | { type: "move"; from: number; to: number } | { type: "remove"; at: number };
+type GameState = {
+  board: Board;
+  turn: Player;
+  phase: Phase;
+  placed: Record<"1" | "2", number>;
+  pendingRemoval: Player | null;
+  winner: Player | null;
+};
 
 type Point = { x: number; y: number };
 
+const HUMAN: Player = 1;
+const AI: Player = 2;
+const MAX_COWS = 12;
+
 const POINTS: Point[] = [
-  { x: 20, y: 20 }, { x: 50, y: 20 }, { x: 80, y: 20 },
-  { x: 20, y: 50 }, { x: 50, y: 50 }, { x: 80, y: 50 },
-  { x: 20, y: 80 }, { x: 50, y: 80 }, { x: 80, y: 80 },
-  { x: 35, y: 35 }, { x: 50, y: 35 }, { x: 65, y: 35 },
-  { x: 35, y: 50 }, { x: 65, y: 50 },
-  { x: 35, y: 65 }, { x: 50, y: 65 }, { x: 65, y: 65 },
-  { x: 20, y: 20 }, { x: 80, y: 20 }, { x: 80, y: 80 }, { x: 20, y: 80 },
-  { x: 50, y: 20 }, { x: 50, y: 80 }, { x: 20, y: 50 }, { x: 80, y: 50 },
+  { x: 10, y: 10 }, { x: 50, y: 10 }, { x: 90, y: 10 }, { x: 90, y: 50 }, { x: 90, y: 90 }, { x: 50, y: 90 }, { x: 10, y: 90 }, { x: 10, y: 50 },
+  { x: 25, y: 25 }, { x: 50, y: 25 }, { x: 75, y: 25 }, { x: 75, y: 50 }, { x: 75, y: 75 }, { x: 50, y: 75 }, { x: 25, y: 75 }, { x: 25, y: 50 },
+  { x: 40, y: 40 }, { x: 50, y: 40 }, { x: 60, y: 40 }, { x: 60, y: 50 }, { x: 60, y: 60 }, { x: 50, y: 60 }, { x: 40, y: 60 }, { x: 40, y: 50 },
 ];
 
-const ADJACENCY: Record<number, number[]> = {
-  0: [1, 3, 9], 1: [0, 2, 10], 2: [1, 5, 11],
-  3: [0, 4, 12], 4: [3, 5, 13], 5: [2, 4, 14],
-  6: [7, 8, 15], 7: [6, 8, 16], 8: [5, 7, 17],
-  9: [0, 10, 18], 10: [1, 9, 11, 19], 11: [2, 10, 20],
-  12: [3, 13, 18], 13: [4, 12, 14, 19], 14: [5, 13, 20],
-  15: [6, 16, 21], 16: [7, 15, 17, 19], 17: [8, 16, 22],
-  18: [9, 12, 21], 19: [10, 13, 16, 23], 20: [11, 14, 22],
-  21: [15, 18, 22], 22: [17, 20, 23], 23: [19, 22, 21],
-};
-
-const MILLS = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  [9, 10, 11], [12, 13, 14], [15, 16, 17],
-  [18, 19, 20], [21, 22, 23],
-  [0, 9, 18], [1, 10, 19], [2, 11, 20],
-  [3, 12, 21], [4, 13, 22], [5, 14, 23],
-  [6, 15, 21], [7, 16, 22], [8, 17, 23],
-  [9, 12, 15], [10, 13, 16], [11, 14, 17],
-  [18, 19, 20],
+const MILLS: number[][] = [
+  [0, 1, 2], [2, 3, 4], [4, 5, 6], [6, 7, 0],
+  [8, 9, 10], [10, 11, 12], [12, 13, 14], [14, 15, 8],
+  [16, 17, 18], [18, 19, 20], [20, 21, 22], [22, 23, 16],
+  [1, 9, 17], [3, 11, 19], [5, 13, 21], [7, 15, 23],
 ];
 
-function hasMill(board: Board, player: Player, index: number) {
-  return MILLS.some((line) => line.includes(index) && line.every((point) => board[point] === player));
+const EDGES: Array<[number, number]> = [
+  [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0],
+  [8, 9], [9, 10], [10, 11], [11, 12], [12, 13], [13, 14], [14, 15], [15, 8],
+  [16, 17], [17, 18], [18, 19], [19, 20], [20, 21], [21, 22], [22, 23], [23, 16],
+  [1, 9], [9, 17], [3, 11], [11, 19], [5, 13], [13, 21], [7, 15], [15, 23],
+];
+
+const ADJACENCY = Array.from({ length: 24 }, () => new Set<number>());
+for (const [from, to] of EDGES) {
+  ADJACENCY[from].add(to);
+  ADJACENCY[to].add(from);
 }
 
-function countPieces(board: Board, player: Player) {
-  return board.filter((cell) => cell === player).length;
+function other(player: Player): Player {
+  return player === 1 ? 2 : 1;
 }
 
-function getAvailableLegalMoves(board: Board, player: Player) {
-  const occupied = board.map((cell, index) => (cell === player ? index : -1)).filter((value) => value >= 0);
-  const moves: number[] = [];
-  for (const start of occupied) {
-    for (const candidate of ADJACENCY[start] ?? []) {
-      if (board[candidate] === 0) moves.push(start * 100 + candidate);
+function emptyState(): GameState {
+  return {
+    board: new Array(24).fill(0),
+    turn: HUMAN,
+    phase: "place",
+    placed: { "1": 0, "2": 0 },
+    pendingRemoval: null,
+    winner: null,
+  };
+}
+
+function pieceCount(board: Board, player: Player) {
+  return board.filter((slot) => slot === player).length;
+}
+
+function inMill(board: Board, player: Player, index: number) {
+  return MILLS.some((mill) => mill.includes(index) && mill.every((point) => board[point] === player));
+}
+
+function legalRemovals(board: Board, player: Player) {
+  const rival = other(player);
+  const rivalPoints = board.map((slot, index) => (slot === rival ? index : -1)).filter((index) => index >= 0);
+  const outsideMills = rivalPoints.filter((index) => !inMill(board, rival, index));
+  return outsideMills.length ? outsideMills : rivalPoints;
+}
+
+function canFly(board: Board, player: Player) {
+  return pieceCount(board, player) === 3;
+}
+
+function legalMoveTargets(board: Board, player: Player, from: number) {
+  if (canFly(board, player)) return board.map((slot, index) => slot === 0 ? index : -1).filter((index) => index >= 0);
+  return Array.from(ADJACENCY[from]).filter((index) => board[index] === 0);
+}
+
+function legalActions(state: GameState, player: Player): Action[] {
+  if (state.winner !== null) return [];
+  if (state.pendingRemoval !== null) {
+    if (state.pendingRemoval !== player) return [];
+    return legalRemovals(state.board, player).map((at) => ({ type: "remove", at }));
+  }
+
+  if (state.turn !== player) return [];
+
+  if (state.phase === "place" && state.placed[String(player) as "1" | "2"] < MAX_COWS) {
+    return state.board.map((slot, index) => slot === 0 ? ({ type: "place", to: index } as Action) : null).filter(Boolean) as Action[];
+  }
+
+  const actions: Action[] = [];
+  state.board.forEach((slot, from) => {
+    if (slot !== player) return;
+    legalMoveTargets(state.board, player, from).forEach((to) => actions.push({ type: "move", from, to }));
+  });
+  return actions;
+}
+
+function formsMillFromLanding(board: Board, player: Player, landing: number) {
+  return MILLS.some((mill) => mill.includes(landing) && mill.every((point) => board[point] === player));
+}
+
+function evaluateWinner(state: GameState): Player | null {
+  if (state.phase !== "move") return null;
+  const p1 = pieceCount(state.board, 1);
+  const p2 = pieceCount(state.board, 2);
+  if (p1 < 3) return 2;
+  if (p2 < 3) return 1;
+  if (state.pendingRemoval === null && legalActions(state, state.turn).length === 0) return other(state.turn);
+  return null;
+}
+
+function applyAction(state: GameState, player: Player, action: Action): GameState {
+  const next: GameState = {
+    board: [...state.board],
+    turn: state.turn,
+    phase: state.phase,
+    placed: { ...state.placed },
+    pendingRemoval: state.pendingRemoval,
+    winner: state.winner,
+  };
+
+  if (next.winner !== null) return next;
+
+  if (action.type === "remove") {
+    next.board[action.at] = 0;
+    next.pendingRemoval = null;
+    next.turn = other(player);
+  } else if (action.type === "place") {
+    next.board[action.to] = player;
+    next.placed[String(player) as "1" | "2"] += 1;
+    const allPlaced = next.placed["1"] >= MAX_COWS && next.placed["2"] >= MAX_COWS;
+    if (allPlaced) next.phase = "move";
+    if (formsMillFromLanding(next.board, player, action.to)) {
+      next.pendingRemoval = player;
+      next.turn = player;
+    } else {
+      next.turn = other(player);
+    }
+  } else {
+    next.board[action.from] = 0;
+    next.board[action.to] = player;
+    if (formsMillFromLanding(next.board, player, action.to)) {
+      next.pendingRemoval = player;
+      next.turn = player;
+    } else {
+      next.turn = other(player);
     }
   }
-  return moves;
+
+  next.winner = evaluateWinner(next);
+  return next;
+}
+
+function randomPick<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function countPotentialMills(board: Board, player: Player) {
+  return MILLS.filter((mill) => {
+    const mine = mill.filter((index) => board[index] === player).length;
+    const empty = mill.filter((index) => board[index] === 0).length;
+    return mine === 2 && empty === 1;
+  }).length;
+}
+
+function scoreState(state: GameState, ai: Player) {
+  const me = ai;
+  const them = other(ai);
+  const mePieces = pieceCount(state.board, me);
+  const themPieces = pieceCount(state.board, them);
+  const meMoves = legalActions({ ...state, turn: me, pendingRemoval: null }, me).filter((action) => action.type !== "remove").length;
+  const themMoves = legalActions({ ...state, turn: them, pendingRemoval: null }, them).filter((action) => action.type !== "remove").length;
+  const meThreats = countPotentialMills(state.board, me);
+  const themThreats = countPotentialMills(state.board, them);
+  const placedDelta = state.placed[String(me) as "1" | "2"] - state.placed[String(them) as "1" | "2"];
+  return (mePieces - themPieces) * 160 + (meMoves - themMoves) * 18 + (meThreats - themThreats) * 14 + placedDelta * 4;
+}
+
+function minimax(state: GameState, depth: number, current: Player, ai: Player, alpha: number, beta: number): number {
+  if (state.winner !== null) return state.winner === ai ? 10000 + depth : -10000 - depth;
+  if (depth === 0) return scoreState(state, ai);
+
+  const options = legalActions(state, current);
+  if (options.length === 0) return scoreState(state, ai);
+
+  if (current === ai) {
+    let best = -Infinity;
+    for (const action of options) {
+      const score = minimax(applyAction(state, current, action), depth - 1, other(current), ai, alpha, beta);
+      best = Math.max(best, score);
+      alpha = Math.max(alpha, best);
+      if (beta <= alpha) break;
+    }
+    return best;
+  }
+
+  let best = Infinity;
+  for (const action of options) {
+    const score = minimax(applyAction(state, current, action), depth - 1, other(current), ai, alpha, beta);
+    best = Math.min(best, score);
+    beta = Math.min(beta, best);
+    if (beta <= alpha) break;
+  }
+  return best;
+}
+
+function chooseAiAction(state: GameState, difficulty: Difficulty): Action | null {
+  const options = legalActions(state, AI);
+  if (options.length === 0) return null;
+
+  if (difficulty === "easy") return randomPick(options);
+
+  const immediateMill = options.filter((action) => {
+    if (action.type === "remove") return false;
+    const next = applyAction(state, AI, action);
+    return next.pendingRemoval === AI;
+  });
+  if (immediateMill.length) {
+    if (difficulty === "medium") return randomPick(immediateMill);
+  }
+
+  if (difficulty === "medium") {
+    if (state.pendingRemoval === AI) {
+      const ranked = options
+        .filter((action): action is Extract<Action, { type: "remove" }> => action.type === "remove")
+        .sort((a, b) => {
+          const aScore = countPotentialMills(state.board.map((slot, index) => index === a.at ? 0 : slot) as Board, HUMAN);
+          const bScore = countPotentialMills(state.board.map((slot, index) => index === b.at ? 0 : slot) as Board, HUMAN);
+          return aScore - bScore;
+        });
+      return ranked[0] ?? randomPick(options);
+    }
+    return immediateMill[0] ?? randomPick(options);
+  }
+
+  const depth = state.phase === "place" ? 2 : 3;
+  let bestAction: Action | null = null;
+  let bestScore = -Infinity;
+  for (const action of options) {
+    const next = applyAction(state, AI, action);
+    const score = minimax(next, depth, other(AI), AI, -Infinity, Infinity);
+    if (score > bestScore) {
+      bestScore = score;
+      bestAction = action;
+    }
+  }
+  return bestAction ?? randomPick(options);
 }
 
 export function MorabarabaGame() {
-  const [board, setBoard] = useState<Board>(new Array(24).fill(0));
-  const [turn, setTurn] = useState<Player>(1);
+  const [state, setState] = useState<GameState>(() => emptyState());
   const [selected, setSelected] = useState<number | null>(null);
-  const [phase, setPhase] = useState<"place" | "move">("place");
-  const [pendingRemoval, setPendingRemoval] = useState<number | null>(null);
-  const [winner, setWinner] = useState<string | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  const [thinking, setThinking] = useState(false);
 
-  const pieces = useMemo(() => ({ 1: countPieces(board, 1), 2: countPieces(board, 2) }), [board]);
+  const pieces = useMemo(() => ({ 1: pieceCount(state.board, 1), 2: pieceCount(state.board, 2) }), [state.board]);
+  const humanCanFly = canFly(state.board, HUMAN);
+  const legalRemovalTargets = useMemo(() => state.pendingRemoval === HUMAN ? legalRemovals(state.board, HUMAN) : [], [state]);
 
-  const triggerRemoval = (nextBoard: Board, nextTurn: Player) => {
-    const madeMill = nextBoard.some((cell, index) => cell === nextTurn && hasMill(nextBoard, nextTurn, index));
-    if (madeMill) {
-      setPendingRemoval(nextTurn);
-      return true;
-    }
-    return false;
-  };
-
-  const handlePointClick = (index: number) => {
-    if (winner) return;
-
-    if (pendingRemoval !== null) {
-      const opponent = pendingRemoval === 1 ? 2 : 1;
-      if (board[index] !== opponent) return;
-      const nextBoard = [...board];
-      nextBoard[index] = 0;
-      setBoard(nextBoard);
-      setPendingRemoval(null);
-      setTurn(opponent);
+  useEffect(() => {
+    if (state.winner !== null) return;
+    const aiTurn = state.pendingRemoval === AI || (state.pendingRemoval === null && state.turn === AI);
+    if (!aiTurn) return;
+    setThinking(true);
+    const timer = window.setTimeout(() => {
+      const action = chooseAiAction(state, difficulty);
+      if (!action) {
+        setState((current) => ({ ...current, winner: HUMAN }));
+      } else {
+        setState((current) => applyAction(current, AI, action));
+      }
+      setThinking(false);
       setSelected(null);
-      return;
-    }
+    }, difficulty === "hard" ? 480 : 260);
+    return () => window.clearTimeout(timer);
+  }, [difficulty, state]);
 
-    if (board[index] === 0 && phase === "place") {
-      const nextBoard = [...board];
-      nextBoard[index] = turn;
-      if (triggerRemoval(nextBoard, turn)) {
-        setBoard(nextBoard);
-        return;
-      }
-      setBoard(nextBoard);
-      setTurn((turn === 1 ? 2 : 1) as Player);
-      if (countPieces(nextBoard, 1) >= 3 && countPieces(nextBoard, 2) >= 3) {
-        setPhase("move");
-      }
-      return;
-    }
-
-    if (phase === "move" && board[index] === turn) {
-      setSelected(index);
-      return;
-    }
-
-    if (phase === "move" && selected !== null && board[index] === 0 && ADJACENCY[selected]?.includes(index)) {
-      const nextBoard = [...board];
-      nextBoard[selected] = 0;
-      nextBoard[index] = turn;
-      if (triggerRemoval(nextBoard, turn)) {
-        setBoard(nextBoard);
-        setSelected(null);
-        return;
-      }
-      setBoard(nextBoard);
-      setSelected(null);
-      setTurn((turn === 1 ? 2 : 1) as Player);
-    }
-  };
-
-  const reset = () => {
-    setBoard(new Array(24).fill(0));
-    setTurn(1);
+  function performHuman(action: Action) {
+    if (state.winner !== null || thinking) return;
+    const humanTurn = state.pendingRemoval === HUMAN || (state.pendingRemoval === null && state.turn === HUMAN);
+    if (!humanTurn) return;
+    const allowed = legalActions(state, HUMAN).some((candidate) => JSON.stringify(candidate) === JSON.stringify(action));
+    if (!allowed) return;
+    setState((current) => applyAction(current, HUMAN, action));
     setSelected(null);
-    setPhase("place");
-    setPendingRemoval(null);
-    setWinner(null);
-  };
-
-  const canMove = useMemo(() => getAvailableLegalMoves(board, turn).length > 0, [board, turn]);
-  if (pieces[1] <= 2 || pieces[2] <= 2 || !canMove) {
-    if (!winner) setWinner(`${turn === 1 ? "Player 2" : "Player 1"} wins this round.`);
   }
 
+  function handlePointClick(index: number) {
+    if (state.winner !== null || thinking) return;
+
+    if (state.pendingRemoval === HUMAN) {
+      if (!legalRemovalTargets.includes(index)) return;
+      performHuman({ type: "remove", at: index });
+      return;
+    }
+
+    if (state.turn !== HUMAN) return;
+
+    if (state.phase === "place") {
+      if (state.board[index] !== 0) return;
+      performHuman({ type: "place", to: index });
+      return;
+    }
+
+    if (state.board[index] === HUMAN) {
+      setSelected((current) => current === index ? null : index);
+      return;
+    }
+
+    if (selected !== null && state.board[index] === 0) {
+      const valid = humanCanFly || ADJACENCY[selected].has(index);
+      if (!valid) return;
+      performHuman({ type: "move", from: selected, to: index });
+    }
+  }
+
+  function reset() {
+    setState(emptyState());
+    setSelected(null);
+    setThinking(false);
+  }
+
+  const turnLabel = state.winner
+    ? (state.winner === HUMAN ? "You won this round." : "Kiki AI won this round.")
+    : state.pendingRemoval === HUMAN
+      ? "Mill! Remove one Kiki cow."
+      : state.pendingRemoval === AI
+        ? "Kiki made a mill and is capturing."
+        : state.turn === HUMAN
+          ? "Your turn"
+          : thinking
+            ? "Kiki is thinking…"
+            : "Kiki's turn";
+
   return (
-    <section className={styles.gameCard}>
-      <div className={styles.gameHeader}>
-        <div>
-          <p className={styles.eyebrow}>Morabaraba</p>
-          <h2>Two-player quiet play.</h2>
-        </div>
-        <button className={styles.softButton} onClick={reset}>Reset</button>
+    <main className={`${styles.page} ${styles.morabarabaPage}`}>
+      <div className={styles.morabarabaAmbient} aria-hidden="true">
+        <span className={styles.ambientBloomOne} />
+        <span className={styles.ambientBloomTwo} />
+        <span className={styles.ambientBloomThree} />
       </div>
+      <div className={styles.roomLayout}>
+        <section className={`${styles.gameCard} ${styles.morabarabaCard}`}>
+          <div className={styles.gameHeader}>
+            <div>
+              <p className={styles.eyebrow}>Morabaraba · Solo mode</p>
+              <h1>Play Kiki AI</h1>
+            </div>
+            <div className={styles.actionRow}>
+              <Link className={styles.softButton} href="/games/play"><ArrowLeft size={14} />Back to Buddy lobby</Link>
+              <button className={styles.softButton} onClick={reset}>Reset</button>
+            </div>
+          </div>
 
-      <div className={styles.scoreRow}>
-        <span className={styles.turnPill}>Turn: Player {turn}</span>
-        <span className={styles.turnPill}>{pieces[1]} / {pieces[2]} cows</span>
+          <div className={styles.scoreRow}>
+            <span className={styles.turnPill}>{turnLabel}</span>
+            <span className={styles.turnPill}>Cows · You {pieces[1]} · Kiki {pieces[2]}</span>
+          </div>
+
+          <div className={styles.scoreRow}>
+            <span className={styles.turnPill}>AI Difficulty</span>
+            <select className="input h-9 w-[180px]" value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)} disabled={thinking}>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+
+          <div className={styles.boardWrap}>
+            <svg viewBox="0 0 100 100" className={`${styles.board} ${styles.roomBoard}`} role="img" aria-label="Morabaraba solo board">
+              <path d="M10 10 L90 10 L90 90 L10 90 Z" />
+              <path d="M25 25 L75 25 L75 75 L25 75 Z" />
+              <path d="M40 40 L60 40 L60 60 L40 60 Z" />
+              <path d="M10 50 L40 50 M60 50 L90 50" />
+              <path d="M50 10 L50 40 M50 60 L50 90" />
+              {EDGES.map(([from, to], index) => (
+                <line key={index} x1={POINTS[from].x} y1={POINTS[from].y} x2={POINTS[to].x} y2={POINTS[to].y} opacity={0.2} />
+              ))}
+              {POINTS.map((point, index) => {
+                const slot = state.board[index];
+                const isSelected = selected === index;
+                const isRemovable = state.pendingRemoval === HUMAN && legalRemovalTargets.includes(index);
+                const isTarget = selected !== null && slot === 0 && state.phase === "move" && (humanCanFly || ADJACENCY[selected].has(index));
+                return (
+                  <g key={index} onClick={() => handlePointClick(index)} style={{ cursor: "pointer" }}>
+                    <circle cx={point.x} cy={point.y} r={slot === 0 ? 2.2 : 4.5} className={slot === 0 ? styles.boardDot : slot === 1 ? styles.playerOneDot : styles.playerTwoDot} />
+                    {isTarget && <circle cx={point.x} cy={point.y} r={4.8} className={styles.legalTarget} />}
+                    {isSelected && <circle cx={point.x} cy={point.y} r={5.6} className={styles.tokenSelectionRing} />}
+                    {isRemovable && <circle cx={point.x} cy={point.y} r={5.8} className={styles.tokenRemovalRing} />}
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          {!state.winner && state.pendingRemoval === null && (
+            <p className={styles.gameNote}>
+              {state.phase === "place"
+                ? "Place 12 cows each. Making three in a row creates a mill and lets you remove one opponent cow."
+                : "Move along connected lines. When you have three cows left, you may fly to any open point."}
+            </p>
+          )}
+        </section>
       </div>
-
-      <div className={styles.boardWrap}>
-        <svg viewBox="0 0 100 100" className={styles.board} role="img" aria-label="Morabaraba board">
-          <path d="M20 20 L80 20 L80 80 L20 80 Z" />
-          <path d="M35 35 L65 35 L65 65 L35 65 Z" />
-          <path d="M20 50 L80 50" />
-          <path d="M50 20 L50 80" />
-          <path d="M35 35 L65 65" />
-          <path d="M65 35 L35 65" />
-          <path d="M20 20 L35 35" />
-          <path d="M80 20 L65 35" />
-          <path d="M20 80 L35 65" />
-          <path d="M80 80 L65 65" />
-          {POINTS.map((point, index) => {
-            const value = board[index];
-            const isSelected = selected === index;
-            return (
-              <g key={index} onClick={() => handlePointClick(index)} style={{ cursor: "pointer" }}>
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r={value === 0 ? 3.2 : 5.4}
-                  className={value === 0 ? styles.boardDot : value === 1 ? styles.playerOneDot : styles.playerTwoDot}
-                  fill={isSelected ? "#efe5de" : undefined}
-                  stroke={isSelected ? "#2d173a" : "rgba(45,23,58,0.5)"}
-                  strokeWidth={1.2}
-                />
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      {pendingRemoval !== null && (
-        <div className={styles.noticeBox}>
-          Remove one opponent cow by tapping it.
-        </div>
-      )}
-
-      {winner && <div className={styles.noticeBox}>{winner}</div>}
-    </section>
+    </main>
   );
 }

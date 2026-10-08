@@ -389,6 +389,10 @@ export function GameLobby() {
         </section>
 
         <footer className={styles.gardenFooter}>
+          <Link href="/games/play/solo" className={styles.createGardenRoom}>
+            <Flower2 size={19} />
+            <span>Play solo against Kiki AI</span>
+          </Link>
           {activeRooms.length > 0 && (
             <section className={styles.gardenOpenRooms} aria-label="Your active Morabaraba rooms">
               <h3>My active rooms</h3>
@@ -451,7 +455,6 @@ export function GameLobby() {
     </main>
   );
 }
-
 
 
 

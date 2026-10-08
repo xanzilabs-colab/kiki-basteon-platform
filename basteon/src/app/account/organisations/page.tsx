@@ -124,7 +124,7 @@ export default function AccountOrganisationsPage() {
               <button
                 key={organisation.id}
                 type="button"
-                className="w-full rounded-md border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2 text-left transition hover:bg-[var(--surface-3)]"
+                className="w-full rounded-md border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2 text-left text-[var(--text)] transition hover:bg-[var(--surface-3)]"
                 onClick={() => {
                   setSelected(organisation);
                   setBranchId(organisation.organisation_branches?.[0]?.id ?? "");
@@ -132,7 +132,7 @@ export default function AccountOrganisationsPage() {
                   setQuery(organisation.name);
                 }}
               >
-                <span className="font-semibold">{organisation.name}</span>
+                <span className="font-semibold text-[var(--text)]">{organisation.name}</span>
                 <span className="mt-1 block text-[11px] text-[var(--muted)]">{organisation.organisation_type} · {(organisation.organisation_branches ?? []).length} branches</span>
               </button>
             ))}
@@ -141,7 +141,7 @@ export default function AccountOrganisationsPage() {
 
         {selected && (
           <form className="space-y-3 border-t border-[var(--line)] pt-3" onSubmit={(event) => void linkOrganisation(event)}>
-            <p className="text-sm">Selected: <b>{selected.name}</b></p>
+            <p className="text-sm text-[var(--text)]">Selected: <b>{selected.name}</b></p>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="field">Relationship
                 <select className="input" value={label} onChange={(event) => setLabel(event.target.value as any)}>
@@ -180,9 +180,9 @@ export default function AccountOrganisationsPage() {
         {linked.length === 0 && <p className="muted text-sm">No organisations linked yet.</p>}
         <div className="space-y-2">
           {linked.map((item) => (
-            <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 border border-[var(--line)] p-3">
+            <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 border border-[var(--line)] p-3 text-[var(--text)]">
               <div>
-                <p className="font-semibold">{item.organisations?.name}</p>
+                <p className="font-semibold text-[var(--text)]">{item.organisations?.name}</p>
                 <p className="muted text-xs capitalize">{item.label} · {item.membership_type} · {item.status}</p>
                 <p className="muted text-xs">{item.method} · {item.identifier}</p>
                 {item.organisation_branches?.name && <p className="muted text-xs">Branch: {item.organisation_branches.name}</p>}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Building2, RefreshCw, Shield, UserPlus } from "lucide-react";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
+import { membershipTypeOptionsForOrganisation, roleHintForMembershipType } from "@/lib/organisationCategories";
 
 type MeResponse = {
   organisation: any;
@@ -49,12 +50,19 @@ export function OrganisationConsole() {
   const [unitName, setUnitName] = useState("");
   const [unitBranchId, setUnitBranchId] = useState("");
   const [unitType, setUnitType] = useState("other");
+  const [domainValue, setDomainValue] = useState("");
+  const [domainMembershipType, setDomainMembershipType] = useState("staff");
+  const [domainPriority, setDomainPriority] = useState("100");
   const [allowEmailDomain, setAllowEmailDomain] = useState(true);
   const [allowWorkId, setAllowWorkId] = useState(true);
   const [requireInvite, setRequireInvite] = useState(false);
   const [autoApproveLinks, setAutoApproveLinks] = useState(true);
   const [workIdRegex, setWorkIdRegex] = useState("");
   const emergencyTypes = useEmergencyTypes();
+  const membershipTypeOptions = useMemo(
+    () => membershipTypeOptionsForOrganisation(state?.organisation ?? {}),
+    [state?.organisation],
+  );
 
   async function refresh() {
     setBusy(true);
@@ -79,6 +87,9 @@ export function OrganisationConsole() {
     setAutoApproveLinks(Boolean(state.settings.auto_approve_links));
     setWorkIdRegex(state.settings.work_id_regex ?? "");
   }, [state?.settings]);
+  useEffect(() => {
+    setDomainMembershipType((current) => membershipTypeOptions.some((option) => option.value === current) ? current : (membershipTypeOptions[0]?.value ?? "staff"));
+  }, [membershipTypeOptions]);
 
   const organisationId = state?.organisation?.id ?? "";
   const branchOptions = state?.branches ?? [];
@@ -112,6 +123,55 @@ export function OrganisationConsole() {
       return;
     }
     setMessage("Onboarding progress updated.");
+    await refresh();
+  }
+
+  async function addDomainRule(event: React.FormEvent) {
+    event.preventDefault();
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/domains", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        organisationId,
+        domain: domainValue,
+        membershipType: domainMembershipType,
+        roleHint: roleHintForMembershipType(domainMembershipType),
+        priority: Number(domainPriority) || 100,
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not add domain rule.");
+      setBusy(false);
+      return;
+    }
+    setDomainValue("");
+    setDomainPriority("100");
+    setMessage("Domain rule added.");
+    await refresh();
+  }
+
+  async function removeDomainRule(id: string) {
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/domains", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organisationId, id }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not remove domain rule.");
+      setBusy(false);
+      return;
+    }
+    setMessage("Domain rule removed.");
     await refresh();
   }
 
@@ -420,18 +480,34 @@ export function OrganisationConsole() {
           <button className="btn btn-primary md:col-span-2 md:justify-self-start" disabled={busy}>Save linking configuration</button>
         </form>
 
+        <form className="grid gap-3 border-t border-[var(--line)] pt-3 md:grid-cols-4" onSubmit={(event) => void addDomainRule(event)}>
+          <label className="field md:col-span-2">Allowed domain
+            <input required value={domainValue} onChange={(event) => setDomainValue(event.target.value)} placeholder="example.ac.za" />
+          </label>
+          <label className="field">Membership type
+            <select value={domainMembershipType} onChange={(event) => setDomainMembershipType(event.target.value)}>
+              {membershipTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label className="field">Priority
+            <input type="number" min={1} max={1000} value={domainPriority} onChange={(event) => setDomainPriority(event.target.value)} />
+          </label>
+          <button className="btn btn-primary md:col-span-4 md:justify-self-start" disabled={busy}>Add domain rule</button>
+        </form>
+
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Allowed domain</th><th>Membership type</th><th>Priority</th></tr></thead>
+            <thead><tr><th>Allowed domain</th><th>Membership type</th><th>Priority</th><th>Actions</th></tr></thead>
             <tbody>
               {(state.domains ?? []).map((domain: any) => (
                 <tr key={domain.id}>
                   <td>{domain.domain}</td>
                   <td>{domain.membership_type}</td>
                   <td>{domain.priority ?? 100}</td>
+                  <td><button className="btn" disabled={busy} onClick={() => void removeDomainRule(domain.id)}>Remove</button></td>
                 </tr>
               ))}
-              {(state.domains ?? []).length === 0 && <tr><td colSpan={3} className="muted text-center">No domain rules configured yet.</td></tr>}
+              {(state.domains ?? []).length === 0 && <tr><td colSpan={4} className="muted text-center">No domain rules configured yet.</td></tr>}
             </tbody>
           </table>
         </div>

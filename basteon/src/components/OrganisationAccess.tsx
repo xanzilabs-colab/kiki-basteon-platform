@@ -5,6 +5,7 @@ import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { BUSINESS_INDUSTRY_OPTIONS, INSTITUTION_KIND_OPTIONS, ORGANISATION_CATEGORY_OPTIONS, RESPONDER_CATEGORY_OPTIONS } from "@/lib/organisationCategories";
 
 type Mode = "signin" | "signup";
 type OrganisationType = "institution" | "business" | "responder_partner";
@@ -59,11 +60,11 @@ export function OrganisationAccess() {
   const [displayName, setDisplayName] = useState("");
   const [organisationDescription, setOrganisationDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [organisationCategory, setOrganisationCategory] = useState("");
+  const [organisationCategory, setOrganisationCategory] = useState(ORGANISATION_CATEGORY_OPTIONS[0]?.value ?? "other");
   const [organisationType, setOrganisationType] = useState<OrganisationType>("institution");
-  const [institutionKind, setInstitutionKind] = useState("university");
-  const [businessCategory, setBusinessCategory] = useState("");
-  const [responderCategory, setResponderCategory] = useState("");
+  const [institutionKind, setInstitutionKind] = useState(INSTITUTION_KIND_OPTIONS[0]?.value ?? "university");
+  const [businessCategory, setBusinessCategory] = useState(BUSINESS_INDUSTRY_OPTIONS[0]?.value ?? "other");
+  const [responderCategory, setResponderCategory] = useState(RESPONDER_CATEGORY_OPTIONS[0]?.value ?? "other");
   const [branchName, setBranchName] = useState("Main Branch");
   const [branchAddress, setBranchAddress] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -261,20 +262,29 @@ export function OrganisationAccess() {
                   {organisationType === "institution" && (
                     <label className="ops-login-label">Institution type
                       <select value={institutionKind} onChange={(event) => setInstitutionKind(event.target.value)}>
-                        <option value="university">University</option>
-                        <option value="college">College</option>
-                        <option value="school">School</option>
-                        <option value="other">Other</option>
+                        {INSTITUTION_KIND_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                       </select>
                     </label>
                   )}
                   {organisationType === "business" && (
-                    <label className="ops-login-label">Business category<input value={businessCategory} onChange={(event) => setBusinessCategory(event.target.value)} placeholder="Retail, mining, logistics..." /></label>
+                    <label className="ops-login-label">Business category
+                      <select value={businessCategory} onChange={(event) => setBusinessCategory(event.target.value)}>
+                        {BUSINESS_INDUSTRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
                   )}
                   {organisationType === "responder_partner" && (
-                    <label className="ops-login-label">Responder category<input value={responderCategory} onChange={(event) => setResponderCategory(event.target.value)} placeholder="Private security, EMS, fire..." /></label>
+                    <label className="ops-login-label">Responder category
+                      <select value={responderCategory} onChange={(event) => setResponderCategory(event.target.value)}>
+                        {RESPONDER_CATEGORY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
                   )}
-                  <label className="ops-login-label">Category<input value={organisationCategory} onChange={(event) => setOrganisationCategory(event.target.value)} placeholder="University, Corporate, Security partner..." /></label>
+                  <label className="ops-login-label">Category
+                    <select value={organisationCategory} onChange={(event) => setOrganisationCategory(event.target.value)}>
+                      {ORGANISATION_CATEGORY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </label>
                   <label className="ops-login-label ops-login-label--full">Description<textarea value={organisationDescription} onChange={(event) => setOrganisationDescription(event.target.value)} placeholder="Operational overview and who this organisation supports." /></label>
                   <label className="ops-login-label ops-login-label--full">Logo URL (optional)<input value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://..." /></label>
                 </div>

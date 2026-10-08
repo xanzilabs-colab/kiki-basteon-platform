@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Building2, Plus } from "lucide-react";
+import { BUSINESS_INDUSTRY_OPTIONS, INSTITUTION_KIND_OPTIONS, ORGANISATION_CATEGORY_OPTIONS, RESPONDER_CATEGORY_OPTIONS } from "@/lib/organisationCategories";
 
 type Organisation = {
   id: string;
@@ -25,12 +26,22 @@ export default function AdminOrganisationsPage() {
   const [generatedCredentialPdfData, setGeneratedCredentialPdfData] = useState("");
   const [name, setName] = useState("");
   const [orgType, setOrgType] = useState<"institution" | "business" | "responder_partner">("responder_partner");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(ORGANISATION_CATEGORY_OPTIONS[0]?.value ?? "other");
   const [ownerFullName, setOwnerFullName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [isPartner, setIsPartner] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const categoryOptions = orgType === "institution"
+    ? INSTITUTION_KIND_OPTIONS
+    : orgType === "business"
+      ? BUSINESS_INDUSTRY_OPTIONS
+      : RESPONDER_CATEGORY_OPTIONS;
+
+  useEffect(() => {
+    setCategory(categoryOptions[0]?.value ?? "other");
+  }, [orgType]);
 
   async function load() {
     setLoading(true);
@@ -120,7 +131,11 @@ export default function AdminOrganisationsPage() {
               <option value="responder_partner">Responder Partner</option>
             </select>
           </label>
-          <label className="field">Category<input className="input" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="University, EMS, Armed response..." /></label>
+          <label className="field">Category / industry
+            <select className="input" value={category} onChange={(event) => setCategory(event.target.value)}>
+              {categoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
           <label className="field">Owner name<input className="input" required value={ownerFullName} onChange={(event) => setOwnerFullName(event.target.value)} /></label>
           <label className="field">Owner email<input className="input" required type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label>
           <label className="field">Owner phone<input className="input" value={ownerPhone} onChange={(event) => setOwnerPhone(event.target.value)} /></label>
