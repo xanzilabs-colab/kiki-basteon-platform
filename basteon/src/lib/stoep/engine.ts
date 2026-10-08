@@ -1,58 +1,71 @@
 import {
-  OBJECTS, SETTINGS, TASTES, THINGS,
-  type Color, type Entry, type Flag, type Obj, type Posture, type SenseKey, type SettingId, type Zone,
+  DESCRIPTORS,
+  OBJECTS,
+  SETTINGS,
+  SYNONYMS,
+  TASTES,
+  THINGS,
+  type Color,
+  type Descriptor,
+  type Entry,
+  type Flag,
+  type Obj,
+  type Posture,
+  type SenseKey,
+  type SettingId,
+  type Zone,
 } from "./knowledge";
+import { classify, normalize, type UnderstandIntent } from "./understand";
 
-/* =========================================================
-   Text helpers
-   ========================================================= */
 export const norm = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\b(a|an|the|my|some|our|his|her)\b/g, " ").replace(/\s+/g, " ").trim();
-const singular = (w: string) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w);
+const singular = (word: string) => (word.length > 3 && word.endsWith("s") && !word.endsWith("ss") ? word.slice(0, -1) : word);
 const base = (s: string) => norm(s).split(" ").filter(Boolean).map(singular).join(" ");
-
-function lev(a: string, b: string) {
-  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array<number>(b.length).fill(0)]);
-  for (let j = 1; j <= b.length; j++) dp[0][j] = j;
-  for (let i = 1; i <= a.length; i++)
-    for (let j = 1; j <= b.length; j++)
-      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-  return dp[a.length][b.length];
-}
 const wordIn = (hay: string, needle: string) => ` ${hay} `.includes(` ${needle} `);
 
-/** Loose match: "blue mug" ~ "mug", "pillows" ~ "pillow", "sofaa" ~ "sofa". */
+function lev(a: string, b: string) {
+  if (a === b) return 0;
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array<number>(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+  }
+  return dp[a.length][b.length];
+}
+
 export function same(a: string, b: string) {
-  const x = base(a), y = base(b);
+  const x = base(a);
+  const y = base(b);
   if (!x || !y) return false;
   if (x === y) return true;
   if ((x.length >= 3 && wordIn(y, x)) || (y.length >= 3 && wordIn(x, y))) return true;
   return Math.max(x.length, y.length) > 4 && lev(x, y) <= 1;
 }
 
-const shuffle = <T,>(arr: T[]) => {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-};
 const pickOne = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+const shuffle = <T,>(arr: T[]) => {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+};
 
-/** Very small safety net: if someone types something that sounds unsafe, offer a human. */
 export const needsPerson = (text: string) =>
   /(kill myself|suicid|end my life|want to die|hurt myself|self.?harm|being (followed|attacked|abused|hit)|not safe|someone is (following|hurting)|in danger|raped|he'?s hitting|he'?s hurting)/i.test(text);
 
-/* =========================================================
-   Mode 1: guess what the person typed, from their setting
-   ========================================================= */
 export type Guess = { label: string; alias: string[] };
 export const GUESS_COUNT: Record<SenseKey, number> = { see: 8, feel: 6, hear: 5, smell: 4, taste: 4 };
 const SENSE_KEYS = Object.keys(GUESS_COUNT) as SenseKey[];
 
 const inTime = (e: Entry, night: boolean) => !e.when || (e.when === "night") === night;
-
 function sample(pool: Entry[], n: number, skip: Set<string>, noise = 0.45) {
   return pool
     .filter((e) => !skip.has(e.label))
@@ -61,30 +74,22 @@ function sample(pool: Entry[], n: number, skip: Set<string>, noise = 0.45) {
     .slice(0, n)
     .map((x) => x.e);
 }
-
 function allPool(sense: SenseKey, night: boolean, except?: SettingId) {
   const seen = new Map<string, Entry>();
-  for (const s of SETTINGS) {
-    if (s.id === except) continue;
-    for (const e of THINGS[s.id][sense] ?? []) if (inTime(e, night) && !seen.has(e.label)) seen.set(e.label, { ...e, w: 3 });
+  for (const setting of SETTINGS) {
+    if (setting.id === except) continue;
+    for (const e of THINGS[setting.id][sense] ?? []) if (inTime(e, night) && !seen.has(e.label)) seen.set(e.label, { ...e, w: 3 });
   }
   return [...seen.values()];
 }
-
-/**
- * Kiki's guesses for each sense. ~70% are the most likely things for the setting,
- * ~30% are decoys from other places so there is always something to pop.
- * Taste ignores the setting: it comes from memory, so Kiki guesses common favourites.
- */
 export function buildGuesses(setting: SettingId | "other", night: boolean, extra?: Partial<Record<SenseKey, string[]>>) {
   const out = {} as Record<SenseKey, Guess[]>;
   for (const sense of SENSE_KEYS) {
     const n = GUESS_COUNT[sense];
-    let main: Entry[];
-    let decoys: Entry[];
+    let main: Entry[] = [];
+    let decoys: Entry[] = [];
     if (sense === "taste") {
       main = TASTES;
-      decoys = [];
     } else if (setting === "other") {
       const ai = (extra?.[sense] ?? []).map((label) => ({ label, w: 6, alias: [] as string[] }));
       main = ai.length ? ai : allPool(sense, night);
@@ -101,9 +106,7 @@ export function buildGuesses(setting: SettingId | "other", night: boolean, extra
   }
   return out;
 }
-
 export const matchesGuess = (typed: string, g: Guess) => [g.label, ...g.alias].some((a) => same(typed, a));
-
 export type SenseResult = { hits: Guess[]; total: number; mine: number; surprises: string[] };
 export function scoreSense(typed: string[], guesses: Guess[]): SenseResult {
   const hits = guesses.filter((g) => typed.some((t) => matchesGuess(t, g)));
@@ -111,9 +114,7 @@ export function scoreSense(typed: string[], guesses: Guess[]): SenseResult {
   return { hits, total: guesses.length, mine: typed.length, surprises };
 }
 
-/* =========================================================
-   Mode 2: Kiki asks up to ~5 questions, then guesses
-   ========================================================= */
+export type RoundTurn = { role: "kiki" | "you"; text: string };
 export type Round = {
   sense: SenseKey;
   setting?: SettingId | "other";
@@ -121,290 +122,440 @@ export type Round = {
   facts: Record<string, boolean>;
   asked: string[];
   rejected: string[];
+  rejectedOptions: string[];
+  descriptors: Descriptor[];
   guesses: number;
   settingAsked: boolean;
   postureAsked: boolean;
   aiTried: boolean;
+  lastQuestion?: { id: string; text: string; options?: [string, string] };
+  turns: RoundTurn[];
 };
 export type Move =
   | { kind: "setting" }
   | { kind: "posture" }
-  | { kind: "ask"; id: string; text: string }
+  | { kind: "ask"; id: string; text: string; options?: [string, string] }
   | { kind: "guess"; label: string }
   | { kind: "reveal" }
   | { kind: "stuck" };
 
-export const newRound = (sense: SenseKey): Round => ({
-  sense, facts: {}, asked: [], rejected: [], guesses: 0, settingAsked: false, postureAsked: false, aiTried: false,
-});
-export const questionsAsked = (r: Round) => r.asked.length + (r.settingAsked ? 1 : 0) + (r.postureAsked ? 1 : 0);
+export type ApplyAnswerResult = {
+  round: Round;
+  ok: boolean;
+  yes?: boolean;
+  inferredGuess?: string;
+  intent?: UnderstandIntent;
+  reveal?: string;
+  reply?: string;
+};
 
-type Q = { id: string; text: string; senses: SenseKey[]; test: (o: Obj) => boolean };
+export const newRound = (sense: SenseKey): Round => ({
+  sense,
+  facts: {},
+  asked: [],
+  rejected: [],
+  rejectedOptions: [],
+  descriptors: [],
+  guesses: 0,
+  settingAsked: false,
+  postureAsked: false,
+  aiTried: false,
+  turns: [],
+});
+
+export const questionsAsked = (r: Round) => r.asked.length;
+
+type Q = {
+  id: string;
+  text: string;
+  senses: SenseKey[];
+  mode: "binary" | "choice";
+  options?: [string, string];
+  test: (o: Obj) => boolean;
+  answerFromDescriptors?: (descriptors: Descriptor[]) => boolean | null;
+};
 const LOOK: SenseKey[] = ["see", "feel"];
 const ZONE_TEXT: Record<Zone, string> = {
-  ceiling: "Is it on the ceiling?", wall: "Is it on a wall?", floor: "Is it on the floor, or standing on it?",
-  surface: "Is it sitting on a table, desk or shelf?", window: "Is it near a window?",
-  body: "Are you holding it, wearing it or touching it?", air: "Is it in the air around you?",
+  ceiling: "Is it on the ceiling?",
+  wall: "Is it on a wall?",
+  floor: "Is it on the floor, or standing on it?",
+  surface: "Is it on a table, desk, shelf, or counter?",
+  window: "Is it near a window?",
+  body: "Are you holding it, wearing it, or touching it?",
+  air: "Is it in the air around you?",
 };
 const FLAG_Q: Record<Flag, [string, SenseKey[]]> = {
-  moves: ["Does it move?", ["see", "feel", "hear"]], light: ["Does it glow or give off light?", LOOK],
-  soft: ["Is it soft?", LOOK], noisy: ["Does it make a sound?", LOOK], warm: ["Is it warm?", ["see", "feel", "smell"]],
-  cold: ["Is it cold?", ["feel", "hear"]], big: ["Is it bigger than a loaf of bread?", LOOK],
+  moves: ["Does it move?", ["see", "feel", "hear"]],
+  light: ["Does it glow or give off light?", LOOK],
+  soft: ["Is it soft?", LOOK],
+  noisy: ["Is it making a sound?", LOOK],
+  warm: ["Does it feel warm?", ["feel", "smell", "taste"]],
+  cold: ["Does it feel cold?", ["feel", "smell", "taste"]],
+  big: ["Is it bigger than a loaf of bread?", LOOK],
   alive: ["Is it alive, like a person or an animal?", ["see", "feel", "hear"]],
-  far: ["Is it coming from far away, or outside?", ["hear"]], food: ["Is it connected to food or a drink?", ["smell"]],
-  fresh: ["Is it a fresh, clean kind of smell?", ["smell"]], steady: ["Is it a steady hum, tick or buzz?", ["hear"]],
+  far: ["Does it feel far away or outside?", ["hear", "smell"]],
+  food: ["Is it related to food or drink?", ["smell", "taste"]],
+  fresh: ["Does it smell fresh or clean?", ["smell"]],
+  steady: ["Is it steady and continuous?", ["hear"]],
   speech: ["Is it voices or music?", ["hear"]],
 };
 const COLORS: Color[] = ["white", "brown", "black", "green", "blue"];
+const descriptorToFlag: Partial<Record<Descriptor, string>> = {
+  loud: "f:noisy",
+  quiet: "f:noisy",
+  warm: "f:warm",
+  cold: "f:cold",
+  fresh: "f:fresh",
+  soft: "f:soft",
+  smooth: "f:soft",
+  rough: "f:soft",
+  rhythmic: "f:steady",
+};
 
 const QS: Q[] = [
-  ...(Object.keys(ZONE_TEXT) as Zone[]).map((z) => ({ id: `z:${z}`, text: ZONE_TEXT[z], senses: LOOK, test: (o: Obj) => o.zone === z })),
-  ...(Object.keys(FLAG_Q) as Flag[]).map((f) => ({ id: `f:${f}`, text: FLAG_Q[f][0], senses: FLAG_Q[f][1], test: (o: Obj) => o.flags.includes(f) })),
-  ...COLORS.map((c) => ({ id: `c:${c}`, text: `Is it mostly ${c}?`, senses: LOOK, test: (o: Obj) => o.colors.includes(c) })),
+  ...(Object.keys(ZONE_TEXT) as Zone[]).map((zone) => ({
+    id: `z:${zone}`,
+    text: ZONE_TEXT[zone],
+    senses: LOOK,
+    mode: "binary" as const,
+    test: (o: Obj) => o.zone === zone,
+  })),
+  ...(Object.keys(FLAG_Q) as Flag[]).map((flag) => ({
+    id: `f:${flag}`,
+    text: FLAG_Q[flag][0],
+    senses: FLAG_Q[flag][1],
+    mode: flag === "speech" ? ("choice" as const) : ("binary" as const),
+    options: flag === "speech" ? (["voices", "music"] as [string, string]) : undefined,
+    test: (o: Obj) => (flag === "speech" ? o.label === "voices" || o.label === "music" : o.flags.includes(flag)),
+  })),
+  ...COLORS.map((color) => ({
+    id: `c:${color}`,
+    text: `Is it mostly ${color}?`,
+    senses: LOOK,
+    mode: "binary" as const,
+    test: (o: Obj) => o.colors.includes(color),
+  })),
+  {
+    id: "d:fruity",
+    text: "Would you call the smell fruity?",
+    senses: ["smell"],
+    mode: "binary",
+    test: (o) => o.descriptors.includes("fruity"),
+  },
+  {
+    id: "d:smoky",
+    text: "Does it smell smoky or burnt?",
+    senses: ["smell"],
+    mode: "binary",
+    test: (o) => o.descriptors.includes("smoky") || o.descriptors.includes("burnt"),
+  },
+  {
+    id: "d:soapy",
+    text: "Is it more soapy or cleaner-like?",
+    senses: ["smell"],
+    mode: "binary",
+    test: (o) => o.descriptors.includes("soapy"),
+  },
+  {
+    id: "h:human-machine",
+    text: "Does it sound more human or more machine-like?",
+    senses: ["hear"],
+    mode: "choice",
+    options: ["human", "machine"],
+    test: (o) => o.flags.includes("speech") || o.label.includes("voice"),
+  },
 ];
 const QMAP = Object.fromEntries(QS.map((q) => [q.id, q]));
 
+function detectDescriptors(text: string) {
+  const parsed = classify(text);
+  return parsed.entities.descriptors;
+}
+
+function descriptorContradiction(descriptor: Descriptor): Descriptor | null {
+  const pairs: Array<[Descriptor, Descriptor]> = [
+    ["warm", "cold"],
+    ["loud", "quiet"],
+    ["soft", "rough"],
+    ["fresh", "musty"],
+    ["sweet", "sour"],
+  ];
+  for (const [a, b] of pairs) {
+    if (descriptor === a) return b;
+    if (descriptor === b) return a;
+  }
+  return null;
+}
+
 function weight(o: Obj, r: Round) {
   let w = 1;
-  if (r.setting && r.setting !== "other") w *= o.any ? 0.7 : o.at.includes(r.setting) ? 1 : 0.02;
-  if (r.posture && o.postures.length && !o.postures.includes(r.posture)) w *= 0.15;
-  for (const [id, val] of Object.entries(r.facts)) if (QMAP[id] && QMAP[id].test(o) !== val) w *= 0.04;
+  if (r.setting && r.setting !== "other") w *= o.any ? 0.72 : o.at.includes(r.setting) ? 1.12 : 0.05;
+  if (r.posture && o.postures.length) w *= o.postures.includes(r.posture) ? 1.07 : 0.62;
+  for (const [id, value] of Object.entries(r.facts)) {
+    const q = QMAP[id];
+    if (!q) continue;
+    const truth = q.test(o);
+    if (q.mode === "choice" && q.id === "f:speech" && id === "f:speech") {
+      const isVoices = o.label === "voices";
+      if (value ? isVoices : !isVoices) w *= 4;
+      else w *= 0.04;
+      continue;
+    }
+    w *= truth === value ? 1.9 : 0.06;
+  }
+
+  const objectDescriptors = new Set(o.descriptors);
+  for (const descriptor of r.descriptors) {
+    if (objectDescriptors.has(descriptor)) w *= 4;
+    else if (descriptorContradiction(descriptor) && objectDescriptors.has(descriptorContradiction(descriptor)!)) w *= 0.04;
+  }
+  if (r.rejected.some((x) => same(x, o.label))) w *= 0.001;
   return w;
 }
+
 export function rank(r: Round) {
-  return OBJECTS.filter((o) => o.senses.includes(r.sense) && !r.rejected.includes(o.label))
+  return OBJECTS
+    .filter((o) => o.senses.includes(r.sense))
     .map((o) => ({ o, w: weight(o, r) }))
-    .filter((x) => x.w > 0.001)
+    .filter((x) => x.w > 0.00001)
     .sort((a, b) => b.w - a.w);
 }
-const entropy = (p: number) => (p <= 0 || p >= 1 ? 0 : -(p * Math.log2(p) + (1 - p) * Math.log2(1 - p)));
+
+function entropy(p: number) {
+  if (p <= 0 || p >= 1) return 0;
+  return -(p * Math.log2(p) + (1 - p) * Math.log2(1 - p));
+}
+
+function canAskQuestion(q: Q, r: Round) {
+  if (r.asked.includes(q.id)) return false;
+  if (!q.senses.includes(r.sense)) return false;
+  if (r.facts[q.id] !== undefined) return false;
+  if (q.id.startsWith("f:") && r.descriptors.some((d) => descriptorToFlag[d] === q.id)) return false;
+  if (r.sense === "smell" && r.descriptors.includes("fruity") && (q.id === "f:food" || q.id === "f:fresh")) return false;
+  if (q.id.startsWith("c:")) {
+    const color = q.id.replace("c:", "");
+    if (r.descriptors.includes(color as Descriptor)) return false;
+  }
+  if (r.sense === "smell" && q.id === "f:moves") return false;
+  return true;
+}
 
 export function nextMove(r: Round): Move {
   if (!r.settingAsked) return { kind: "setting" };
   if (!r.postureAsked && (r.sense === "see" || r.sense === "feel")) return { kind: "posture" };
 
   const cand = rank(r);
-  if (!cand.length || r.guesses >= 4) return { kind: "stuck" };
-
-  const total = cand.reduce((s, c) => s + c.w, 0);
+  if (!cand.length) return { kind: "stuck" };
+  const total = cand.reduce((sum, c) => sum + c.w, 0);
   const top = cand[0];
-  const used = questionsAsked(r);
-  const budget = 7 + (r.guesses > 0 ? 1 : 0);
   const confidence = top.w / Math.max(total, 0.0001);
 
-  if (used >= budget || cand.length === 1 || (used >= 4 && confidence >= 0.58) || confidence >= 0.74) {
-    return { kind: "guess", label: top.o.label };
-  }
+  if (confidence >= 0.76 || r.asked.length >= 7) return { kind: "guess", label: top.o.label };
 
-  let best: { q: Q; e: number } | null = null;
+  const topPool = cand.slice(0, 8);
+  let best: { q: Q; gain: number } | null = null;
   for (const q of QS) {
-    if (r.asked.includes(q.id) || !q.senses.includes(r.sense)) continue;
-    const yes = cand.reduce((s, c) => s + (q.test(c.o) ? c.w : 0), 0) / total;
-    const e = entropy(yes);
-    if (!best || e > best.e) best = { q, e };
+    if (!canAskQuestion(q, r)) continue;
+    const yes = topPool.reduce((sum, c) => sum + (q.test(c.o) ? c.w : 0), 0) / Math.max(0.0001, topPool.reduce((sum, c) => sum + c.w, 0));
+    const gain = entropy(yes);
+    if (!best || gain > best.gain) best = { q, gain };
   }
-
-  if (!best || best.e < 0.11) return { kind: "guess", label: top.o.label };
-  return { kind: "ask", id: best.q.id, text: best.q.text };
+  if (!best || best.gain < 0.08) return { kind: "guess", label: top.o.label };
+  return { kind: "ask", id: best.q.id, text: best.q.text, options: best.q.options };
 }
 
-/* ---------- Understanding free-text answers ---------- */
 export function parseYesNo(text: string): "yes" | "no" | "maybe" {
-  const t = ` ${text.toLowerCase().replace(/[^a-z0-9\s']/g, " ").replace(/\s+/g, " ").trim()} `;
-  if (/\b(not sure|maybe|kinda|kind of|sort of|idk|dunno|don'?t know|unsure|perhaps|i guess|hard to say|not really sure)\b/.test(t)) return "maybe";
-  if (/\b(no|nope|nah|nay|negative|not really|not at all|wrong guess|incorrect)\b/.test(t)) return "no";
-  if (/\b(yes|yeah|yep|yup|ya|yea|sure|correct|right|exactly|definitely|absolutely|it is|that's it|that is it|you got it|spot on|mhm|uh huh|ok|okay)\b/.test(t)) return "yes";
+  const intent = classify(text).intent;
+  if (intent === "YES") return "yes";
+  if (intent === "NO") return "no";
+  if (intent === "PARTIAL" || intent === "UNSURE") return "maybe";
   return "maybe";
 }
-export function parseSetting(text: string): SettingId | null {
-  const t = ` ${norm(text)} `;
-  let best: { id: SettingId; len: number } | null = null;
-  for (const s of SETTINGS)
-    for (const w of s.words) if (t.includes(` ${w} `) || t.includes(` ${w}s `) ? w.length > (best?.len ?? 0) : false) best = { id: s.id, len: w.length };
-  return best?.id ?? null;
+
+export function parseSetting(text: string): SettingId | "other" | null {
+  const normalized = normalize(text);
+  if (!normalized) return null;
+  const found = SETTINGS.find((setting) => setting.words.some((word) => same(normalized, word)));
+  return found?.id ?? (normalized.includes("other") || normalized.includes("somewhere") ? "other" : null);
 }
+
 export function parsePosture(text: string): Posture | null {
-  const t = text.toLowerCase();
-  if (/\b(lying|laying|lie|lay|in bed|flat)\b/.test(t)) return "lying";
-  if (/\b(sit|sitting|seated|sat|couch|chair)\b/.test(t)) return "sitting";
-  if (/\b(stand|standing|walking|walk|on my feet)\b/.test(t)) return "standing";
+  const n = normalize(text);
+  if (/\b(lying|laying|lay down|on my bed)\b/.test(n)) return "lying";
+  if (/\b(sitting|seated|on a chair|on the couch|at a desk)\b/.test(n)) return "sitting";
+  if (/\b(standing|on my feet|upright)\b/.test(n)) return "standing";
   return null;
 }
 
-function noteFactsFromText(next: Round, text: string) {
-  const t = ` ${norm(text)} `;
-  const setFact = (id: string, value: boolean) => {
-    next.facts[id] = value;
-    if (!next.asked.includes(id)) next.asked.push(id);
+function inferObjectGuess(text: string, r: Round): string | undefined {
+  const parsed = classify(text, { rejected: r.rejected });
+  if (parsed.intent === "DIRECT_ANSWER" && parsed.entities.object) return parsed.entities.object;
+  return undefined;
+}
+
+function pushDescriptorFacts(round: Round, descriptors: Descriptor[], colors: string[]) {
+  for (const descriptor of descriptors) {
+    if (!round.descriptors.includes(descriptor)) round.descriptors.push(descriptor);
+    const fact = descriptorToFlag[descriptor];
+    if (!fact) continue;
+    if (descriptor === "quiet") round.facts[fact] = false;
+    else if (descriptor === "rough") round.facts[fact] = false;
+    else round.facts[fact] = true;
+  }
+  for (const color of colors) {
+    if (["green", "blue", "brown", "white", "black"].includes(color)) round.facts[`c:${color}`] = true;
+  }
+}
+
+function isChallenge(text: string) {
+  const n = normalize(text);
+  return n.includes("?") || /^(how|why|what|but|that's|thats)/.test(n);
+}
+
+function isAffirmativeForGuess(intent: UnderstandIntent, text: string, label: string) {
+  if (intent === "YES") return true;
+  if (intent !== "DIRECT_ANSWER") return false;
+  const normalized = normalize(text);
+  return normalized === normalize(label) || same(normalized, label);
+}
+
+export function applyAnswer(r: Round, m: Move, text: string): ApplyAnswerResult {
+  const next: Round = {
+    ...r,
+    facts: { ...r.facts },
+    asked: [...r.asked],
+    rejected: [...r.rejected],
+    rejectedOptions: [...r.rejectedOptions],
+    descriptors: [...r.descriptors],
+    turns: [...r.turns, { role: "you", text }],
   };
 
-  const has = (re: RegExp) => re.test(t);
-  if (has(/\b(blue|navy|azure)\b/)) setFact("c:blue", true);
-  if (has(/\b(green|olive|lime)\b/)) setFact("c:green", true);
-  if (has(/\b(white|pale)\b/)) setFact("c:white", true);
-  if (has(/\b(black|dark)\b/)) setFact("c:black", true);
-  if (has(/\b(brown|wooden|tan|beige)\b/)) setFact("c:brown", true);
-
-  if (has(/\b(table|desk|shelf|counter|surface|top)\b/)) setFact("z:surface", true);
-  if (has(/\b(window|curtain|blind)\b/)) setFact("z:window", true);
-  if (has(/\b(floor|ground|tile|carpet|rug)\b/)) setFact("z:floor", true);
-  if (has(/\b(wall|poster|frame)\b/)) setFact("z:wall", true);
-  if (has(/\b(ceiling|roof|fan above)\b/)) setFact("z:ceiling", true);
-  if (has(/\b(hand|holding|wearing|touching|in my pocket|on me)\b/)) setFact("z:body", true);
-
-  if (has(/\b(move|moving|vibrat|shak|rolling|walking)\b/)) setFact("f:moves", true);
-  if (has(/\b(still|static|not moving|doesn't move|doesnt move)\b/)) setFact("f:moves", false);
-
-  if (has(/\b(light|bright|glow|lit|shiny)\b/)) setFact("f:light", true);
-  if (has(/\b(dark|not lit|no light|dim)\b/)) setFact("f:light", false);
-
-  if (has(/\b(soft|fluffy|squishy|smooth)\b/)) setFact("f:soft", true);
-  if (has(/\b(hard|rough|solid|sharp)\b/)) setFact("f:soft", false);
-
-  if (has(/\b(noisy|loud|buzz|ring|humm|tick|talk|voice|music|song|sound)\b/)) setFact("f:noisy", true);
-  if (has(/\b(quiet|silent|no sound)\b/)) setFact("f:noisy", false);
-
-  if (has(/\b(warm|hot|heated)\b/)) setFact("f:warm", true);
-  if (has(/\b(cold|cool|chilly|icy)\b/)) setFact("f:cold", true);
-  if (has(/\b(big|large|huge|massive)\b/)) setFact("f:big", true);
-  if (has(/\b(alive|animal|person|human|pet|dog|cat|bird)\b/)) setFact("f:alive", true);
-  if (has(/\b(outside|far away|distant|across)\b/)) setFact("f:far", true);
-  if (has(/\b(food|drink|coffee|tea|snack|meal|fruit)\b/)) setFact("f:food", true);
-  if (has(/\b(fresh|clean|minty)\b/)) setFact("f:fresh", true);
-  if (has(/\b(steady|constant|continuous)\b/)) setFact("f:steady", true);
-  if (has(/\b(voice|voices|talking|music|song|speech)\b/)) setFact("f:speech", true);
-}
-
-function inferObjectGuess(text: string, r: Round): string | undefined {
-  const clue = base(text);
-  if (!clue || clue.length < 2) return undefined;
-
-  let best: { label: string; score: number } | null = null;
-  for (const o of OBJECTS) {
-    if (!o.senses.includes(r.sense) || r.rejected.includes(o.label)) continue;
-    const aliases = [o.label, ...o.alias];
-    let score = 0;
-    for (const a of aliases) {
-      const normAlias = base(a);
-      if (!normAlias) continue;
-      if (same(clue, normAlias)) score = Math.max(score, 1);
-      else if ((clue.length >= 4 && wordIn(clue, normAlias)) || (normAlias.length >= 4 && wordIn(normAlias, clue))) score = Math.max(score, 0.86);
-      else {
-        const clueTokens = clue.split(" ");
-        const aliasTokens = normAlias.split(" ");
-        const overlap = clueTokens.filter((t) => aliasTokens.includes(t)).length;
-        const ratio = overlap / Math.max(1, aliasTokens.length);
-        if (ratio >= 0.66 && overlap > 0) score = Math.max(score, 0.7);
-      }
-    }
-
-    if (score > 0) {
-      if (r.setting && r.setting !== "other") {
-        if (o.any) score *= 0.95;
-        else if (o.at.includes(r.setting)) score *= 1.08;
-        else score *= 0.62;
-      }
-      if (r.posture && o.postures.length && !o.postures.includes(r.posture)) score *= 0.78;
-    }
-
-    if (score > (best?.score ?? 0)) best = { label: o.label, score };
-  }
-
-  return best && best.score >= 0.68 ? best.label : undefined;
-}
-export function applyAnswer(r: Round, m: Move, text: string): { round: Round; ok: boolean; yes?: boolean; inferredGuess?: string } {
-  const next: Round = { ...r, facts: { ...r.facts }, asked: [...r.asked], rejected: [...r.rejected] };
-  const inferredSetting = parseSetting(text);
-  const inferredPosture = parsePosture(text);
-
-  if (inferredSetting && !next.setting) next.setting = inferredSetting;
-  if (inferredPosture && !next.posture) next.posture = inferredPosture;
-
-  noteFactsFromText(next, text);
+  const intent = classify(text, { options: m.kind === "ask" ? m.options : undefined, rejected: next.rejected });
   const inferredGuess = inferObjectGuess(text, next);
+  pushDescriptorFacts(next, intent.entities.descriptors, intent.entities.colors);
+  if (
+    inferredGuess &&
+    !(m.kind === "ask" && Boolean(m.options)) &&
+    !intent.entities.descriptors.includes(inferredGuess as Descriptor) &&
+    !["green", "blue", "brown", "white", "black"].includes(inferredGuess)
+  ) {
+    return { round: next, ok: true, inferredGuess, reveal: inferredGuess, intent: intent.intent, reply: `Ahh, ${inferredGuess}? Got it.` };
+  }
+  if (intent.intent === "DISTRESS") return { round: next, ok: true, intent: intent.intent, reply: "I hear you. Let's get a real person in right now." };
+  if (intent.intent === "FRUSTRATION") return { round: next, ok: true, intent: intent.intent, reply: "You're right, sorry. I'll use what you gave me and guess now." };
 
   if (m.kind === "setting") {
     next.settingAsked = true;
-    const s = parseSetting(text);
-    next.setting = s ?? next.setting ?? "other";
-    return { round: next, ok: !!s || !!inferredSetting, inferredGuess };
+    const setting = parseSetting(text);
+    next.setting = setting ?? next.setting ?? "other";
+    return { round: next, ok: !!setting || intent.intent === "DESCRIPTOR", intent: intent.intent, reply: setting ? `Got it — ${setting}.` : "Thanks. I'll work with that scene." };
   }
 
   if (m.kind === "posture") {
     next.postureAsked = true;
-    const p = parsePosture(text);
-    if (p) next.posture = p;
-    return { round: next, ok: !!p || !!inferredPosture, inferredGuess };
+    const posture = parsePosture(text);
+    if (posture) next.posture = posture;
+    return { round: next, ok: !!posture || intent.intent === "DESCRIPTOR", intent: intent.intent, reply: posture ? `Nice, you're ${posture}.` : "No stress, I can still work with that." };
   }
 
   if (m.kind === "ask") {
     next.asked.push(m.id);
-    const a = parseYesNo(text);
-    if (a !== "maybe") next.facts[m.id] = a === "yes";
-    return { round: next, ok: a !== "maybe" || !!inferredGuess, yes: a === "yes", inferredGuess };
+    next.lastQuestion = { id: m.id, text: m.text, options: m.options };
+
+    if (m.options && intent.intent === "CHOICE") {
+      if (intent.entities.choice === "neither") {
+        next.rejectedOptions.push(...m.options);
+        if (m.id === "f:speech") next.facts["f:speech"] = false;
+        return { round: next, ok: true, yes: false, intent: intent.intent, reply: "Got it — neither of those." };
+      }
+      const chosen = intent.entities.choice;
+      if (chosen) {
+        if (m.id === "f:speech") next.facts["f:speech"] = same(chosen, "voices");
+        const possibleReveal = classify(chosen, { rejected: next.rejected });
+        if (possibleReveal.intent === "DIRECT_ANSWER" && possibleReveal.entities.object) {
+          return { round: next, ok: true, yes: true, reveal: possibleReveal.entities.object, intent: intent.intent, reply: `Ahh, ${possibleReveal.entities.object}? Got it.` };
+        }
+        return { round: next, ok: true, yes: true, intent: intent.intent, reply: `${chosen}. Nice clue.` };
+      }
+    }
+
+    if (intent.intent === "YES") {
+      next.facts[m.id] = true;
+      return { round: next, ok: true, yes: true, intent: intent.intent, reply: "Nice, that helps." };
+    }
+    if (intent.intent === "NO") {
+      next.facts[m.id] = false;
+      return { round: next, ok: true, yes: false, intent: intent.intent, reply: "Perfect, ruling that out." };
+    }
+    if (intent.intent === "PARTIAL") return { round: next, ok: true, yes: false, intent: intent.intent, reply: "Got it, partly. I'll thread that in." };
+    if (intent.intent === "CHALLENGE") return { round: next, ok: true, yes: false, intent: intent.intent, reply: "Fair point. Thanks for correcting me." };
+    if (intent.intent === "DESCRIPTOR") {
+      const descriptor = intent.entities.descriptors[0] ?? intent.entities.colors[0];
+      return { round: next, ok: true, yes: false, intent: intent.intent, reply: descriptor ? `${descriptor[0].toUpperCase()}${descriptor.slice(1)}. Helpful clue.` : "Good clue — I’m using that." };
+    }
+    return { round: next, ok: false, yes: false, intent: intent.intent, reply: "I might have missed that — give me one more hint?" };
   }
 
   if (m.kind === "guess") {
-    const answer = parseYesNo(text);
-    if (answer === "yes" || same(text, m.label)) return { round: next, ok: true, yes: true, inferredGuess };
-
-    if (inferredGuess && !same(inferredGuess, m.label) && !next.rejected.some((x) => same(x, inferredGuess))) {
+    if (isChallenge(text) || intent.intent === "CHALLENGE" || intent.intent === "CORRECTION") {
+      if (!next.rejected.some((x) => same(x, m.label))) next.rejected.push(m.label);
       next.guesses++;
-      next.rejected.push(m.label);
-      return { round: next, ok: true, yes: false, inferredGuess };
+      return { round: next, ok: true, yes: false, intent: intent.intent, reply: `Fair point, ${m.label} doesn't fit that. Scratch that.` };
+    }
+    if (isAffirmativeForGuess(intent.intent, text, m.label)) return { round: next, ok: true, yes: true, intent: intent.intent, reply: "Yes! Lovely, thanks." };
+
+    if (intent.intent === "DIRECT_ANSWER" && intent.entities.object && !same(intent.entities.object, m.label)) {
+      if (!next.rejected.some((x) => same(x, m.label))) next.rejected.push(m.label);
+      next.guesses++;
+      return { round: next, ok: true, yes: false, reveal: intent.entities.object, intent: intent.intent, reply: `Ahh, ${intent.entities.object}? Got it.` };
     }
 
     next.guesses++;
-    next.rejected.push(m.label);
-    return { round: next, ok: true, yes: false, inferredGuess };
+    if (!next.rejected.some((x) => same(x, m.label))) next.rejected.push(m.label);
+    return { round: next, ok: true, yes: false, intent: intent.intent, reply: "Thanks, not that one. Let me adjust." };
   }
 
-  return { round: next, ok: true, inferredGuess };
+  return { round: next, ok: true, intent: intent.intent };
 }
 
-/* ---------- Kiki's voice ---------- */
-const uncountable = /^(traffic|wind|rain|music|grass|cooking|hair|coffee|fuel|soap|my breathing|old paper|footsteps|voices|birds|books|hands|clothes|keys|curtains)$/;
+const uncountable = /^(traffic|wind|rain|music|grass|cooking|hair|coffee|fuel|soap|my breathing|old paper|footsteps|voices|birds|books|hands|clothes|keys|curtains|silence)$/;
 export function guessText(label: string, sense: SenseKey) {
-  const art = uncountable.test(label) || label.endsWith("s") ? "" : /^[aeiou]/.test(label) ? "an " : "a ";
-  const the = sense === "hear" || sense === "smell" ? "" : "";
-  return `Is it ${the}${art}${label}?`;
+  const articleValue = uncountable.test(label) || label.endsWith("s") ? "" : /^[aeiou]/.test(label) ? "an " : "a ";
+  const lead = sense === "hear" || sense === "smell" ? "" : "";
+  return `Is it ${lead}${articleValue}${label}?`;
 }
+
 export function describeMove(m: Move, r: Round): string {
   switch (m.kind) {
     case "setting":
-      return pickOne([
-        "Paint me the scene first: where are you right now?",
-        "Set the stage for me — are you in a room, in a car, or outside?",
-      ]);
+      return pickOne(["Set the scene for me: where are you?", "Where are you right now? Quick scene check."]);
     case "posture":
-      return pickOne([
-        "Quick body clue: are you lying down, sitting, or standing?",
-        "What posture are you in right now — lying, sitting, or standing?",
-      ]);
+      return pickOne(["Body clue: lying, sitting, or standing?", "Posture check — lying, sitting, or standing?"]);
     case "ask":
       return m.text;
     case "guess":
-      return pickOne([
-        `I think I've got it… ${guessText(m.label, r.sense)}`,
-        `Let me lock in a guess: ${guessText(m.label, r.sense)}`,
-      ]);
+      return pickOne([`I think I’ve got it: ${guessText(m.label, r.sense)}`, `Okay, locking in a guess… ${guessText(m.label, r.sense)}`]);
     case "reveal":
-      return "You outsmarted me this round. What was it?";
+      return "You got me. What was it?";
     default:
       return "Hmm.";
   }
 }
-export function reaction(m: Move, res: { ok: boolean; yes?: boolean }, r: Round): string {
+
+export function reaction(m: Move, res: { ok: boolean; yes?: boolean; intent?: UnderstandIntent; reply?: string }, r: Round): string {
+  if (res.reply) return res.reply;
   if (m.kind === "setting") {
-    const name = r.setting && r.setting !== "other" ? SETTINGS.find((s) => s.id === r.setting)?.name.toLowerCase() : null;
-    return name ? pickOne([`A ${name}. I can picture it.`, `Ooh, a ${name}. Cosy.`]) : "Hm, I can't quite place that, but I'll work with it.";
+    const settingName = r.setting && r.setting !== "other" ? SETTINGS.find((s) => s.id === r.setting)?.name.toLowerCase() : null;
+    return settingName ? pickOne([`A ${settingName}. Nice, I can picture it.`, `Great, ${settingName}. That helps a lot.`]) : "Thanks, I can work with that.";
   }
-  if (m.kind === "posture") return res.ok ? pickOne(["Got it.", "Okay, that helps."]) : "No stress, skipping that one.";
+  if (m.kind === "posture") return pickOne(["Nice, got it.", "Perfect, thanks."]);
   if (m.kind === "ask") {
-    if (!res.ok) return pickOne(["Hard to say. That's okay.", "Fair, let's move on."]);
-    return res.yes ? pickOne(["Ooh, interesting.", "Yes! Now we're getting somewhere.", "I like that."]) : pickOne(["Okay, not that.", "Good to know.", "Ruling that out."]);
+    if (!res.ok) return pickOne(["I might have missed that — one more hint?", "Could you say that a different way for me?"]);
+    if (res.yes) return pickOne(["Great clue.", "That narrows it down."]);
+    return pickOne(["Good, ruling that out.", "Nice, that helps me cut options."]);
   }
-  if (m.kind === "guess") return "Ah, not that one. Let me think again.";
+  if (m.kind === "guess") return "Thanks. Let me rethink it.";
   return "";
 }
+
 export const article = (label: string) => (uncountable.test(label) || label.endsWith("s") ? "" : /^[aeiou]/.test(label) ? "an " : "a ");

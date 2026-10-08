@@ -10,7 +10,7 @@ import { useEffect, useId, useRef, useState, type ComponentType, type CSSPropert
 import { askAi } from "@/lib/stoep/ai";
 import {
   applyAnswer, buildGuesses, describeMove, guessText, matchesGuess, needsPerson, newRound, nextMove, questionsAsked,
-  reaction, same, scoreSense, type Guess, type Move, type Round, type SenseResult,
+  rank, reaction, same, scoreSense, type Guess, type Move, type Round, type SenseResult,
 } from "@/lib/stoep/engine";
 import { SETTINGS, type SenseKey, type SettingId } from "@/lib/stoep/knowledge";
 import styles from "./stoep.module.css"; // scene, top bar, person link (unchanged)
@@ -521,8 +521,8 @@ const STARTERS: { sense: SenseKey; label: string; icon: Icon }[] = [
 const INTRO: Record<string, string> = {
   see: "Ooh, you see something! I can't see anything from in here.",
   feel: "You're holding something? Don't tell me. I'll ask.",
-  hear: "You hear something! My ears are only little.",
-  smell: "A smell! Fireflies have terrible noses.",
+  hear: "You hear something! My tiny ears are ready.",
+  smell: "A smell! My little firefly nose is trying its best.",
 };
 
 function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi: () => void; onLevel: (n: number) => void; onMenu: () => void }) {
@@ -538,6 +538,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
   const logRef = useRef<Msg[]>([]);
   const timers = useRef<number[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => () => timers.current.forEach(window.clearTimeout), []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [log, thinking]);
@@ -567,9 +568,24 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
   async function giveUp(r: Round, lead: string) {
     let guess: string | undefined;
     if (!r.aiTried) {
-      const ai = await askAi<{ guess?: string }>({ task: "clue", sense: r.sense, transcript: logRef.current, wrong: r.rejected });
+      const topCandidates = rank(r).slice(0, 5).map((item) => item.o.label);
+      const ai = await askAi<{ guess?: string; nextQuestion?: string; reply?: string }>({
+        task: "clue",
+        sense: r.sense,
+        turns: logRef.current,
+        wrong: r.rejected,
+        facts: { setting: r.setting, posture: r.posture, descriptors: r.descriptors, flags: r.facts },
+        candidates: topCandidates,
+      });
       guess = ai?.guess;
       if (ai) onAi();
+      if (!guess && ai?.nextQuestion) {
+        setRound({ ...r, aiTried: true });
+        setThinking(false);
+        setMove({ kind: "ask", id: "ai:assist", text: ai.nextQuestion });
+        push("kiki", `${lead ? lead + " " : ""}${ai.reply ?? ai.nextQuestion}`);
+        return;
+      }
     }
     setRound({ ...r, aiTried: true });
     setThinking(false);
@@ -598,10 +614,11 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
     if (move.kind === "reveal") return finish(false, `Ahh, ${text}! I'd never have guessed. Point to you.`);
     const res = applyAnswer(round, move, text);
     if (move.kind === "guess" && res.yes) return finish(true, `Yes! I got it in ${questionsAsked(round)} questions. Kiki's brain is glowing.`);
-    const inferred = res.inferredGuess;
-    if (inferred && move.kind !== "guess" && !res.round.rejected.some((x) => same(x, inferred))) {
-      turn(res.round, `${reaction(move, res, res.round)} I think I caught your clue.`, { kind: "guess", label: inferred });
-      return;
+    const inferred = res.reveal ?? res.inferredGuess;
+    if (inferred) return finish(true, res.reply ?? `Ahh, ${inferred}? Got it.`);
+    if (res.intent === "FRUSTRATION") {
+      const forced = nextMove(res.round);
+      if (forced.kind === "guess") return turn(res.round, reaction(move, res, res.round), forced);
     }
     turn(res.round, reaction(move, res, res.round));
   }
@@ -609,6 +626,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
   const quick: string[] =
     move?.kind === "setting" ? SETTINGS.map((s) => s.name)
     : move?.kind === "posture" ? ["Lying down", "Sitting", "Standing"]
+    : move?.kind === "ask" && move.options ? [...move.options, "Neither", "Other"]
     : move?.kind === "ask" || move?.kind === "guess" ? ["Yes", "No", "Not sure"] : [];
   const used = round ? Math.min(questionsAsked(round), CLUE_TARGET) : 0;
 
@@ -643,9 +661,26 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
         </div>
       ) : (
         <>
-          {quick.length > 0 && <div className={g.quick}>{quick.map((q) => <button key={q} onClick={() => submit(q)}>{q}</button>)}</div>}
+          {quick.length > 0 && (
+            <div className={g.quick}>
+              {quick.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => {
+                    if (q === "Other") {
+                      inputRef.current?.focus();
+                      return;
+                    }
+                    submit(q);
+                  }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
           <form className={g.inputRow} onSubmit={(e) => { e.preventDefault(); submit(draft); }}>
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={thinking ? "Kiki is thinking…" : "Type your answer"} disabled={thinking || !move} maxLength={120} aria-label="Your answer" autoComplete="off" />
+            <input ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={thinking ? "Kiki is thinking…" : "Type your answer"} disabled={thinking || !move} maxLength={120} aria-label="Your answer" autoComplete="off" />
             <button type="submit" disabled={thinking || !move} aria-label="Send"><Send size={18} /></button>
           </form>
         </>
