@@ -24,13 +24,77 @@ export default function AccountPage() {
   }, []);
   useEffect(() => { const supabase = createClient(); void (async () => { const { data: { user } } = await supabase.auth.getUser(); if (!user) return; const [{ data }, { count: deviceCount }] = await Promise.all([supabase.from("profiles").select("*").eq("id", user.id).single(), supabase.from("devices").select("id", { count: "exact", head: true })]); setProfile(data as Profile | null); setCount(deviceCount ?? 0); })(); }, []);
   const complete = Boolean(profile?.full_name?.trim() && profile.phone?.trim());
-  return <div className="kiki-reference-page">
-    <div className="kiki-reference-title"><div><span>MY SAFETY</span><h1>Account overview</h1></div><Link href={complete ? "/account/devices/link" : "/account/profile"} className="kiki-add-device">+ Add Device</Link></div>
-    <section className="kiki-reference-card"><div className="kiki-card-heading"><div className="kiki-card-icon"><ShieldCheck size={20} /></div><div><h2>Devices</h2><p>Active hardware connected</p></div><b className="kiki-device-count"><Radio size={14} />{count ?? 0} Linked</b></div><div className="kiki-device-summary"><span className="kiki-device-art"><Radio size={20} /></span><div><h3>{count ? "Your Kiki device" : "No Kiki device linked"}</h3><p>{count ? <><span><BatteryCharging size={13} />Ready</span> · Protection available</> : "Link a Kiki safety device."}</p></div><ChevronRight size={20} /></div><Link href={complete ? "/account/devices" : "/account/profile"} className="kiki-solid-button"><Settings size={16} />Manage Devices</Link></section>
-    <section className="kiki-reference-card"><div className="kiki-card-heading"><div className="kiki-card-icon kiki-card-icon-profile"><UserCheck size={20} /></div><div><h2>Profile &amp; Responders</h2><p>Emergency access permissions</p></div></div><p className="kiki-notice">Your contact information and live GPS location are made available to <strong>authorised responders</strong> only when your device triggers an alert.</p><div className="kiki-stat-grid"><div><span><Shield size={16} /></span><p>Responders</p><b>{profile?.emergency_contact_name ? "1 Active Contact" : "Add a contact"}</b></div><div><span><MapPin size={16} /></span><p>GPS Sharing</p><b>On Alert Only</b></div></div><div className="kiki-button-pair"><Link href="/account/profile">Manage Profile</Link><Link href="/account/guardians">Guardian Circle</Link></div></section>
-    <section className="kiki-reference-card kiki-activity-widget"><div className="kiki-card-heading"><div className="kiki-card-icon"><Navigation size={20} /></div><div><h2>Current trip</h2><p>Route Watch activity</p></div></div>{trips?.trip ? <Link className="kiki-activity-row" href="/account/trips"><Navigation size={18} /><div><b>{trips.trip.destination_label}</b><p>{trips.trip.mode} · {trips.trip.status}</p></div><ChevronRight size={18} /></Link> : <p className="kiki-activity-empty">{tripError ? "Trip activity is unavailable right now." : trips ? "No active trip." : "Loading trip activity..."}</p>}<Link href="/account/trips" className="kiki-solid-button"><Navigation size={16} />{trips?.trip ? "View active trip" : "Plan a safe trip"}</Link></section>
-    <section className="kiki-reference-card kiki-activity-widget"><div className="kiki-card-heading"><div className="kiki-card-icon"><History size={20} /></div><div><h2>Recent trips</h2><p>Your latest destinations</p></div></div>{trips && trips.recent.length > 0 ? <div className="kiki-activity-list">{trips.recent.slice(0, 3).map((trip) => <Link className="kiki-activity-row" href="/account/trips" key={trip.id}><MapPin size={18} /><div><b>{trip.destination_label}</b><p>{trip.status === "arrived" ? "Arrived safely" : "Cancelled"} · {new Date(trip.ended_at ?? trip.created_at).toLocaleDateString()}</p></div><ChevronRight size={16} /></Link>)}</div> : <p className="kiki-activity-empty">{tripError ? "Recent trips are unavailable right now." : trips ? "No completed trips yet." : "Loading recent trips..."}</p>}</section>
-    <section className="kiki-reference-card kiki-activity-widget"><div className="kiki-card-heading"><div className="kiki-card-icon kiki-card-icon-buddy"><UsersRound size={20} /></div><div><h2>Buddy activity</h2><p>Your private travel presence</p></div></div>{buddy?.active ? <Link className="kiki-activity-row" href="/account/buddies"><UsersRound size={18} /><div><b>{buddy.alias ?? "Your Buddy trip"}</b><p>{buddy.visible ? "Visible in approximate zones" : "Hidden from nearby Buddies"}</p></div><ChevronRight size={18} /></Link> : <p className="kiki-activity-empty">{buddyError ? "Buddy activity is unavailable right now." : buddy ? "No active Buddy trip." : "Loading Buddy activity..."}</p>}<Link href="/account/buddies" className="kiki-solid-button"><UsersRound size={16} />{buddy?.active ? "Manage Buddy trip" : "Plan a Buddy trip"}</Link></section>
-    <section className="kiki-readiness"><div><span>SYSTEM READINESS</span><h2>{complete && count ? "Safety Score: 100%" : "Finish your safety setup"}</h2><p>{complete && count ? "Your profile and connected safety hardware are ready." : "Add your details and link a device to complete setup."}</p></div><span className="kiki-readiness-mark"><ShieldCheck size={24} /></span></section>
+  const readiness = complete && (count ?? 0) > 0;
+  const stepsDone = [complete, (count ?? 0) > 0, Boolean(trips?.trip ?? buddy?.active)];
+  const progress = Math.round((stepsDone.filter(Boolean).length / 3) * 100);
+  const ringOffset = 226 - (226 * progress) / 100;
+  return <div className={`kiki-overview ${readiness ? "is-ready" : ""}`}>
+    <div className="kiki-overview-head">
+      <div>
+        <span>MY SAFETY</span>
+        <h1>Account overview</h1>
+      </div>
+      <Link href={complete ? "/account/devices/link" : "/account/profile"} className="kiki-overview-add">+ Add device</Link>
+    </div>
+
+    <section className="kiki-overview-hero">
+      <div className="kiki-overview-ring">
+        <svg viewBox="0 0 84 84" aria-hidden="true">
+          <circle className="ring-track" cx="42" cy="42" r="36" />
+          <circle className="ring-progress" cx="42" cy="42" r="36" style={{ strokeDasharray: 226, strokeDashoffset: ringOffset }} />
+        </svg>
+        <strong>{progress}<small>%</small></strong>
+      </div>
+      <div className="kiki-overview-hero-copy">
+        <small>LIVE READINESS</small>
+        <h2>{readiness ? "System ready" : "Setup in progress"}</h2>
+        <p>{readiness ? "Live GPS and responder handoff are ready if you need help." : "Finish profile and link a device to unlock full protection."}</p>
+      </div>
+    </section>
+
+    <div className="kiki-overview-steps">
+      <Link href="/account/profile" className={`kiki-overview-step ${stepsDone[0] ? "done" : ""}`}><span>1</span>Profile</Link>
+      <Link href="/account/devices" className={`kiki-overview-step ${stepsDone[1] ? "done" : ""}`}><span>2</span>Device</Link>
+      <Link href="/account/trips" className={`kiki-overview-step ${stepsDone[2] ? "done" : ""}`}><span>3</span>Trip</Link>
+    </div>
+
+    <div className="kiki-overview-tiles">
+      <Link href="/account/trips" className="kiki-overview-tile">
+        <span><Navigation size={19} /></span>
+        <b>Plan safe trip</b>
+        <small>{trips?.trip ? "Trip active" : "Route Watch inactive"}</small>
+      </Link>
+      <Link href="/account/devices" className="kiki-overview-tile">
+        <span><Radio size={19} /></span>
+        <b>Kiki hardware</b>
+        <small>{count ?? 0} linked</small>
+      </Link>
+      <Link href="/account/guardians" className="kiki-overview-tile">
+        <span><Shield size={19} /></span>
+        <b>Responders</b>
+        <small>{profile?.emergency_contact_name ? "1 contact active" : "Add your first contact"}</small>
+      </Link>
+      <Link href="/account/buddies" className="kiki-overview-tile">
+        <span><UsersRound size={19} /></span>
+        <b>Buddy watch</b>
+        <small>{buddy?.active ? "Trip visible to Buddy" : "No Buddy trip active"}</small>
+      </Link>
+    </div>
+
+    <section className="kiki-overview-card">
+      <div className="kiki-overview-card-head"><h3>Current activity</h3><Link href="/account/trips">Open trips</Link></div>
+      {trips?.trip ? <Link className="kiki-overview-row" href="/account/trips"><Navigation size={17} /><div><b>{trips.trip.destination_label}</b><p>{trips.trip.mode} · {trips.trip.status}</p></div><ChevronRight size={16} /></Link> : <p className="kiki-overview-empty">{tripError ? "Trip activity is unavailable right now." : trips ? "No active trip." : "Loading trip activity..."}</p>}
+      {buddy?.active ? <Link className="kiki-overview-row" href="/account/buddies"><UsersRound size={17} /><div><b>{buddy.alias ?? "Buddy trip active"}</b><p>{buddy.visible ? "Visible in approximate zones" : "Hidden from nearby Buddies"}</p></div><ChevronRight size={16} /></Link> : <p className="kiki-overview-empty">{buddyError ? "Buddy activity is unavailable right now." : buddy ? "No active Buddy trip." : "Loading Buddy activity..."}</p>}
+    </section>
+
+    <section className="kiki-overview-card">
+      <div className="kiki-overview-card-head"><h3>Recent trips</h3><Link href="/account/trips/history">History</Link></div>
+      {trips && trips.recent.length > 0 ? <div className="kiki-overview-list">{trips.recent.slice(0, 3).map((trip) => <Link className="kiki-overview-row" href="/account/trips/history" key={trip.id}><MapPin size={17} /><div><b>{trip.destination_label}</b><p>{trip.status === "arrived" ? "Arrived safely" : "Cancelled"} · {new Date(trip.ended_at ?? trip.created_at).toLocaleDateString()}</p></div><ChevronRight size={16} /></Link>)}</div> : <p className="kiki-overview-empty">{tripError ? "Recent trips are unavailable right now." : trips ? "No completed trips yet." : "Loading recent trips..."}</p>}
+    </section>
+
+    <section className="kiki-overview-readiness">
+      <div><span>SYSTEM READINESS</span><h2>{readiness ? "Safety Score: 100%" : "Finish your safety setup"}</h2><p>{readiness ? "Your profile and connected safety hardware are ready." : "Add your details and link a device to complete setup."}</p></div>
+      <i><ShieldCheck size={24} /></i>
+    </section>
   </div>;
 }
