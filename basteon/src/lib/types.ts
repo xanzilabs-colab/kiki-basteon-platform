@@ -1,5 +1,6 @@
 export type AlertStatus = "new" | "acknowledged" | "enroute" | "on_scene" | "resolved" | "false_alarm";
 export type LocationSource = "gps" | "stale" | "cached" | "dev" | null;
+export type MotionState = "unknown" | "still" | "walking" | "vehicle";
 export interface ProfileContact { full_name: string | null; phone?: string | null; home_address?: string | null; emergency_contact_name?: string | null; emergency_contact_phone?: string | null; email?: string | null; avatar_path?: string | null; avatar_url?: string | null; }
 export interface Ringtone { id: string; name: string; storage_path: string; is_stock: boolean; }
 
@@ -8,6 +9,8 @@ export interface Alert {
   primary_organisation_id?: string | null; primary_branch_id?: string | null; routing_status?: "pending" | "routed" | "no_target" | "failed" | null; routed_at?: string | null;
   type_code?: string | null; type_source?: "legacy" | "tap" | "hold_slide" | "device" | "upgrade" | null; type_updated_at?: string | null;
   loc_source: LocationSource; fix_age_s: number | null; battery: number | null; assigned_to: string | null;
+  motion_state?: MotionState | null; is_moving?: boolean | null; speed_kmh?: number | null; heading_deg?: number | null;
+  motion_source?: string | null; motion_changed_at?: string | null; last_fix_at?: string | null; last_loc_src?: string | null; last_hdop?: number | null; is_simulated_loc?: boolean | null;
   triggered_at: string; acknowledged_at: string | null; enroute_at: string | null; on_scene_at: string | null;
   resolved_at: string | null; updated_at: string; last_location_at: string | null; last_loc_ctr: number; update_count: number;
   device?: { device_name: string; user_id: string | null; owner?: ProfileContact | null } | null;
@@ -16,9 +19,11 @@ export interface Alert {
 export interface AlertLocation {
   id: number; alert_id: string; device_id: string; lat: number | null; lng: number | null;
   loc_source: LocationSource; fix_age_s: number | null; battery: number | null; ctr: number; recorded_at: string;
+  source?: "band" | "phone"; speed_kmh?: number | null; heading_deg?: number | null; motion_state?: MotionState | null; is_moving?: boolean | null;
+  motion_src?: string | null; activity_mg?: number | null; sats?: number | null; hdop?: number | null;
 }
 export interface AlertEvent { id: string; alert_id: string; actor_id: string | null; from_status: AlertStatus | null; to_status: AlertStatus; note: string | null; created_at: string; actor?: { full_name: string | null } | null; }
 export interface DeviceOwner { id: string; full_name: string | null; phone: string | null; email: string | null; }
 export interface Profile extends ProfileContact { id: string; consented_at?: string | null; ringtone_path?: string | null; ringtone_id?: string | null; avatar_path?: string | null; role: "admin" | "responder" | "user"; created_at: string; linked_device_count?: number; devices?: Device[]; }
 export interface DevicePinState { failed_attempts: number; locked_until: string | null; }
-export interface Device { id: string; device_id: string; device_name: string; user_id: string | null; active: boolean; last_ctr: number; last_seen_at: string | null; telemetry_at?: string | null; battery?: number | null; wifi_rssi?: number | null; linked_at?: string | null; created_at: string; owner?: DeviceOwner | null; pin_locked?: boolean; pin_set_at?: string | null; band_pin_locked?: boolean | null; band_lock_reported_at?: string | null; pin?: DevicePinState | null; }
+export interface Device { id: string; device_id: string; device_name: string; user_id: string | null; active: boolean; last_ctr: number; last_seen_at: string | null; telemetry_at?: string | null; battery?: number | null; wifi_rssi?: number | null; linked_at?: string | null; created_at: string; owner?: DeviceOwner | null; pin_locked?: boolean; pin_set_at?: string | null; band_pin_locked?: boolean | null; band_lock_reported_at?: string | null; pin?: DevicePinState | null; hw_gps?: boolean | null; hw_imu?: boolean | null; has_fix?: boolean | null; fw_version?: string | null; last_motion_state?: MotionState | null; last_motion_at?: string | null; last_hdop?: number | null; last_satellites?: number | null; last_speed_kmh?: number | null; last_heading_deg?: number | null; }

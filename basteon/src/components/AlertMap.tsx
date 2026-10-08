@@ -5,6 +5,8 @@ import L from "leaflet";
 import type { Alert, AlertLocation } from "@/lib/types";
 import type { Position } from "@/lib/geo";
 import { hasLocation } from "@/lib/geo";
+import { deadReckon, headingToCompass, isMovingAlert } from "@/lib/motion";
+import { locationHealth } from "@/lib/locationTracking";
 
 const icon = (color: string, selected: boolean) =>
   L.divIcon({
@@ -40,6 +42,17 @@ export default function AlertMap({
     zoom: Number(process.env.NEXT_PUBLIC_DEFAULT_MAP_ZOOM ?? 5),
   });
   const [route, setRoute] = useState<[number, number][]>([]);
+  const animatedMarkerRef = useRef<L.Marker | null>(null);
+  const predictedMarkerRef = useRef<L.Marker | null>(null);
+  const accuracyCircleRef = useRef<L.Circle | null>(null);
+  const animFromRef = useRef<{ lat: number; lng: number } | null>(null);
+  const animToRef = useRef<{ lat: number; lng: number } | null>(null);
+  const animStartRef = useRef<number>(0);
+  const animDurationRef = useRef<number>(1000);
+  const latestPointAtRef = useRef<number>(0);
+  const rafRef = useRef<number | null>(null);
+  const followRef = useRef(true);
+  const [followMode, setFollowMode] = useState(true);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -59,10 +72,18 @@ export default function AlertMap({
     const observer = new ResizeObserver(resize);
     observer.observe(container);
     const frame = requestAnimationFrame(resize);
+    const onUserMove = () => {
+      followRef.current = false;
+      setFollowMode(false);
+    };
+    map.on("dragstart", onUserMove);
+    map.on("zoomstart", onUserMove);
 
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      map.off("dragstart", onUserMove);
+      map.off("zoomstart", onUserMove);
       map.remove();
       mapRef.current = null;
     };
@@ -99,7 +120,7 @@ export default function AlertMap({
       .map((point) => [point.lat, point.lng] as [number, number]);
     if (trailPoints.length > 1) {
       layers.addLayer(
-        L.polyline(trailPoints, { color: "#6ee7b7", weight: 3, opacity: 0.9 }),
+        L.polyline(trailPoints, { color: "#6ee7b7", weight: 3, opacity: 0.75 }),
       );
     }
 
@@ -120,10 +141,74 @@ export default function AlertMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (map && selected && hasLocation(selected)) {
-      map.flyTo([selected.lat!, selected.lng!], 15);
+    if (!map || !selected || !hasLocation(selected)) return;
+
+    const now = performance.now();
+    const prev = animToRef.current ?? { lat: selected.lat!, lng: selected.lng! };
+    const next = { lat: selected.lat!, lng: selected.lng! };
+    const latestTrailPoint = [...trail].reverse().find((point) => point.lat != null && point.lng != null);
+    const recordedAt = latestTrailPoint ? new Date(latestTrailPoint.recorded_at).getTime() : Date.now();
+    const previousRecordedAt = latestPointAtRef.current || recordedAt;
+    latestPointAtRef.current = recordedAt;
+    const between = Math.max(1_000, Math.min(10_000, recordedAt - previousRecordedAt || 1_500));
+    animFromRef.current = prev;
+    animToRef.current = next;
+    animStartRef.current = now;
+    animDurationRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : between;
+
+    if (!animatedMarkerRef.current) {
+      animatedMarkerRef.current = L.marker([selected.lat!, selected.lng!], { icon: icon(selected.is_simulated_loc ? "#9CA3AF" : "#ff4d5a", true) }).addTo(map);
     }
-  }, [selected]);
+    animatedMarkerRef.current.setIcon(icon(selected.is_simulated_loc ? "#9CA3AF" : "#ff4d5a", true));
+
+    if (!accuracyCircleRef.current) {
+      accuracyCircleRef.current = L.circle([selected.lat!, selected.lng!], { radius: 20, color: "#6ee7b7", opacity: 0.25, fillOpacity: 0.06 }).addTo(map);
+    }
+    const haloMeters = Math.max(5, Math.min(100, Math.round((selected.last_hdop ?? 4) * 5)));
+    accuracyCircleRef.current.setRadius(haloMeters);
+
+    const animate = () => {
+      if (!animatedMarkerRef.current || !animFromRef.current || !animToRef.current) return;
+      const progress = Math.min(1, (performance.now() - animStartRef.current) / animDurationRef.current);
+      const lat = animFromRef.current.lat + (animToRef.current.lat - animFromRef.current.lat) * progress;
+      const lng = animFromRef.current.lng + (animToRef.current.lng - animFromRef.current.lng) * progress;
+      animatedMarkerRef.current.setLatLng([lat, lng]);
+      accuracyCircleRef.current?.setLatLng([lat, lng]);
+
+      const stale = locationHealth(selected) === "stale";
+      if (!stale && isMovingAlert(selected) && selected.speed_kmh != null && selected.heading_deg != null) {
+        const predicted = deadReckon(lat, lng, selected.speed_kmh, selected.heading_deg, 30_000);
+        if (!predictedMarkerRef.current) {
+          predictedMarkerRef.current = L.marker([predicted.lat, predicted.lng], {
+            icon: L.divIcon({ className: "", html: `<div style="padding:2px 6px;border:1px dashed #7dd3fc;color:#7dd3fc;background:rgba(15,23,42,.7);font-size:10px;border-radius:999px;">+30s ${headingToCompass(selected.heading_deg)}</div>` }),
+          }).addTo(map);
+        } else {
+          predictedMarkerRef.current.setLatLng([predicted.lat, predicted.lng]);
+        }
+      } else if (predictedMarkerRef.current) {
+        map.removeLayer(predictedMarkerRef.current);
+        predictedMarkerRef.current = null;
+      }
+
+      if (followRef.current && followMode) map.panTo([lat, lng], { animate: true, duration: 0.6 });
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate);
+    };
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [followMode, selected, trail]);
+
+  useEffect(() => () => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (animatedMarkerRef.current) map.removeLayer(animatedMarkerRef.current);
+    if (predictedMarkerRef.current) map.removeLayer(predictedMarkerRef.current);
+    if (accuracyCircleRef.current) map.removeLayer(accuracyCircleRef.current);
+  }, []);
 
   useEffect(() => {
     if (!me || !selected || !hasLocation(selected)) {
@@ -151,5 +236,5 @@ export default function AlertMap({
     return () => controller.abort();
   }, [me, selected]);
 
-  return <div ref={containerRef} className="alert-map leaflet-container" />;
+  return <div className="relative h-full"><div ref={containerRef} className="alert-map leaflet-container" />{!followMode && <button className="btn absolute right-3 top-3 z-[1200]" onClick={() => { followRef.current = true; setFollowMode(true); if (selected && hasLocation(selected)) mapRef.current?.panTo([selected.lat!, selected.lng!], { animate: true }); }}>Re-center</button>}</div>;
 }

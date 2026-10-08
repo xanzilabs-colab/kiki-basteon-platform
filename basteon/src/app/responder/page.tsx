@@ -16,6 +16,7 @@ import { UserProfileDrawer } from "@/components/UserProfileDrawer";
 import type { Alert, ProfileContact } from "@/lib/types";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { createClient } from "@/lib/supabase/client";
+import { isMovingAlert } from "@/lib/motion";
 
 const AlertMap = dynamic(() => import("@/components/AlertMap"), {
   ssr: false,
@@ -37,6 +38,7 @@ export default function ResponderPage() {
   const [organisationId, setOrganisationId] = useState("");
   const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [movingOnly, setMovingOnly] = useState(false);
   const emergencyTypes = useEmergencyTypes();
 
   useEffect(() => {
@@ -75,12 +77,15 @@ export default function ResponderPage() {
 
   const displayed = useMemo(
     () =>
-      [...(tab === "active" ? active : alerts)].filter((alert) => typeFilter === "all" || ((alert.type_code === "sos" ? "general" : alert.type_code) ?? "general") === typeFilter).sort((a, b) =>
+      [...(tab === "active" ? active : alerts)]
+        .filter((alert) => typeFilter === "all" || ((alert.type_code === "sos" ? "general" : alert.type_code) ?? "general") === typeFilter)
+        .filter((alert) => !movingOnly || isMovingAlert(alert))
+        .sort((a, b) =>
         a.status === "new" && b.status !== "new" ? -1
         : b.status === "new" && a.status !== "new" ? 1
         : +new Date(b.triggered_at) - +new Date(a.triggered_at),
       ),
-    [alerts, active, tab, typeFilter],
+    [alerts, active, tab, typeFilter, movingOnly],
   );
 
   return (
@@ -165,7 +170,7 @@ export default function ResponderPage() {
             </button>
           </div>
 
-          <div className="px-3 pb-2"><label className="sr-only" htmlFor="responder-type-filter">Filter by alert type</label><select id="responder-type-filter" className="input h-8 text-[12px]" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All alert types</option>{emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}</select></div>
+          <div className="px-3 pb-2 space-y-2"><label className="sr-only" htmlFor="responder-type-filter">Filter by alert type</label><select id="responder-type-filter" className="input h-8 text-[12px]" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All alert types</option>{emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}</select><label className="inline-flex items-center gap-2 text-[12px]"><input type="checkbox" checked={movingOnly} onChange={(event) => setMovingOnly(event.target.checked)} />Moving only</label></div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <AlertList

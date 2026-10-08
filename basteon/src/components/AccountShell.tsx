@@ -43,6 +43,13 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
   const ringtoneUrlRef = useRef<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  function inferMotion(speedKmh: number | null) {
+    if (speedKmh == null) return { motion_state: "unknown" as const, is_moving: false };
+    if (speedKmh >= 15) return { motion_state: "vehicle" as const, is_moving: true };
+    if (speedKmh >= 2) return { motion_state: "walking" as const, is_moving: true };
+    return { motion_state: "still" as const, is_moving: false };
+  }
   function closeMore(after?: () => void) {
     if (!moreOpen || moreClosing) return;
     setMoreClosing(true);
@@ -207,6 +214,60 @@ export function AccountShell({ name, children }: { name: string; children: React
       setSosError("Phone location is required for an SOS. Enable precise location permission, then retry.");
       return;
     }
+
+    useEffect(() => {
+      if (!sosSent) return;
+      let active = true;
+      const pushUpdate = async () => {
+        if (!active || !navigator.geolocation) return;
+        const position = await new Promise<GeolocationPosition | null>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (value) => resolve(value),
+            () => resolve(null),
+            { enableHighAccuracy: true, timeout: 10_000, maximumAge: 2_000 },
+          );
+        });
+        if (!position || !active) return;
+        const speedMps = Number.isFinite(position.coords.speed ?? NaN) ? position.coords.speed : null;
+        const speedKmh = speedMps == null ? null : Math.max(0, speedMps * 3.6);
+        const heading = Number.isFinite(position.coords.heading ?? NaN) ? position.coords.heading : null;
+        const hdopGuess = Number.isFinite(position.coords.accuracy) ? Math.max(0, Math.min(99, position.coords.accuracy / 5)) : undefined;
+        const motion = inferMotion(speedKmh);
+        try {
+          const response = await fetch("/api/account/sos/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              alert_id: sosSent.id,
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              speed_kmh: speedKmh == null ? undefined : Number(speedKmh.toFixed(1)),
+              heading_deg: heading == null ? undefined : Math.round((heading + 360) % 360),
+              motion_state: motion.motion_state,
+              is_moving: motion.is_moving,
+              hdop: hdopGuess == null ? undefined : Number(hdopGuess.toFixed(1)),
+              fix_age_s: 0,
+            }),
+          });
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            if ((body as { error?: string }).error === "closed_alert") {
+              setSosSent(null);
+              setSosSentError("Tracking stopped because this alert is now closed.");
+            }
+          }
+        } catch {
+          setSosSentError("Live tracking signal is delayed. Updates will retry automatically.");
+        }
+      };
+
+      void pushUpdate();
+      const timer = window.setInterval(() => { void pushUpdate(); }, 5_000);
+      return () => {
+        active = false;
+        window.clearInterval(timer);
+      };
+    }, [sosSent]);
     requestPayload = {
       request_id: sosRequestId.current || crypto.randomUUID(),
       lat: position.lat,

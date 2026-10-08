@@ -21,7 +21,7 @@ export function DeviceTable({ devices, refresh }: { devices: Device[]; refresh()
     <div className="overflow-x-auto">
       <div className="tbl-wrap min-w-max">
         <table className="tbl min-w-[920px]">
-          <thead><tr><th>Device ID</th><th>Name</th><th>Owner</th><th>Linked</th><th>State</th><th>PIN</th><th>Last seen</th><th>Counter</th><th /></tr></thead>
+          <thead><tr><th>Device ID</th><th>Name</th><th>Owner</th><th>Linked</th><th>State</th><th>PIN</th><th>Last seen</th><th>Motion telemetry</th><th>Counter</th><th /></tr></thead>
           <tbody>{devices.map((device) => <tr key={device.id}>
             <td className="data">{device.device_id}</td>
             <td>{device.device_name}</td>
@@ -35,6 +35,12 @@ export function DeviceTable({ devices, refresh }: { devices: Device[]; refresh()
               {device.pin_locked && <div className="flex gap-1 mt-1">{(lockedOut(device) || (device.pin?.failed_attempts ?? 0) > 0) && <button className="btn !px-2 !py-0.5 text-[11px]" onClick={() => void pinAction(device, "clear_lockout")}>Clear lockout</button>}<button className="btn !px-2 !py-0.5 text-[11px]" onClick={() => void pinAction(device, "reset")}>Reset PIN</button></div>}
             </td>
             <td className="data muted">{device.last_seen_at ? <time title={fmtDateTime(device.last_seen_at)}>{fmtRelativeTime(device.last_seen_at)}</time> : "Never"}</td>
+            <td className="data text-[11px]">
+              <p>FW: {device.fw_version ?? "—"}</p>
+              <p>GPS: {device.hw_gps == null ? "—" : device.hw_gps ? "yes" : "no"} • Fix: {device.has_fix == null ? "—" : device.has_fix ? "yes" : "no"}</p>
+              <p>IMU: {device.hw_imu == null ? "—" : device.hw_imu ? "yes" : "no"} • Motion: {device.last_motion_state ?? "—"}</p>
+              <p>Speed: {device.last_speed_kmh == null ? "—" : `${Math.round(device.last_speed_kmh)} km/h`} • HDOP: {device.last_hdop == null ? "—" : device.last_hdop.toFixed(1)}</p>
+            </td>
             <td className="data">{device.last_ctr}</td>
             <td><button className="btn !px-2" onClick={() => void changeOwner(device)}>Owner</button></td>
           </tr>)}</tbody>

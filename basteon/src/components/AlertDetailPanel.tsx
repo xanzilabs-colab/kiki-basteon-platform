@@ -11,6 +11,7 @@ import { StatusActions } from "./StatusActions";
 import { AlertTimeline } from "./AlertTimeline";
 import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
 import { createClient } from "@/lib/supabase/client";
+import { headingToCompass, movementLabel } from "@/lib/motion";
 
 export function AlertDetailPanel({
   alert,
@@ -79,6 +80,7 @@ export function AlertDetailPanel({
   const currentAlert = alert;
   const branchAvailability = availability.filter((item) => item.branch_id === (currentAlert.primary_branch_id ?? null));
   const bestAvailable = branchAvailability.find((item) => item.availability === "available") ?? branchAvailability[0] ?? null;
+  const movement = movementLabel(alert);
 
   async function assignResponder(responderUserId: string | null) {
     if (!currentAlert.primary_branch_id || !organisationId) return;
@@ -185,6 +187,18 @@ export function AlertDetailPanel({
         <div className="kv">
           <span className="label">Battery</span>
           <span className="data text-[12px]">{alert.battery == null ? "—" : `${alert.battery}%`}</span>
+        </div>
+        <div className="kv mt-2">
+          <span className="label">Movement</span>
+          <span className="data text-[12px]">{movement}</span>
+        </div>
+        <div className="kv mt-2">
+          <span className="label">Speed</span>
+          <span className="data text-[12px]">{alert.speed_kmh == null ? "—" : `${Math.round(alert.speed_kmh)} km/h`}</span>
+        </div>
+        <div className="kv mt-2">
+          <span className="label">Heading</span>
+          <span className="data text-[12px]">{alert.heading_deg == null ? "—" : `${Math.round(alert.heading_deg)}° ${headingToCompass(alert.heading_deg)}`}</span>
         </div>
         <div className="kv mt-2">
           <span className="label">Location updates</span>

@@ -76,6 +76,14 @@ Sign in as an admin, open **Devices**, and choose **Register device**. Enter the
 
 Use the admin API endpoint `POST /api/admin/simulate-alert` while signed in as an admin, with a `device_id`, `lat`, and `lng`. It inserts a `dev` location alert and advances the selected device counter. New alerts appear in the responder console through Supabase Realtime without a page refresh.
 
+## Live SOS Movement Tracking
+
+Apply the live-tracking migrations through `supabase/migrations/20261110003000_phone_sos_updates.sql`, then redeploy `secure-alert`.
+
+- Wearable updates continue through `secure-alert` and enrich each alert with motion/speed/heading plus a full location trail.
+- Phone-originated SOS now streams movement updates to `POST /api/account/sos/update` every few seconds while the SOS confirmation card is open.
+- Responder and admin surfaces use the same shared fields (`motion_state`, `is_moving`, `speed_kmh`, `heading_deg`, `hdop`) for consistent status, map smoothing, and telemetry display.
+
 ## Security Notes
 
 The service role key is used only by server-side route handlers and the Supabase Edge Function. Do not expose it in browser code or commit populated environment files.

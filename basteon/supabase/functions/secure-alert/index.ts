@@ -20,10 +20,31 @@ type TrackingPayload = {
   src: string | null;
   age: number | null;
   battery: number | null;
+  motionState: "still" | "walking" | "vehicle" | "unknown" | null;
+  moving: boolean;
+  motionSource: "gps" | "imu" | "gps+imu" | "none" | null;
+  speedKmh: number | null;
+  headingDeg: number | null;
+  stillSeconds: number | null;
+  activityMg: number | null;
+  sats: number | null;
+  hdop: number | null;
+  source: "band" | "phone";
 };
 
 type LinkPayload = { status: "link_device"; ctr: number; token: string };
-type HeartbeatPayload = { status: "device_heartbeat"; ctr: number; battery: number | null; wifiRssi: number | null; lock: boolean | null };
+type HeartbeatPayload = {
+  status: "device_heartbeat";
+  ctr: number;
+  battery: number | null;
+  wifiRssi: number | null;
+  lock: boolean | null;
+  gpsOk: boolean | null;
+  fix: boolean | null;
+  imuOk: boolean | null;
+  fw: string | null;
+  motionState: "still" | "walking" | "vehicle" | "unknown" | null;
+};
 
 function parseLinkPayload(value: unknown): LinkPayload | null {
   if (!value || typeof value !== "object") return null;
@@ -43,7 +64,28 @@ function parseHeartbeatPayload(value: unknown): HeartbeatPayload | null {
   if (wifiRssi !== undefined && (!Number.isInteger(wifiRssi) || wifiRssi < -127 || wifiRssi > 0)) return null;
   const lock = payload.lock;
   if (lock !== undefined && lock !== 0 && lock !== 1) return null;
-  return { status: "device_heartbeat", ctr: payload.ctr, battery: typeof battery === "number" ? battery : null, wifiRssi: typeof wifiRssi === "number" ? wifiRssi : null, lock: lock === undefined ? null : lock === 1 };
+  const gpsOk = payload.gps_ok;
+  const fix = payload.fix;
+  const imuOk = payload.imu_ok;
+  const fw = payload.fw;
+  const mot = payload.mot;
+  if (gpsOk !== undefined && gpsOk !== 0 && gpsOk !== 1) return null;
+  if (fix !== undefined && fix !== 0 && fix !== 1) return null;
+  if (imuOk !== undefined && imuOk !== 0 && imuOk !== 1) return null;
+  if (fw !== undefined && (typeof fw !== "string" || fw.length > 40)) return null;
+  const motionState = mot === "still" || mot === "walking" || mot === "vehicle" || mot === "unknown" ? mot : null;
+  return {
+    status: "device_heartbeat",
+    ctr: payload.ctr,
+    battery: typeof battery === "number" ? battery : null,
+    wifiRssi: typeof wifiRssi === "number" ? wifiRssi : null,
+    lock: lock === undefined ? null : lock === 1,
+    gpsOk: gpsOk === undefined ? null : gpsOk === 1,
+    fix: fix === undefined ? null : fix === 1,
+    imuOk: imuOk === undefined ? null : imuOk === 1,
+    fw: typeof fw === "string" ? fw : null,
+    motionState,
+  };
 }
 
 async function sha256Hex(value: string) {
@@ -95,7 +137,43 @@ function parseTrackingPayload(value: unknown): TrackingPayload | null {
     battery = payload.bat;
   }
 
-  return { status, ctr, ref, lat, lng, src, age, battery };
+  const mot = payload.mot;
+  const motionState = mot === "still" || mot === "walking" || mot === "vehicle" || mot === "unknown" ? mot : null;
+  const movingRaw = payload.moving;
+  const moving = movingRaw === 1 || motionState === "walking" || motionState === "vehicle";
+  const motionSourceRaw = payload.msrc;
+  const motionSource = motionSourceRaw === "gps" || motionSourceRaw === "imu" || motionSourceRaw === "gps+imu" || motionSourceRaw === "none"
+    ? motionSourceRaw
+    : null;
+  const speed = typeof payload.spd === "number" && Number.isFinite(payload.spd) ? Math.max(0, Math.min(payload.spd, 400)) : null;
+  const heading = typeof payload.hdg === "number" && Number.isInteger(payload.hdg) && payload.hdg >= 0 && payload.hdg <= 359 ? payload.hdg : null;
+  const stillSeconds = typeof payload.still_s === "number" && Number.isInteger(payload.still_s) && payload.still_s >= 0 ? payload.still_s : null;
+  const activityMg = typeof payload.act === "number" && Number.isInteger(payload.act) && payload.act >= 0 && payload.act <= 20_000 ? payload.act : null;
+  const sats = typeof payload.sats === "number" && Number.isInteger(payload.sats) && payload.sats >= 0 && payload.sats <= 99 ? payload.sats : null;
+  const hdop = typeof payload.hdop === "number" && Number.isFinite(payload.hdop) && payload.hdop >= 0 && payload.hdop <= 99 ? payload.hdop : null;
+  const sourceRaw = payload.source;
+  const source = sourceRaw === "phone" ? "phone" : "band";
+
+  return {
+    status,
+    ctr,
+    ref,
+    lat,
+    lng,
+    src,
+    age,
+    battery,
+    motionState,
+    moving,
+    motionSource,
+    speedKmh: speed,
+    headingDeg: heading,
+    stillSeconds,
+    activityMg,
+    sats,
+    hdop,
+    source,
+  };
 }
 
 const dispatchPush = async (deviceId: string, deviceName: string | null, ownerName: string | null) => {
@@ -184,6 +262,12 @@ Deno.serve(async (request) => {
       telemetry_at: now,
       battery: heartbeat.battery,
       wifi_rssi: heartbeat.wifiRssi,
+      hw_gps: heartbeat.gpsOk,
+      hw_imu: heartbeat.imuOk,
+      has_fix: heartbeat.fix,
+      fw_version: heartbeat.fw,
+      last_motion_state: heartbeat.motionState,
+      last_motion_at: heartbeat.motionState ? now : null,
       ...(heartbeat.lock === null ? {} : { band_pin_locked: heartbeat.lock, band_lock_reported_at: now }),
     }).eq("device_id", deviceId).lt("last_ctr", heartbeat.ctr);
     if (error) return json({ error: "db_error" }, 500);
@@ -215,6 +299,16 @@ Deno.serve(async (request) => {
       battery: tracking.battery,
       type_code: "sos",
       type_source: "device",
+      motion_state: tracking.motionState ?? "unknown",
+      is_moving: tracking.moving,
+      speed_kmh: tracking.speedKmh,
+      heading_deg: tracking.headingDeg,
+      motion_source: tracking.motionSource,
+      motion_changed_at: tracking.motionState ? new Date().toISOString() : null,
+      last_fix_at: tracking.lat != null && tracking.lng != null ? new Date().toISOString() : null,
+      last_loc_src: tracking.src,
+      last_hdop: tracking.hdop,
+      is_simulated_loc: tracking.src === "dev",
     });
     if (insertError) return json({ error: "db_error" }, 500);
 
@@ -249,6 +343,15 @@ Deno.serve(async (request) => {
     p_fix_age_s: tracking.age,
     p_battery: tracking.battery,
     p_ctr: tracking.ctr,
+    p_source: tracking.source,
+    p_speed_kmh: tracking.speedKmh,
+    p_heading_deg: tracking.headingDeg,
+    p_motion_state: tracking.motionState,
+    p_is_moving: tracking.moving,
+    p_motion_src: tracking.motionSource,
+    p_activity_mg: tracking.activityMg,
+    p_sats: tracking.sats,
+    p_hdop: tracking.hdop,
   });
   if (locationError) return json({ error: "db_error" }, 500);
   if (result === "stop") return json({ stop: true }, 200);

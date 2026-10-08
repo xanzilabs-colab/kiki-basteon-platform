@@ -7,6 +7,7 @@ import type { Alert } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
 import { LocationSourceBadge } from "./LocationSourceBadge";
 import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
+import { isMovingAlert, movementLabel } from "@/lib/motion";
 
 export function AlertCard({
   alert,
@@ -32,6 +33,7 @@ export function AlertCard({
       : health === "delayed"
       ? "text-[var(--warn)]"
       : "text-[var(--crit)]";
+  const movement = movementLabel(alert);
 
   return (
     <button
@@ -51,6 +53,9 @@ export function AlertCard({
         <span className="truncate">{alert.device?.owner?.full_name ?? "Unassigned"}</span>
         {km != null && <span className="data whitespace-nowrap">{formatDistance(km)}</span>}
         <span className="data">{alert.battery == null ? "—" : `${alert.battery}%`}</span>
+      </div>
+      <div className="row-meta">
+        <span className={`truncate ${isMovingAlert(alert) ? "text-[var(--warn)]" : "muted"}`}>{movement}</span>
       </div>
       <div className="flex items-center justify-between gap-2">
         <LocationSourceBadge alert={alert} />

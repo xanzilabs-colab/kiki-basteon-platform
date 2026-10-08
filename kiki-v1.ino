@@ -1,16 +1,37 @@
-// ===== Kiki Band v2.6: ESP32 + GPS + AES-256-GCM + live tracking + BLE linking + PIN lock =====
+// ===== Kiki Band v2.7: ESP32 + GPS + ACCELEROMETER + motion fusion + AES-256-GCM + live tracking + BLE linking + PIN lock =====
+//
+// WIRING (everything is auto-detected, just plug in and reboot, hot-plug also works for the IMU):
+//   GPS module (NEO-6M / NEO-7M / NEO-8M / any NMEA):  VCC->3V3 (or 5V if the board needs it)  GND->GND
+//                                                      GPS TX -> ESP32 GPIO16 (RX2)   GPS RX -> ESP32 GPIO17 (TX2)
+//   Accelerometer (I2C): VCC->3V3  GND->GND  SDA->GPIO21  SCL->GPIO22
+//                        Supported: MPU6050 / MPU6500 / MPU9250 (0x68,0x69), ADXL345 (0x53,0x1D), LIS3DH (0x18,0x19)
+//   Button GPIO13 -> GND, LED GPIO2, buzzer GPIO4 (unchanged)
+//
+// No libraries needed for the accelerometer (raw I2C via Wire). Libraries needed: TinyGPSPlus, NimBLE-Arduino.
+//
+// WHAT'S NEW IN 2.7
+//  * GPS: baud auto-detect (4800/9600/38400/115200), "module seen" memory. The hard-coded dev location is ONLY used
+//    while a GPS module has never been detected. Once a GPS has ever been seen, the fake location is disabled for good
+//    (serial 'g' re-enables it for bench testing).
+//  * Motion detection: GPS speed + accelerometer fused into still / walking / vehicle (with hysteresis so red lights
+//    don't flip it to "still"). Works GPS-only, accelerometer-only, both, or neither (reports "unknown").
+//  * Every alert / update / heartbeat now carries: mot, moving, spd, hdg, msrc, still_s, act, sats, hdop.
+//  * Tracking is motion-aware: vehicle = every 5 s, walking = every 10 s, first update 3 s after the alert if moving,
+//    immediate update when the motion state changes, never skipped while moving.
+
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <TinyGPSPlus.h>
 #include <NimBLEDevice.h>
+#include <Wire.h>
 #include "mbedtls/gcm.h"
 #include "mbedtls/md.h"
 #include "mbedtls/base64.h"
 #include "esp_random.h"
 
-const char* FW_VERSION = "2.6";
+const char* FW_VERSION = "2.7";
 
 // ---------- Config (EDIT THESE) ----------
 const char* WIFI_SSID   = "HUAWEI_B311_CC04";
@@ -22,7 +43,7 @@ const bool  SILENT_MODE = false;              // true = no buzzer, no LED during
 const bool LED_ACTIVE_LOW    = false;
 const bool BUZZER_ACTIVE_LOW = true;
 
-// No GPS module yet: true = send these coordinates as a "dev" location
+// Dev location: used ONLY while no GPS module has ever been detected. Auto-disabled forever once a GPS is seen.
 const bool   USE_DEV_FALLBACK_LOCATION = true;
 const double DEV_FALLBACK_LAT = -23.9667;
 const double DEV_FALLBACK_LNG = 29.7;
@@ -41,7 +62,15 @@ const int LED_PIN    = 2;    // onboard LED / external LED via 220R
 const int BUZZER_PIN = 4;    // active buzzer + leg
 const int GPS_RX_PIN = 16;   // ESP32 RX2 <- GPS TX
 const int GPS_TX_PIN = 17;   // ESP32 TX2 -> GPS RX
-const uint32_t GPS_BAUD = 9600;
+const int I2C_SDA_PIN = 21;  // accelerometer SDA
+const int I2C_SCL_PIN = 22;  // accelerometer SCL
+
+// ---------- GPS ----------
+const bool     GPS_AUTO_BAUD = true;
+const uint32_t GPS_BAUDS[]   = {9600, 38400, 115200, 4800};
+const uint8_t  GPS_BAUD_COUNT = 4;
+const unsigned long GPS_BAUD_TRY_MS   = 4000UL;    // how long to listen at each baud before trying the next
+const unsigned long GPS_SILENCE_RELOCK_MS = 30000UL; // locked but silent this long => start scanning bauds again
 
 // ---------- Timing ----------
 const unsigned long COUNTDOWN_MS      = 10000;
@@ -55,6 +84,20 @@ const unsigned long CACHE_MIN_INTERVAL_MS = 300000;
 const double        CACHE_MIN_MOVE_M      = 100.0;
 const unsigned long TELEMETRY_INTERVAL_MS = 120000;
 
+// ---------- Motion detection (GPS + accelerometer fusion) ----------
+const bool          IMU_ENABLED       = true;
+const unsigned long IMU_SAMPLE_MS     = 20;          // 50 Hz
+const unsigned long IMU_RESCAN_MS     = 10000UL;     // look for a (re)plugged accelerometer this often
+const float         IMU_STILL_MG      = 18.0f;       // vibration RMS below this = perfectly still
+const float         IMU_WALK_MIN_MG   = 60.0f;       // step-like motion needs at least this RMS
+const float         STEP_THRESH_G     = 0.10f;       // peak above gravity baseline that counts as a step
+const double        MOT_WALK_KMH      = 3.0;         // GPS speed at/above this = moving on foot
+const double        MOT_VEHICLE_KMH   = 12.0;        // GPS speed at/above this = vehicle
+const unsigned long MOT_UP_MS         = 3000UL;      // evidence needed to switch to a "more moving" state
+const unsigned long MOT_DOWN_MS       = 20000UL;     // evidence needed to switch to a "less moving" state (red lights!)
+const unsigned long MOT_UNKNOWN_HOLD_MS = 30000UL;   // keep the last state this long if all sensors drop out (tunnel)
+const bool          MOTION_DEBUG      = true;        // print a motion line every 10 s (set false for production)
+
 // ---------- Live tracking (periodic updates after the first alert) ----------
 const bool          TRACKING_ENABLED     = true;
 const unsigned long TRACK_PHASE1_END_MS  = 120000UL;    // 0-2 min
@@ -65,7 +108,7 @@ const unsigned long TRACK_PHASE3_END_MS  = 3600000UL;   // 10-60 min
 const unsigned long TRACK_PHASE3_MS      = 60000UL;     //   every 60 s
 const unsigned long TRACK_PHASE4_MS      = 300000UL;    // 60 min onward: every 5 min
 const unsigned long TRACK_MAX_MS         = 10800000UL;  // hard stop after 3 h
-const double        TRACK_MIN_MOVE_M     = 25.0;        // moved less than this => skip (unless heartbeat due)
+const double        TRACK_MIN_MOVE_M     = 25.0;        // moved less than this => skip (only while STILL, unless heartbeat due)
 const unsigned long TRACK_HEARTBEAT_MS   = 120000UL;    // always send at least this often
 const double        TRACK_FAST_KMPH      = 30.0;        // faster than this => tighten interval
 const unsigned long TRACK_FAST_MS        = 10000UL;
@@ -73,6 +116,13 @@ const int           TRACK_BAT_LOW_PCT    = 20;          // below: intervals x2
 const int           TRACK_BAT_CRIT_PCT   = 10;          // below: at most every 5 min
 const unsigned long TRACK_RETRY_MS       = 5000UL;      // after a failed update, try again soon
 const unsigned long TRACK_STOP_HOLD_MS   = 1500UL;      // hold button this long to stop tracking (use 3-5 s in production)
+// Motion-aware tracking
+const unsigned long TRACK_VEHICLE_MS        = 5000UL;   // in a vehicle: update every 5 s
+const unsigned long TRACK_WALK_MS           = 10000UL;  // on foot: every 10 s
+const unsigned long TRACK_FIRST_MOVING_MS   = 3000UL;   // first update after the alert if already moving
+const unsigned long TRACK_MOTION_GAP_MS     = 3000UL;   // min gap between motion-change-triggered updates
+const unsigned long TRACK_STILL_AFTER_MS    = 300000UL; // stationary this long => stretch interval
+const unsigned long TRACK_STILL_MS          = 30000UL;  //   ...to at least this
 
 // ---------- BLE device linking ----------
 // Link mode: hold the button ~5 s while idle (two quick beeps), or hold it while resetting, or send 'l' on Serial.
@@ -108,10 +158,14 @@ const uint32_t      PIN_PBKDF2_ITERS            = 10000;     // reported to the 
 const uint8_t       PIN_MAX_FAILS               = 5;
 const unsigned long PIN_LOCKOUT_MS              = 900000UL;  // 15 min after too many wrong PINs
 const bool          LOCKED_DISABLES_MANUAL_STOP = false;     // true: a locked band can't be silenced by hand (needs an app "I'm safe" feature first)
-const bool          DEV_SERIAL_COMMANDS         = true;      // 'l' = link mode, 'x' = wipe PIN. Set false for production.
+const bool          DEV_SERIAL_COMMANDS         = true;      // 'l' link mode, 'x' wipe PIN, 'g' re-enable dev location, 'm' motion status. Set false for production.
 
 enum DeviceState { IDLE, COUNTDOWN, SENDING, TRACKING };
 DeviceState state = IDLE;
+
+enum MotState { MOT_UNKNOWN, MOT_STILL, MOT_WALK, MOT_VEHICLE };
+enum ImuAct   { ACT_NONE, ACT_STILL, ACT_VIBE, ACT_WALK, ACT_RUN };
+enum ImuType  { IMU_NONE, IMU_MPU, IMU_ADXL345, IMU_LIS3DH };
 
 Preferences prefs;
 TinyGPSPlus gps;
@@ -127,6 +181,36 @@ double locLat = 0, locLng = 0;
 const char* locSrc = "";
 long   locAgeS = -1;
 String lastLocMsg = "no location";
+
+// GPS module state
+bool          gpsEverSeen = false;       // persisted: a real GPS module has been detected at least once
+uint8_t       gpsBaudIdx = 0;
+bool          gpsBaudLocked = false;
+unsigned long gpsBaudSince = 0, lastGpsCharAt = 0;
+uint32_t      gpsChecksumBase = 0;
+
+// Motion state
+ImuType       imuType = IMU_NONE;
+uint8_t       imuAddr = 0;
+const char*   imuName = "none";
+uint8_t       imuFails = 0;
+unsigned long lastImuScan = 0, lastImuSample = 0;
+float         gEst = 1.0f;
+bool          gInit = false, stepArmed = true;
+float         winSumSq = 0;
+uint16_t      winN = 0;
+uint8_t       winSteps = 0;
+unsigned long winStart = 0, lastStepAt = 0;
+float         actRmsMg = 0, cadenceHz = 0;
+ImuAct        imuAct = ACT_NONE;
+
+MotState      motState = MOT_UNKNOWN, motCand = MOT_UNKNOWN;
+const char*   motSrc = "none";
+double        motSpeed = -1;             // km/h, smoothed, -1 = no valid GPS speed
+int           motHdg = -1;               // degrees, -1 = unknown
+unsigned long motChangedAt = 0, motCandSince = 0, lastMotionTick = 0, lastMotDbg = 0;
+bool          motChangeFlag = false;
+MotState      lastSentMot = MOT_UNKNOWN;
 
 // Tracking state
 uint32_t      activationCtr = 0;     // ctr of the original alert; updates reference it
@@ -205,6 +289,15 @@ void countdownFeedback() {
 }
 
 // ---------- GPS ----------
+void gpsBegin(uint8_t idx) {
+  gpsBaudIdx = idx % GPS_BAUD_COUNT;
+  Serial2.end();
+  Serial2.setRxBufferSize(1024);
+  Serial2.begin(GPS_BAUDS[gpsBaudIdx], SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  gpsBaudSince = millis();
+  gpsChecksumBase = gps.passedChecksum();
+}
+
 void maybeCacheFix(double lat, double lng) {
   unsigned long now = millis();
   if (hasCached) {
@@ -217,23 +310,48 @@ void maybeCacheFix(double lat, double lng) {
 }
 
 void pollGps() {
-  while (Serial2.available()) gps.encode(Serial2.read());
+  while (Serial2.available()) { gps.encode(Serial2.read()); lastGpsCharAt = millis(); }
   if (gps.location.isValid() && gps.location.isUpdated()) {
     maybeCacheFix(gps.location.lat(), gps.location.lng());
   }
 }
 
 void trackGps() {
+  unsigned long now = millis();
+
+  // 1) baud auto-detect: lock when valid NMEA sentences arrive, otherwise cycle through common bauds
+  if (!gpsBaudLocked) {
+    if (gps.passedChecksum() >= gpsChecksumBase + 3) {
+      gpsBaudLocked = true;
+      prefs.putUChar("gps_bi", gpsBaudIdx);
+      Serial.println("[GPS] NMEA detected at " + String(GPS_BAUDS[gpsBaudIdx]) + " baud");
+    } else if (GPS_AUTO_BAUD && (now - gpsBaudSince) >= GPS_BAUD_TRY_MS) {
+      gpsBegin(gpsBaudIdx + 1);
+    }
+  } else if (lastGpsCharAt != 0 && (now - lastGpsCharAt) > GPS_SILENCE_RELOCK_MS) {
+    gpsBaudLocked = false;                     // module unplugged / reset: scan again
+    Serial.println("[GPS] module went silent, scanning bauds again");
+    gpsBegin(gpsBaudIdx);
+  }
+
+  // 2) remember that a real module exists => dev fallback location is disabled from now on
+  if (!gpsEverSeen && gpsBaudLocked) {
+    gpsEverSeen = true;
+    prefs.putUChar("gps_seen", 1);
+    Serial.println("[GPS] module detected, dev fallback location is now permanently disabled");
+  }
+
+  // 3) fix status changes
   bool fix = gps.location.isValid() && gps.location.age() < GPS_FRESH_MS;
   if (fix != gpsHadFix) {
     gpsHadFix = fix;
     Serial.println(fix ? "[GPS] fix acquired, sats=" + String(gps.satellites.value())
                        : "[GPS] fix lost");
   }
-  if (!gpsNoDataWarned && millis() > 15000 && gps.charsProcessed() == 0) {
+  if (!gpsNoDataWarned && now > 15000 && gps.charsProcessed() == 0) {
     gpsNoDataWarned = true;
     Serial.println(String("[GPS] no data from module (not connected?) - ") +
-                   (USE_DEV_FALLBACK_LOCATION ? "using dev fallback location" : "alerts will have no location"));
+                   ((USE_DEV_FALLBACK_LOCATION && !gpsEverSeen) ? "using dev fallback location" : "alerts will have no live location"));
   }
 }
 
@@ -250,7 +368,7 @@ bool resolveLocation() {
   if (hasCached) {
     locLat = cachedLat; locLng = cachedLng; locSrc = "cached"; locAgeS = -1; return true;
   }
-  if (USE_DEV_FALLBACK_LOCATION) {
+  if (USE_DEV_FALLBACK_LOCATION && !gpsEverSeen) {
     locLat = DEV_FALLBACK_LAT; locLng = DEV_FALLBACK_LNG; locSrc = "dev"; locAgeS = -1; return true;
   }
   return false;
@@ -266,6 +384,250 @@ int readBatteryPercent() {
 #else
   return -1;
 #endif
+}
+
+// ---------- Accelerometer (raw I2C, no libraries) ----------
+bool i2cPresent(uint8_t a) {
+  Wire.beginTransmission(a);
+  return Wire.endTransmission() == 0;
+}
+
+bool i2cWrite(uint8_t a, uint8_t reg, uint8_t val) {
+  Wire.beginTransmission(a);
+  Wire.write(reg);
+  Wire.write(val);
+  return Wire.endTransmission() == 0;
+}
+
+bool i2cRead(uint8_t a, uint8_t reg, uint8_t* buf, size_t n) {
+  Wire.beginTransmission(a);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom((int)a, (int)n) != (int)n) return false;
+  for (size_t i = 0; i < n; i++) buf[i] = Wire.read();
+  return true;
+}
+
+bool imuInit() {
+  if (!IMU_ENABLED) return false;
+  uint8_t id = 0;
+
+  // MPU6050 / MPU6500 / MPU9250 family
+  for (uint8_t a = 0x68; a <= 0x69; a++) {
+    if (!i2cPresent(a)) continue;
+    if (i2cRead(a, 0x75, &id, 1) && (id == 0x68 || id == 0x70 || id == 0x71 || id == 0x73 || id == 0x98)) {
+      i2cWrite(a, 0x6B, 0x01);   // wake, PLL clock
+      delay(10);
+      i2cWrite(a, 0x1A, 0x03);   // digital low-pass ~44 Hz (cuts noise)
+      i2cWrite(a, 0x1C, 0x08);   // +-4 g
+      i2cWrite(a, 0x6C, 0x07);   // gyros off (saves power, we only need the accelerometer)
+      imuType = IMU_MPU; imuAddr = a; imuName = (id == 0x68) ? "MPU6050" : "MPU6500/9250";
+      return true;
+    }
+  }
+  // ADXL345
+  for (uint8_t a = 0x53; a != 0; a = (a == 0x53) ? 0x1D : 0) {
+    if (!i2cPresent(a)) continue;
+    if (i2cRead(a, 0x00, &id, 1) && id == 0xE5) {
+      i2cWrite(a, 0x2C, 0x0A);   // 100 Hz
+      i2cWrite(a, 0x31, 0x08);   // full resolution, +-2 g
+      i2cWrite(a, 0x2D, 0x08);   // measure
+      imuType = IMU_ADXL345; imuAddr = a; imuName = "ADXL345";
+      return true;
+    }
+  }
+  // LIS3DH
+  for (uint8_t a = 0x18; a <= 0x19; a++) {
+    if (!i2cPresent(a)) continue;
+    if (i2cRead(a, 0x0F, &id, 1) && id == 0x33) {
+      i2cWrite(a, 0x20, 0x57);   // 100 Hz, all axes on
+      i2cWrite(a, 0x23, 0x88);   // block data update, high resolution, +-2 g
+      imuType = IMU_LIS3DH; imuAddr = a; imuName = "LIS3DH";
+      return true;
+    }
+  }
+  return false;
+}
+
+// Returns acceleration in g
+bool imuRead(float& x, float& y, float& z) {
+  uint8_t b[6];
+  switch (imuType) {
+    case IMU_MPU:
+      if (!i2cRead(imuAddr, 0x3B, b, 6)) return false;
+      x = (int16_t)((b[0] << 8) | b[1]) / 8192.0f;
+      y = (int16_t)((b[2] << 8) | b[3]) / 8192.0f;
+      z = (int16_t)((b[4] << 8) | b[5]) / 8192.0f;
+      return true;
+    case IMU_ADXL345:
+      if (!i2cRead(imuAddr, 0x32, b, 6)) return false;
+      x = (int16_t)((b[1] << 8) | b[0]) / 256.0f;
+      y = (int16_t)((b[3] << 8) | b[2]) / 256.0f;
+      z = (int16_t)((b[5] << 8) | b[4]) / 256.0f;
+      return true;
+    case IMU_LIS3DH:
+      if (!i2cRead(imuAddr, 0x28 | 0x80, b, 6)) return false;
+      x = ((int16_t)((b[1] << 8) | b[0]) >> 4) / 1000.0f;
+      y = ((int16_t)((b[3] << 8) | b[2]) >> 4) / 1000.0f;
+      z = ((int16_t)((b[5] << 8) | b[4]) >> 4) / 1000.0f;
+      return true;
+    default: return false;
+  }
+}
+
+void imuResetWindow(unsigned long now) {
+  winStart = now; winSumSq = 0; winN = 0; winSteps = 0;
+}
+
+// Runs every loop; samples at 50 Hz and classifies activity every 2 s
+void imuTick() {
+  unsigned long now = millis();
+
+  if (imuType == IMU_NONE) {
+    if (IMU_ENABLED && (now - lastImuScan) >= IMU_RESCAN_MS) {
+      lastImuScan = now;
+      if (imuInit()) {
+        gInit = false; imuAct = ACT_STILL; imuResetWindow(now);
+        Serial.println(String("[IMU] ") + imuName + " detected at 0x" + String(imuAddr, HEX) + ", motion sensing active");
+      }
+    }
+    return;
+  }
+
+  if ((now - lastImuSample) < IMU_SAMPLE_MS) return;
+  unsigned long dt = now - lastImuSample;
+  lastImuSample = now;
+
+  float x, y, z;
+  if (!imuRead(x, y, z)) {
+    if (++imuFails >= 10) {
+      Serial.println(String("[IMU] ") + imuName + " stopped responding, will keep looking");
+      imuType = IMU_NONE; imuAct = ACT_NONE; imuName = "none"; imuFails = 0; lastImuScan = now;
+    }
+    return;
+  }
+  imuFails = 0;
+
+  if (dt > 500) imuResetWindow(now);           // we were blocked (HTTP post etc.), don't pollute the window
+
+  float mag = sqrtf(x * x + y * y + z * z);
+  if (!gInit) { gEst = mag; gInit = true; }
+  gEst += 0.02f * (mag - gEst);                // slow gravity baseline, independent of orientation
+  float dyn = mag - gEst;
+
+  winSumSq += dyn * dyn;
+  winN++;
+
+  // simple step / bounce counter
+  if (stepArmed && dyn > STEP_THRESH_G && (now - lastStepAt) >= 250) {
+    winSteps++; lastStepAt = now; stepArmed = false;
+  } else if (!stepArmed && dyn < 0.03f) {
+    stepArmed = true;
+  }
+
+  if ((now - winStart) >= 2000 && winN > 10) {
+    actRmsMg = sqrtf(winSumSq / winN) * 1000.0f;
+    cadenceHz = winSteps / 2.0f;
+    if (actRmsMg < IMU_STILL_MG) imuAct = ACT_STILL;
+    else if (cadenceHz >= 1.0f && cadenceHz <= 4.0f && actRmsMg >= IMU_WALK_MIN_MG)
+      imuAct = (cadenceHz >= 2.6f && actRmsMg >= 300.0f) ? ACT_RUN : ACT_WALK;
+    else imuAct = ACT_VIBE;                     // steady low-level vibration: engine / road / train
+    imuResetWindow(now);
+  }
+}
+
+// ---------- Motion fusion (GPS speed + accelerometer) ----------
+const char* motName(MotState m) {
+  switch (m) {
+    case MOT_STILL:   return "still";
+    case MOT_WALK:    return "walking";
+    case MOT_VEHICLE: return "vehicle";
+    default:          return "unknown";
+  }
+}
+
+int motRank(MotState m) { return m == MOT_VEHICLE ? 2 : (m == MOT_WALK ? 1 : 0); }
+bool isMoving() { return motState == MOT_WALK || motState == MOT_VEHICLE; }
+
+// Runs every loop, works once per second
+void motionTick() {
+  unsigned long now = millis();
+  if ((now - lastMotionTick) < 1000) return;
+  lastMotionTick = now;
+
+  bool gpsGood = gps.location.isValid() && gps.location.age() < 5000 &&
+                 gps.speed.isValid() && gps.speed.age() < 5000 &&
+                 (!gps.hdop.isValid() || gps.hdop.hdop() <= 6.0);
+  if (gpsGood) {
+    double v = gps.speed.kmph();
+    motSpeed = (motSpeed < 0) ? v : (0.5 * motSpeed + 0.5 * v);
+    motHdg = (gps.course.isValid() && gps.course.age() < 5000 && motSpeed >= MOT_WALK_KMH) ? (int)gps.course.deg() : -1;
+  } else {
+    motSpeed = -1; motHdg = -1;
+  }
+
+  bool imuOk = (imuType != IMU_NONE && imuAct != ACT_NONE);
+  bool imuMoving = imuOk && imuAct != ACT_STILL;
+  MotState raw; const char* src;
+
+  if (gpsGood) {
+    if (motSpeed >= MOT_VEHICLE_KMH) {
+      raw = MOT_VEHICLE; src = imuMoving ? "gps+imu" : "gps";
+    } else if (motSpeed >= MOT_WALK_KMH) {
+      raw = (imuAct == ACT_VIBE) ? MOT_VEHICLE : MOT_WALK;      // slow crawl in traffic vs walking
+      src = imuMoving ? "gps+imu" : "gps";
+    } else if (imuAct == ACT_WALK || imuAct == ACT_RUN) {
+      raw = MOT_WALK; src = "imu";                              // GPS weak or very slow, but steps detected
+    } else {
+      raw = MOT_STILL; src = imuOk ? "gps+imu" : "gps";
+    }
+  } else if (imuOk) {
+    src = "imu";
+    if (imuAct == ACT_STILL) raw = MOT_STILL;
+    else if (imuAct == ACT_VIBE) raw = MOT_VEHICLE;             // low confidence (no speed), server sees msrc=imu
+    else raw = MOT_WALK;
+  } else {
+    raw = MOT_UNKNOWN; src = "none";
+  }
+  motSrc = src;
+
+  // hysteresis: quick to say "moving", slow to say "stopped"
+  if (raw == motState) {
+    motCand = raw;
+  } else {
+    if (raw != motCand) { motCand = raw; motCandSince = now; }
+    unsigned long need;
+    if (motState == MOT_UNKNOWN) need = 0;
+    else if (raw == MOT_UNKNOWN) need = MOT_UNKNOWN_HOLD_MS;
+    else need = (motRank(raw) > motRank(motState)) ? MOT_UP_MS : MOT_DOWN_MS;
+    if ((now - motCandSince) >= need) {
+      MotState old = motState;
+      motState = raw; motChangedAt = now;
+      if (state == TRACKING) motChangeFlag = true;
+      Serial.println(String("[MOT] ") + motName(old) + " -> " + motName(raw) + " (" + src + ")");
+    }
+  }
+
+  if (MOTION_DEBUG && (now - lastMotDbg) >= 10000) {
+    lastMotDbg = now;
+    Serial.println(String("[MOT] ") + motName(motState) + " src=" + motSrc +
+                   " spd=" + (motSpeed >= 0 ? String(motSpeed, 1) + "km/h" : String("n/a")) +
+                   " imu=" + imuName + " act=" + String((int)actRmsMg) + "mg cad=" + String(cadenceHz, 1) +
+                   " sats=" + (gps.satellites.isValid() ? String(gps.satellites.value()) : String("?")));
+  }
+}
+
+// Fields appended to every alert / update / heartbeat
+String motionJson() {
+  String s = ",\"mot\":\"" + String(motName(motState)) + "\",\"moving\":" + String(isMoving() ? 1 : 0) +
+             ",\"msrc\":\"" + String(motSrc) + "\"";
+  if (motSpeed >= 0) s += ",\"spd\":" + String(motSpeed, 1);
+  if (motHdg >= 0)   s += ",\"hdg\":" + String(motHdg);
+  if (motState == MOT_STILL) s += ",\"still_s\":" + String((millis() - motChangedAt) / 1000);
+  if (imuType != IMU_NONE && imuAct != ACT_NONE) s += ",\"act\":" + String((int)actRmsMg);
+  if (gps.satellites.isValid()) s += ",\"sats\":" + String(gps.satellites.value());
+  if (gps.hdop.isValid())       s += ",\"hdop\":" + String(gps.hdop.hdop(), 1);
+  return s;
 }
 
 // ---------- Crypto ----------
@@ -382,6 +744,7 @@ void hmacSha256(const uint8_t* key, size_t klen, const uint8_t* data, size_t dle
 
 // ---------- Payload ----------
 // status: "panic_activated" (ref = 0) or "panic_update" (ref = ctr of the original alert)
+// Every payload now carries the motion block (mot, moving, spd, hdg, msrc, still_s, act, sats, hdop).
 String buildPayload(const char* status, uint32_t ctr, uint32_t ref) {
   String inner = "{\"status\":\"" + String(status) + "\",\"ctr\":" + String(ctr);
   if (ref) inner += ",\"ref\":" + String(ref);
@@ -389,8 +752,9 @@ String buildPayload(const char* status, uint32_t ctr, uint32_t ref) {
   if (resolveLocation()) {
     inner += ",\"lat\":" + String(locLat, 6) + ",\"lng\":" + String(locLng, 6) +
              ",\"src\":\"" + String(locSrc) + "\",\"age\":" + String(locAgeS);
-    lastLocMsg = String(locLat, 6) + "," + String(locLng, 6) + " (" + String(locSrc) + ")";
+    lastLocMsg = String(locLat, 6) + "," + String(locLng, 6) + " (" + String(locSrc) + ", " + motName(motState) + ")";
   }
+  inner += motionJson();
   int bat = readBatteryPercent();
   if (bat >= 0) inner += ",\"bat\":" + String(bat);
   inner += "}";
@@ -403,6 +767,11 @@ String buildHeartbeatPayload(uint32_t ctr) {
   if (bat >= 0) inner += ",\"bat\":" + String(bat);
   if (WiFi.status() == WL_CONNECTED) inner += ",\"rssi\":" + String(WiFi.RSSI());
   inner += ",\"lock\":" + String(pinSet ? 1 : 0);      // lets the server see/repair lock mismatches
+  inner += ",\"gps_ok\":" + String((gpsEverSeen && gps.charsProcessed() > 0 && (millis() - lastGpsCharAt) < 10000) ? 1 : 0);
+  inner += ",\"fix\":" + String((gps.location.isValid() && gps.location.age() < GPS_FRESH_MS) ? 1 : 0);
+  inner += ",\"imu_ok\":" + String(imuType != IMU_NONE ? 1 : 0);
+  inner += motionJson();
+  inner += ",\"fw\":\"" + String(FW_VERSION) + "\"";
   inner += "}";
   return inner;
 }
@@ -766,7 +1135,7 @@ void sendHeartbeat() {
   int code = body.length() ? postPayload(body, &resp) : -3;
   if (code >= 200 && code < 300) {
     Serial.println("[TELEMETRY] sent battery=" + String(readBatteryPercent()) + "% rssi=" + String(WiFi.RSSI()) +
-                   " dBm lock=" + String(pinSet ? 1 : 0));
+                   " dBm lock=" + String(pinSet ? 1 : 0) + " mot=" + motName(motState));
     resp.replace(" ", "");
     // Server says this band is not locked but we are: stale PIN (e.g. after an admin reset). Drop it.
     if (pinSet && resp.indexOf("\"pin_clear\":true") >= 0) {
@@ -789,10 +1158,15 @@ unsigned long currentInterval() {
   else if (el < TRACK_PHASE3_END_MS) iv = TRACK_PHASE3_MS;
   else                               iv = TRACK_PHASE4_MS;
 
-  // Moving fast: tighten (never loosen)
+  // Moving fast (GPS): tighten (never loosen)
   if (gps.speed.isValid() && gps.speed.age() < 5000 && gps.speed.kmph() > TRACK_FAST_KMPH) {
     if (TRACK_FAST_MS < iv) iv = TRACK_FAST_MS;
   }
+
+  // Motion-aware: a moving person gets frequent updates, a stationary one gets fewer
+  if (motState == MOT_VEHICLE) { if (TRACK_VEHICLE_MS < iv) iv = TRACK_VEHICLE_MS; }
+  else if (motState == MOT_WALK) { if (TRACK_WALK_MS < iv) iv = TRACK_WALK_MS; }
+  else if (motState == MOT_STILL && (millis() - motChangedAt) > TRACK_STILL_AFTER_MS && iv < TRACK_STILL_MS) iv = TRACK_STILL_MS;
 
   // Low battery: stretch
   int bat = readBatteryPercent();
@@ -808,8 +1182,10 @@ void beginTracking() {
   state = TRACKING;
   updatesSent = 0;
   lastTrackErr = 0;
-  nextUpdateAt = millis() + currentInterval();
-  Serial.println("[TRACK] started, first update in " + String((nextUpdateAt - millis()) / 1000) + "s");
+  motChangeFlag = false;
+  // The first alert is only a snapshot. If the person is already moving, follow up almost immediately.
+  nextUpdateAt = millis() + (isMoving() ? TRACK_FIRST_MOVING_MS : currentInterval());
+  Serial.println("[TRACK] started (" + String(motName(motState)) + "), first update in " + String((nextUpdateAt - millis()) / 1000) + "s");
 }
 
 void stopTracking(const char* why, bool feedback) {
@@ -824,8 +1200,9 @@ void doTrackingUpdate() {
   unsigned long now = millis();
   bool haveLoc = resolveLocation();
 
-  // Skip if we are on a live GPS fix and have barely moved, unless a heartbeat is due
-  if (haveLoc && haveLastSent && strcmp(locSrc, "gps") == 0 &&
+  // Skip only when stationary on a live GPS fix with barely any movement, unless a heartbeat is due.
+  // Never skip while moving, and never skip right after the motion state changed.
+  if (haveLoc && haveLastSent && !isMoving() && lastSentMot == motState && strcmp(locSrc, "gps") == 0 &&
       (now - lastSentAt) < TRACK_HEARTBEAT_MS &&
       TinyGPSPlus::distanceBetween(locLat, locLng, lastSentLat, lastSentLng) < TRACK_MIN_MOVE_M) {
     nextUpdateAt = now + currentInterval();
@@ -841,6 +1218,7 @@ void doTrackingUpdate() {
     updatesSent++;
     lastSentAt = millis();
     lastSentLat = locLat; lastSentLng = locLng; haveLastSent = haveLoc;
+    lastSentMot = motState;
     if (lastTrackErr != 0) { Serial.println("[TRACK] link restored"); lastTrackErr = 0; }
     Serial.println("[TRACK] #" + String(updatesSent) + " sent " + lastLocMsg);
 
@@ -948,7 +1326,8 @@ void updateButton() {
   if (state == IDLE && !linkMode && !SILENT_MODE) ledSet(btnDown && !ignoreUntilRelease);
 }
 
-// Dev shortcuts on the Serial Monitor: 'l' = link mode, 'x' = wipe the PIN stored on this band
+// Dev shortcuts on the Serial Monitor:
+//  'l' link mode, 'x' wipe PIN, 'g' forget "GPS seen" (re-enables the dev location for bench tests), 'm' motion/sensor status
 void handleSerialCommands() {
   if (!DEV_SERIAL_COMMANDS) return;
   while (Serial.available()) {
@@ -960,6 +1339,17 @@ void handleSerialCommands() {
       wipePin();
       refreshInfo();
       Serial.println("[PIN] wiped on this band (dev command)");
+    } else if (c == 'g' || c == 'G') {
+      gpsEverSeen = false;
+      prefs.remove("gps_seen");
+      Serial.println("[GPS] 'module seen' flag cleared (dev command), dev location allowed again until a GPS is detected");
+    } else if (c == 'm' || c == 'M') {
+      Serial.println(String("[MOT] state=") + motName(motState) + " src=" + motSrc +
+                     " spd=" + (motSpeed >= 0 ? String(motSpeed, 1) : String("n/a")) +
+                     " hdg=" + String(motHdg) + " imu=" + imuName + "@0x" + String(imuAddr, HEX) +
+                     " act=" + String((int)actRmsMg) + "mg cad=" + String(cadenceHz, 1) +
+                     " gpsSeen=" + String(gpsEverSeen ? 1 : 0) + " baud=" + String(GPS_BAUDS[gpsBaudIdx]) +
+                     " chars=" + String(gps.charsProcessed()) + " sats=" + (gps.satellites.isValid() ? String(gps.satellites.value()) : String("?")));
     }
   }
 }
@@ -1020,10 +1410,25 @@ void setup() {
   cachedLng = prefs.getDouble("lng", 999.0);
   hasCached = (cachedLat >= -90 && cachedLat <= 90 && cachedLng >= -180 && cachedLng <= 180);
 
+  gpsEverSeen = (prefs.getUChar("gps_seen", 0) == 1);
+
   loadPin();
 
-  Serial2.setRxBufferSize(1024);
-  Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  // GPS: start at the last baud that worked (or 9600), auto-detect handles the rest
+  uint8_t bi = prefs.getUChar("gps_bi", 0);
+  if (bi >= GPS_BAUD_COUNT) bi = 0;
+  gpsBegin(bi);
+
+  // Accelerometer on I2C (optional, hot-pluggable: rescans every IMU_RESCAN_MS)
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  Wire.setClock(400000);
+  Wire.setTimeOut(30);
+  if (imuInit()) {
+    imuAct = ACT_STILL; imuResetWindow(millis());
+    Serial.println(String("[IMU] ") + imuName + " detected at 0x" + String(imuAddr, HEX) + ", motion sensing active");
+  }
+  lastImuScan = millis();
+  motChangedAt = millis();
 
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
@@ -1035,9 +1440,13 @@ void setup() {
 
   Serial.println();
   Serial.println("[BOOT] Kiki Band v" + String(FW_VERSION) + ", device id: " + deviceId);
-  Serial.println("[BOOT] pins: button=" + String(BUTTON_PIN) + " led=" + String(LED_PIN) + " buzzer=" + String(BUZZER_PIN));
+  Serial.println("[BOOT] pins: button=" + String(BUTTON_PIN) + " led=" + String(LED_PIN) + " buzzer=" + String(BUZZER_PIN) +
+                 " gps_rx=" + String(GPS_RX_PIN) + " gps_tx=" + String(GPS_TX_PIN) +
+                 " i2c_sda=" + String(I2C_SDA_PIN) + " i2c_scl=" + String(I2C_SCL_PIN));
   Serial.println(String("[BOOT] live tracking: ") + (TRACKING_ENABLED ? "on" : "off") +
                  ", PIN lock: " + (pinSet ? "ON" : "off") + (pinSet && pinFails >= PIN_MAX_FAILS ? " (locked out)" : ""));
+  Serial.println(String("[BOOT] GPS seen before: ") + (gpsEverSeen ? "yes (dev location disabled)" : "no") +
+                 ", IMU: " + imuName + ", dev serial commands: l=link x=wipe PIN g=allow dev location m=motion status");
   Serial.println("[BOOT] link mode: hold button 5 s until two beeps, or send 'l' in Serial Monitor, or hold it while resetting");
   Serial.println("[WIFI] connecting to " + String(WIFI_SSID) + "...");
 
@@ -1050,6 +1459,8 @@ void setup() {
 void loop() {
   pollGps();
   trackGps();
+  imuTick();
+  motionTick();
   updateButton();
   handleSerialCommands();
   maintainWifi();
@@ -1068,7 +1479,7 @@ void loop() {
       if (millis() - lastAttempt >= RETRY_INTERVAL_MS) {
         lastAttempt = millis();
         sendAttempts++;
-        // Rebuilt on every attempt so a delayed alert always carries the freshest location.
+        // Rebuilt on every attempt so a delayed alert always carries the freshest location and motion state.
         // The ctr stays the same, so the server still sees one alert.
         String body = encryptPayload(buildPayload("panic_activated", activationCtr, 0));
         int code = body.length() ? postPayload(body, nullptr) : -3;
@@ -1077,6 +1488,7 @@ void loop() {
           signalSent();
           lastSentAt = millis();
           lastSentLat = locLat; lastSentLng = locLng; haveLastSent = true;
+          lastSentMot = motState;
           beginTracking();
         } else if (code != lastSendErr || sendAttempts % 10 == 0) {
           lastSendErr = code;
@@ -1086,8 +1498,16 @@ void loop() {
       break;
 
     case TRACKING:
-      if (millis() - alertStart >= TRACK_MAX_MS) stopTracking("time limit reached", false);
-      else if ((long)(millis() - nextUpdateAt) >= 0) doTrackingUpdate();
+      if (millis() - alertStart >= TRACK_MAX_MS) {
+        stopTracking("time limit reached", false);
+      } else {
+        // motion state just changed (started moving / stopped): report right away, but not more than every few seconds
+        if (motChangeFlag) {
+          motChangeFlag = false;
+          if (millis() - lastSentAt >= TRACK_MOTION_GAP_MS) nextUpdateAt = millis();
+        }
+        if ((long)(millis() - nextUpdateAt) >= 0) doTrackingUpdate();
+      }
       break;
 
     default: break;
