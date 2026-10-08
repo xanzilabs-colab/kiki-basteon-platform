@@ -3,6 +3,98 @@
 .panel, .chatWrap { position: relative; width: min(100%, 540px); margin-inline: auto; display: grid; justify-items: center; gap: 14px; text-align: center; animation: enter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .title { margin: 0; max-width: 460px; }
 .lede { max-width: 430px; margin: 0; color: var(--ink-soft); font-size: 16px; font-weight: 500; line-height: 1.5; }
+.hubTopBar button { width: 46px; height: 46px; padding: 0; justify-content: center; border-radius: 50%; }
+.hubTopBar button span { display: none; }
+.hubMenu { width: min(100%, 440px); gap: 12px; }
+.hubHero { display: grid; justify-items: center; gap: 6px; margin-top: 2px; }
+.hubSub { margin: 0; color: var(--ink-soft); font-size: 17px; font-weight: 700; }
+.hubCalmChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 8px 0 16px;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: var(--glass);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+}
+.hubCalmChip svg { color: var(--glow); }
+.hubSwitch {
+  position: relative;
+  width: 46px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.hubSwitch::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.34);
+  transition: transform 0.25s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+.hubCalmChip[aria-pressed="true"] .hubSwitch { background: #6fd3c0; }
+.hubCalmChip[aria-pressed="true"] .hubSwitch::after { transform: translateX(16px); }
+.hubCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-height: 280px;
+}
+.hubCard {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 188px;
+  padding: 12px 8px;
+  border: 1px solid var(--glass-line);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.07));
+  color: var(--ink);
+  box-shadow: 0 14px 30px rgba(20, 8, 40, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+}
+.hubCard:active { transform: scale(0.96); }
+.hubCardGold {
+  border-color: rgba(255, 226, 170, 0.6);
+  background: linear-gradient(180deg, rgba(255, 214, 140, 0.5), rgba(255, 160, 100, 0.28));
+}
+.hubOrb {
+  display: grid;
+  place-items: center;
+  width: clamp(60px, 9.5dvh, 84px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: var(--glow);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.12));
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3), 0 8px 20px rgba(20, 8, 40, 0.3);
+}
+.hubCardGold .hubOrb { color: #fff3d0; }
+.hubCard strong { font-size: 21px; font-weight: 900; line-height: 1.05; }
+.hubCard small { color: var(--ink-soft); font-size: 14px; font-weight: 700; }
+.hubGo {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+}
 .say { display: inline-flex; align-items: flex-start; gap: 8px; max-width: 440px; margin: 0; padding: 12px 16px; border: 1px solid var(--glass-line); border-radius: 18px; background: var(--glass); backdrop-filter: blur(10px); font-size: 17px; font-weight: 700; line-height: 1.35; text-align: left; }
 .say svg { flex: none; margin-top: 2px; color: var(--glow); }
 .helper { min-height: 20px; margin: 0; color: var(--ink-soft); font-size: 14px; font-weight: 600; }
@@ -146,6 +238,9 @@
   }
 }
 @media (max-width: 480px) {
+  .hubCards { grid-template-columns: 1fr 1fr; }
+  .hubCard { min-height: 170px; border-radius: 24px; }
+  .hubCard strong { font-size: 19px; }
   .modes { grid-template-columns: 1fr; }
   .modes button { min-height: 120px; }
   .chatWrap { min-height: calc(100dvh - 200px); }

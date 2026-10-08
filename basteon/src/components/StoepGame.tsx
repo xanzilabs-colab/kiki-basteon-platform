@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, BedDouble, Car, Compass, CookingPot, Ear, Eye, Flower2, GraduationCap, Hand, HeartHandshake,
+  ArrowLeft, BedDouble, Car, ChevronRight, Compass, CookingPot, Ear, Eye, Flower2, GraduationCap, Hand, HeartHandshake,
   Library, Send, ShieldX, Sofa, Sparkles, Trees, Wind, X,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ComponentType, type CSSProperties, type FormEvent, type ReactNode } from "react";
@@ -233,10 +233,26 @@ export function StoepGame() {
           ))}
         </div>
       </div>
-      <header className={styles.top}>
-        <button onClick={() => (mode === "hub" ? router.back() : restart())}><ArrowLeft size={16} />{mode === "hub" ? "Back" : "Menu"}</button>
-        <button aria-pressed={discreet} onClick={() => setDiscreet(!discreet)}><ShieldX size={16} />{discreet ? "Discreet is on" : "Discreet mode"}</button>
-        <button onClick={closeQuickly}><X size={16} />Quick close</button>
+      <header className={`${styles.top} ${mode === "hub" ? g.hubTopBar : ""}`}>
+        <button
+          aria-label={mode === "hub" ? "Back" : "Menu"}
+          onClick={() => (mode === "hub" ? router.back() : restart())}
+        >
+          <ArrowLeft size={16} />
+          <span>{mode === "hub" ? "Back" : "Menu"}</span>
+        </button>
+        <button
+          aria-label={discreet ? "Discreet mode on" : "Discreet mode"}
+          aria-pressed={discreet}
+          onClick={() => setDiscreet(!discreet)}
+        >
+          <ShieldX size={16} />
+          <span>{discreet ? "Discreet is on" : "Discreet mode"}</span>
+        </button>
+        <button aria-label="Quick close" onClick={closeQuickly}>
+          <X size={16} />
+          <span>Quick close</span>
+        </button>
       </header>
 
       {care && (
@@ -248,22 +264,36 @@ export function StoepGame() {
       )}
 
       {mode === "hub" && (
-        <section className={g.panel}>
-          <Kiki mood="idle" size={96} />
-          <h1 className={g.title}>Hi, I&apos;m Kiki. I can&apos;t see your world.</h1>
-          <p className={g.lede}>Help me out? The more closely you look, the better we both play. Nothing is saved.</p>
-          <label className={g.check}>
-            <input type="checkbox" checked={imagine} onChange={(e) => setImagine(e.target.checked)} />
-            Looking around isn&apos;t safe right now. I&apos;ll picture a calm place instead.
-          </label>
-          <div className={g.modes}>
-            <button onClick={() => { setItems(empty()); setLevel(0); setMode("name"); }}>
-              <Eye size={26} /><strong>Name it, Kiki guesses it</strong>
-              <small>Type what you notice. Then I try to guess your answers. Can you spot my wrong guesses?</small>
+        <section className={`${g.panel} ${g.hubMenu}`}>
+          <div className={g.hubHero}>
+            <Kiki mood="idle" size={112} />
+            <h1 className={g.title}>Hi, I&apos;m Kiki.</h1>
+            <p className={g.hubSub}>Help me see your world.</p>
+          </div>
+
+          <button
+            type="button"
+            className={g.hubCalmChip}
+            aria-pressed={imagine}
+            onClick={() => setImagine((value) => !value)}
+          >
+            <Wind size={18} />
+            <span>Can&apos;t look around</span>
+            <span className={g.hubSwitch} aria-hidden="true" />
+          </button>
+
+          <div className={g.hubCards}>
+            <button className={g.hubCard} onClick={() => { setItems(empty()); setLevel(0); setMode("name"); }}>
+              <span className={g.hubOrb}><Eye size={30} /></span>
+              <strong>Name it</strong>
+              <small>I guess</small>
+              <span className={g.hubGo}><ChevronRight size={16} /></span>
             </button>
-            <button onClick={() => { setLevel(0); setMode("clues"); }}>
-              <Sparkles size={26} /><strong>Be my eyes</strong>
-              <small>Give me a clue. I&apos;ll ask a few questions and guess what you&apos;re looking at.</small>
+            <button className={`${g.hubCard} ${g.hubCardGold}`} onClick={() => { setLevel(0); setMode("clues"); }}>
+              <span className={g.hubOrb}><Sparkles size={30} /></span>
+              <strong>Be my eyes</strong>
+              <small>You hint</small>
+              <span className={g.hubGo}><ChevronRight size={16} /></span>
             </button>
           </div>
         </section>
