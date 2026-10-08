@@ -1058,7 +1058,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     }
 
     /* put the flyer exactly on top of the paper, then hide the paper */
-    if (fullScreen) await wait(220);
+    if (fullScreen) await wait(280);
     const sRect = stage.getBoundingClientRect();
     const pRect = paper.getBoundingClientRect();
     const w = pRect.width;
