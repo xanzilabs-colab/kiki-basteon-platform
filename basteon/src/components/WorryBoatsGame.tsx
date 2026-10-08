@@ -15,12 +15,29 @@ const MAX_CHARS = 200;
 const BOAT_W = 76;
 const BOAT_H = 66;
 const TRAVEL_SECONDS = 26;
+const SESSION_PROMPT_COUNT = 5;
 
 const PROMPTS = [
   "What's sitting on your chest tonight?",
   "What keeps looping in your head?",
   "What are you afraid might happen?",
   "What do you wish you could put down?",
+  "What are you overthinking right now?",
+  "What feels loud in your mind tonight?",
+  "What are you carrying that isn't yours?",
+  "What moment keeps replaying today?",
+  "What's making your body feel tight?",
+  "What are you scared to say out loud?",
+  "What is draining your energy today?",
+  "What pressure are you feeling right now?",
+  "What are you trying to control?",
+  "What if this goes wrong — what's the fear?",
+  "What are you worried people might think?",
+  "What feels unfinished in your day?",
+  "What are you worried about tomorrow?",
+  "What keeps tugging at your attention?",
+  "What's hardest to put down tonight?",
+  "What thought is keeping you awake?",
 ];
 const STARTERS = ["Something I can't control", "Something I said", "Something coming up", "I just feel heavy"];
 const LAUNCH_LINES = [
@@ -59,6 +76,17 @@ const PAPERS = [
 const NIGHT = { top: hexRgb("#0f0830"), mid: hexRgb("#2b1757"), low: hexRgb("#5e2d74") };
 const DAWN = { top: hexRgb("#4b3a8c"), mid: hexRgb("#a85d9c"), low: hexRgb("#ffbe94") };
 const DEEP = hexRgb("#180a38");
+
+const pickSessionPrompts = () => {
+  const shuffled = [...PROMPTS];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, Math.min(SESSION_PROMPT_COUNT, shuffled.length));
+};
+
+const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 /* ════════════════════════════════════════════════════════════
    AUDIO — all synthesised, nothing to download
@@ -279,18 +307,18 @@ function createRiverScene(canvas: HTMLCanvasElement, hooks: SceneHooks) {
 
   const splash = (x: number, y: number) => {
     hooks.onSplash();
-    addRipple(x, y + 4, 70, 0.6);
-    addRipple(x, y + 4, 70, 0.45, -10);
-    addRipple(x, y + 4, 70, 0.3, -20);
-    for (let i = 0; i < 12; i++) {
+    addRipple(x, y + 4, 78, 0.72);
+    addRipple(x, y + 4, 90, 0.52, -12);
+    addRipple(x, y + 4, 106, 0.35, -22);
+    for (let i = 0; i < 20; i++) {
       drops.push({
         x,
         y,
-        vx: (Math.random() - 0.5) * 140,
-        vy: -(120 + Math.random() * 160),
+        vx: (Math.random() - 0.5) * 185,
+        vy: -(135 + Math.random() * 185),
         life: 0,
-        max: 0.9,
-        size: 1 + Math.random() * 1.8,
+        max: 1.05,
+        size: 1.1 + Math.random() * 2.1,
       });
     }
   };
@@ -598,6 +626,14 @@ function createRiverScene(canvas: HTMLCanvasElement, hooks: SceneHooks) {
       c.arc(d.x, d.y, d.size, 0, Math.PI * 2);
       c.fill();
     }
+    if (drops.length > 0) {
+      const focus = drops[drops.length - 1];
+      const flash = c.createRadialGradient(focus.x, focus.y + 2, 0, focus.x, focus.y + 2, 26);
+      flash.addColorStop(0, "rgba(248,243,255,0.42)");
+      flash.addColorStop(1, "rgba(248,243,255,0)");
+      c.fillStyle = flash;
+      c.fillRect(focus.x - 26, focus.y - 24, 52, 52);
+    }
 
     /* fog */
     const fog = c.createLinearGradient(0, horizon - 36, 0, horizon + 70);
@@ -866,8 +902,10 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
   const [paperKey, setPaperKey] = useState(0);
   const [paperHidden, setPaperHidden] = useState(false);
   const [promptIndex, setPromptIndex] = useState(0);
+  const [sessionPrompts] = useState<string[]>(() => pickSessionPrompts());
   const [caption, setCaption] = useState<{ id: number; text: string } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [launching, setLaunching] = useState(false);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const sceneBoxRef = useRef<HTMLDivElement>(null);
@@ -882,6 +920,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
   const aliveRef = useRef(true);
   const captionId = useRef(0);
   const captionTimer = useRef<number | undefined>(undefined);
+  const promptTimer = useRef<number | undefined>(undefined);
   const launchedRef = useRef(0);
 
   const showCaption = useCallback((text: string) => {
@@ -897,6 +936,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     return () => {
       aliveRef.current = false;
       window.clearTimeout(captionTimer.current);
+      window.clearTimeout(promptTimer.current);
     };
   }, []);
 
@@ -939,12 +979,23 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     };
   }, [showCaption, fullScreen]);
 
+  const nextPrompt = useCallback(() => {
+    setPromptIndex((current) => {
+      const total = sessionPrompts.length;
+      if (total <= 1) return 0;
+      let next = current;
+      while (next === current) next = Math.floor(Math.random() * total);
+      return next;
+    });
+  }, [sessionPrompts]);
+
   /* rotating placeholder */
   useEffect(() => {
+    window.clearTimeout(promptTimer.current);
     if (draft) return;
-    const timer = window.setInterval(() => setPromptIndex((i) => (i + 1) % PROMPTS.length), 5500);
-    return () => window.clearInterval(timer);
-  }, [draft]);
+    promptTimer.current = window.setTimeout(() => nextPrompt(), 5500);
+    return () => window.clearTimeout(promptTimer.current);
+  }, [draft, promptIndex, nextPrompt]);
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -977,6 +1028,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
 
     const text = withWords ? draft.trim() : "";
     setBusy(true);
+    setLaunching(true);
     setTouched(true);
     audioRef.current?.crinkle();
     try {
@@ -994,6 +1046,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
       setPaperKey((k) => k + 1);
       setPaperHidden(false);
       setSheetOpen(false);
+      setLaunching(false);
       setBusy(false);
       showCaption(LAUNCH_LINES[launchedRef.current % LAUNCH_LINES.length]);
     };
@@ -1005,6 +1058,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     }
 
     /* put the flyer exactly on top of the paper, then hide the paper */
+    if (fullScreen) await wait(220);
     const sRect = stage.getBoundingClientRect();
     const pRect = paper.getBoundingClientRect();
     const w = pRect.width;
@@ -1106,8 +1160,8 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
 
   if (fullScreen) {
     return (
-      <section className={`${styles.card} ${styles.boatsImmersive}`}>
-        <div className={styles.boatsHud}>
+      <section className={`${styles.boatsImmersive} ${launching ? styles.boatsLaunching : ""}`}>
+          <div className={`${styles.boatsHud} ${launching ? styles.boatsHudHidden : ""}`}>
           <Link href="/games/calm" className={styles.boatCircleBtn} aria-label="Back to calm games">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M15 5 8 12l7 7" />
@@ -1165,7 +1219,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
 
           <button
             type="button"
-            className={`${styles.boatsCta} ${sheetOpen ? styles.boatsCtaHidden : ""}`}
+            className={`${styles.boatsCta} ${sheetOpen || launching ? styles.boatsCtaHidden : ""}`}
             onClick={() => setSheetOpen(true)}
             disabled={busy}
           >
@@ -1179,7 +1233,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
             onClick={() => setSheetOpen(false)}
           />
 
-          <div className={`${styles.boatsSheet} ${sheetOpen ? styles.boatsSheetOn : ""}`}>
+          <div className={`${styles.boatsSheet} ${sheetOpen ? styles.boatsSheetOn : ""} ${launching ? styles.boatsSheetLaunching : ""}`}>
             <div key={paperKey} ref={paperRef} className={`${styles.paper} ${styles.boatsPaper} ${paperHidden ? styles.paperHidden : ""}`}>
               <span className={styles.tape} aria-hidden="true" />
               <textarea
@@ -1195,7 +1249,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
                 data-lpignore="true"
                 disabled={busy}
                 aria-label="Write a worry"
-                placeholder={PROMPTS[promptIndex]}
+                placeholder={sessionPrompts[promptIndex] ?? PROMPTS[0]}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -1204,23 +1258,25 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
                   }
                 }}
               />
-              <div className={styles.boatsMeta}>
-                <button type="button" disabled={busy} onClick={() => setPromptIndex((i) => (i + 1) % PROMPTS.length)}>
+              <div className={`${styles.boatsMeta} ${launching ? styles.boatsControlsHidden : ""}`}>
+                <button type="button" disabled={busy} onClick={nextPrompt}>
                   New prompt
                 </button>
                 <span>{draft.length}/200</span>
               </div>
             </div>
 
-            <button type="button" className={`${styles.boatsGo} ${hasText ? "" : styles.boatsGoQuiet}`} disabled={busy} onClick={() => void launch(hasText)}>
-              {hasText ? "Fold & launch" : "Let it go"}
-            </button>
-            {(launched > 0 || stars > 0) && (
-              <button type="button" className={styles.boatsReset} disabled={busy} onClick={clearRiver}>
-                Clear the river
+            <div className={`${styles.boatsControls} ${launching ? styles.boatsControlsHidden : ""}`}>
+              <button type="button" className={`${styles.boatsGo} ${hasText ? "" : styles.boatsGoQuiet}`} disabled={busy} onClick={() => void launch(hasText)}>
+                {hasText ? "Fold & launch" : "Let it go"}
               </button>
-            )}
-            <p className={styles.boatsSmall}>Nothing you write is saved or sent.</p>
+              {(launched > 0 || stars > 0) && (
+                <button type="button" className={styles.boatsReset} disabled={busy} onClick={clearRiver}>
+                  Clear the river
+                </button>
+              )}
+              <p className={styles.boatsSmall}>Nothing you write is saved or sent.</p>
+            </div>
           </div>
 
           {/* the paper that folds itself into a boat */}
@@ -1315,7 +1371,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
               data-lpignore="true"
               disabled={busy}
               aria-label="Write a worry"
-              placeholder={PROMPTS[promptIndex]}
+              placeholder={sessionPrompts[promptIndex] ?? PROMPTS[0]}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && hasText) void launch(true);

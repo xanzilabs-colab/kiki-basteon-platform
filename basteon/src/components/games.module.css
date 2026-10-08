@@ -444,10 +444,18 @@
   gap: 10px;
   padding: 14px 16px;
   pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
 .boatsHud > * {
   pointer-events: auto;
+}
+
+.boatsHudHidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
 .boatCircleBtn {
@@ -589,6 +597,10 @@
   transform: translateY(0);
 }
 
+.boatsSheet.boatsSheetLaunching {
+  transform: translateY(-18vh);
+}
+
 .boatsPaper {
   padding: 26px 22px 14px 40px;
   border-radius: 6px 6px 22px 6px;
@@ -663,6 +675,16 @@
   box-shadow: none;
 }
 
+.boatsControls {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.boatsControlsHidden {
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+}
+
 .boatsReset {
   width: 100%;
   min-height: 42px;
@@ -681,6 +703,10 @@
   text-align: center;
   color: #9d90c7;
   font-size: 12.5px;
+}
+
+.boatsImmersive .flyer {
+  z-index: 22;
 }
 
 @media (max-width: 560px) {

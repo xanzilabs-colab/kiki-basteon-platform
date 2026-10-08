@@ -379,7 +379,7 @@
 
 /* Full-viewport Worry Boats */
 .boatsPage { display: flex; width: 100%; min-height: 100dvh; margin: 0; padding: 0; background: #111128; color: #f8f3ff; }
-.boatsRoutePage { position: relative; display: flex; width: 100%; max-width: none; min-height: 100dvh; flex-direction: column; margin: 0; padding: 0; }
+.boatsRoutePage { position: relative; display: flex; width: 100%; max-width: none; min-height: 100dvh; height: 100dvh; flex-direction: column; margin: 0; padding: 0; overflow: hidden; }
 .boatsBackBar { position: absolute; z-index: 10; top: max(10px, env(safe-area-inset-top)); left: 12px; margin: 0; }
 .boatsPage .backLink { min-height: 36px; padding: 0 12px; border-color: rgba(235,226,255,.24); background: rgba(25,20,48,.42); color: #f8f3ff; font-size: 12px; box-shadow: none; backdrop-filter: blur(10px); }
 .boatsPage .card { box-sizing: border-box; display: flex; width: 100%; min-height: 100dvh; height: auto; flex: 1 0 auto; flex-direction: column; gap: 10px; margin: 0; padding: calc(58px + env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom)); border: 0; border-radius: 0; background: linear-gradient(180deg, #101125 0%, #1a173b 44%, #211842 100%); color: #f8f3ff; box-shadow: none; }
@@ -425,5 +425,4 @@
   .boatsPage .paper { min-height: 68px; }
   .boatsPage .textarea { min-height: 38px; }
 }
-
 
