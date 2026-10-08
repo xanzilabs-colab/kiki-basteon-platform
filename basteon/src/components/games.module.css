@@ -550,6 +550,50 @@
   .paper::before {
     left: 38px;
   }
+
+  .fullScreenCard {
+    gap: 10px;
+    padding-top: calc(58px + env(safe-area-inset-top));
+  }
+
+  .fullScreenCard .header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    padding-left: 0;
+  }
+
+  .fullScreenCard .title {
+    line-height: 1.2;
+    font-size: clamp(1.4rem, 6vw, 1.85rem);
+  }
+
+  .fullScreenCard .subtitle {
+    margin-top: 0;
+    max-width: none;
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  .fullScreenCard .headerSide {
+    width: 100%;
+    grid-auto-flow: row;
+    justify-items: start;
+    gap: 8px;
+  }
+
+  .fullScreenCard .stats {
+    flex-wrap: wrap;
+  }
+
+  .fullScreenCard .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .fullScreenCard .ghost {
+    grid-column: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
