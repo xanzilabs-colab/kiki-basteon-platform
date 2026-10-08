@@ -117,6 +117,8 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
+  const quickReactions = ["👏", "🔥", "😂", "😅", "🙌", "💪"];
 
   const getAudioContext = useCallback(() => {
     const AudioContextConstructor = window.AudioContext;
@@ -221,18 +223,21 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
     setBusy(false);
   }, [room, busy, getAudioContext, soundEnabled, userId]);
 
-  async function sendMessage(event: React.FormEvent) {
-    event.preventDefault();
-    if (!room || !draft.trim() || busy) return;
+  async function sendChatBody(body: string) {
+    if (!room || !body.trim() || busy) return;
     setBusy(true);
-    const body = draft.trim();
-    const { data, error } = await createClient().rpc("game_send_message", { p_room_id: room.id, p_body: body });
+    const { data, error } = await createClient().rpc("game_send_message", { p_room_id: room.id, p_body: body.trim() });
     if (error) setMessage("Message could not be sent.");
     else {
       setDraft("");
       setMessages((current) => current.some((item) => item.id === (data as GameMessage).id) ? current : [...current, data as GameMessage]);
     }
     setBusy(false);
+  }
+
+  async function sendMessage(event: React.FormEvent) {
+    event.preventDefault();
+    await sendChatBody(draft);
   }
 
   async function rematch() {
@@ -294,7 +299,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
       <div className={styles.roomLayout}>
         <section className={`${styles.gameCard} ${styles.morabarabaCard}`}>
           <div className={styles.gameHeader}>
-            <div><p className={styles.eyebrow}>Morabaraba · Round {room.round_no}</p><h1>Make a little space.</h1></div>
+            <div><p className={styles.eyebrow}>Morabaraba · Round {room.round_no}</p><h1>Morabaraba room</h1></div>
             <div className={styles.actionRow}>
               <button
                 className={styles.softButton}
@@ -327,6 +332,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
               <CowReserve label="Buddy" wins={buddyWins} placed={buddyPlaced} player={buddyPlayer} />
               <MorabarabaBoard snapshot={state} player={player} busy={busy} onAction={(action, from, to) => void act(action, from, to)} />
               <CowReserve label="You" wins={ownWins} placed={ownPlaced} player={player} />
+              <button className={styles.morabarabaChatToggle} onClick={() => setChatOpen(true)}>Open room chat</button>
               {state.pendingRemoval !== null && (
                 <div className={styles.millNotice} role="status">
                   <strong>{state.pendingRemoval === player ? "Mill! Remove one Buddy cow to finish your turn." : "Mill made. Your turn waits while your Buddy removes a cow."}</strong>
@@ -350,20 +356,47 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
         </section>
 
         {room.status !== "waiting" && room.status !== "ended" && (
-          <section className={`${styles.chatPanel} ${styles.morabarabaChat}`} aria-label="Game chat">
-            <div className={styles.chatHeading}><h2>Room chat</h2><span>Only you two</span></div>
-            <div className={styles.chatMessages} aria-live="polite">
-              {messages.map((item) => <p key={item.id} className={item.author_id === userId ? styles.ownMessage : styles.buddyMessage}><small>{item.author_id === userId ? "You" : "Buddy"}</small>{item.body}</p>)}
-              {messages.length === 0 && <p className={styles.gameNote}>A quiet hello fits here.</p>}
-            </div>
-            <form className={styles.chatForm} onSubmit={sendMessage}>
-              <input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={500} placeholder="Write a message" aria-label="Write a message" />
-              <button className={styles.primaryButton} disabled={busy || !draft.trim()}>Send</button>
-            </form>
-          </section>
+          <>
+            <button
+              type="button"
+              aria-label="Close room chat"
+              className={`${styles.morabarabaChatBackdrop} ${chatOpen ? styles.morabarabaChatBackdropOpen : ""}`}
+              onClick={() => setChatOpen(false)}
+            />
+            <section className={`${styles.chatPanel} ${styles.morabarabaChat} ${styles.morabarabaChatSheet} ${chatOpen ? styles.morabarabaChatSheetOpen : ""}`} aria-label="Game chat">
+              <div className={styles.chatHeading}>
+                <h2>Room chat</h2>
+                <div className={styles.actionRow}>
+                  <span>Only you two</span>
+                  <button className={styles.softButton} onClick={() => setChatOpen(false)}>Close</button>
+                </div>
+              </div>
+              <div className={styles.chatMessages} aria-live="polite">
+                {messages.map((item) => <p key={item.id} className={item.author_id === userId ? styles.ownMessage : styles.buddyMessage}><small>{item.author_id === userId ? "You" : "Buddy"}</small>{item.body}</p>)}
+                {messages.length === 0 && <p className={styles.gameNote}>A quiet hello fits here.</p>}
+              </div>
+              <div className={styles.morabarabaReactions} aria-label="Quick reactions">
+                {quickReactions.map((reaction) => (
+                  <button
+                    key={reaction}
+                    type="button"
+                    className={styles.morabarabaReactionButton}
+                    disabled={busy}
+                    onClick={() => void sendChatBody(reaction)}
+                    aria-label={`Send ${reaction} reaction`}
+                  >
+                    {reaction}
+                  </button>
+                ))}
+              </div>
+              <form className={styles.chatForm} onSubmit={sendMessage}>
+                <input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={500} placeholder="Write a message" aria-label="Write a message" />
+                <button className={styles.primaryButton} disabled={busy || !draft.trim()}>Send</button>
+              </form>
+            </section>
+          </>
         )}
       </div>
     </main>
   );
 }
-
