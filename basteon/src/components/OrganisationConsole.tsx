@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Building2, RefreshCw, Shield, UserPlus } from "lucide-react";
+import { Building2, LayoutDashboard, RefreshCw, Settings2, Shield, UserPlus, Users } from "lucide-react";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { membershipTypeOptionsForOrganisation, roleHintForMembershipType } from "@/lib/organisationCategories";
 
@@ -25,6 +25,8 @@ type MeResponse = {
     completed_at: string | null;
   } | null;
 };
+
+type DashboardTab = "home" | "beneficiaries" | "responders" | "members" | "settings" | "configurations";
 
 export function OrganisationConsole() {
   const [state, setState] = useState<MeResponse | null>(null);
@@ -58,6 +60,8 @@ export function OrganisationConsole() {
   const [requireInvite, setRequireInvite] = useState(false);
   const [autoApproveLinks, setAutoApproveLinks] = useState(true);
   const [workIdRegex, setWorkIdRegex] = useState("");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("home");
+  const [dashboardUnlocked, setDashboardUnlocked] = useState(false);
   const emergencyTypes = useEmergencyTypes();
   const membershipTypeOptions = useMemo(
     () => membershipTypeOptionsForOrganisation(state?.organisation ?? {}),
@@ -92,6 +96,7 @@ export function OrganisationConsole() {
   }, [membershipTypeOptions]);
 
   const organisationId = state?.organisation?.id ?? "";
+  const dashboardUnlockStorageKey = organisationId ? `org-dashboard-unlocked:${organisationId}` : "";
   const branchOptions = state?.branches ?? [];
   const units = state?.units ?? [];
   const responders = state?.responderPresence ?? [];
@@ -105,6 +110,25 @@ export function OrganisationConsole() {
     completed_at: null,
   };
   const onboardingProgress = [onboarding.organisation_profile_done, onboarding.branches_done, onboarding.linking_rules_done, onboarding.coverage_done, onboarding.responders_done].filter(Boolean).length;
+  const onboardingComplete = onboardingProgress >= 5;
+  const inOnboardingMode = !dashboardUnlocked;
+  const responderRoles = new Set(["owner", "admin", "manager", "dispatcher", "responder", "viewer"]);
+  const responderMembers = activeMembers.filter((member) => responderRoles.has(member.role));
+  const beneficiaryMembers = activeMembers.filter((member) => !responderRoles.has(member.role) || member.membership_type === "member");
+
+  useEffect(() => {
+    if (!dashboardUnlockStorageKey) return;
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(dashboardUnlockStorageKey) === "1";
+    setDashboardUnlocked(saved);
+  }, [dashboardUnlockStorageKey, onboardingComplete]);
+
+  function unlockDashboard() {
+    if (!dashboardUnlockStorageKey || typeof window === "undefined") return;
+    window.localStorage.setItem(dashboardUnlockStorageKey, "1");
+    setDashboardUnlocked(true);
+    setActiveTab("home");
+  }
 
   async function markOnboardingStep(step: "organisationProfileDone" | "branchesDone" | "linkingRulesDone" | "coverageDone" | "respondersDone") {
     if (!organisationId) return;
@@ -405,6 +429,22 @@ export function OrganisationConsole() {
     await refresh();
   }
 
+  const dashboardTabs: Array<{ key: DashboardTab; label: string; icon: React.ComponentType<{ size?: number }>; description: string }> = [
+    { key: "home", label: "Home", icon: LayoutDashboard, description: "Overview and quick actions" },
+    { key: "beneficiaries", label: "Beneficiaries", icon: Users, description: "Linked members and beneficiaries" },
+    { key: "responders", label: "Responders", icon: Shield, description: "Responder teams and availability" },
+    { key: "members", label: "Staff / Members", icon: Users, description: "Accounts and credential actions" },
+    { key: "settings", label: "Settings", icon: Settings2, description: "Organisation linking settings" },
+    { key: "configurations", label: "Configurations", icon: Building2, description: "Branches, units, coverage, and onboarding controls" },
+  ];
+
+  const showHomePanel = !inOnboardingMode && activeTab === "home";
+  const showBeneficiariesPanel = !inOnboardingMode && activeTab === "beneficiaries";
+  const showRespondersPanel = !inOnboardingMode && activeTab === "responders";
+  const showMembersPanel = !inOnboardingMode && activeTab === "members";
+  const showSettingsPanel = !inOnboardingMode && activeTab === "settings";
+  const showConfigurationsPanel = inOnboardingMode || activeTab === "configurations";
+
   if (!state) return <div className="panel p-5">Loading organisation console...</div>;
 
   return (
@@ -423,6 +463,44 @@ export function OrganisationConsole() {
       {error && <p role="alert" className="ops-login-error">{error}</p>}
       {message && <p role="status" className="ops-login-status">{message}</p>}
 
+      {inOnboardingMode && onboardingComplete && (
+        <section className="panel p-4 space-y-3">
+          <h2 className="pane-head">Onboarding complete</h2>
+          <p className="muted text-sm">
+            Your setup checklist is complete. Open the full dashboard to access tabs for home, beneficiaries, responders,
+            staff/members, settings, and configurations.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn btn-primary" disabled={busy} onClick={() => unlockDashboard()}>Go to dashboard</button>
+            <button className="btn" disabled={busy} onClick={() => void refresh()}><RefreshCw size={16} />Refresh status</button>
+          </div>
+        </section>
+      )}
+
+      {!inOnboardingMode && (
+        <section className="panel p-3">
+          <nav className="flex flex-wrap gap-2" aria-label="Organisation dashboard tabs">
+            {dashboardTabs.map((tab) => {
+              const Icon = tab.icon;
+              const selected = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={`btn ${selected ? "btn-primary" : ""}`}
+                  onClick={() => setActiveTab(tab.key)}
+                  aria-pressed={selected}
+                >
+                  <Icon size={16} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+          <p className="muted text-xs mt-2">{dashboardTabs.find((tab) => tab.key === activeTab)?.description}</p>
+        </section>
+      )}
+
       {generatedCredentials && (
         <section className="panel p-4 space-y-2">
           <h2 className="pane-head">Generated credentials</h2>
@@ -433,6 +511,25 @@ export function OrganisationConsole() {
         </section>
       )}
 
+      {showHomePanel && (
+        <section className="panel p-4 space-y-3">
+          <h2 className="pane-head">Organisation dashboard</h2>
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="panel p-3"><p className="muted text-xs">Branches</p><p className="text-2xl font-semibold">{branchOptions.length}</p></div>
+            <div className="panel p-3"><p className="muted text-xs">Units</p><p className="text-2xl font-semibold">{units.length}</p></div>
+            <div className="panel p-3"><p className="muted text-xs">Responder accounts</p><p className="text-2xl font-semibold">{responderMembers.length}</p></div>
+            <div className="panel p-3"><p className="muted text-xs">Beneficiaries / members</p><p className="text-2xl font-semibold">{beneficiaryMembers.length}</p></div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <button className="btn justify-between" type="button" onClick={() => setActiveTab("responders")}><span>Manage responders</span><span>Open</span></button>
+            <button className="btn justify-between" type="button" onClick={() => setActiveTab("members")}><span>Manage staff / members</span><span>Open</span></button>
+            <button className="btn justify-between" type="button" onClick={() => setActiveTab("beneficiaries")}><span>View beneficiaries</span><span>Open</span></button>
+            <button className="btn justify-between" type="button" onClick={() => setActiveTab("configurations")}><span>Open configurations</span><span>Open</span></button>
+          </div>
+        </section>
+      )}
+
+      {(showConfigurationsPanel || showSettingsPanel) && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head">Onboarding checklist</h2>
         <p className="muted text-sm">Complete all five setup steps before go-live routing.</p>
@@ -445,7 +542,32 @@ export function OrganisationConsole() {
           <button className="btn justify-between" disabled={busy || onboarding.responders_done} onClick={() => void markOnboardingStep("respondersDone")}><span>Responders</span><span>{onboarding.responders_done ? "Done" : "Mark done"}</span></button>
         </div>
       </section>
+      )}
 
+      {showBeneficiariesPanel && (
+        <section className="panel p-4 space-y-3">
+          <h2 className="pane-head">Beneficiaries</h2>
+          <p className="muted text-sm">People linked to this organisation who are not in responder operations roles.</p>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Status</th></tr></thead>
+              <tbody>
+                {beneficiaryMembers.map((member) => (
+                  <tr key={member.id}>
+                    <td>{member.profiles?.full_name || member.user_id}</td>
+                    <td>{member.profiles?.email || "—"}</td>
+                    <td>{member.membership_type}</td>
+                    <td>{member.status}</td>
+                  </tr>
+                ))}
+                {beneficiaryMembers.length === 0 && <tr><td colSpan={4} className="muted text-center">No beneficiaries linked yet.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {(showConfigurationsPanel || showSettingsPanel) && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head">Linking configuration</h2>
         <p className="muted text-sm">Control how users can link themselves to this organisation by email domain or verified work/student ID.</p>
@@ -512,7 +634,9 @@ export function OrganisationConsole() {
           </table>
         </div>
       </section>
+      )}
 
+      {showConfigurationsPanel && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head flex items-center gap-2"><Building2 size={18} />Branches / Stations</h2>
         <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void createBranch(event)}>
@@ -542,7 +666,9 @@ export function OrganisationConsole() {
           </table>
         </div>
       </section>
+      )}
 
+      {showConfigurationsPanel && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head">Units</h2>
         <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void createUnit(event)}>
@@ -581,7 +707,9 @@ export function OrganisationConsole() {
           </table>
         </div>
       </section>
+      )}
 
+      {showConfigurationsPanel && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head">Emergency coverage</h2>
         <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void addCoverage(event)}>
@@ -615,7 +743,9 @@ export function OrganisationConsole() {
           </table>
         </div>
       </section>
+      )}
 
+      {(showConfigurationsPanel || showRespondersPanel) && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head flex items-center gap-2"><UserPlus size={18} />Add responder / staff account</h2>
         <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void addResponder(event)}>
@@ -645,7 +775,9 @@ export function OrganisationConsole() {
           <button className="btn btn-primary self-end" disabled={busy}>Create account</button>
         </form>
       </section>
+      )}
 
+      {(showConfigurationsPanel || showMembersPanel || showRespondersPanel) && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head flex items-center gap-2"><Shield size={18} />Members & responder accounts</h2>
         <div className="tbl-wrap">
@@ -673,7 +805,9 @@ export function OrganisationConsole() {
           </table>
         </div>
       </section>
+      )}
 
+      {(showConfigurationsPanel || showRespondersPanel) && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head">Responder availability</h2>
         <div className="tbl-wrap">
@@ -701,6 +835,7 @@ export function OrganisationConsole() {
           </table>
         </div>
       </section>
+      )}
     </div>
   );
 }
