@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendPushNotifications } from "@/lib/push";
+import { routeAlertAndNotify } from "@/lib/alertRouting";
 
 const inputSchema = z.object({
   lat: z.number().min(-90).max(90).optional(),
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   const [{ data: profile }, payload] = await Promise.all([
-    client.from("profiles").select("role,full_name").eq("id", user.id).single(),
+    client.from("profiles").select("role").eq("id", user.id).single(),
     request.json().catch(() => null),
   ]);
   if (profile?.role !== "user") return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -40,8 +40,8 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (!device) return NextResponse.json({ error: "no_active_device" }, { status: 409 });
 
-  const { data: resolvedType } = await db.rpc("resolve_emergency_type", { p_type: input.data.type ?? input.data.type_code ?? "sos" });
-  const typeCode = typeof resolvedType === "string" ? resolvedType : "sos";
+  const { data: resolvedType } = await db.rpc("resolve_emergency_type", { p_type: input.data.type ?? input.data.type_code ?? "general" });
+  const typeCode = typeof resolvedType === "string" ? resolvedType : "general";
   const typeSource = input.data.type_source === "hold_slide" ? "hold_slide" : "tap";
 
   // Phone-generated SOS events must not advance the band-owned replay counter.
@@ -72,9 +72,7 @@ export async function POST(request: Request) {
   }
   if (error || !alert) return NextResponse.json({ error: error?.message ?? "Could not create SOS alert." }, { status: 400 });
 
-  const recipientName = profile.full_name?.trim() || device.device_name?.trim() || device.device_id;
-  const title = typeCode === "medical" ? "Medical alert" : "SOS alert";
-  if (wasCreated) await sendPushNotifications({ title, body: `${title} from ${recipientName}.`, tag: `basteon-alert-${alert.id}`, url: "/responder" });
+  if (wasCreated) await routeAlertAndNotify(alert.id);
 
   return NextResponse.json({ ok: true, id: alert.id, type_code: typeCode }, { status: 201 });
 }

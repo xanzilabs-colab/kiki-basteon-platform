@@ -18,13 +18,17 @@ export async function GET() {
   if (memberships.length === 0) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const organisationId = memberships[0].organisation_id as string;
   const db = createAdminClient();
-  const [{ data: organisation }, { data: branches }, { data: members }, { data: settings }, { data: domains }, { data: coverage }] = await Promise.all([
+  const [{ data: organisation }, { data: branches }, { data: members }, { data: settings }, { data: domains }, { data: coverage }, { data: onboarding }, { data: units }, { data: presence }, { data: policy }] = await Promise.all([
     db.from("organisations").select("*").eq("id", organisationId).single(),
     db.from("organisation_branches").select("*").eq("organisation_id", organisationId).order("created_at", { ascending: true }),
     db.from("organisation_memberships").select("id,user_id,branch_id,membership_type,role,status,created_at,profiles(full_name,phone)").eq("organisation_id", organisationId).order("created_at"),
     db.from("organisation_link_settings").select("*").eq("organisation_id", organisationId).maybeSingle(),
     db.from("organisation_domains").select("*").eq("organisation_id", organisationId).order("priority", { ascending: true }),
     db.from("organisation_emergency_coverage").select("id,branch_id,emergency_type_code,priority,active").eq("organisation_id", organisationId).eq("active", true),
+    db.from("organisation_onboarding").select("*").eq("organisation_id", organisationId).maybeSingle(),
+    db.from("organisation_units").select("*").eq("organisation_id", organisationId).order("created_at"),
+    db.from("responder_presence").select("user_id,branch_id,unit_id,availability,last_seen_at,profiles(full_name)").eq("organisation_id", organisationId).order("last_seen_at", { ascending: false }),
+    db.from("organisation_dispatch_policies").select("*").eq("organisation_id", organisationId).maybeSingle(),
   ]);
   return NextResponse.json({
     organisation,
@@ -34,6 +38,10 @@ export async function GET() {
     settings,
     domains: domains ?? [],
     coverage: coverage ?? [],
+    onboarding: onboarding ?? null,
+    units: units ?? [],
+    responderPresence: presence ?? [],
+    dispatchPolicy: policy ?? null,
   });
 }
 

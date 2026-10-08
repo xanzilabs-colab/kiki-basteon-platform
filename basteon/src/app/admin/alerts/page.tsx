@@ -14,7 +14,7 @@ export default function AlertsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const emergencyTypes = useEmergencyTypes();
   const rows = useMemo(
-    () => alerts.filter((a) => (statusFilter === "all" || a.status === statusFilter) && (typeFilter === "all" || (a.type_code ?? "sos") === typeFilter)),
+    () => alerts.filter((a) => (statusFilter === "all" || a.status === statusFilter) && (typeFilter === "all" || ((a.type_code === "sos" ? "general" : a.type_code) ?? "general") === typeFilter)),
     [alerts, statusFilter, typeFilter],
   );
 
@@ -31,7 +31,7 @@ export default function AlertsPage() {
     const csv = [
       "id,device,status,type_code,type_source,type_updated_at,lat,lng,loc_source,triggered_at",
       ...rows.map((a) =>
-        [a.id, a.device_id, a.status, a.type_code ?? "sos", a.type_source ?? "legacy", a.type_updated_at ?? "", a.lat, a.lng, a.loc_source, a.triggered_at].join(","),
+        [a.id, a.device_id, a.status, (a.type_code === "sos" ? "general" : a.type_code) ?? "general", a.type_source ?? "legacy", a.type_updated_at ?? "", a.lat, a.lng, a.loc_source, a.triggered_at].join(","),
       ),
     ].join("\n");
     download("basteon-alerts.csv", csv);

@@ -10,6 +10,6 @@ export type EmergencyType = {
 };
 
 export const BUILT_IN_EMERGENCY_TYPES: EmergencyType[] = [
-  { code: "sos", label: "SOS: I'm in danger", short_label: "SOS", icon: "siren", tone: "danger", life_threat: true, sort_order: 0, active: true },
+  { code: "general", label: "General emergency", short_label: "General", icon: "siren", tone: "danger", life_threat: true, sort_order: 0, active: true },
   { code: "medical", label: "Medical emergency", short_label: "Medical", icon: "heart-pulse", tone: "medical", life_threat: true, sort_order: 1, active: true },
 ];

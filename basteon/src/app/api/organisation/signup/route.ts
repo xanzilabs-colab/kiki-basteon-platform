@@ -5,6 +5,11 @@ import { emailDomain, randomPassword, slugifyOrganisation } from "@/lib/organisa
 
 const schema = z.object({
   organisationName: z.string().min(2),
+  legalName: z.string().optional().nullable(),
+  displayName: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  logoUrl: z.string().url().optional().nullable(),
+  category: z.string().optional().nullable(),
   organisationType: z.enum(["institution", "business", "responder_partner"]),
   institutionKind: z.string().optional().nullable(),
   businessCategory: z.string().optional().nullable(),
@@ -46,6 +51,11 @@ export async function POST(request: Request) {
     .from("organisations")
     .insert({
       name: data.organisationName.trim(),
+      legal_name: data.legalName?.trim() || null,
+      display_name: data.displayName?.trim() || null,
+      description: data.description?.trim() || null,
+      logo_url: data.logoUrl?.trim() || null,
+      category: data.category?.trim() || null,
       slug,
       organisation_type: data.organisationType,
       institution_kind: data.institutionKind?.trim() || null,

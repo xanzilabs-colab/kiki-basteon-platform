@@ -47,6 +47,19 @@ Web Push supports desktop browsers and mobile browsers. On iPhone, responders mu
 
 Responders receive the browser permission prompt after their first interaction with the dashboard. Accept it to subscribe that browser or phone.
 
+## Scheduled Jobs (Watchdog + Alert Escalation)
+
+This repository includes [vercel.json](./vercel.json) cron schedules for:
+
+- `GET /api/trips/watchdog` every 2 minutes
+- `GET /api/alerts/escalate` every minute
+
+Set `CRON_SECRET` in the deployment environment so Vercel cron authentication succeeds.  
+For manual service-to-service triggering, the existing `POST` endpoints still support:
+
+- `x-trip-watchdog-secret: $TRIP_WATCHDOG_SECRET`
+- `x-alert-escalation-secret: $ALERT_ESCALATION_SECRET`
+
 ## Device Endpoint
 
 Set the wearable firmware's backend endpoint to:

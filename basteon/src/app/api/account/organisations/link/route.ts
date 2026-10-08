@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const schema = z.object({
   organisationId: z.string().uuid(),
-  branchId: z.string().uuid().optional().nullable(),
+  branchId: z.string().uuid(),
   label: z.enum(["work", "school", "home", "other"]).default("other"),
   method: z.enum(["email_domain", "work_id"]),
   identifier: z.string().min(2),
@@ -48,6 +48,8 @@ export async function POST(request: Request) {
     db.from("organisation_domains").select("domain,membership_type,priority").eq("organisation_id", input.organisationId),
   ]);
   if (!settings) return NextResponse.json({ error: "Organisation not configured for linking" }, { status: 400 });
+  const { data: branch } = await db.from("organisation_branches").select("id").eq("id", input.branchId).eq("organisation_id", input.organisationId).eq("active", true).maybeSingle();
+  if (!branch) return NextResponse.json({ error: "Valid organisation branch is required." }, { status: 400 });
 
   let membershipType = "general";
   if (input.method === "email_domain") {
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
     db.from("organisation_user_links").upsert({
       user_id: userId,
       organisation_id: input.organisationId,
-      branch_id: input.branchId || null,
+      branch_id: input.branchId,
       label: input.label,
       place_address: input.placeAddress?.trim() || null,
       method: input.method,
@@ -84,7 +86,7 @@ export async function POST(request: Request) {
     db.from("organisation_memberships").upsert({
       organisation_id: input.organisationId,
       user_id: userId,
-      branch_id: input.branchId || null,
+      branch_id: input.branchId,
       membership_type: membershipType,
       role,
       status,
@@ -105,7 +107,7 @@ export async function DELETE(request: Request) {
   const db = createAdminClient();
   await Promise.all([
     db.from("organisation_user_links").delete().eq("user_id", userId).eq("organisation_id", organisationId),
-    db.from("organisation_memberships").delete().eq("user_id", userId).eq("organisation_id", organisationId).eq("source", "email_domain"),
+    db.from("organisation_memberships").delete().eq("user_id", userId).eq("organisation_id", organisationId).in("source", ["email_domain", "work_id"]),
   ]);
   return NextResponse.json({ ok: true });
 }

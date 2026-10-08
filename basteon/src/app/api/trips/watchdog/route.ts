@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotificationsToUser } from "@/lib/push";
 
-export async function POST(request: Request) {
-  if (!process.env.TRIP_WATCHDOG_SECRET || request.headers.get("x-trip-watchdog-secret") !== process.env.TRIP_WATCHDOG_SECRET) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+async function runWatchdog() {
   const db = createAdminClient();
   const cutoff = new Date(Date.now() - 5 * 60_000).toISOString();
   const { data: candidates, error } = await db.rpc("hamba_stale_trip_candidates", { p_before: cutoff });
@@ -15,4 +14,20 @@ export async function POST(request: Request) {
     await sendPushNotificationsToUser(candidate.owner_id, { title: "Kiki", body: "Check in when you can.", tag: `hamba-watchdog-${candidate.trip_id}`, url: "/account/trips", tripId: candidate.trip_id, actions: [{ action: "check-in", title: "I'm OK" }] });
   }));
   return NextResponse.json({ checked: candidates?.length ?? 0 });
+}
+
+function cronAuthorized(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  return Boolean(process.env.CRON_SECRET && bearer && bearer === process.env.CRON_SECRET);
+}
+
+export async function GET(request: Request) {
+  if (!cronAuthorized(request)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  return runWatchdog();
+}
+
+export async function POST(request: Request) {
+  if (!process.env.TRIP_WATCHDOG_SECRET || request.headers.get("x-trip-watchdog-secret") !== process.env.TRIP_WATCHDOG_SECRET) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  return runWatchdog();
 }

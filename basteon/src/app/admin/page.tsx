@@ -84,7 +84,7 @@ export default function AdminPage() {
 
           <section className="panel">
             <div className="pane-head"><span>Emergency types</span></div>
-            <div className="space-y-3 p-5">{emergencyTypes.map((type) => <div key={type.code} className="flex items-center justify-between gap-3"><AlertTypeBadge typeCode={type.code} /><b className="data text-[13px]">{alerts.filter((alert) => (alert.type_code ?? "sos") === type.code).length}</b></div>)}</div>
+            <div className="space-y-3 p-5">{emergencyTypes.map((type) => <div key={type.code} className="flex items-center justify-between gap-3"><AlertTypeBadge typeCode={type.code} /><b className="data text-[13px]">{alerts.filter((alert) => ((alert.type_code === "sos" ? "general" : alert.type_code) ?? "general") === type.code).length}</b></div>)}</div>
           </section>
 
           <section className="panel p-5">

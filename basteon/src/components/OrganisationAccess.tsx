@@ -19,6 +19,11 @@ export function OrganisationAccess() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [organisationName, setOrganisationName] = useState("");
+  const [legalName, setLegalName] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [organisationDescription, setOrganisationDescription] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [organisationCategory, setOrganisationCategory] = useState("");
   const [organisationType, setOrganisationType] = useState<OrganisationType>("institution");
   const [institutionKind, setInstitutionKind] = useState("university");
   const [businessCategory, setBusinessCategory] = useState("");
@@ -53,6 +58,11 @@ export function OrganisationAccess() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         organisationName,
+        legalName: legalName || null,
+        displayName: displayName || null,
+        description: organisationDescription || null,
+        logoUrl: logoUrl || null,
+        category: organisationCategory || null,
         organisationType,
         institutionKind: organisationType === "institution" ? institutionKind : null,
         businessCategory: organisationType === "business" ? businessCategory : null,
@@ -102,6 +112,8 @@ export function OrganisationAccess() {
         {mode === "signup" && (
           <>
             <label className="ops-login-label">Organisation name<input required value={organisationName} onChange={(event) => setOrganisationName(event.target.value)} /></label>
+            <label className="ops-login-label">Legal name (optional)<input value={legalName} onChange={(event) => setLegalName(event.target.value)} /></label>
+            <label className="ops-login-label">Display name (optional)<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label>
             <label className="ops-login-label">Organisation type
               <select required value={organisationType} onChange={(event) => setOrganisationType(event.target.value as OrganisationType)}>
                 <option value="institution">Institution</option>
@@ -125,6 +137,9 @@ export function OrganisationAccess() {
             {organisationType === "responder_partner" && (
               <label className="ops-login-label">Responder category<input value={responderCategory} onChange={(event) => setResponderCategory(event.target.value)} placeholder="Private security, EMS, fire..." /></label>
             )}
+            <label className="ops-login-label">Category<input value={organisationCategory} onChange={(event) => setOrganisationCategory(event.target.value)} placeholder="University, Corporate, Security partner..." /></label>
+            <label className="ops-login-label">Description<textarea value={organisationDescription} onChange={(event) => setOrganisationDescription(event.target.value)} placeholder="Operational overview and who this organisation supports." /></label>
+            <label className="ops-login-label">Logo URL (optional)<input value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://..." /></label>
             <label className="ops-login-label">Primary branch name<input required value={branchName} onChange={(event) => setBranchName(event.target.value)} /></label>
             <label className="ops-login-label">Primary branch address<input value={branchAddress} onChange={(event) => setBranchAddress(event.target.value)} /></label>
             <label className="ops-login-label">Your full name<input required value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>

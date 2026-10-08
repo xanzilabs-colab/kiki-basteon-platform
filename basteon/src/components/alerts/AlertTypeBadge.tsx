@@ -8,8 +8,9 @@ type Props = { typeCode?: string | null; size?: "row" | "header" | "marker" };
 
 export function AlertTypeBadge({ typeCode, size = "row" }: Props) {
   const catalogue = useEmergencyTypes();
-  const emergencyType = catalogue.find((item) => item.code === (typeCode ?? "sos"));
-  const known = emergencyType ?? (typeCode == null || typeCode === "sos" ? catalogue.find((item) => item.code === "sos") : null);
+  const normalized = typeCode === "sos" ? "general" : typeCode;
+  const emergencyType = catalogue.find((item) => item.code === (normalized ?? "general"));
+  const known = emergencyType ?? (normalized == null || normalized === "general" ? catalogue.find((item) => item.code === "general") : null);
   const Icon = known ? icons[known.icon as keyof typeof icons] ?? ShieldAlert : ShieldAlert;
   const tone = known?.tone === "medical"
     ? "border-[#087f70]/50 bg-[#087f70]/15 text-[#50d6c2]"

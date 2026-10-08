@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendPushNotifications } from "@/lib/push";
+import { routeAlertAndNotify } from "@/lib/alertRouting";
 
 export async function POST(request: Request) {
 	const client = await createClient();
@@ -18,15 +18,11 @@ export async function POST(request: Request) {
 	if (!device) return NextResponse.json({ error: "device_not_found" }, { status: 404 });
 
 	const ctr = Number(device.last_ctr) + 1;
-	const { data: alert, error } = await db.from("alerts").insert({ ...input.data, ctr, loc_source: "dev" }).select("id").single();
+	const { data: alert, error } = await db.from("alerts").insert({ ...input.data, ctr, loc_source: "dev", type_code: "general", type_source: "device", type_updated_at: new Date().toISOString() }).select("id").single();
 	if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
 	await db.from("devices").update({ last_ctr: ctr, last_seen_at: new Date().toISOString() }).eq("device_id", input.data.device_id);
-	const { data: owner } = device.user_id
-		? await db.from("profiles").select("full_name").eq("id", device.user_id).maybeSingle()
-		: { data: null };
-	const recipientName = owner?.full_name?.trim() || device.device_name?.trim() || input.data.device_id;
-	await sendPushNotifications({ title: "New panic alert", body: `${recipientName} needs assistance.`, tag: `basteon-alert-${alert.id}`, url: "/responder" });
+	await routeAlertAndNotify(alert.id);
 
 	return NextResponse.json({ ok: true }, { status: 201 });
 }

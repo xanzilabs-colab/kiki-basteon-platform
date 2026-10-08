@@ -10,25 +10,49 @@ import { LocationSourceBadge } from "./LocationSourceBadge";
 import { StatusActions } from "./StatusActions";
 import { AlertTimeline } from "./AlertTimeline";
 import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
+import { createClient } from "@/lib/supabase/client";
 
 export function AlertDetailPanel({
   alert,
   events,
   admin,
   refresh,
+  organisationId,
+  canDispatch,
   onViewProfile,
 }: {
   alert: Alert | null;
   events: AlertEvent[];
   admin?: boolean;
   refresh(): void;
+  organisationId?: string;
+  canDispatch?: boolean;
   onViewProfile?(alert: Alert): void;
 }) {
   const [now, setNow] = useState(Date.now());
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [operatorId, setOperatorId] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<Array<{ user_id: string; branch_id: string | null; availability: string; profiles?: { full_name: string | null } | null }>>([]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    if (!organisationId) return;
+    let active = true;
+    void (async () => {
+      const mod = await fetch(`/api/organisation/responders/availability?organisationId=${organisationId}`, { cache: "no-store" });
+      const client = createClient();
+      const { data: { user } } = await client.auth.getUser();
+      if (!active) return;
+      setOperatorId(user?.id ?? null);
+      if (mod.ok) {
+        const body = await mod.json().catch(() => []);
+        if (active) setAvailability(Array.isArray(body) ? body : []);
+      }
+    })();
+    return () => { active = false; };
+  }, [organisationId]);
 
   if (!alert) {
     return (
@@ -52,6 +76,32 @@ export function AlertDetailPanel({
       : health === "delayed"
       ? "text-[var(--warn)]"
       : "text-[var(--crit)]";
+  const currentAlert = alert;
+  const branchAvailability = availability.filter((item) => item.branch_id === (currentAlert.primary_branch_id ?? null));
+  const bestAvailable = branchAvailability.find((item) => item.availability === "available") ?? branchAvailability[0] ?? null;
+
+  async function assignResponder(responderUserId: string | null) {
+    if (!currentAlert.primary_branch_id || !organisationId) return;
+    setAssignBusy(true);
+    const response = await fetch("/api/alerts/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        alertId: currentAlert.id,
+        organisationId,
+        branchId: currentAlert.primary_branch_id,
+        responderUserId,
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    setAssignBusy(false);
+    if (!response.ok) {
+      toast.error((body as { error?: string } | null)?.error ?? "Could not assign responder.");
+      return;
+    }
+    toast.success("Responder assigned.");
+    refresh();
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -61,7 +111,7 @@ export function AlertDetailPanel({
         <span className="data text-[11px] muted">#{alert.ctr}</span>
       </div>
 
-      {alert.type_source === "upgrade" && alert.type_updated_at && <div className="mx-4 mt-3 border-l-4 border-[#087f70] bg-[#087f70]/15 px-3 py-2 text-[12px] font-semibold text-[#70e1d0]">Updated to {alert.type_code === "medical" ? "Medical" : "SOS"} at {new Date(alert.type_updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
+      {alert.type_source === "upgrade" && alert.type_updated_at && <div className="mx-4 mt-3 border-l-4 border-[#087f70] bg-[#087f70]/15 px-3 py-2 text-[12px] font-semibold text-[#70e1d0]">Updated to {alert.type_code === "medical" ? "Medical" : "General"} at {new Date(alert.type_updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
       {alert.type_code === "medical" && <p className="mx-4 mt-2 text-[12px] text-[#8ddfd2]">Caller reports a medical emergency.</p>}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -141,6 +191,27 @@ export function AlertDetailPanel({
           <span className="data text-[12px]">{alert.update_count ?? 0}</span>
         </div>
       </div>
+
+      {canDispatch && (
+        <div className="section space-y-2">
+          <span className="label block">Dispatch</span>
+          {!alert.primary_branch_id && <p className="muted text-[12px]">No routed branch available yet for assignment.</p>}
+          {alert.primary_branch_id && (
+            <>
+              <p className="muted text-[12px]">Routed branch: <b>{alert.primary_branch_id}</b></p>
+              <div className="flex flex-wrap gap-2">
+                <button className="btn" disabled={assignBusy || !operatorId} onClick={() => void assignResponder(operatorId)}>
+                  Assign to me
+                </button>
+                <button className="btn" disabled={assignBusy || !bestAvailable} onClick={() => void assignResponder(bestAvailable?.user_id ?? null)}>
+                  Assign best available
+                </button>
+              </div>
+              {bestAvailable && <p className="muted text-[11px]">Best available: {bestAvailable.profiles?.full_name ?? bestAvailable.user_id}</p>}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="section">
         <span className="label block mb-3">Timeline</span>

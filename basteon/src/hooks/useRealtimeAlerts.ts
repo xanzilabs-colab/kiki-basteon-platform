@@ -11,7 +11,7 @@ const alertQuery = "*, assignee:profiles!alerts_assigned_to_fkey(full_name)";
 
 function announceAlert(alert: Alert) {
 	const medical = alert.type_code === "medical";
-	const title = medical ? "Medical alert" : "SOS alert";
+	const title = medical ? "Medical alert" : "General alert";
 	toast(title.toUpperCase(), { description: `${alert.device?.device_name ?? alert.device_id} needs assistance.` });
 	if (localStorage.getItem("basteon-sound") !== "off") playAlertSound();
 	if (document.hidden && Notification.permission === "granted") {
@@ -48,7 +48,7 @@ export function useRealtimeAlerts() {
 		};
 
 		const announceTypeChange = (alert: Alert) => {
-			const label = alert.type_code === "medical" ? "Medical" : "SOS";
+			const label = alert.type_code === "medical" ? "Medical" : "General";
 			toast(`Alert updated to ${label}`, { description: `${alert.device?.device_name ?? alert.device_id} incident type changed.` });
 			if (localStorage.getItem("basteon-sound") !== "off") playAlertSound();
 			if (document.hidden && Notification.permission === "granted") new Notification(`Alert updated to ${label}`, { body: `${alert.device?.device_name ?? alert.device_id} incident type changed.`, tag: `basteon-alert-type-${alert.id}` });

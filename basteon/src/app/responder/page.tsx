@@ -34,6 +34,8 @@ export default function ResponderPage() {
   const [profile, setProfile] = useState<ProfileContact | null>(null);
   const [operatorName, setOperatorName] = useState("");
   const [organisationName, setOrganisationName] = useState("");
+  const [organisationId, setOrganisationId] = useState("");
+  const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const emergencyTypes = useEmergencyTypes();
 
@@ -48,6 +50,8 @@ export default function ResponderPage() {
       if (response.ok) {
         const body = await response.json();
         setOrganisationName(body?.organisation?.name ?? "");
+        setOrganisationId(body?.organisation?.id ?? "");
+        setCanDispatch(["owner", "admin", "manager", "dispatcher"].includes(body?.memberships?.[0]?.role ?? ""));
       }
     })();
   }, []);
@@ -71,7 +75,7 @@ export default function ResponderPage() {
 
   const displayed = useMemo(
     () =>
-      [...(tab === "active" ? active : alerts)].filter((alert) => typeFilter === "all" || (alert.type_code ?? "sos") === typeFilter).sort((a, b) =>
+      [...(tab === "active" ? active : alerts)].filter((alert) => typeFilter === "all" || ((alert.type_code === "sos" ? "general" : alert.type_code) ?? "general") === typeFilter).sort((a, b) =>
         a.status === "new" && b.status !== "new" ? -1
         : b.status === "new" && a.status !== "new" ? 1
         : +new Date(b.triggered_at) - +new Date(a.triggered_at),
@@ -194,6 +198,8 @@ export default function ResponderPage() {
             alert={selected}
             events={events}
             refresh={refresh}
+            organisationId={organisationId}
+            canDispatch={canDispatch}
             onViewProfile={(alert) => setProfile(alert.device?.owner ?? null)}
           />
         </aside>

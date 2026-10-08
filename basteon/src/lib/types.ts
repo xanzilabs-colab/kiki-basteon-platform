@@ -5,6 +5,7 @@ export interface Ringtone { id: string; name: string; storage_path: string; is_s
 
 export interface Alert {
   id: string; device_id: string; ctr: number; status: AlertStatus; lat: number | null; lng: number | null;
+  primary_organisation_id?: string | null; primary_branch_id?: string | null; routing_status?: "pending" | "routed" | "no_target" | "failed" | null; routed_at?: string | null;
   type_code?: string | null; type_source?: "legacy" | "tap" | "hold_slide" | "device" | "upgrade" | null; type_updated_at?: string | null;
   loc_source: LocationSource; fix_age_s: number | null; battery: number | null; assigned_to: string | null;
   triggered_at: string; acknowledged_at: string | null; enroute_at: string | null; on_scene_at: string | null;

@@ -8,7 +8,8 @@ const createSchema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),
   phone: z.string().optional().nullable(),
-  branchId: z.string().uuid().optional().nullable(),
+  branchId: z.string().uuid(),
+  unitId: z.string().uuid().optional().nullable(),
   membershipType: z.string().default("responder"),
   role: z.enum(["dispatcher", "responder", "manager", "viewer"]).default("responder"),
 });
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
   const { error: memberError } = await db.from("organisation_memberships").insert({
     organisation_id: payload.data.organisationId,
     user_id: authCreated.user.id,
-    branch_id: payload.data.branchId || null,
+    branch_id: payload.data.branchId,
     membership_type: payload.data.membershipType,
     role: payload.data.role,
     source: "manual",
@@ -73,6 +74,19 @@ export async function POST(request: Request) {
     await db.auth.admin.deleteUser(authCreated.user.id);
     return NextResponse.json({ error: memberError.message }, { status: 400 });
   }
+  const { error: presenceError } = await db.from("responder_presence").upsert({
+    user_id: authCreated.user.id,
+    organisation_id: payload.data.organisationId,
+    branch_id: payload.data.branchId,
+    unit_id: payload.data.unitId ?? null,
+    availability: "off_duty",
+  }, { onConflict: "user_id" });
+  if (presenceError) {
+    await db.from("organisation_memberships").delete().eq("organisation_id", payload.data.organisationId).eq("user_id", authCreated.user.id);
+    await db.auth.admin.deleteUser(authCreated.user.id);
+    return NextResponse.json({ error: presenceError.message }, { status: 400 });
+  }
+
   return NextResponse.json({
     ok: true,
     credentials: {
@@ -80,6 +94,7 @@ export async function POST(request: Request) {
       password,
       fullName: payload.data.fullName,
     },
+    credentialPdfUrl: `/api/organisation/responders/${authCreated.user.id}/credential-pdf?organisationId=${payload.data.organisationId}`,
   }, { status: 201 });
 }
 

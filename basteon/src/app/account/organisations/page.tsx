@@ -152,6 +152,7 @@ export default function AccountOrganisationsPage() {
               </label>
               <label className="field">Branch
                 <select value={branchId} onChange={(event) => setBranchId(event.target.value)}>
+                  <option value="">Select branch</option>
                   {(selected.organisation_branches ?? []).map((branch) => (
                     <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>
                   ))}
@@ -168,7 +169,7 @@ export default function AccountOrganisationsPage() {
               </label>
             </div>
             <label className="field">Place address (optional)<input value={placeAddress} onChange={(event) => setPlaceAddress(event.target.value)} placeholder="Campus, office, residence..." /></label>
-            <button className="btn btn-primary" disabled={busy}><Link2 size={16} />Link organisation</button>
+            <button className="btn btn-primary" disabled={busy || !branchId}><Link2 size={16} />Link organisation</button>
           </form>
         )}
       </section>
