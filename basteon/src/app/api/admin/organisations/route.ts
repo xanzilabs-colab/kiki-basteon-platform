@@ -25,6 +25,7 @@ export async function GET() {
 const createSchema = z.object({
   name: z.string().min(2),
   organisationType: z.enum(["institution", "business", "responder_partner"]),
+  isPartner: z.boolean().optional().default(false),
   category: z.string().optional().nullable(),
   ownerFullName: z.string().min(2),
   ownerEmail: z.string().email(),
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
   const parsed = createSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const input = parsed.data;
+  const effectiveType = input.isPartner ? "responder_partner" : input.organisationType;
   const db = createAdminClient();
   const password = randomPassword(16);
   const { data: authCreated, error: authError } = await db.auth.admin.createUser({
@@ -57,14 +59,14 @@ export async function POST(request: Request) {
   const orgPayload: Record<string, unknown> = {
     name: input.name,
     slug,
-    organisation_type: input.organisationType,
+    organisation_type: effectiveType,
     created_by: authCreated.user.id,
     support_email: input.ownerEmail,
     support_phone: input.ownerPhone ?? null,
   };
-  if (input.organisationType === "institution") orgPayload.institution_kind = input.category ?? null;
-  if (input.organisationType === "business") orgPayload.business_category = input.category ?? null;
-  if (input.organisationType === "responder_partner") orgPayload.responder_category = input.category ?? null;
+  if (effectiveType === "institution") orgPayload.institution_kind = input.category ?? null;
+  if (effectiveType === "business") orgPayload.business_category = input.category ?? null;
+  if (effectiveType === "responder_partner") orgPayload.responder_category = input.category ?? null;
 
   const { data: org, error: orgError } = await db.from("organisations").insert(orgPayload).select("id,name").single();
   if (orgError || !org) {

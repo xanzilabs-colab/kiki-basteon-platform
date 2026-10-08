@@ -28,14 +28,15 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
 });
 
 export default function ResponderPage() {
-  const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts();
+  const [organisationId, setOrganisationId] = useState("");
+  const scopedOrganisationIds = useMemo(() => organisationId ? [organisationId] : [], [organisationId]);
+  const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts({ scopeOrganisationIds: scopedOrganisationIds });
   const { position, error } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "all">("active");
   const [profile, setProfile] = useState<ProfileContact | null>(null);
   const [operatorName, setOperatorName] = useState("");
   const [organisationName, setOrganisationName] = useState("");
-  const [organisationId, setOrganisationId] = useState("");
   const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [movingOnly, setMovingOnly] = useState(false);
@@ -96,7 +97,12 @@ export default function ResponderPage() {
       </Navbar>
 
       <main className="relative min-h-0 min-w-0">
-        <div className="absolute z-[1100] left-3 right-3 top-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]">
+        {!organisationId && (
+          <div className="absolute z-[1200] left-3 right-3 top-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)] panel border-l-4 border-[var(--warn)] px-3 py-2 text-[12px] text-[var(--warn)]">
+            This responder account is not linked to an active organisation. Alert and telemetry access is hidden until linked.
+          </div>
+        )}
+        <div className={`absolute z-[1100] left-3 right-3 ${organisationId ? "top-3" : "top-16"} md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]`}>
           <div className="panel px-3 py-2 text-[12px] flex flex-wrap items-center gap-2">
             <span className="status status-blue">Responder Console</span>
             {organisationName && <span className="muted">Organisation: {organisationName}</span>}

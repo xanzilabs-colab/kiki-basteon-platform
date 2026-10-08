@@ -28,6 +28,7 @@ export default function AdminOrganisationsPage() {
   const [ownerFullName, setOwnerFullName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
+  const [isPartner, setIsPartner] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -58,6 +59,7 @@ export default function AdminOrganisationsPage() {
         name,
         organisationType: orgType,
         category: category || null,
+        isPartner,
         ownerFullName,
         ownerEmail,
         ownerPhone: ownerPhone || null,
@@ -76,6 +78,7 @@ export default function AdminOrganisationsPage() {
     setOwnerFullName("");
     setOwnerEmail("");
     setOwnerPhone("");
+    setIsPartner(false);
     await load();
     setBusy(false);
   }
@@ -100,19 +103,25 @@ export default function AdminOrganisationsPage() {
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head flex items-center gap-2"><Plus size={18} />Add organisation / responder partner</h2>
         <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void create(event)}>
-          <label className="field">Organisation name<input required value={name} onChange={(event) => setName(event.target.value)} /></label>
+          <label className="field">Organisation name<input className="input" required value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label className="field">Type
-            <select value={orgType} onChange={(event) => setOrgType(event.target.value as any)}>
+            <select className="input" value={orgType} onChange={(event) => setOrgType(event.target.value as any)}>
               <option value="institution">Institution</option>
               <option value="business">Business / Company</option>
               <option value="responder_partner">Responder Partner</option>
             </select>
           </label>
-          <label className="field">Category<input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="University, EMS, Armed response..." /></label>
-          <label className="field">Owner name<input required value={ownerFullName} onChange={(event) => setOwnerFullName(event.target.value)} /></label>
-          <label className="field">Owner email<input required type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label>
-          <label className="field">Owner phone<input value={ownerPhone} onChange={(event) => setOwnerPhone(event.target.value)} /></label>
-          <button className="btn btn-primary self-end" disabled={busy}>Create</button>
+          <label className="field">Category<input className="input" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="University, EMS, Armed response..." /></label>
+          <label className="field">Owner name<input className="input" required value={ownerFullName} onChange={(event) => setOwnerFullName(event.target.value)} /></label>
+          <label className="field">Owner email<input className="input" required type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label>
+          <label className="field">Owner phone<input className="input" value={ownerPhone} onChange={(event) => setOwnerPhone(event.target.value)} /></label>
+          <label className="field md:col-span-2">
+            <span className="inline-flex items-center gap-2 text-[13px] font-semibold">
+              <input type="checkbox" checked={isPartner} onChange={(event) => setIsPartner(event.target.checked)} />
+              Mark this organisation as our responder partner
+            </span>
+          </label>
+          <button className="btn btn-primary self-end" disabled={busy}>Create organisation</button>
         </form>
       </section>
 

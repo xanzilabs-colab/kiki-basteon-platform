@@ -8,6 +8,7 @@ import { enablePushNotifications } from "@/lib/usePushNotifications";
 import type { Alert, AlertEvent, Device } from "@/lib/types";
 
 const alertQuery = "*, assignee:profiles!alerts_assigned_to_fkey(full_name)";
+type RealtimeAlertOptions = { scopeOrganisationIds?: string[] };
 
 function announceAlert(alert: Alert) {
 	const medical = alert.type_code === "medical";
@@ -26,7 +27,7 @@ function announceAlert(alert: Alert) {
 	window.setTimeout(() => { document.title = previousTitle; }, 5000);
 }
 
-export function useRealtimeAlerts() {
+export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 	const [alerts, setAlerts] = useState<Alert[]>([]);
 	const [events, setEvents] = useState<AlertEvent[]>([]);
 	const [connection, setConnection] = useState("connecting");
@@ -38,8 +39,21 @@ export function useRealtimeAlerts() {
 	useEffect(() => {
 		const supabase = createClient();
 		let active = true;
+		const scopedIds = options?.scopeOrganisationIds ?? null;
+		const hasScope = Array.isArray(scopedIds);
+		const allowed = new Set(scopedIds ?? []);
+		const canAccessAlert = (alert: Alert) => {
+			if (!hasScope) return true;
+			return Boolean(alert.primary_organisation_id && allowed.has(alert.primary_organisation_id));
+		};
 
 		const addOrUpdateAlert = (alert: Alert, notify: boolean) => {
+			if (!canAccessAlert(alert)) {
+				knownAlertIds.current.delete(alert.id);
+				knownAlerts.current.delete(alert.id);
+				setAlerts((current) => current.filter((item) => item.id !== alert.id));
+				return;
+			}
 			const isNew = !knownAlertIds.current.has(alert.id);
 			knownAlertIds.current.add(alert.id);
 			knownAlerts.current.set(alert.id, alert);
@@ -60,7 +74,8 @@ export function useRealtimeAlerts() {
 			if (alertError) { setError(alertError.message); return; }
 
 			const rawAlerts = (data ?? []) as Alert[];
-			const deviceIds = [...new Set(rawAlerts.map((alert) => alert.device_id))];
+			const scopedAlerts = rawAlerts.filter(canAccessAlert);
+			const deviceIds = [...new Set(scopedAlerts.map((alert) => alert.device_id))];
 			const { data: devices, error: deviceError } = deviceIds.length
 				? await supabase.from("devices").select("device_id,device_name,user_id").in("device_id", deviceIds)
 				: { data: [] as Device[], error: null };
@@ -81,7 +96,7 @@ export function useRealtimeAlerts() {
 				return { ...owner, avatar_url: data?.signedUrl ?? null };
 			}));
 			const ownerById = new Map(ownersWithAvatars.map((owner) => [owner.id, owner]));
-			const nextAlerts = rawAlerts.map((alert) => {
+			const nextAlerts = scopedAlerts.map((alert) => {
 				const device = deviceById.get(alert.device_id);
 				return { ...alert, device: device ? { ...device, owner: device.user_id ? ownerById.get(device.user_id) ?? null : null } : null };
 			});
@@ -120,6 +135,12 @@ export function useRealtimeAlerts() {
 				if (!changed.id) return;
 				const previous = knownAlerts.current.get(changed.id);
 				const updated = { ...previous, ...changed } as Alert;
+				if (!canAccessAlert(updated)) {
+					knownAlerts.current.delete(changed.id);
+					knownAlertIds.current.delete(changed.id);
+					setAlerts((current) => current.filter((alert) => alert.id !== changed.id));
+					return;
+				}
 				const typeChanged = previous && changed.type_source === "upgrade" && changed.type_code !== previous.type_code;
 				knownAlerts.current.set(changed.id, updated);
 				if (typeChanged) announceTypeChange(updated);
@@ -142,13 +163,17 @@ export function useRealtimeAlerts() {
 			window.removeEventListener("keydown", unlock);
 			void supabase.removeChannel(channel);
 		};
-	}, []);
+	}, [options?.scopeOrganisationIds]);
 
 	const refresh = async () => {
 		const supabase = createClient();
 		const { data, error: alertError } = await supabase.from("alerts").select(alertQuery).order("triggered_at", { ascending: false }).limit(200);
 		if (alertError) { setError(alertError.message); return; }
-		setAlerts((data ?? []) as Alert[]);
+		const scopedIds = options?.scopeOrganisationIds ?? null;
+		const hasScope = Array.isArray(scopedIds);
+		const allowed = new Set(scopedIds ?? []);
+		const next = ((data ?? []) as Alert[]).filter((alert) => !hasScope || Boolean(alert.primary_organisation_id && allowed.has(alert.primary_organisation_id)));
+		setAlerts(next);
 	};
 
 	return { alerts, setAlerts, events, setEvents, connection, error, refresh };

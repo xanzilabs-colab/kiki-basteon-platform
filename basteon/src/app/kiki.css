@@ -348,8 +348,9 @@
 .ops-login-copy h1 { margin: 0; font-size: 25px; line-height: 1.1; }
 .ops-login-copy p { margin: 6px 0 0; color: #8f959c; font-size: 13px; }
 .ops-login-label { display: grid; gap: 7px; padding: 0 24px 16px; color: #c2c6cb; font-size: 13px; font-weight: 600; }
-.ops-login-label input, .ops-login-label select { width: 100%; height: 40px; border: 1px solid #2f3337; border-radius: 3px; background: #101112; color: #f1f2f3; padding: 0 12px; }
-.ops-login-label input:focus, .ops-login-label select:focus { outline: 2px solid #f1f2f3; outline-offset: 1px; }
+.ops-login-label input, .ops-login-label select, .ops-login-label textarea { width: 100%; height: 40px; border: 1px solid #2f3337; border-radius: 3px; background: #101112; color: #f1f2f3; padding: 0 12px; }
+.ops-login-label textarea { min-height: 90px; padding: 10px 12px; resize: vertical; }
+.ops-login-label input:focus, .ops-login-label select:focus, .ops-login-label textarea:focus { outline: 2px solid #f1f2f3; outline-offset: 1px; }
 .ops-login-error { margin: 0 24px 16px; border-left: 3px solid #d93036; background: #2d171a; padding: 9px 10px; color: #ffb7ba; font-size: 13px; }
 .ops-login-status { margin: 0 24px 16px; border-left: 3px solid #2d8f5a; background: #14291f; padding: 9px 10px; color: #b9f3d4; font-size: 13px; }
 .ops-login-submit { width: calc(100% - 48px); height: 40px; margin: 0 24px; border: 0; border-radius: 3px; background: #f1f2f3; color: #101112; font-weight: 700; }
@@ -357,6 +358,48 @@
 .ops-login-submit:disabled { cursor: not-allowed; opacity: .6; }
 .ops-login-customer { display: block; padding: 10px 24px 14px; color: #8f959c; font-size: 13px; text-align: center; text-decoration: none; }
 .ops-login-customer:hover { color: #f1f2f3; }
+.ops-login-card--wide { width: min(100%, 980px); }
+.ops-signup-progress { margin: 0 24px 12px; border: 1px solid #2b2e32; border-radius: 10px; background: #15181a; padding: 14px; }
+.ops-signup-progress-mobile { display: none; color: #8f959c; font-size: 12px; font-weight: 700; }
+.ops-signup-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ops-signup-steps li { display: flex; align-items: flex-start; gap: 9px; border: 1px solid #2f3337; border-radius: 8px; padding: 10px; color: #8f959c; min-height: 72px; }
+.ops-signup-steps li.is-current { border-color: #f1f2f3; color: #f1f2f3; background: #1f2326; }
+.ops-signup-steps li.is-done { border-color: #2d8f5a; color: #b9f3d4; background: #15231c; }
+.ops-signup-step-index { width: 22px; height: 22px; border-radius: 50%; border: 1px solid currentColor; display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: 0 0 auto; }
+.ops-signup-step-copy b { display: block; font-size: 12px; line-height: 1.2; }
+.ops-signup-step-copy small { display: block; margin-top: 2px; font-size: 11px; line-height: 1.3; opacity: .9; }
+.ops-signup-meter { margin-top: 10px; height: 7px; border-radius: 99px; background: #2b2e32; overflow: hidden; }
+.ops-signup-meter > span { display: block; height: 100%; background: #f1f2f3; transition: width .24s ease; }
+.ops-signup-step-panel { margin: 0 24px 10px; border: 1px solid #2b2e32; border-radius: 10px; background: #15181a; padding: 16px; }
+.ops-signup-step-panel header h2 { margin: 0; font-size: 22px; line-height: 1.1; }
+.ops-signup-step-panel header p { margin: 6px 0 0; color: #8f959c; font-size: 13px; }
+.ops-signup-step-eyebrow { margin: 0 0 8px; color: #8f959c; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+.ops-signup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 10px; margin-top: 14px; }
+.ops-login-label--full { grid-column: 1 / -1; }
+.ops-signup-note { grid-column: 1 / -1; margin: 2px 0 0; color: #8f959c; font-size: 12px; display: inline-flex; align-items: center; gap: 8px; }
+.ops-password-wrap { position: relative; display: block; }
+.ops-password-wrap input { padding-right: 44px !important; }
+.ops-password-toggle { position: absolute; top: 6px; right: 7px; width: 28px; height: 28px; border: 0; background: transparent; color: #c2c6cb; display: grid; place-items: center; }
+.ops-password-strength { grid-column: 1 / -1; border: 1px solid #2f3337; border-radius: 8px; background: #131618; padding: 10px 12px; margin: 2px 24px 14px; color: #c2c6cb; }
+.ops-password-strength p { margin: 0 0 8px; font-size: 12px; }
+.ops-password-strength ul { margin: 8px 0 0; padding-left: 16px; display: grid; gap: 4px; font-size: 11px; color: #8f959c; }
+.ops-password-strength li.is-good { color: #b9f3d4; }
+.ops-signup-review { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.ops-signup-review article { border: 1px solid #2f3337; border-radius: 8px; background: #131618; padding: 12px; }
+.ops-signup-review article > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.ops-signup-review h3 { margin: 0; font-size: 13px; }
+.ops-signup-review button { border: 1px solid #2f3337; border-radius: 6px; background: #1b1f22; color: #c2c6cb; font-size: 11px; font-weight: 700; padding: 4px 9px; }
+.ops-signup-review p { margin: 5px 0 0; font-size: 12px; color: #8f959c; }
+.ops-signup-review p b { color: #f1f2f3; font-weight: 700; }
+.ops-signup-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 24px; }
+.ops-login-submit.is-secondary { background: #2b2e32; color: #f1f2f3; }
+
+@media (max-width: 900px) {
+  .ops-signup-steps { display: none; }
+  .ops-signup-progress-mobile { display: block; }
+  .ops-signup-grid { grid-template-columns: 1fr; }
+  .ops-signup-review { grid-template-columns: 1fr; }
+}
 .kiki-mark { display: block; object-fit: contain; }
 .kiki-loader { display: grid; min-height: 100vh; place-content: center; justify-items: center; gap: 14px; overflow: hidden; background: radial-gradient(circle at 50% 44%, #f8d6e6 0, #e9e2f5 17%, #fcf9f3 52%); color: #32183f; }
 .kiki-loader-orbit { display: grid; width: 132px; height: 132px; place-items: center; border: 1px solid rgba(84, 37, 111, .18); border-radius: 50%; animation: kiki-orbit 2.4s ease-in-out infinite; }

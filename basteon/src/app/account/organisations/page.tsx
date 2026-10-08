@@ -115,16 +115,16 @@ export default function AccountOrganisationsPage() {
         <p className="muted text-sm mt-2">Link school/work/home organisations to route alerts to the right branch.</p>
       </header>
 
-      <section className="panel p-4 space-y-3">
+      <section className="panel p-5 space-y-4">
         <h2 className="pane-head flex items-center gap-2"><Search size={18} />Add organisation</h2>
-        <label className="field">Find by name<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Start typing organisation name..." /></label>
+        <label className="field">Find by name<input className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Start typing organisation name..." /></label>
         {results.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2 rounded-md border border-[var(--line)] bg-[var(--surface-2)] p-2">
             {results.map((organisation) => (
               <button
                 key={organisation.id}
                 type="button"
-                className="btn w-full justify-start text-left"
+                className="w-full rounded-md border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2 text-left transition hover:bg-[var(--surface-3)]"
                 onClick={() => {
                   setSelected(organisation);
                   setBranchId(organisation.organisation_branches?.[0]?.id ?? "");
@@ -132,7 +132,8 @@ export default function AccountOrganisationsPage() {
                   setQuery(organisation.name);
                 }}
               >
-                {organisation.name} · {organisation.organisation_type}
+                <span className="font-semibold">{organisation.name}</span>
+                <span className="mt-1 block text-[11px] text-[var(--muted)]">{organisation.organisation_type} · {(organisation.organisation_branches ?? []).length} branches</span>
               </button>
             ))}
           </div>
@@ -143,7 +144,7 @@ export default function AccountOrganisationsPage() {
             <p className="text-sm">Selected: <b>{selected.name}</b></p>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="field">Relationship
-                <select value={label} onChange={(event) => setLabel(event.target.value as any)}>
+                <select className="input" value={label} onChange={(event) => setLabel(event.target.value as any)}>
                   <option value="work">Work</option>
                   <option value="school">School</option>
                   <option value="home">Home</option>
@@ -151,7 +152,7 @@ export default function AccountOrganisationsPage() {
                 </select>
               </label>
               <label className="field">Branch
-                <select value={branchId} onChange={(event) => setBranchId(event.target.value)}>
+                <select className="input" value={branchId} onChange={(event) => setBranchId(event.target.value)}>
                   <option value="">Select branch</option>
                   {(selected.organisation_branches ?? []).map((branch) => (
                     <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>
@@ -159,16 +160,16 @@ export default function AccountOrganisationsPage() {
                 </select>
               </label>
               <label className="field">Link method
-                <select value={method} onChange={(event) => setMethod(event.target.value as any)}>
+                <select className="input" value={method} onChange={(event) => setMethod(event.target.value as any)}>
                   <option value="email_domain">Email / domain</option>
                   <option value="work_id">Work / student ID</option>
                 </select>
               </label>
               <label className="field">{method === "email_domain" ? "Email address" : "Work / student ID"}
-                <input required value={identifier} onChange={(event) => setIdentifier(event.target.value)} />
+                <input className="input" required value={identifier} onChange={(event) => setIdentifier(event.target.value)} />
               </label>
             </div>
-            <label className="field">Place address (optional)<input value={placeAddress} onChange={(event) => setPlaceAddress(event.target.value)} placeholder="Campus, office, residence..." /></label>
+            <label className="field">Place address (optional)<input className="input" value={placeAddress} onChange={(event) => setPlaceAddress(event.target.value)} placeholder="Campus, office, residence..." /></label>
             <button className="btn btn-primary" disabled={busy || !branchId}><Link2 size={16} />Link organisation</button>
           </form>
         )}
