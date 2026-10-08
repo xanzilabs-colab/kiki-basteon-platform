@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./games.module.css";
 
@@ -866,6 +867,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
   const [paperHidden, setPaperHidden] = useState(false);
   const [promptIndex, setPromptIndex] = useState(0);
   const [caption, setCaption] = useState<{ id: number; text: string } | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const sceneBoxRef = useRef<HTMLDivElement>(null);
@@ -944,6 +946,21 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     return () => window.clearInterval(timer);
   }, [draft]);
 
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const timer = window.setTimeout(() => textareaRef.current?.focus(), 220);
+    return () => window.clearTimeout(timer);
+  }, [sheetOpen]);
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSheetOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sheetOpen]);
+
   const toCanvasPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -976,6 +993,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
       setDraft("");
       setPaperKey((k) => k + 1);
       setPaperHidden(false);
+      setSheetOpen(false);
       setBusy(false);
       showCaption(LAUNCH_LINES[launchedRef.current % LAUNCH_LINES.length]);
     };
@@ -1085,6 +1103,135 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
   };
 
   const hasText = draft.trim().length > 0;
+
+  if (fullScreen) {
+    return (
+      <section className={`${styles.card} ${styles.boatsImmersive}`}>
+        <div className={styles.boatsHud}>
+          <Link href="/games/calm" className={styles.boatCircleBtn} aria-label="Back to calm games">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 5 8 12l7 7" />
+            </svg>
+          </Link>
+          <div className={styles.boatCount} aria-live="polite">
+            <span>
+              ⛵ <b>{afloat}</b>
+            </span>
+            <span>
+              ✦ <b>{stars}</b>
+            </span>
+          </div>
+          <button
+            type="button"
+            className={styles.boatCircleBtn}
+            onClick={toggleSound}
+            aria-pressed={sound}
+            aria-label={sound ? "Turn sound off" : "Turn sound on"}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5z" />
+              {sound ? <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /> : <path d="m16 9 5 6m0-6-5 6" />}
+            </svg>
+          </button>
+        </div>
+
+        <div className={styles.boatsStage} ref={stageRef}>
+          <div className={styles.boatsScene} ref={sceneBoxRef}>
+            <canvas
+              ref={canvasRef}
+              className={styles.canvas}
+              role="img"
+              aria-label="A moonlit river. Paper boats drift away and turn into stars."
+              onPointerMove={(e) => {
+                const p = toCanvasPoint(e);
+                sceneRef.current?.pointerMove(p.x, p.y);
+              }}
+              onPointerDown={(e) => {
+                const p = toCanvasPoint(e);
+                setTouched(true);
+                sceneRef.current?.pointerDown(p.x, p.y);
+              }}
+            />
+          </div>
+
+          {!touched && <div className={`${styles.hint} ${styles.boatsHint}`}>Touch the water</div>}
+          <div className={`${styles.caption} ${styles.boatsCaption}`} aria-live="polite">
+            {caption && (
+              <p key={caption.id} className={`${styles.captionText} ${styles.boatsCaptionText}`}>
+                {caption.text}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className={`${styles.boatsCta} ${sheetOpen ? styles.boatsCtaHidden : ""}`}
+            onClick={() => setSheetOpen(true)}
+            disabled={busy}
+          >
+            Write a worry
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.boatsVeil} ${sheetOpen ? styles.boatsVeilOn : ""}`}
+            aria-label="Close worry sheet"
+            onClick={() => setSheetOpen(false)}
+          />
+
+          <div className={`${styles.boatsSheet} ${sheetOpen ? styles.boatsSheetOn : ""}`}>
+            <div key={paperKey} ref={paperRef} className={`${styles.paper} ${styles.boatsPaper} ${paperHidden ? styles.paperHidden : ""}`}>
+              <span className={styles.tape} aria-hidden="true" />
+              <textarea
+                ref={textareaRef}
+                className={`${styles.textarea} ${styles.boatsTextarea}`}
+                value={draft}
+                maxLength={MAX_CHARS}
+                rows={3}
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                data-lpignore="true"
+                disabled={busy}
+                aria-label="Write a worry"
+                placeholder={PROMPTS[promptIndex]}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                    event.preventDefault();
+                    void launch(hasText);
+                  }
+                }}
+              />
+              <div className={styles.boatsMeta}>
+                <button type="button" disabled={busy} onClick={() => setPromptIndex((i) => (i + 1) % PROMPTS.length)}>
+                  New prompt
+                </button>
+                <span>{draft.length}/200</span>
+              </div>
+            </div>
+
+            <button type="button" className={`${styles.boatsGo} ${hasText ? "" : styles.boatsGoQuiet}`} disabled={busy} onClick={() => void launch(hasText)}>
+              {hasText ? "Fold & launch" : "Let it go"}
+            </button>
+            {(launched > 0 || stars > 0) && (
+              <button type="button" className={styles.boatsReset} disabled={busy} onClick={clearRiver}>
+                Clear the river
+              </button>
+            )}
+            <p className={styles.boatsSmall}>Nothing you write is saved or sent.</p>
+          </div>
+
+          {/* the paper that folds itself into a boat */}
+          <div ref={flyerRef} className={styles.flyer} data-folded="false" aria-hidden="true">
+            <p ref={flyerTextRef} className={styles.flyerText} />
+            <div ref={creaseRef} className={styles.crease} />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={`${styles.card} ${fullScreen ? styles.fullScreenCard : ""}`}>
