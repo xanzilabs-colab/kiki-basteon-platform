@@ -100,7 +100,11 @@ export function OrganisationConsole() {
   const branchOptions = state?.branches ?? [];
   const units = state?.units ?? [];
   const responders = state?.responderPresence ?? [];
-  const activeMembers = useMemo(() => (state?.members ?? []).filter((member) => member.status === "active"), [state]);
+  const members = useMemo(() => state?.members ?? [], [state?.members]);
+  const visibleMembers = useMemo(
+    () => members.filter((member) => !["removed", "revoked", "archived"].includes(String(member.status ?? "").toLowerCase())),
+    [members],
+  );
   const onboarding = state?.onboarding ?? {
     organisation_profile_done: false,
     branches_done: false,
@@ -113,8 +117,13 @@ export function OrganisationConsole() {
   const onboardingComplete = onboardingProgress >= 5;
   const inOnboardingMode = !dashboardUnlocked;
   const responderRoles = new Set(["owner", "admin", "manager", "dispatcher", "responder", "viewer"]);
-  const responderMembers = activeMembers.filter((member) => responderRoles.has(member.role));
-  const beneficiaryMembers = activeMembers.filter((member) => !responderRoles.has(member.role) || member.membership_type === "member");
+  const responderMembers = visibleMembers.filter((member) => responderRoles.has(member.role));
+  const beneficiaryMembers = visibleMembers.filter((member) => !responderRoles.has(member.role) || member.membership_type === "member");
+  const memberUserIds = useMemo(() => new Set(visibleMembers.map((member) => member.user_id)), [visibleMembers]);
+  const presenceOnlyResponders = useMemo(
+    () => responders.filter((presence) => !memberUserIds.has(presence.user_id)),
+    [memberUserIds, responders],
+  );
 
   useEffect(() => {
     if (!dashboardUnlockStorageKey) return;
@@ -518,7 +527,7 @@ export function OrganisationConsole() {
           <div className="org-console-metrics grid gap-3 md:grid-cols-4">
             <div className="org-console-metric panel p-3"><p className="muted text-xs">Branches</p><p className="text-2xl font-semibold">{branchOptions.length}</p></div>
             <div className="org-console-metric panel p-3"><p className="muted text-xs">Units</p><p className="text-2xl font-semibold">{units.length}</p></div>
-            <div className="org-console-metric panel p-3"><p className="muted text-xs">Responder accounts</p><p className="text-2xl font-semibold">{responderMembers.length}</p></div>
+            <div className="org-console-metric panel p-3"><p className="muted text-xs">Responder accounts</p><p className="text-2xl font-semibold">{responderMembers.length + presenceOnlyResponders.length}</p></div>
             <div className="org-console-metric panel p-3"><p className="muted text-xs">Beneficiaries / members</p><p className="text-2xl font-semibold">{beneficiaryMembers.length}</p></div>
           </div>
           <div className="org-console-quick-actions grid gap-3 md:grid-cols-2">
@@ -530,7 +539,7 @@ export function OrganisationConsole() {
         </section>
       )}
 
-      {(showConfigurationsPanel || showSettingsPanel) && (
+      {showConfigurationsPanel && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head">Onboarding checklist</h2>
         <p className="muted text-sm">Complete all five setup steps before go-live routing.</p>
@@ -568,7 +577,7 @@ export function OrganisationConsole() {
         </section>
       )}
 
-      {(showConfigurationsPanel || showSettingsPanel) && (
+      {(showSettingsPanel || inOnboardingMode) && (
       <section className="panel p-4 space-y-3">
         <h2 className="pane-head">Linking configuration</h2>
         <p className="muted text-sm">Control how users can link themselves to this organisation by email domain or verified work/student ID.</p>
@@ -785,7 +794,7 @@ export function OrganisationConsole() {
           <table className="tbl">
             <thead><tr><th>Name</th><th>Role</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
-              {activeMembers.map((member) => (
+              {visibleMembers.map((member) => (
                 <tr key={member.id}>
                   <td>{member.profiles?.full_name || member.user_id}</td>
                   <td>{member.role}</td>
@@ -802,6 +811,19 @@ export function OrganisationConsole() {
                   </td>
                 </tr>
               ))}
+              {presenceOnlyResponders.map((presence) => (
+                <tr key={`presence-${presence.user_id}`}>
+                  <td>{presence.profiles?.full_name ?? presence.user_id}</td>
+                  <td>responder</td>
+                  <td>responder</td>
+                  <td>{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "—"}</td>
+                  <td>{presence.availability ?? "active"}</td>
+                  <td className="muted text-xs">Managed from responder roster</td>
+                </tr>
+              ))}
+              {visibleMembers.length === 0 && presenceOnlyResponders.length === 0 && (
+                <tr><td colSpan={6} className="muted text-center">No member or responder accounts found yet.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
