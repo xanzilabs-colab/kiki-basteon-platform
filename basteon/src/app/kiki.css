@@ -215,7 +215,19 @@
 .hamba-route-summary div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .hamba-route-summary b { color: #32183f; font-size: 18px; }
 .hamba-route-summary span { color: #756b7d; font-size: 11px; }
-.hamba-start { width: 100%; }
+.hamba-start {
+  width: 100%;
+  min-height: 48px;
+  height: auto !important;
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.3;
+}
 .hamba-note, .hamba-message { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; color: #756b7d; font-size: 12px; }
 .hamba-active { display: grid; gap: 16px; position: relative; border: 0; background: transparent; overflow: visible; }
 .hamba-active .hamba-map { height: 390px; }

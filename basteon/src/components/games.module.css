@@ -423,11 +423,11 @@
   box-sizing: border-box;
   display: flex;
   width: 100%;
-  height: 100dvh;
-  min-height: 0;
+  min-height: 100dvh;
+  height: auto;
   flex-direction: column;
   gap: 10px;
-  overflow: hidden;
+  overflow: visible;
   padding: calc(54px + env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
   border: 0;
   border-radius: 0;
@@ -453,7 +453,7 @@
 .fullScreenCard .stage {
   display: flex;
   min-height: 0;
-  flex: 1 1 auto;
+  flex: none;
   flex-direction: column;
   border: 0;
   border-radius: 0;
@@ -461,7 +461,13 @@
   box-shadow: none;
 }
 
-.fullScreenCard .scene { position: relative; height: 0; min-height: 0; flex: 1 1 0; overflow: hidden; }
+.fullScreenCard .scene {
+  position: relative;
+  height: clamp(420px, 60dvh, 780px);
+  min-height: 420px;
+  flex: none;
+  overflow: hidden;
+}
 .fullScreenCard .canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .fullScreenCard .desk { flex: none; gap: 8px; padding: 9px 12px 10px; }
 .fullScreenCard .paper { min-height: 70px; padding: 11px 12px 21px 44px; transform: none; }
@@ -481,6 +487,7 @@
   .fullScreenCard { gap: 6px; padding-top: calc(48px + env(safe-area-inset-top)); }
   .fullScreenCard .title { font-size: 1.3rem; }
   .fullScreenCard .subtitle { font-size: .72rem; }
+  .fullScreenCard .scene { height: clamp(360px, 56dvh, 620px); min-height: 360px; }
   .fullScreenCard .paper { min-height: 58px; padding-top: 8px; padding-bottom: 19px; }
   .fullScreenCard .textarea { min-height: 36px; font-size: .92rem; line-height: 22px; }
   .fullScreenCard .desk { gap: 6px; padding-block: 7px; }
