@@ -22,6 +22,7 @@ export default function AdminOrganisationsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [generated, setGenerated] = useState<{ email: string; password: string } | null>(null);
+  const [generatedCredentialPdfData, setGeneratedCredentialPdfData] = useState("");
   const [name, setName] = useState("");
   const [orgType, setOrgType] = useState<"institution" | "business" | "responder_partner">("responder_partner");
   const [category, setCategory] = useState("");
@@ -52,6 +53,7 @@ export default function AdminOrganisationsPage() {
     setError("");
     setMessage("");
     setGenerated(null);
+    setGeneratedCredentialPdfData("");
     const response = await fetch("/api/admin/organisations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -72,6 +74,8 @@ export default function AdminOrganisationsPage() {
       return;
     }
     setGenerated((body as any).credentials ?? null);
+    const base64 = (body as any).credentialPdfBase64;
+    setGeneratedCredentialPdfData(typeof base64 === "string" ? `data:application/pdf;base64,${base64}` : "");
     setMessage("Organisation created.");
     setName("");
     setCategory("");
@@ -97,6 +101,11 @@ export default function AdminOrganisationsPage() {
           <p className="text-sm">Generated owner credentials:</p>
           <p className="text-sm"><b>{generated.email}</b></p>
           <p className="text-sm"><b>{generated.password}</b></p>
+          {generatedCredentialPdfData && (
+            <a className="btn mt-3 inline-flex w-fit" href={generatedCredentialPdfData} download={`basteon-org-owner-${Date.now()}.pdf`}>
+              Download credential PDF
+            </a>
+          )}
         </div>
       )}
 

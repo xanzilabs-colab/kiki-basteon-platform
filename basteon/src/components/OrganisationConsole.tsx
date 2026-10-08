@@ -49,6 +49,11 @@ export function OrganisationConsole() {
   const [unitName, setUnitName] = useState("");
   const [unitBranchId, setUnitBranchId] = useState("");
   const [unitType, setUnitType] = useState("other");
+  const [allowEmailDomain, setAllowEmailDomain] = useState(true);
+  const [allowWorkId, setAllowWorkId] = useState(true);
+  const [requireInvite, setRequireInvite] = useState(false);
+  const [autoApproveLinks, setAutoApproveLinks] = useState(true);
+  const [workIdRegex, setWorkIdRegex] = useState("");
   const emergencyTypes = useEmergencyTypes();
 
   async function refresh() {
@@ -66,6 +71,14 @@ export function OrganisationConsole() {
   }
 
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    if (!state?.settings) return;
+    setAllowEmailDomain(Boolean(state.settings.allow_email_domain));
+    setAllowWorkId(Boolean(state.settings.allow_work_id));
+    setRequireInvite(Boolean(state.settings.require_invite));
+    setAutoApproveLinks(Boolean(state.settings.auto_approve_links));
+    setWorkIdRegex(state.settings.work_id_regex ?? "");
+  }, [state?.settings]);
 
   const organisationId = state?.organisation?.id ?? "";
   const branchOptions = state?.branches ?? [];
@@ -284,6 +297,34 @@ export function OrganisationConsole() {
     await refresh();
   }
 
+  async function saveLinkSettings(event: React.FormEvent) {
+    event.preventDefault();
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        organisationId,
+        allowEmailDomain,
+        allowWorkId,
+        requireInvite,
+        autoApproveLinks,
+        workIdRegex: workIdRegex.trim() || null,
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not save linking settings.");
+      setBusy(false);
+      return;
+    }
+    setMessage("Linking configuration updated.");
+    await refresh();
+  }
+
   async function removeCoverage(id: string) {
     if (!organisationId) return;
     setBusy(true);
@@ -307,7 +348,7 @@ export function OrganisationConsole() {
   if (!state) return <div className="panel p-5">Loading organisation console...</div>;
 
   return (
-    <div className="space-y-5 max-w-[1280px]">
+    <div className="w-full space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow">Organisation operations</p>
@@ -342,6 +383,57 @@ export function OrganisationConsole() {
           <button className="btn justify-between" disabled={busy || onboarding.linking_rules_done} onClick={() => void markOnboardingStep("linkingRulesDone")}><span>Linking rules</span><span>{onboarding.linking_rules_done ? "Done" : "Mark done"}</span></button>
           <button className="btn justify-between" disabled={busy || onboarding.coverage_done} onClick={() => void markOnboardingStep("coverageDone")}><span>Emergency coverage</span><span>{onboarding.coverage_done ? "Done" : "Mark done"}</span></button>
           <button className="btn justify-between" disabled={busy || onboarding.responders_done} onClick={() => void markOnboardingStep("respondersDone")}><span>Responders</span><span>{onboarding.responders_done ? "Done" : "Mark done"}</span></button>
+        </div>
+      </section>
+
+      <section className="panel p-4 space-y-3">
+        <h2 className="pane-head">Linking configuration</h2>
+        <p className="muted text-sm">Control how users can link themselves to this organisation by email domain or verified work/student ID.</p>
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void saveLinkSettings(event)}>
+          <label className="field">
+            <span className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={allowEmailDomain} onChange={(event) => setAllowEmailDomain(event.target.checked)} />
+              Allow email-domain linking
+            </span>
+          </label>
+          <label className="field">
+            <span className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={allowWorkId} onChange={(event) => setAllowWorkId(event.target.checked)} />
+              Allow work/student ID linking
+            </span>
+          </label>
+          <label className="field">
+            <span className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={requireInvite} onChange={(event) => setRequireInvite(event.target.checked)} />
+              Require invite approval before activation
+            </span>
+          </label>
+          <label className="field">
+            <span className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={autoApproveLinks} onChange={(event) => setAutoApproveLinks(event.target.checked)} />
+              Auto-approve eligible links
+            </span>
+          </label>
+          <label className="field md:col-span-2">Work/Student ID regex rule (optional)
+            <input value={workIdRegex} onChange={(event) => setWorkIdRegex(event.target.value)} placeholder="e.g. ^[A-Z]{2}[0-9]{6}$" />
+          </label>
+          <button className="btn btn-primary md:col-span-2 md:justify-self-start" disabled={busy}>Save linking configuration</button>
+        </form>
+
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>Allowed domain</th><th>Membership type</th><th>Priority</th></tr></thead>
+            <tbody>
+              {(state.domains ?? []).map((domain: any) => (
+                <tr key={domain.id}>
+                  <td>{domain.domain}</td>
+                  <td>{domain.membership_type}</td>
+                  <td>{domain.priority ?? 100}</td>
+                </tr>
+              ))}
+              {(state.domains ?? []).length === 0 && <tr><td colSpan={3} className="muted text-center">No domain rules configured yet.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </section>
 

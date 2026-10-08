@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { randomPassword, slugifyOrganisation } from "@/lib/organisation";
+import { renderSimpleCredentialPdf } from "@/lib/pdf";
 
 async function allowed() {
   const client = await createClient();
@@ -100,5 +101,14 @@ export async function POST(request: Request) {
     ok: true,
     organisation: org,
     credentials: { email: input.ownerEmail, password },
+    credentialPdfBase64: renderSimpleCredentialPdf([
+      "BASTEON Organisation Owner Credentials",
+      `Organisation: ${org.name}`,
+      `Name: ${input.ownerFullName}`,
+      `Email: ${input.ownerEmail}`,
+      `Password: ${password}`,
+      `Generated: ${new Date().toISOString()}`,
+      "Change the password after first sign in.",
+    ]).toString("base64"),
   }, { status: 201 });
 }
