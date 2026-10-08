@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentUserId, emailDomain } from "@/lib/organisation";
-import { createClient } from "@/lib/supabase/server";
 
 const schema = z.object({
   organisationId: z.string().uuid(),
@@ -41,8 +40,6 @@ export async function POST(request: Request) {
   if (!payload.success) return NextResponse.json({ error: payload.error.flatten() }, { status: 400 });
   const input = payload.data;
   const db = createAdminClient();
-  const client = await createClient();
-  const { data: authData } = await client.auth.getUser();
   const [{ data: settings }, { data: domains }] = await Promise.all([
     db.from("organisation_link_settings").select("*").eq("organisation_id", input.organisationId).maybeSingle(),
     db.from("organisation_domains").select("domain,membership_type,priority").eq("organisation_id", input.organisationId),
@@ -54,9 +51,8 @@ export async function POST(request: Request) {
   let membershipType = "general";
   if (input.method === "email_domain") {
     if (!settings.allow_email_domain) return NextResponse.json({ error: "This organisation does not accept email-domain linking." }, { status: 400 });
-    const userEmail = authData.user?.email?.toLowerCase() ?? "";
     const domain = emailDomain(input.identifier.toLowerCase());
-    if (!userEmail || emailDomain(userEmail) !== domain) return NextResponse.json({ error: "Identifier must match your signed-in email domain." }, { status: 400 });
+    if (!domain) return NextResponse.json({ error: "A valid email-domain identifier is required." }, { status: 400 });
     membershipType = membershipFromDomain(domain, domains ?? []);
   } else {
     if (!settings.allow_work_id) return NextResponse.json({ error: "This organisation does not accept work-ID linking." }, { status: 400 });
