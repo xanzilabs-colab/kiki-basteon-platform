@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { activeStatuses } from "@/lib/status";
 import { useRealtimeAlerts } from "@/hooks/useRealtimeAlerts";
 import { useAlertTrail } from "@/hooks/useAlertTrail";
@@ -15,6 +15,7 @@ import { Navbar } from "@/components/Navbar";
 import { UserProfileDrawer } from "@/components/UserProfileDrawer";
 import type { Alert, ProfileContact } from "@/lib/types";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
+import { createClient } from "@/lib/supabase/client";
 
 const AlertMap = dynamic(() => import("@/components/AlertMap"), {
   ssr: false,
@@ -31,8 +32,25 @@ export default function ResponderPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "all">("active");
   const [profile, setProfile] = useState<ProfileContact | null>(null);
+  const [operatorName, setOperatorName] = useState("");
+  const [organisationName, setOrganisationName] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const emergencyTypes = useEmergencyTypes();
+
+  useEffect(() => {
+    void (async () => {
+      const client = createClient();
+      const { data: { user } } = await client.auth.getUser();
+      if (!user) return;
+      const { data: profileRow } = await client.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+      setOperatorName(profileRow?.full_name ?? user.email ?? "Responder");
+      const response = await fetch("/api/organisation/me", { cache: "no-store" });
+      if (response.ok) {
+        const body = await response.json();
+        setOrganisationName(body?.organisation?.name ?? "");
+      }
+    })();
+  }, []);
 
   const active = useMemo(
     () => alerts.filter((a) => activeStatuses.includes(a.status)),
@@ -69,6 +87,13 @@ export default function ResponderPage() {
       </Navbar>
 
       <main className="relative min-h-0 min-w-0">
+        <div className="absolute z-[1100] left-3 right-3 top-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]">
+          <div className="panel px-3 py-2 text-[12px] flex flex-wrap items-center gap-2">
+            <span className="status status-blue">Responder Console</span>
+            {organisationName && <span className="muted">Organisation: {organisationName}</span>}
+            {operatorName && <span className="muted">Operator: {operatorName}</span>}
+          </div>
+        </div>
         {alertError && (
           <div
             role="alert"

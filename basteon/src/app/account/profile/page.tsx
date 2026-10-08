@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, FileText, Lock, Moon, Shield, Volume2 } from "lucide-react";
+import { Building2, ChevronRight, FileText, Lock, Moon, Shield, Volume2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -25,6 +25,7 @@ export default function ProfilePage() {
       <Link className="kiki-profile-identity" href="/account/profile/info">{avatarUrl ? <img src={avatarUrl} alt="Your profile" /> : <span>{name.charAt(0).toUpperCase()}</span>}<div><h2>{name}</h2><p>{email}</p><b>Premium Safety Subscriber</b></div><ChevronRight size={18} /></Link>
       <nav className="kiki-profile-menu" aria-label="Account settings">
         <Link href="/account/profile/medical"><span><FileText size={17} />Medical ID &amp; Emergency Info</span><ChevronRight size={17} /></Link>
+        <Link href="/account/organisations"><span><Building2 size={17} />My Organisations</span><ChevronRight size={17} /></Link>
         <Link href="/account/profile/security"><span><Lock size={17} />Security &amp; PIN Code</span><ChevronRight size={17} /></Link>
         <Link href="/account/profile/ringtones"><span><Volume2 size={17} />Ringtones</span><ChevronRight size={17} /></Link>
         <button type="button" onClick={() => void toggleTheme()}><span><Moon size={17} />Dark Theme Mode</span><b>{profile?.dark_theme ? "On" : "Off"}</b></button>

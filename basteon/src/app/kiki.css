@@ -339,7 +339,7 @@
 .auth-head { padding: 28px 28px 22px; border-bottom-color: #ded6e7; }
 .auth-body { padding: 24px 28px 28px; }
 .ops-login { display: grid; min-height: 100vh; place-items: center; padding: 24px; background: #121314; color: #f1f2f3; }
-.ops-login-card { width: min(100%, 400px); border-top: 4px solid #f1f2f3; background: #1b1d1f; box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }
+.ops-login-card { width: min(100%, 460px); border-top: 4px solid #f1f2f3; background: #1b1d1f; box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }
 .ops-login-brand { display: flex; align-items: center; gap: 14px; padding: 24px; border-bottom: 1px solid #2b2e32; }
 .ops-login-brand span, .ops-login-brand strong { display: block; }
 .ops-login-brand span { color: #8f959c; font-size: 11px; font-weight: 700; letter-spacing: .14em; }
@@ -348,13 +348,14 @@
 .ops-login-copy h1 { margin: 0; font-size: 25px; line-height: 1.1; }
 .ops-login-copy p { margin: 6px 0 0; color: #8f959c; font-size: 13px; }
 .ops-login-label { display: grid; gap: 7px; padding: 0 24px 16px; color: #c2c6cb; font-size: 13px; font-weight: 600; }
-.ops-login-label input { width: 100%; height: 40px; border: 1px solid #2f3337; border-radius: 3px; background: #101112; color: #f1f2f3; padding: 0 12px; }
-.ops-login-label input:focus { outline: 2px solid #f1f2f3; outline-offset: 1px; }
+.ops-login-label input, .ops-login-label select { width: 100%; height: 40px; border: 1px solid #2f3337; border-radius: 3px; background: #101112; color: #f1f2f3; padding: 0 12px; }
+.ops-login-label input:focus, .ops-login-label select:focus { outline: 2px solid #f1f2f3; outline-offset: 1px; }
 .ops-login-error { margin: 0 24px 16px; border-left: 3px solid #d93036; background: #2d171a; padding: 9px 10px; color: #ffb7ba; font-size: 13px; }
+.ops-login-status { margin: 0 24px 16px; border-left: 3px solid #2d8f5a; background: #14291f; padding: 9px 10px; color: #b9f3d4; font-size: 13px; }
 .ops-login-submit { width: calc(100% - 48px); height: 40px; margin: 0 24px; border: 0; border-radius: 3px; background: #f1f2f3; color: #101112; font-weight: 700; }
 .ops-login-submit:hover { background: #fff; }
 .ops-login-submit:disabled { cursor: not-allowed; opacity: .6; }
-.ops-login-customer { display: block; padding: 20px 24px 24px; color: #8f959c; font-size: 13px; text-align: center; text-decoration: none; }
+.ops-login-customer { display: block; padding: 10px 24px 14px; color: #8f959c; font-size: 13px; text-align: center; text-decoration: none; }
 .ops-login-customer:hover { color: #f1f2f3; }
 .kiki-mark { display: block; object-fit: contain; }
 .kiki-loader { display: grid; min-height: 100vh; place-content: center; justify-items: center; gap: 14px; overflow: hidden; background: radial-gradient(circle at 50% 44%, #f8d6e6 0, #e9e2f5 17%, #fcf9f3 52%); color: #32183f; }

@@ -71,6 +71,7 @@ export function OperationsLogin({ consoleName, destination, allowedRoles }: Oper
         <button className="ops-login-submit" type="submit" disabled={loading}>
           {loading ? "Checking access..." : "Sign in"}
         </button>
+        <Link className="ops-login-customer" href="/organisation/login">Organisation sign up / sign in</Link>
         <Link className="ops-login-customer" href="/login">Customer sign in</Link>
       </form>
     </main>
