@@ -448,8 +448,9 @@ export function OrganisationConsole() {
   if (!state) return <div className="panel p-5">Loading organisation console...</div>;
 
   return (
-    <div className="w-full space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <>
+    <div className="org-console w-full space-y-5">
+      <header className="org-console-header flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow">Organisation operations</p>
           <h1 className="page-title mt-1">{state.organisation.name}</h1>
@@ -464,7 +465,7 @@ export function OrganisationConsole() {
       {message && <p role="status" className="ops-login-status">{message}</p>}
 
       {inOnboardingMode && onboardingComplete && (
-        <section className="panel p-4 space-y-3">
+        <section className="org-console-hero panel p-4 space-y-3">
           <h2 className="pane-head">Onboarding complete</h2>
           <p className="muted text-sm">
             Your setup checklist is complete. Open the full dashboard to access tabs for home, beneficiaries, responders,
@@ -478,8 +479,8 @@ export function OrganisationConsole() {
       )}
 
       {!inOnboardingMode && (
-        <section className="panel p-3">
-          <nav className="flex flex-wrap gap-2" aria-label="Organisation dashboard tabs">
+        <section className="org-console-tabs-shell panel p-3">
+          <nav className="org-console-tabs" aria-label="Organisation dashboard tabs">
             {dashboardTabs.map((tab) => {
               const Icon = tab.icon;
               const selected = activeTab === tab.key;
@@ -487,7 +488,7 @@ export function OrganisationConsole() {
                 <button
                   key={tab.key}
                   type="button"
-                  className={`btn ${selected ? "btn-primary" : ""}`}
+                  className={`org-console-tab btn ${selected ? "btn-primary is-active" : ""}`}
                   onClick={() => setActiveTab(tab.key)}
                   aria-pressed={selected}
                 >
@@ -497,12 +498,12 @@ export function OrganisationConsole() {
               );
             })}
           </nav>
-          <p className="muted text-xs mt-2">{dashboardTabs.find((tab) => tab.key === activeTab)?.description}</p>
+          <p className="org-console-tab-description muted text-xs mt-2">{dashboardTabs.find((tab) => tab.key === activeTab)?.description}</p>
         </section>
       )}
 
       {generatedCredentials && (
-        <section className="panel p-4 space-y-2">
+        <section className="org-console-surface panel p-4 space-y-2">
           <h2 className="pane-head">Generated credentials</h2>
           <p className="text-sm">Email: <b>{generatedCredentials.email}</b></p>
           <p className="text-sm">Password: <b>{generatedCredentials.password}</b></p>
@@ -512,19 +513,19 @@ export function OrganisationConsole() {
       )}
 
       {showHomePanel && (
-        <section className="panel p-4 space-y-3">
+        <section className="org-console-surface panel p-4 space-y-3">
           <h2 className="pane-head">Organisation dashboard</h2>
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="panel p-3"><p className="muted text-xs">Branches</p><p className="text-2xl font-semibold">{branchOptions.length}</p></div>
-            <div className="panel p-3"><p className="muted text-xs">Units</p><p className="text-2xl font-semibold">{units.length}</p></div>
-            <div className="panel p-3"><p className="muted text-xs">Responder accounts</p><p className="text-2xl font-semibold">{responderMembers.length}</p></div>
-            <div className="panel p-3"><p className="muted text-xs">Beneficiaries / members</p><p className="text-2xl font-semibold">{beneficiaryMembers.length}</p></div>
+          <div className="org-console-metrics grid gap-3 md:grid-cols-4">
+            <div className="org-console-metric panel p-3"><p className="muted text-xs">Branches</p><p className="text-2xl font-semibold">{branchOptions.length}</p></div>
+            <div className="org-console-metric panel p-3"><p className="muted text-xs">Units</p><p className="text-2xl font-semibold">{units.length}</p></div>
+            <div className="org-console-metric panel p-3"><p className="muted text-xs">Responder accounts</p><p className="text-2xl font-semibold">{responderMembers.length}</p></div>
+            <div className="org-console-metric panel p-3"><p className="muted text-xs">Beneficiaries / members</p><p className="text-2xl font-semibold">{beneficiaryMembers.length}</p></div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <button className="btn justify-between" type="button" onClick={() => setActiveTab("responders")}><span>Manage responders</span><span>Open</span></button>
-            <button className="btn justify-between" type="button" onClick={() => setActiveTab("members")}><span>Manage staff / members</span><span>Open</span></button>
-            <button className="btn justify-between" type="button" onClick={() => setActiveTab("beneficiaries")}><span>View beneficiaries</span><span>Open</span></button>
-            <button className="btn justify-between" type="button" onClick={() => setActiveTab("configurations")}><span>Open configurations</span><span>Open</span></button>
+          <div className="org-console-quick-actions grid gap-3 md:grid-cols-2">
+            <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("responders")}><span>Manage responders</span><span>Open</span></button>
+            <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("members")}><span>Manage staff / members</span><span>Open</span></button>
+            <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("beneficiaries")}><span>View beneficiaries</span><span>Open</span></button>
+            <button className="org-console-action btn justify-between" type="button" onClick={() => setActiveTab("configurations")}><span>Open configurations</span><span>Open</span></button>
           </div>
         </section>
       )}
@@ -837,5 +838,119 @@ export function OrganisationConsole() {
       </section>
       )}
     </div>
+    <style jsx global>{`
+      .account-shell .org-console {
+        color: #29212f;
+      }
+      .account-shell .org-console-header {
+        padding: 4px 2px 2px;
+      }
+      .account-shell .org-console .panel {
+        border: 1px solid #e5d9ee;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 8px 28px rgba(87, 44, 102, 0.06);
+      }
+      .account-shell .org-console .pane-head {
+        border-radius: 18px 18px 0 0;
+        min-height: 52px;
+        padding-inline: 16px;
+        border-bottom: 1px solid #f1e9f6;
+        background: linear-gradient(135deg, #f8ecff, #f2efff);
+      }
+      .account-shell .org-console-tabs-shell {
+        padding: 12px;
+        background: linear-gradient(145deg, #fbf5ff, #f8f3ff);
+      }
+      .account-shell .org-console-tabs {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: thin;
+      }
+      .account-shell .org-console-tab {
+        border: 1px solid #e3d4ef;
+        background: #fff;
+        color: #4f345d;
+        font-weight: 700;
+        min-height: 40px;
+        border-radius: 12px;
+        padding-inline: 14px;
+        white-space: nowrap;
+      }
+      .account-shell .org-console-tab:hover {
+        background: #f7efff;
+      }
+      .account-shell .org-console-tab.is-active {
+        border-color: #5b2c73;
+        background: #5b2c73;
+        color: #fff;
+      }
+      .account-shell .org-console-tab-description {
+        color: #5d4f66;
+      }
+      .account-shell .org-console-hero {
+        border-color: #d9c7e8;
+        background: linear-gradient(135deg, #fff8fe, #f8efff);
+      }
+      .account-shell .org-console-metric {
+        border: 1px solid #e8def0;
+        border-radius: 14px;
+        box-shadow: none;
+        background: linear-gradient(160deg, #fff, #fbf5ff);
+      }
+      .account-shell .org-console-metric p:last-child {
+        color: #301a3d;
+      }
+      .account-shell .org-console-action {
+        border: 1px solid #e6d8f2;
+        min-height: 44px;
+        border-radius: 12px;
+        background: #fcf7ff;
+        color: #3f2450;
+      }
+      .account-shell .org-console-action:hover {
+        background: #f3e7ff;
+      }
+      .account-shell .org-console .field input,
+      .account-shell .org-console .field select,
+      .account-shell .org-console .field textarea {
+        border: 1px solid #e5d9ee;
+        border-radius: 12px;
+        min-height: 42px;
+        background: #fff;
+        color: #2a2130;
+      }
+      .account-shell .org-console .field textarea {
+        min-height: 110px;
+      }
+      .account-shell .org-console .field input:focus,
+      .account-shell .org-console .field select:focus,
+      .account-shell .org-console .field textarea:focus {
+        outline: 2px solid #7a3f98;
+        outline-offset: 1px;
+      }
+      .account-shell .org-console .tbl thead th {
+        background: #f8f1ff;
+        color: #442856;
+      }
+      .account-shell .org-console .tbl tbody td {
+        color: #2d2334;
+      }
+      @media (max-width: 768px) {
+        .account-shell .org-console-tabs {
+          scroll-snap-type: x mandatory;
+          padding-bottom: 4px;
+        }
+        .account-shell .org-console-tab {
+          scroll-snap-align: start;
+        }
+        .account-shell .org-console .pane-head {
+          font-size: 15px;
+        }
+      }
+    `}</style>
+    </>
   );
 }
