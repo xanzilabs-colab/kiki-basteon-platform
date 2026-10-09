@@ -2,109 +2,219 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BatteryCharging, Clock3, Lock, PlusCircle, Trash2, Wifi } from "lucide-react";
-import { useEffect, useState } from "react";
+import { BatteryCharging, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus, ShieldCheck, Trash2, Wifi } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { pinErrorMessage } from "@/lib/devicePin";
 import type { Device } from "@/lib/types";
+import "./devicesPage.css";
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
 function relativeTime(value: string | null | undefined) {
   if (!value) return "Never seen";
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
-  if (minutes < 1) return "Last seen just now";
-  if (minutes < 60) return `Last seen ${minutes} min${minutes === 1 ? "" : "s"} ago`;
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "Last seen time unavailable";
+  const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? "" : "s"} ago`;
   const hours = Math.round(minutes / 60);
-  return `Last seen ${hours} hr${hours === 1 ? "" : "s"} ago`;
+  if (hours < 24) return `${hours} hr${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
 function signalLabel(rssi: number | null | undefined) {
-  if (rssi == null) return "Signal not reported";
-  if (rssi >= -55) return `Strong (${rssi} dBm)`;
-  if (rssi >= -70) return `Good (${rssi} dBm)`;
-  return `Weak (${rssi} dBm)`;
+  if (rssi == null) return "Not reported";
+  if (rssi >= -55) return `Strong · ${rssi} dBm`;
+  if (rssi >= -70) return `Good · ${rssi} dBm`;
+  return `Weak · ${rssi} dBm`;
+}
+
+function isDeviceOnline(device: Device) {
+  const lastSignal = device.telemetry_at ?? device.last_seen_at;
+  return Boolean(device.active && lastSignal && Date.now() - new Date(lastSignal).getTime() <= ONLINE_WINDOW_MS);
 }
 
 export default function DevicesPage() {
   const router = useRouter();
   const [devices, setDevices] = useState<Device[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
-    const { data } = await createClient()
-      .from("devices")
-      .select("*")
-      .order("linked_at", { ascending: false });
-    setDevices((data ?? []) as Device[]);
-  };
+  const refresh = useCallback(async () => {
+    setError("");
+    try {
+      const { data, error: queryError } = await createClient()
+        .from("devices")
+        .select("*")
+        .order("linked_at", { ascending: false });
+      if (queryError) throw queryError;
+      const linkedDevices = (data ?? []) as Device[];
+      setDevices(linkedDevices);
+      setSelectedIndex((index) => Math.min(index, Math.max(linkedDevices.length - 1, 0)));
+    } catch {
+      setError("Could not load your linked devices. Please refresh and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const selectedDevice = devices[selectedIndex];
+  const latestSignal = selectedDevice?.telemetry_at ?? selectedDevice?.last_seen_at ?? null;
+  const selectedOnline = selectedDevice ? isDeviceOnline(selectedDevice) : false;
+
+  function selectDevice(index: number) {
+    if (!devices.length) return;
+    setSelectedIndex((index + devices.length) % devices.length);
+  }
 
   async function rename(device: Device) {
     const deviceName = window.prompt("Device nickname", device.device_name);
     if (!deviceName?.trim()) return;
-    const response = await fetch(`/api/devices/${device.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_name: deviceName }),
-    });
-    if (!response.ok) setError("Could not rename device.");
-    else void refresh();
+    try {
+      const response = await fetch(`/api/devices/${device.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_name: deviceName.trim() }),
+      });
+      if (!response.ok) throw new Error("Could not rename device.");
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not rename device.");
+    }
   }
 
   async function unlink(device: Device) {
-    // PIN-locked bands are unlinked from the security page, where the PIN is entered in a masked field.
     if (device.pin_locked) return router.push(`/account/devices/${device.id}/security#unlink`);
     if (!window.confirm(`Unlink ${device.device_name}?`)) return;
-    const response = await fetch(`/api/devices/${device.id}/unlink`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-    if (!response.ok) setError(pinErrorMessage(await response.json().catch(() => ({}))) ?? "Could not unlink device.");
-    else void refresh();
+    try {
+      const response = await fetch(`/api/devices/${device.id}/unlink`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!response.ok) throw new Error(pinErrorMessage(await response.json().catch(() => ({}))) ?? "Could not unlink device.");
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not unlink device.");
+    }
   }
 
-  return (
-    <div className="kiki-devices-page space-y-5 max-w-[860px]">
-      <div className="kiki-reference-title">
-        <div>
-          <p className="eyebrow">My equipment</p>
-          <h1 className="page-title mt-1">My devices</h1>
-        </div>
-        <Link className="kiki-add-device" href="/account/devices/link"><PlusCircle size={15} /> Link device</Link>
+  return <div className="kiki-devices-redesign">
+    <header className="devices-heading">
+      <div>
+        <h1>My devices</h1>
+        {!loading && devices.length > 0 && <p>{devices.length} {devices.length === 1 ? "device" : "devices"} linked</p>}
       </div>
+      <Link className="devices-link-button" href="/account/devices/link"><Plus size={16} />Link device</Link>
+    </header>
 
-      {error && <p role="alert" className="text-[12px] text-[var(--crit)]">{error}</p>}
+    {error && <p className="devices-error" role="alert">{error}</p>}
 
-      {devices.length === 0 ? (
-        <section className="kiki-empty-device">
-          <PlusCircle size={25} /><h2>Have a backup device?</h2><p>Pair a Kiki Smart Pendant or Keyring tracker.</p><Link href="/account/devices/link">Pair Secondary Tracker</Link>
+    {loading ? (
+      <div className="devices-loading" role="status">Loading your devices…</div>
+    ) : selectedDevice ? (
+      <>
+        <section className={`devices-hero${selectedOnline ? " is-online" : ""}`} aria-label="Selected device">
+          <div className="devices-stage">
+            <div className="device-orbit device-orbit-one" />
+            <div className="device-orbit device-orbit-two" />
+            <div className="device-floor" />
+            <div className="device-pendant" aria-label="3D illustration of a Kiki device">
+              <span className="device-grip device-grip-left" />
+              <span className="device-grip device-grip-right" />
+              <span className="device-lens" />
+              <Image className="device-logo" src="/assets/kiki-icon.png" alt="Kiki" width={88} height={50} priority />
+            </div>
+            {devices.length > 1 && <>
+              <button className="devices-carousel-arrow previous" type="button" onClick={() => selectDevice(selectedIndex - 1)} aria-label="Previous device"><ChevronLeft size={20} /></button>
+              <button className="devices-carousel-arrow next" type="button" onClick={() => selectDevice(selectedIndex + 1)} aria-label="Next device"><ChevronRight size={20} /></button>
+            </>}
+          </div>
+          <div className="devices-hero-copy">
+            <h2>{selectedDevice.device_name}</h2>
+            <p className="devices-id">{selectedDevice.device_id}</p>
+            <span className={`devices-status${selectedOnline ? " connected" : ""}`}><i />{selectedOnline ? "Connected" : selectedDevice.active ? "Offline" : "Inactive"}</span>
+            {devices.length > 1 && <div className="devices-pagination" aria-label={`Device ${selectedIndex + 1} of ${devices.length}`}>
+              {devices.map((device, index) => <button key={device.id} type="button" className={index === selectedIndex ? "selected" : ""} aria-label={`Show ${device.device_name}`} aria-current={index === selectedIndex ? "true" : undefined} onClick={() => selectDevice(index)} />)}
+            </div>}
+          </div>
         </section>
-      ) : (
-        devices.map((device) => (
-          <section className="kiki-device-card" key={device.id}>
-              {(() => {
-                const latestSignal = device.telemetry_at ?? device.last_seen_at;
-                const isOnline = Boolean(device.active && latestSignal && Date.now() - new Date(latestSignal).getTime() <= ONLINE_WINDOW_MS);
-                return <>
-              <div className="kiki-device-card-head">
-                <div className="flex min-w-0 gap-3">
-                  <span className="kiki-device-large"><Image src="/assets/devices-icon-link.png" alt="Linked Kiki device" width={56} height={56} priority /></span>
-                  <div className="min-w-0">
-                    <h2>{device.device_name}</h2><p>{device.device_id}</p>
-                  </div>
-                </div>
-                <span className={`kiki-active-pill ${device.active ? "is-active" : ""}`}>
-                  {isOnline ? "Active" : device.active ? "Offline" : "Inactive"}
-                </span>
-              </div>
-              <div className="kiki-device-telemetry"><div><span>Battery status</span><b><BatteryCharging size={16} />{device.battery == null ? "Not reported" : `${device.battery}% charged`}</b></div><div><span>Device signal</span><b><Wifi size={16} />{isOnline ? signalLabel(device.wifi_rssi) : "Offline"}</b></div></div>
-              <p className="kiki-device-meta"><span><Clock3 size={14} />Linked {device.linked_at ? new Date(device.linked_at).toLocaleDateString() : "previously"}</span><b>{relativeTime(latestSignal)}</b></p>
-              <div className="kiki-device-actions"><button onClick={() => void rename(device)}>Rename</button><Link href={`/account/devices/${device.id}/security`} title="Band PIN and security"><Lock size={14} />{device.pin_locked ? "PIN on" : "Set PIN"}</Link><button onClick={() => void unlink(device)} title="Unlink device"><Trash2 size={16} /></button></div>
-              </>;
-              })()}
-          </section>
-        ))
-      )}
-    </div>
-  );
+
+        <section className="devices-metrics" aria-label="Device status">
+          <article className={`devices-metric${selectedDevice.battery != null && selectedDevice.battery < 20 ? " is-warning" : ""}`}>
+            <BatteryCharging size={21} />
+            <small>Battery</small>
+            <b>{selectedDevice.battery == null ? "Not reported" : `${selectedDevice.battery}%`}</b>
+          </article>
+          <article className={`devices-metric${!selectedOnline ? " is-muted" : ""}`}>
+            <Wifi size={21} />
+            <small>Signal</small>
+            <b>{selectedOnline ? signalLabel(selectedDevice.wifi_rssi) : "Offline"}</b>
+          </article>
+          <article className="devices-metric">
+            <Clock3 size={21} />
+            <small>Last seen</small>
+            <b>{relativeTime(latestSignal)}</b>
+          </article>
+        </section>
+
+        <section className="devices-actions" aria-label="Device actions">
+          <button type="button" onClick={() => void rename(selectedDevice)}>
+            <span className="devices-action-icon"><Pencil size={18} /></span>
+            <span><b>Rename</b><small>{selectedDevice.device_name}</small></span>
+            <ChevronRight size={18} />
+          </button>
+          <Link href={`/account/devices/${selectedDevice.id}/security`}>
+            <span className="devices-action-icon"><Lock size={19} /></span>
+            <span><b>Device PIN</b><small>{selectedDevice.pin_locked ? "Required to change or unlink" : "Anyone can change or unlink"}</small></span>
+            <span className={`devices-pin-switch${selectedDevice.pin_locked ? " is-on" : ""}`} aria-label={selectedDevice.pin_locked ? "PIN is on" : "PIN is off"}><i /></span>
+          </Link>
+          <button className="remove-device-action" type="button" onClick={() => void unlink(selectedDevice)}>
+            <span className="devices-action-icon"><Trash2 size={18} /></span>
+            <span><b>Remove device</b><small>Unlink it from your account</small></span>
+            <ChevronRight size={18} />
+          </button>
+        </section>
+
+        <section className="devices-all">
+          <div className="devices-list-title"><h2>All devices</h2><span>{devices.length}</span></div>
+          <div className="devices-list">
+            {devices.map((device, index) => {
+              const online = isDeviceOnline(device);
+              const lowBattery = device.battery != null && device.battery < 20;
+              return <button type="button" key={device.id} className={`devices-list-row${index === selectedIndex ? " selected" : ""}`} onClick={() => selectDevice(index)} aria-current={index === selectedIndex ? "true" : undefined}>
+                <span className="devices-list-art"><Image src="/assets/devices-icon-link.png" alt="" width={45} height={45} /></span>
+                <span className="devices-list-copy"><b>{device.device_name}</b><small>{online && device.battery != null ? `Battery ${device.battery}%` : `Last seen ${relativeTime(device.telemetry_at ?? device.last_seen_at)}`}</small></span>
+                <span className={`devices-list-badge${online ? lowBattery ? " low" : " online" : ""}`}><i />{online ? lowBattery ? "Low battery" : "Connected" : "Offline"}</span>
+              </button>;
+            })}
+          </div>
+        </section>
+
+        <Link className="devices-add-another" href="/account/devices/link"><Plus size={17} />Link another device</Link>
+      </>
+    ) : error ? (
+      <section className="devices-empty">
+        <div className="devices-empty-art"><Image src="/assets/devices-icon-link.png" alt="" width={105} height={105} /></div>
+        <h2>Couldn’t load your devices</h2>
+        <p>Check your connection and try again.</p>
+        <button type="button" onClick={() => void refresh()}>Try again</button>
+      </section>
+    ) : (
+      <section className="devices-empty">
+        <div className="devices-empty-art"><Image src="/assets/devices-icon-link.png" alt="" width={105} height={105} /></div>
+        <h2>No devices linked yet</h2>
+        <p>Link a Kiki Smart Clip or tracker to start hardware protection.</p>
+        <Link href="/account/devices/link"><Plus size={17} />Link a Kiki device</Link>
+        <span><ShieldCheck size={15} />Your Kiki device helps keep your account protected.</span>
+      </section>
+    )}
+
+  </div>;
 }
