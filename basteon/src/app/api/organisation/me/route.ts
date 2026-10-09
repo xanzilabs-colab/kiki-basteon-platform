@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrganisationAccess } from "@/lib/organisation";
+import { reconcileRosterMemberships } from "@/lib/orgRosterMemberships";
 
 const settingsSchema = z.object({
   organisationId: z.string().uuid(),
@@ -22,7 +23,12 @@ export async function GET() {
   if (memberships.length === 0) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const organisationId = memberships[0].organisation_id as string;
   const db = createAdminClient();
-  const [{ data: organisation }, { data: branches }, { data: members }, { data: settings }, { data: domains }, { data: coverage }, { data: onboarding }, { data: units }, { data: presence }, { data: policy }, { data: globalSupport }, { data: organisationSupport }] = await Promise.all([
+  try {
+    await reconcileRosterMemberships(db, { organisationId });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not reconcile organisation roster memberships." }, { status: 500 });
+  }
+  const [{ data: organisation }, { data: branches }, { data: members, error: membersError }, { data: settings }, { data: domains }, { data: coverage }, { data: onboarding }, { data: units }, { data: presence }, { data: policy }, { data: globalSupport }, { data: organisationSupport }, { data: authUsers, error: authUsersError }] = await Promise.all([
     db.from("organisations").select("*").eq("id", organisationId).single(),
     db.from("organisation_branches").select("*").eq("organisation_id", organisationId).order("created_at", { ascending: true }),
     db.from("organisation_memberships").select("id,user_id,branch_id,membership_type,role,status,created_at,profiles(full_name,phone)").eq("organisation_id", organisationId).order("created_at"),
@@ -35,12 +41,21 @@ export async function GET() {
     db.from("organisation_dispatch_policies").select("*").eq("organisation_id", organisationId).maybeSingle(),
     db.from("support_contacts").select("*").eq("scope", "global").eq("active", true).order("purpose", { ascending: true }).order("contact_name", { ascending: true }),
     db.from("support_contacts").select("*").eq("scope", "organisation").eq("organisation_id", organisationId).eq("active", true).order("purpose", { ascending: true }).order("contact_name", { ascending: true }),
+    db.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
+  if (membersError || authUsersError) {
+    return NextResponse.json({ error: membersError?.message ?? authUsersError?.message ?? "Could not load organisation members." }, { status: 500 });
+  }
+  const emailByUserId = new Map((authUsers?.users ?? []).map((user) => [user.id, user.email ?? null]));
+  const membersWithEmail = (members ?? []).map((member) => ({
+    ...member,
+    profiles: member.profiles ? { ...member.profiles, email: emailByUserId.get(member.user_id) ?? null } : member.profiles,
+  }));
   return NextResponse.json({
     organisation,
     memberships,
     branches: branches ?? [],
-    members: members ?? [],
+    members: membersWithEmail,
     settings,
     domains: domains ?? [],
     coverage: coverage ?? [],

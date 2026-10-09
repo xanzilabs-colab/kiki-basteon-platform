@@ -5,6 +5,7 @@ import { currentUserId } from "@/lib/organisation";
 import { createClient } from "@/lib/supabase/server";
 import { sameOrigin } from "@/lib/verification/http";
 import { validateAndLinkOrganisation } from "@/lib/orgLinkValidation";
+import { reconcileRosterMemberships } from "@/lib/orgRosterMemberships";
 
 const schema = z.object({
   organisationId: z.string().uuid(),
@@ -26,6 +27,11 @@ export async function GET() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const db = createAdminClient();
+  try {
+    await reconcileRosterMemberships(db, { userId });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not reconcile organisation links." }, { status: 500 });
+  }
   const { data, error } = await db
     .from("organisation_user_links")
     .select("id,label,method,identifier,membership_type,status,place_address,created_at,organisation_id,branch_id,roster_entry_id,org_roster_entries(status,valid_until),organisations(id,name,slug,organisation_type,support_email,support_phone),organisation_branches(id,name,city)")

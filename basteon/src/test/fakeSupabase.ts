@@ -19,7 +19,7 @@ export function fakeSupabase(handler: Handler, rpc: (name: string, args: Record<
       builder[action] = vi.fn((payload?: unknown) => { call.action = action; call.payload = payload; return builder; });
     }
     builder.select = vi.fn(() => builder);
-    for (const op of ["eq", "neq", "is", "in", "gte", "lte", "lt", "gt", "order", "limit"]) {
+    for (const op of ["eq", "neq", "is", "not", "in", "gte", "lte", "lt", "gt", "order", "limit"]) {
       builder[op] = vi.fn((column: string, value: unknown) => { call.filters.push([op, column, value]); return builder; });
     }
     builder.maybeSingle = vi.fn(async () => resolve());
@@ -32,7 +32,8 @@ export function fakeSupabase(handler: Handler, rpc: (name: string, args: Record<
     const result = rpc(name, args);
     return { data: result.data ?? null, error: result.error ?? null };
   });
-  return { client: { from, rpc: rpcFn }, calls, rpc: rpcFn };
+  const listUsers = vi.fn(async () => ({ data: { users: [] }, error: null }));
+  return { client: { from, rpc: rpcFn, auth: { admin: { listUsers } } }, calls, rpc: rpcFn, listUsers };
 }
 
 export function jsonRequest(url: string, body: unknown, method = "POST") {
