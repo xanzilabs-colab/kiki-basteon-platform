@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Bus, Car, Eye, EyeOff, Footprints, Handshake, LocateFixed, MapPinned, RefreshCw, ShieldCheck, TrainFront, UserPlus, X } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFaceCheck, type FacePurpose } from "@/hooks/useFaceCheck";
@@ -17,7 +16,7 @@ const modes = ["walk", "taxi", "ehail", "bus", "train"] as const;
 const modeTiles = [
   { value: "taxi", label: "Taxi", icon: Bus },
   { value: "walk", label: "Walk", icon: Footprints },
-  { value: "ehail", label: "Ehail", icon: Car },
+  { value: "ehail", label: "E-hail", icon: Car },
   { value: "bus", label: "Bus", icon: Bus },
   { value: "train", label: "Train", icon: TrainFront },
 ] as const;
@@ -47,7 +46,7 @@ export function TravelTogetherPanel() {
   const [avatars, setAvatars] = useState<Avatar[]>([]); const [bubbles, setBubbles] = useState<BubbleMarker[]>([]); const [message, setMessage] = useState(""); const [consent, setConsent] = useState(false); const [pending, setPending] = useState<FacePurpose | null>(null);
   const [selected, setSelected] = useState<Avatar | null>(null);
   const [alias, setAlias] = useState("");
-  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [ownAvatar, setOwnAvatar] = useState("⭐");
   const [nearbyLoaded, setNearbyLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -68,20 +67,8 @@ export function TravelTogetherPanel() {
         setActive(true);
         setVisible(Boolean(trip.visible));
         setAlias(trip.alias ?? "");
+        setOwnAvatar(trip.avatar ?? "⭐");
       }).catch(() => setMessage("Your Travel Together trip could not be loaded. Please refresh."));
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/account/profile/avatar")
-      .then(async (response) => {
-        if (!response.ok) return null;
-        const data = await response.json() as { url?: string | null };
-        return data.url ?? null;
-      })
-      .then((url) => { if (active) setProfileAvatarUrl(url); })
-      .catch(() => { if (active) setProfileAvatarUrl(null); });
-    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -114,7 +101,7 @@ export function TravelTogetherPanel() {
     const response = await fetch("/api/buddies/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: position, destination, route: routeData.routes[0].points, mode, leaveFrom: new Date().toISOString(), maxWaitMinutes: 30, maxWalkM: 800, groupSize: 3, audience: "all_verified" }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return setMessage(data.error === "not_verified" ? "Travel Together requires verified enrolment." : tripErrorMessage[data.error] ?? "Trip could not be created.");
-    hiddenBubbleIds.current.clear(); setBubbles([]); setActive(true); setPlanningNewTrip(false); setAlias(data.alias); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
+    hiddenBubbleIds.current.clear(); setBubbles([]); setActive(true); setPlanningNewTrip(false); setAlias(data.alias); setOwnAvatar(data.avatar ?? "⭐"); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
     } catch { setMessage("Your Travel Together trip could not be created. Check your connection and try again."); }
     finally { setBusy(false); }
   }
@@ -242,7 +229,7 @@ export function TravelTogetherPanel() {
           );
         })}
         <button type="button" className={radarStyles.gardenYou} aria-label="Your location is represented by the broad center ring">
-          <span className={radarStyles.gardenYouMark}>{profileAvatarUrl ? <Image src={profileAvatarUrl} alt="" width={60} height={60} unoptimized /> : <span>YOU</span>}</span>
+          <span className={radarStyles.gardenYouMark} aria-hidden="true">{ownAvatar}</span>
           <span className={radarStyles.gardenYouLabel}>YOU</span>
         </button>
       </div>

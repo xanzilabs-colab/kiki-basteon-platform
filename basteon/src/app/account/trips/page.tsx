@@ -21,7 +21,7 @@ type RecentTrip = { id: string; destination_label: string; destination_lat: numb
 const transitModes = [
   { value: "taxi", label: "Taxi", icon: Bus },
   { value: "walk", label: "Walk", icon: Footprints },
-  { value: "ehail", label: "Ehail", icon: Car },
+  { value: "ehail", label: "E-hail", icon: Car },
   { value: "bus", label: "Bus", icon: Bus },
   { value: "train", label: "Train", icon: TrainFront },
 ] as const;

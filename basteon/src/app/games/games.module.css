@@ -307,8 +307,7 @@
 .pondGuide { position: absolute; width: 78%; aspect-ratio: 1; border: 1px dashed rgba(118,85,138,.23); border-radius: 50%; }
 .pondGuideInner { position: absolute; width: 48%; aspect-ratio: 1; border: 1px solid rgba(217,154,156,.26); border-radius: 50%; }
 .gardenYou { position: relative; z-index: 2; display: grid; justify-items: center; gap: 5px; border: 0; background: transparent; color: var(--garden-ink); cursor: pointer; }
-.gardenYouMark { width: 68px; height: 68px; display: grid; place-items: center; border: 4px solid white; border-radius: 50%; background: linear-gradient(140deg, var(--garden-rose), var(--garden-purple-soft)); color: #fff; box-shadow: 0 8px 20px rgba(118,85,138,.2); animation: lotusPulse 4.5s ease-in-out infinite; }
-.gardenYouMark img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.gardenYouMark { width: 68px; height: 68px; display: grid; place-items: center; border: 4px solid white; border-radius: 50%; background: linear-gradient(140deg, var(--garden-rose), var(--garden-purple-soft)); color: #fff; font-size: 30px; box-shadow: 0 8px 20px rgba(118,85,138,.2); animation: lotusPulse 4.5s ease-in-out infinite; }
 .gardenYouLabel { padding: 3px 10px; border: 1px solid rgba(118,85,138,.14); border-radius: 999px; background: rgba(255,255,255,.78); color: var(--garden-ink); font-size: 9px; font-weight: 900; letter-spacing: .08em; }
 .gardenBuddy { position: absolute; z-index: 3; display: grid; justify-items: center; gap: 3px; padding: 0; transform: translate(-50%,-50%); border: 0; background: transparent; color: var(--garden-ink); cursor: pointer; }
 .gardenBuddyMark { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid white; border-radius: 50%; background: linear-gradient(145deg, var(--garden-sage-soft), var(--garden-sage)); box-shadow: 0 5px 14px rgba(57,43,64,.13); font-size: 22px; transition: transform .2s ease, box-shadow .2s ease; }

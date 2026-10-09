@@ -27,20 +27,26 @@ export function CommunityAlertsPanel({ alerts, busy, onBusyChange, onAlertsChang
   async function vote(alert: CommunityAlert) { onBusyChange(true); try { const result = await meetingFetch<{ voted: boolean; upvotes: number }>(`/api/buddies/community-alerts/${alert.id}/vote`, {}); onAlertsChange(alerts.map((item) => item.id === alert.id ? { ...item, voted: result.voted, upvotes: result.upvotes } : item)); } catch (error) { onMessage(error instanceof Error ? error.message : "Could not update your confirmation."); } finally { onBusyChange(false); } }
   const activeAlerts = alerts.filter((alert) => Date.parse(alert.expires_at) > Date.now());
   const filteredAlerts = activeAlerts.filter((alert) => category === "all" || alert.kind === category);
+  const reportCount = `${filteredAlerts.length} ${filteredAlerts.length === 1 ? "Report" : "Reports"}`;
   return <section id="community-alerts" className="buddies-panel buddy-community-panel safe-alerts-panel">
     <div className="safe-alerts-header">
-      <span className="safe-alerts-icon"><AlertTriangle size={19} /></span>
-      <div><h2>Community feed</h2><p>Local reports shared by people nearby.</p></div>
-      <span className="safe-alert-count">{activeAlerts.length} active</span>
+      <div><h2>Community Feed</h2></div>
+      <span className="safe-alert-count">{reportCount}</span>
     </div>
     <div className="safe-report-categories" role="group" aria-label="Filter community reports by category">
       {reportCategories.map((item) => <button key={item.value} type="button" aria-pressed={category === item.value} onClick={() => setCategory(item.value)}>{item.label}</button>)}
     </div>
     <button type="button" className="safe-report-open" onClick={() => setReportOpen(true)}><span><AlertTriangle size={17} />Report a concern</span><span>Share a local safety update<ChevronRight size={16} /></span></button>
-    <div className="buddy-alert-list safe-alert-list">{filteredAlerts.map((alert) => <article key={alert.id} className={`buddy-alert-card safe-alert-card${alert.kind === "harassment" ? " is-rose" : ""}`}>
-      <div className="safe-alert-card-heading"><span className="safe-alert-kind"><i><AlertTriangle size={18} /></i><span><strong>{titleCase(alert.kind)}</strong><small>Expires {new Date(alert.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></span></span><button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.upvotes} helpful confirmations`}><ThumbsUp size={16} /><span>{alert.upvotes}</span></button></div>
+    <div className="buddy-alert-list safe-alert-list">{filteredAlerts.map((alert) => <article key={alert.id} className={`buddy-alert-card safe-alert-card${alert.kind === "poor_lighting" ? " is-lighting" : alert.kind === "harassment" ? " is-rose" : ""}`}>
+      <div className="safe-alert-card-heading">
+        <span className="safe-alert-meta">
+          <span className="safe-alert-kind"><i /><AlertTriangle size={12} />{titleCase(alert.kind)}</span>
+          <time dateTime={alert.created_at}>{new Date(alert.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
+        </span>
+        <button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.upvotes} helpful confirmations`}><ThumbsUp size={14} /><span>{alert.upvotes}</span></button>
+      </div>
       <p>{alert.detail ?? "Community report"}</p>
-      <div className="safe-alert-card-footer"><span><MapPin size={14} />{alert.location_label ?? "Nearby location"}</span></div>
+      <div className="safe-alert-card-footer"><MapPin size={14} /><span>{alert.location_label ?? "Nearby location"}</span><i>·</i><span>Expires {new Date(alert.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
     </article>)}</div>
     {filteredAlerts.length === 0 && <div className="safe-alert-empty"><span><Check size={17} /></span><p>{activeAlerts.length === 0 ? "No active reports nearby. If you notice a concern, share it with the community." : "No reports in this category. Choose another category to see more."}</p></div>}
 

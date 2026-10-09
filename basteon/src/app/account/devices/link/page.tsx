@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bluetooth, CheckCircle2, Link2, Lock, Search, ShieldCheck } from "lucide-react";
+import { Bluetooth, CheckCircle2, ChevronLeft, Link2, Lock, Search, ShieldCheck, Timer } from "lucide-react";
 import { connectBasteonDevice, type BasteonBleDevice } from "@/lib/ble/basteon";
 import { pinErrorMessage, pinProblem } from "@/lib/devicePin";
 
@@ -61,6 +62,7 @@ export default function LinkDevicePage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const guideStep = deviceId ? 2 : ready || busy ? 1 : 0;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -233,11 +235,12 @@ export default function LinkDevicePage() {
   if (supported === false) {
     return (
       <div className="kiki-link-page">
+        <Link className="kiki-link-back" href="/account/devices"><ChevronLeft size={18} />Devices</Link>
         <div className="kiki-link-title">
           <span>HARDWARE GUARD</span>
           <h1>Link a Kiki device</h1>
         </div>
-        <section className="kiki-link-card">
+        <section className="kiki-link-card kiki-link-guide">
           <span className="kiki-link-icon"><Bluetooth size={24} /></span>
           <h2>Bluetooth unavailable</h2>
           <p>
@@ -252,6 +255,7 @@ export default function LinkDevicePage() {
 
   return (
     <div className="kiki-link-page">
+      <Link className="kiki-link-back" href="/account/devices"><ChevronLeft size={18} />Devices</Link>
       <div className="kiki-link-title">
         <span>HARDWARE GUARD</span>
         <h1>Link a Kiki device</h1>
@@ -259,15 +263,23 @@ export default function LinkDevicePage() {
       </div>
 
       <section className="kiki-link-card">
-        <div className="kiki-link-card-head"><span className="kiki-link-icon"><Bluetooth size={24} /></span><div><span>BLUETOOTH SETUP</span><h2>Pair your Smart Clip</h2><p>Use the device&apos;s secure link mode to protect ownership.</p></div></div>
+        <div className={`kiki-link-hero${busy ? " is-scanning" : ""}`} aria-label={busy ? "Searching for a Kiki device" : "Kiki device ready to link"}>
+          <div className="kiki-link-rings"><i /><i /><i /></div>
+          <div className="kiki-link-device-floor" />
+          <div className="kiki-link-device"><span /><span /><i /><Image src="/assets/kiki-icon.png" alt="" width={64} height={42} priority /></div>
+          {busy && <span className="kiki-link-scan">Searching nearby…</span>}
+        </div>
+        <div className="kiki-link-progress" aria-label={`Setup step ${guideStep + 1} of 3`}>
+          {[0, 1, 2].map((step) => <i key={step} className={step < guideStep ? "is-done" : step === guideStep ? "is-current" : ""} />)}
+        </div>
         <ol className="kiki-link-steps">
-          <li><b>1</b><span>Hold the device button until you hear two short beeps and its light double-blinks.</span></li>
-          <li><b>2</b><span>Confirm the device is ready, then open the browser&apos;s Bluetooth picker.</span></li>
-          <li><b>3</b><span>Select your Kiki device and confirm the secure account link.</span></li>
+          <li className={guideStep === 0 ? "is-current" : guideStep > 0 ? "is-done" : ""} aria-current={guideStep === 0 ? "step" : undefined}><b>{guideStep > 0 ? <CheckCircle2 size={16} /> : "1"}</b><span>Hold the device button until you hear two short beeps<small>Its light will double-blink.</small></span></li>
+          <li className={guideStep === 1 ? "is-current" : guideStep > 1 ? "is-done" : ""} aria-current={guideStep === 1 ? "step" : undefined}><b>{guideStep > 1 ? <CheckCircle2 size={16} /> : "2"}</b><span>Confirm it&apos;s ready<small>Then open Bluetooth search.</small></span></li>
+          <li className={guideStep === 2 ? "is-current" : ""} aria-current={guideStep === 2 ? "step" : undefined}><b>3</b><span>Select your Kiki<small>Confirm the secure account link.</small></span></li>
         </ol>
         <label className="kiki-link-ready">
           <input type="checkbox" checked={ready} onChange={(e) => setReady(e.target.checked)} />
-          <span><CheckCircle2 size={17} />The light is double-blinking</span>
+          <span className={ready ? "is-ready" : ""}><i><CheckCircle2 size={17} /></i>The light is double-blinking</span>
         </label>
         <button
           className="btn btn-primary kiki-link-primary"
@@ -283,7 +295,7 @@ export default function LinkDevicePage() {
         >
           Can&apos;t see it? Show all Bluetooth devices
         </button>
-        <p className="kiki-link-caption">Link mode lasts five minutes. Close any other Bluetooth app connected to your device before searching.</p>
+        <p className="kiki-link-caption kiki-link-timer"><Timer size={17} />Link mode lasts five minutes. Close any other Bluetooth app connected to your device before searching.</p>
       </section>
 
       {deviceId && (
@@ -356,7 +368,6 @@ export default function LinkDevicePage() {
         </section>
       )}
 
-      <Link className="kiki-link-back" href="/account/devices">Back to devices</Link>
     </div>
   );
 }

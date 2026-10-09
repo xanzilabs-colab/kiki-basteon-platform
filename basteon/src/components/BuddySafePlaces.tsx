@@ -153,7 +153,7 @@ export function BuddySafePlaces() {
     <div className="safe-spots-tabs" role="tablist" aria-label="Safe spots and reports">
       <span className={`safe-spots-tab-thumb ${tab}`} aria-hidden="true" />
       <button id="safe-tab-spots" type="button" role="tab" aria-selected={tab === "spots"} aria-controls="safe-panel-spots" onClick={() => setTab("spots")}><MapPin size={16} />Spots<span>{places.length}</span></button>
-      <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} />Report<span>{activeAlerts.length}</span></button>
+      <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} />Reports<span>{activeAlerts.length}</span></button>
       <button id="safe-tab-meetings" type="button" role="tab" aria-selected={tab === "meetings"} aria-controls="safe-panel-meetings" onClick={() => setTab("meetings")}><Handshake size={16} />Meetings<span>{bubbles.length}</span></button>
     </div>
 
