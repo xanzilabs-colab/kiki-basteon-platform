@@ -63,6 +63,13 @@ type RosterEntry = {
   max_claims: number;
   updated_at: string;
 };
+type OrganisationLinkRequest = {
+  id: string;
+  userId: string;
+  name: string;
+  membershipType: string;
+  createdAt: string;
+};
 
 function SettingsSwitch({ checked, onChange, title, description }: {
   checked: boolean;
@@ -188,6 +195,8 @@ export function OrganisationConsole() {
   const [rosterRows, setRosterRows] = useState<RosterEntry[]>([]);
   const [rosterTotal, setRosterTotal] = useState(0);
   const [rosterLoading, setRosterLoading] = useState(false);
+  const [linkRequests, setLinkRequests] = useState<OrganisationLinkRequest[]>([]);
+  const [linkRequestsLoading, setLinkRequestsLoading] = useState(false);
   const [rosterSearch, setRosterSearch] = useState("");
   const [rosterIdentifierType, setRosterIdentifierType] = useState<"email" | "member_id" | "access_code">("email");
   const [rosterIdentifier, setRosterIdentifier] = useState("");
@@ -246,7 +255,7 @@ export function OrganisationConsole() {
   const responders = state?.responderPresence ?? [];
   const members = useMemo(() => state?.members ?? [], [state?.members]);
   const visibleMembers = useMemo(
-    () => members.filter((member) => !["removed", "revoked", "archived"].includes(String(member.status ?? "").toLowerCase())),
+    () => members.filter((member) => !["removed", "revoked", "archived", "unlinked"].includes(String(member.status ?? "").toLowerCase())),
     [members],
   );
   const onboarding = state?.onboarding ?? {
@@ -284,6 +293,41 @@ export function OrganisationConsole() {
     setRosterLoading(false);
   }
 
+  async function loadLinkRequests() {
+    if (!organisationId) return;
+    setLinkRequestsLoading(true);
+    const response = await fetch(`/api/organisation/link-requests?organisationId=${organisationId}`, { cache: "no-store" });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not load pending link requests.");
+      setLinkRequestsLoading(false);
+      return;
+    }
+    setLinkRequests(Array.isArray(body) ? body : []);
+    setLinkRequestsLoading(false);
+  }
+
+  async function resolveLinkRequest(linkId: string, action: "approve" | "reject") {
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/link-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organisationId, linkId, action }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? `Could not ${action} this link request.`);
+      setBusy(false);
+      return;
+    }
+    setMessage(action === "approve" ? "Link request approved; organisation access is now active." : "Link request rejected.");
+    await Promise.all([loadLinkRequests(), refresh()]);
+    setBusy(false);
+  }
+
   useEffect(() => {
     if (!dashboardUnlockStorageKey) return;
     if (typeof window === "undefined") return;
@@ -293,7 +337,7 @@ export function OrganisationConsole() {
 
   useEffect(() => {
     if (!organisationId || activeTab !== "roster") return;
-    void loadRoster();
+    void Promise.all([loadRoster(), loadLinkRequests()]);
   }, [organisationId, activeTab]);
 
   function unlockDashboard() {
@@ -1170,6 +1214,40 @@ export function OrganisationConsole() {
               <strong className="ml-2 text-lg">{rosterTotal}</strong>
             </div>
           </div>
+
+          <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold">Pending link requests</h3>
+                <p className="muted mt-1 text-xs">Approving activates organisation membership and its associated access.</p>
+              </div>
+              <button className="btn" type="button" disabled={linkRequestsLoading} onClick={() => void loadLinkRequests()}>
+                {linkRequestsLoading ? "Loading…" : "Refresh requests"}
+              </button>
+            </div>
+            {linkRequestsLoading && linkRequests.length === 0 ? (
+              <p className="muted mt-3 text-sm">Loading pending requests…</p>
+            ) : linkRequests.length === 0 ? (
+              <p className="muted mt-3 text-sm">No pending link requests.</p>
+            ) : (
+              <div className="mt-3 divide-y divide-[var(--line)]">
+                {linkRequests.map((linkRequest) => (
+                  <div key={linkRequest.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div>
+                      <p className="text-sm font-semibold">{linkRequest.name}</p>
+                      <p className="muted text-xs">
+                        {linkRequest.membershipType} · Requested {new Date(linkRequest.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="btn" type="button" disabled={busy} onClick={() => void resolveLinkRequest(linkRequest.id, "reject")}>Reject</button>
+                      <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void resolveLinkRequest(linkRequest.id, "approve")}>Approve</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
             <h3 className="text-sm font-bold">Add one person</h3>

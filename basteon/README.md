@@ -47,19 +47,13 @@ Web Push supports desktop browsers and mobile browsers. On iPhone, responders mu
 
 Responders receive the browser permission prompt after their first interaction with the dashboard. Accept it to subscribe that browser or phone.
 
-## Scheduled Jobs (Watchdog + Alert Escalation)
+## Scheduled Jobs
 
-This repository includes [vercel.json](./vercel.json) cron schedules for:
+Scheduled cron jobs are disabled in [vercel.json](./vercel.json). The watchdog, alert escalation, and roster revalidation endpoints remain available for manually authorized service-to-service calls. Because schedules are off, expired roster links will not be ended automatically; invoke roster revalidation manually when required.
 
-- `GET /api/trips/watchdog` every 2 minutes
-- `GET /api/alerts/escalate` every minute
-- `GET /api/org-links/revalidate` every 6 hours (expires roster entries and ends stale org links after grace)
-
-Set `CRON_SECRET` in the deployment environment so Vercel cron authentication succeeds.  
-For manual service-to-service triggering, the existing `POST` endpoints still support:
-
-- `x-trip-watchdog-secret: $TRIP_WATCHDOG_SECRET`
-- `x-alert-escalation-secret: $ALERT_ESCALATION_SECRET`
+- Watchdog: `x-trip-watchdog-secret: $TRIP_WATCHDOG_SECRET`
+- Alert escalation: `x-alert-escalation-secret: $ALERT_ESCALATION_SECRET`
+- Roster revalidation: `Authorization: Bearer $CRON_SECRET`
 
 ## Organisation Roster Linking (Roster-Only Validation)
 
