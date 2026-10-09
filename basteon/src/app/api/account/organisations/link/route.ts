@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentUserId } from "@/lib/organisation";
+import { createClient } from "@/lib/supabase/server";
+import { sameOrigin } from "@/lib/verification/http";
 import { validateAndLinkOrganisation } from "@/lib/orgLinkValidation";
 
 const schema = z.object({
@@ -34,15 +36,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const userId = await currentUserId();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!sameOrigin(request)) return NextResponse.json({ error: "Request rejected." }, { status: 403 });
+  const client = await createClient();
+  const { data: { user } } = await client.auth.getUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const payload = schema.safeParse(await request.json());
   if (!payload.success) return NextResponse.json({ error: payload.error.flatten() }, { status: 400 });
   const input = payload.data;
   const identifierType = input.identifierType ?? (input.method === "email_domain" ? "email" : "member_id");
   const forwarded = request.headers.get("x-forwarded-for");
   const result = await validateAndLinkOrganisation({
-    userId,
+    userId: user.id,
     organisationId: input.organisationId,
     branchId: input.branchId ?? null,
     identifierType,

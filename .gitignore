@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+kiki-secrets.h
 
 # JavaScript build output and dependencies
 **/node_modules/

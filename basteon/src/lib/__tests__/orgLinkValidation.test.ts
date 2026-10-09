@@ -59,8 +59,8 @@ const baseInput = {
   userId: "user-1",
   organisationId: "org-1",
   branchId: null,
-  identifierType: "member_id" as const,
-  identifier: " ab-123 ",
+  identifierType: "email" as const,
+  identifier: " member@example.org ",
   label: "work" as const,
   placeAddress: null,
   ipAddress: "127.0.0.1",
@@ -160,5 +160,24 @@ describe("validateAndLinkOrganisation", () => {
     setupScenario({ requireInvite: true });
     const result = await validateAndLinkOrganisation(baseInput);
     expect(result.code).toBe("PENDING_APPROVAL");
+  });
+
+  it("links a roster-listed email without email verification", async () => {
+    setupScenario({});
+    const result = await validateAndLinkOrganisation({
+      ...baseInput,
+      identifier: "someone-else@example.org",
+    });
+    expect(result.code).toBe("LINKED");
+  });
+
+  it("links non-email roster identifiers immediately when auto-approval is enabled", async () => {
+    setupScenario({});
+    const result = await validateAndLinkOrganisation({
+      ...baseInput,
+      identifierType: "member_id",
+      identifier: "AB-123",
+    });
+    expect(result.code).toBe("LINKED");
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +10,7 @@ import { BUSINESS_INDUSTRY_OPTIONS, INSTITUTION_KIND_OPTIONS, ORGANISATION_CATEG
 type Mode = "signin" | "signup";
 type OrganisationType = "institution" | "business" | "responder_partner";
 type StepId = "organisation" | "classification" | "branch" | "contact" | "security" | "review";
+const SIGNUP_STORAGE_KEY = "basteon:organisation-signup";
 
 const signupSteps: Array<{ id: StepId; title: string; description: string }> = [
   {
@@ -34,8 +35,8 @@ const signupSteps: Array<{ id: StepId; title: string; description: string }> = [
   },
   {
     id: "security",
-    title: "Security",
-    description: "Secure your account",
+    title: "Verify email",
+    description: "Verify your administrator email",
   },
   {
     id: "review",
@@ -51,6 +52,7 @@ export function OrganisationAccess() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [verificationSent, setVerificationSent] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -67,23 +69,9 @@ export function OrganisationAccess() {
   const [responderCategory, setResponderCategory] = useState(RESPONDER_CATEGORY_OPTIONS[0]?.value ?? "other");
   const [branchName, setBranchName] = useState("Main Branch");
   const [branchAddress, setBranchAddress] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const heading = useMemo(() => mode === "signin" ? "Organisation sign in" : "Create organisation account", [mode]);
   const progress = Math.round(((stepIndex + 1) / signupSteps.length) * 100);
-  const passwordChecks = useMemo(() => ({
-    minLength: password.length >= 8,
-    hasUpper: /[A-Z]/.test(password),
-    hasLower: /[a-z]/.test(password),
-    hasDigit: /\d/.test(password),
-    hasSymbol: /[^A-Za-z0-9]/.test(password),
-    matches: password.length > 0 && password === confirmPassword,
-  }), [password, confirmPassword]);
-  const strengthScore = Object.values(passwordChecks).slice(0, 5).filter(Boolean).length;
-  const strengthLabel = strengthScore <= 2 ? "Weak" : strengthScore <= 4 ? "Good" : "Strong";
-
   function validateStep(index: number) {
     if (index === 0) {
       if (!organisationName.trim()) return "Organisation name is required.";
@@ -99,11 +87,6 @@ export function OrganisationAccess() {
       if (!fullName.trim()) return "Administrator full name is required.";
       if (!email.trim()) return "Administrator email is required.";
       if (!/^\S+@\S+\.\S+$/.test(email.trim())) return "Enter a valid administrator email address.";
-    }
-    if (index === 4) {
-      if (!password.trim()) return "Password is required.";
-      if (password.length < 8) return "Password must be at least 8 characters.";
-      if (password !== confirmPassword) return "Passwords do not match.";
     }
     return "";
   }
@@ -151,45 +134,49 @@ export function OrganisationAccess() {
     setBusy(true);
     setError("");
     setSuccess("");
-    const response = await fetch("/api/organisation/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        organisationName,
-        legalName: legalName || null,
-        displayName: displayName || null,
-        description: organisationDescription || null,
-        logoUrl: logoUrl || null,
-        category: organisationCategory || null,
-        organisationType,
-        institutionKind: organisationType === "institution" ? institutionKind : null,
-        businessCategory: organisationType === "business" ? businessCategory : null,
-        responderCategory: organisationType === "responder_partner" ? responderCategory : null,
-        fullName,
-        email,
-        password,
-        phone,
-        branchName,
-        branchAddress,
-      }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    const registration = {
+      organisationName,
+      legalName: legalName || null,
+      displayName: displayName || null,
+      description: organisationDescription || null,
+      logoUrl: logoUrl || null,
+      category: organisationCategory || null,
+      organisationType,
+      institutionKind: organisationType === "institution" ? institutionKind : null,
+      businessCategory: organisationType === "business" ? businessCategory : null,
+      responderCategory: organisationType === "responder_partner" ? responderCategory : null,
+      fullName,
+      email: email.trim().toLowerCase(),
+      phone: phone || null,
+      branchName,
+      branchAddress: branchAddress || null,
+      createdAt: Date.now(),
+    };
+    try {
+      localStorage.removeItem(SIGNUP_STORAGE_KEY);
+      localStorage.setItem(SIGNUP_STORAGE_KEY, JSON.stringify(registration));
+    } catch {
       setBusy(false);
-      setError(typeof body.error === "string" ? body.error : "Could not create organisation.");
+      setError("This browser cannot store the registration needed to complete email verification.");
       return;
     }
-
     const client = createClient();
-    const { error: signInError } = await client.auth.signInWithPassword({ email, password });
-    if (signInError) {
-      setBusy(false);
-      setSuccess("Organisation created. Please sign in.");
-      setMode("signin");
+    const { error: emailError } = await client.auth.signInWithOtp({
+      email: registration.email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/organisation/signup/verify`,
+        data: { full_name: fullName, phone: phone || null },
+      },
+    });
+    setBusy(false);
+    if (emailError) {
+      localStorage.removeItem(SIGNUP_STORAGE_KEY);
+      setError(emailError.message);
       return;
     }
-    router.replace("/organisation");
-    router.refresh();
+    setVerificationSent(true);
+    setSuccess(`We sent a verification link to ${registration.email}. Open it in this browser to continue.`);
   }
 
   const currentStep = signupSteps[stepIndex];
@@ -210,7 +197,7 @@ export function OrganisationAccess() {
           <p>For institutions, businesses, private security and emergency partners.</p>
         </div>
 
-        {mode === "signup" && (
+        {mode === "signup" && !verificationSent && (
           <>
             <div className="ops-signup-progress">
               <div className="ops-signup-progress-mobile">Step {stepIndex + 1} of {signupSteps.length} · {currentStep.title}</div>
@@ -238,7 +225,7 @@ export function OrganisationAccess() {
                 {currentStep.id === "classification" && <p>Help us understand what type of organisation you're registering.</p>}
                 {currentStep.id === "branch" && <p>Add the main location associated with this organisation.</p>}
                 {currentStep.id === "contact" && <p>These details will be used to manage this organisation account.</p>}
-                {currentStep.id === "security" && <p>Create a password for your BASTEON organisation account.</p>}
+                {currentStep.id === "security" && <p>We’ll verify this email before asking you to set an account password.</p>}
                 {currentStep.id === "review" && <p>Make sure everything looks correct before creating your organisation account.</p>}
               </header>
 
@@ -307,36 +294,7 @@ export function OrganisationAccess() {
               )}
 
               {currentStep.id === "security" && (
-                <div className="ops-signup-grid">
-                  <label className="ops-login-label">Password
-                    <span className="ops-password-wrap">
-                      <input type={showPassword ? "text" : "password"} autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
-                      <button type="button" className="ops-password-toggle" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </span>
-                  </label>
-                  <label className="ops-login-label">Confirm password
-                    <span className="ops-password-wrap">
-                      <input type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
-                      <button type="button" className="ops-password-toggle" onClick={() => setShowConfirmPassword((current) => !current)} aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}>
-                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </span>
-                  </label>
-                  <div className="ops-password-strength ops-login-label--full">
-                    <p>Password strength: <b>{strengthLabel}</b></p>
-                    <div className="ops-signup-meter"><span style={{ width: `${(strengthScore / 5) * 100}%` }} /></div>
-                    <ul>
-                      <li className={passwordChecks.minLength ? "is-good" : ""}>At least 8 characters</li>
-                      <li className={passwordChecks.hasUpper ? "is-good" : ""}>Uppercase letter</li>
-                      <li className={passwordChecks.hasLower ? "is-good" : ""}>Lowercase letter</li>
-                      <li className={passwordChecks.hasDigit ? "is-good" : ""}>Number</li>
-                      <li className={passwordChecks.hasSymbol ? "is-good" : ""}>Symbol</li>
-                      <li className={passwordChecks.matches ? "is-good" : ""}>Passwords match</li>
-                    </ul>
-                  </div>
-                </div>
+                <p className="ops-signup-note"><ShieldCheck size={16} /> A password will be set only after you verify ownership of this email address.</p>
               )}
 
               {currentStep.id === "review" && (
@@ -371,6 +329,24 @@ export function OrganisationAccess() {
           </>
         )}
 
+        {mode === "signup" && verificationSent && (
+          <section className="ops-signup-step-panel" aria-live="polite">
+            <header>
+              <p className="ops-signup-step-eyebrow">Email verification</p>
+              <h2>Check your inbox</h2>
+              <p>Open the verification link in this browser. You’ll choose your password after your email is confirmed.</p>
+            </header>
+            {success && <p className="ops-login-status" role="status">{success}</p>}
+            <button type="button" className="ops-login-submit is-secondary" onClick={() => {
+              localStorage.removeItem(SIGNUP_STORAGE_KEY);
+              setVerificationSent(false);
+              setSuccess("");
+            }}>
+              Return to registration
+            </button>
+          </section>
+        )}
+
         {mode === "signin" && (
           <>
             <label className="ops-login-label">Email address<input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
@@ -385,18 +361,18 @@ export function OrganisationAccess() {
           <button className="ops-login-submit" type="submit" disabled={busy}>
             {busy ? "Please wait..." : "Sign in"}
           </button>
-        ) : (
+        ) : !verificationSent ? (
           <div className="ops-signup-nav">
             <button type="button" className="ops-login-submit is-secondary" onClick={previousStep} disabled={busy || stepIndex === 0}>Back</button>
             {isLastStep ? (
               <button className="ops-login-submit" type="submit" disabled={busy}>
-                {busy ? "Creating organisation..." : "Create Organisation"}
+                {busy ? "Sending verification link..." : "Verify email and create"}
               </button>
             ) : (
               <button type="button" className="ops-login-submit" onClick={nextStep} disabled={busy}>Continue</button>
             )}
           </div>
-        )}
+        ) : null}
 
         <button
           type="button"

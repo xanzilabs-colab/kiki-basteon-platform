@@ -78,16 +78,20 @@ function initials(name: string) {
 }
 
 function getLinkStatus(item: LinkedOrganisation) {
-  if (item.status !== "active") {
-    const label = item.status.replaceAll("_", " ");
-    return { label: label.charAt(0).toUpperCase() + label.slice(1), tone: item.status === "pending" ? "warn" : "bad", detail: "This organisation link is not currently active." };
-  }
   const entry = item.org_roster_entries;
   if (entry?.status === "removed" || entry?.status === "suspended" || entry?.status === "expired") {
-    return { label: `Access ${entry.status}`, tone: entry.status === "expired" ? "warn" : "bad", detail: "Your organisation has changed this roster access." };
+    const label = entry.status.charAt(0).toUpperCase() + entry.status.slice(1);
+    const detail = entry.status === "removed"
+      ? "This organisation removed your access from its roster."
+      : `This organisation's roster access is ${entry.status}.`;
+    return { label: `Access ${label.toLowerCase()}`, tone: entry.status === "expired" ? "warn" : "bad", detail };
   }
   if (entry?.valid_until && new Date(entry.valid_until).getTime() < Date.now()) {
     return { label: "Access expired", tone: "warn", detail: "This roster access has passed its expiry date." };
+  }
+  if (item.status !== "active") {
+    const label = item.status.replaceAll("_", " ");
+    return { label: label.charAt(0).toUpperCase() + label.slice(1), tone: item.status === "pending" ? "warn" : "bad", detail: "This organisation link is not currently active." };
   }
   if (!item.roster_entry_id) {
     return { label: "Not on roster yet", tone: "warn", detail: "Ask this organisation to add you to its roster." };
@@ -366,7 +370,7 @@ export default function AccountOrganisationsPage() {
             </div>
             {(() => {
               const status = getLinkStatus(activeSheet.organisation);
-              return <div className={`org-status-panel ${status.tone}`}><span>{status.tone === "ok" ? <Check size={18} /> : <InfoIcon />}</span><div><b>{status.label === "Linked" ? "Linked and verified" : status.label}</b><p>{status.detail}</p></div></div>;
+              return <div className={`org-status-panel ${status.tone}`}><span>{status.tone === "ok" ? <Check size={18} /> : <InfoIcon />}</span><div><b>{status.label === "Linked" ? "Linked and on roster" : status.label}</b><p>{status.detail}</p></div></div>;
             })()}
             <div className="org-field">
               <label>Relationship</label>
@@ -381,7 +385,7 @@ export default function AccountOrganisationsPage() {
               <button className="org-button org-text-button" type="button" disabled={busy} onClick={() => setSheet({ ...activeSheet, stage: "confirm" })}><Unlink size={16} />Unlink organisation</button>
             </div>
             {error && <p className="org-inline-error" role="alert">{error}</p>}
-            {activeSheet.organisation.status !== "active" && <div className="org-contact-row">
+            {(activeSheet.organisation.status !== "active" || getLinkStatus(activeSheet.organisation).tone !== "ok") && <div className="org-contact-row">
               {contactLink(activeSheet.organisation.organisations, "email") && <a className="org-button org-tonal org-small-button" href={contactLink(activeSheet.organisation.organisations, "email") ?? undefined}><Mail size={16} />Contact</a>}
               {contactLink(activeSheet.organisation.organisations, "phone") && <a className="org-button org-tonal org-small-button" href={contactLink(activeSheet.organisation.organisations, "phone") ?? undefined}><Phone size={16} />Call</a>}
             </div>}

@@ -21,24 +21,6 @@ function configured() {
   return true;
 }
 
-export async function sendPushNotifications(payload: PushPayload) {
-  if (!configured()) return;
-
-  const admin = createAdminClient();
-  const { data: subscriptions } = await admin.from("push_subscriptions").select("endpoint, subscription");
-
-  await Promise.all((subscriptions ?? []).map(async ({ endpoint, subscription }) => {
-    try {
-      await webpush.sendNotification(subscription as webpush.PushSubscription, JSON.stringify(payload));
-    } catch (error) {
-      const statusCode = (error as { statusCode?: number }).statusCode;
-      if (statusCode === 404 || statusCode === 410) {
-        await admin.from("push_subscriptions").delete().eq("endpoint", endpoint);
-      }
-    }
-  }));
-}
-
 export async function sendPushNotificationsToUser(userId: string, payload: PushPayload) {
   if (!configured()) return;
 

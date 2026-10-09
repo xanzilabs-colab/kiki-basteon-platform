@@ -176,24 +176,21 @@ function parseTrackingPayload(value: unknown): TrackingPayload | null {
   };
 }
 
-const dispatchPush = async (deviceId: string, deviceName: string | null, ownerName: string | null) => {
+const dispatchPush = async (alertId: string) => {
   const url = Deno.env.get("PUSH_DISPATCH_URL");
   const secret = Deno.env.get("PUSH_DISPATCH_SECRET");
-  if (!url || !secret) return;
-
-  const recipientName = ownerName?.trim() || deviceName?.trim() || deviceId;
+  if (!url || !secret) {
+    console.error("push dispatch skipped: PUSH_DISPATCH_URL and PUSH_DISPATCH_SECRET must be configured");
+    return;
+  }
 
   try {
-    await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-push-dispatch-secret": secret },
-      body: JSON.stringify({
-        title: "SOS alert",
-        body: `SOS alert from ${recipientName}.`,
-        tag: `basteon-alert-${deviceId}-${Date.now()}`,
-        url: "/responder",
-      }),
+      body: JSON.stringify({ alertId }),
     });
+    if (!response.ok) console.error("push dispatch failed", response.status);
   } catch (error) {
     console.error("push dispatch failed", error);
   }
@@ -216,7 +213,7 @@ Deno.serve(async (request) => {
   if (deviceId.length > 64 || iv.length > 32 || tag.length > 32 || ciphertext.length > 2048) return json({ error: "too_large" }, 413);
 
   const [{ data: device }, { data: secret }] = await Promise.all([
-    supabase.from("devices").select("active,last_ctr,device_name,user_id").eq("device_id", deviceId).maybeSingle(),
+    supabase.from("devices").select("active,last_ctr").eq("device_id", deviceId).maybeSingle(),
     supabase.from("device_secrets").select("key_b64").eq("device_id", deviceId).maybeSingle(),
   ]);
   if (!device || !secret || !device.active) return json({ error: "unknown_device" }, 403);
@@ -289,7 +286,7 @@ Deno.serve(async (request) => {
     if (existing) return json({ ok: true, duplicate: true }, 200);
     if (tracking.ctr <= Number(device.last_ctr)) return json({ error: "replayed_counter" }, 409);
 
-    const { error: insertError } = await supabase.from("alerts").insert({
+    const { data: createdAlert, error: insertError } = await supabase.from("alerts").insert({
       device_id: deviceId,
       ctr: tracking.ctr,
       lat: tracking.lat,
@@ -309,8 +306,8 @@ Deno.serve(async (request) => {
       last_loc_src: tracking.src,
       last_hdop: tracking.hdop,
       is_simulated_loc: tracking.src === "dev",
-    });
-    if (insertError) return json({ error: "db_error" }, 500);
+    }).select("id").single();
+    if (insertError || !createdAlert) return json({ error: "db_error" }, 500);
 
     const { error: counterError } = await supabase.from("devices")
       .update({ last_ctr: tracking.ctr, last_seen_at: new Date().toISOString() })
@@ -318,10 +315,7 @@ Deno.serve(async (request) => {
       .lt("last_ctr", tracking.ctr);
     if (counterError) return json({ error: "db_error" }, 500);
 
-    const { data: owner } = device.user_id
-      ? await supabase.from("profiles").select("full_name").eq("id", device.user_id).maybeSingle()
-      : { data: null };
-    void dispatchPush(deviceId, device.device_name, owner?.full_name ?? null);
+    void dispatchPush(createdAlert.id);
     return json({ ok: true }, 201);
   }
 

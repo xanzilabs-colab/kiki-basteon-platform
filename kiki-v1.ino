@@ -31,11 +31,20 @@
 #include "mbedtls/base64.h"
 #include "esp_random.h"
 
+#if __has_include("kiki-secrets.h")
+#include "kiki-secrets.h"
+#endif
+
+#ifndef WIFI_SSID
+#define WIFI_SSID ""
+#endif
+#ifndef WIFI_PASS
+#define WIFI_PASS ""
+#endif
+
 const char* FW_VERSION = "2.7";
 
-// ---------- Config (EDIT THESE) ----------
-const char* WIFI_SSID   = "HUAWEI_B311_CC04";
-const char* WIFI_PASS   = "TLgNg6ih7NH";
+// ---------- Config ----------
 const char* BACKEND_URL = "https://xsfhstvydstxeadiynom.supabase.co/functions/v1/secure-alert";
 const bool  SILENT_MODE = false;              // true = no buzzer, no LED during countdown
 
@@ -51,10 +60,8 @@ const double DEV_FALLBACK_LNG = 29.7;
 #define USE_BATTERY_SENSE 0
 const int BATTERY_PIN = 34;
 
-// Dev key = ASCII "12345678901234567890123456789012". Replace via NVS in production.
-const uint8_t DEV_KEY[32] = {'1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6',
-                             '7','8','9','0','1','2','3','4','5','6','7','8','9','0','1','2'};
 uint8_t deviceKey[32];
+bool deviceKeyProvisioned = false;
 
 // ---------- Pins ----------
 const int BUTTON_PIN = 13;   // button to GND (internal pull-up)
@@ -672,7 +679,7 @@ String encryptPayload(const String& plain) {
 int postPayload(const String& body, String* resp) {
   if (WiFi.status() != WL_CONNECTED) return -2;
   WiFiClientSecure client;
-  client.setInsecure();                      // TODO prod: client.setCACert(ROOT_CA);
+  client.useBuiltinCACertBundle();
   HTTPClient http;
   http.setTimeout(8000);
   if (!http.begin(client, BACKEND_URL)) return -3;
@@ -1402,9 +1409,21 @@ void setup() {
   bool bootLink = (digitalRead(BUTTON_PIN) == LOW);
   if (bootLink) { delay(60); bootLink = (digitalRead(BUTTON_PIN) == LOW); }
 
-  prefs.begin("basteon", false);       // namespace name kept so existing counters/keys survive
-  if (prefs.getBytesLength("key") == 32) prefs.getBytes("key", deviceKey, 32);
-  else memcpy(deviceKey, DEV_KEY, 32);
+  if (!prefs.begin("basteon", false)) {
+    Serial.println("[SECURITY] Cannot open device settings; stopping.");
+    while (true) delay(1000);
+  }
+  if (prefs.getBytesLength("key") == 32) {
+    deviceKeyProvisioned = prefs.getBytes("key", deviceKey, 32) == 32;
+  }
+  if (!deviceKeyProvisioned) {
+    Serial.println("[SECURITY] No unique 32-byte device key is provisioned in NVS; stopping.");
+    while (true) delay(1000);
+  }
+  if (WIFI_SSID[0] == '\0' || WIFI_PASS[0] == '\0') {
+    Serial.println("[WIFI] Credentials missing. Create the local, ignored kiki-secrets.h from its example; stopping.");
+    while (true) delay(1000);
+  }
 
   cachedLat = prefs.getDouble("lat", 999.0);
   cachedLng = prefs.getDouble("lng", 999.0);

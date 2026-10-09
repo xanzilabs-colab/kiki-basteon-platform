@@ -1631,7 +1631,7 @@ export function OrganisationConsole() {
       .org-console-content {
         width: min(100%, 1560px);
         margin: 0 auto;
-        padding: 22px clamp(18px, 3.5vw, 52px) 0;
+        padding: 18px clamp(12px, 1.6vw, 22px) 0;
       }
       .org-console-locked > :not(.org-console-lock-message):not(.ops-login-error):not(.ops-login-status) {
         pointer-events: none;
@@ -1648,7 +1648,7 @@ export function OrganisationConsole() {
       .org-console-header {
         width: 100%;
         margin: 0;
-        padding: 14px clamp(18px, 3.5vw, 52px);
+        padding: 0;
         border: 0;
         border-bottom: 1px solid var(--line);
         border-radius: 0;
@@ -2054,8 +2054,8 @@ export function OrganisationConsole() {
         .org-console-tabs { scroll-snap-type: x mandatory; padding-bottom: 4px; }
         .org-console-tab { scroll-snap-align: start; }
         .org-console .pane-head { font-size: 15px; }
-        .org-console-header { position: static; padding: 12px 0; }
-        .org-console-content { padding: 12px 12px 0; }
+        .org-console-header { position: static; padding: 0; }
+        .org-console-content { padding: 12px 8px 0; }
       }
     `}</style>
     </>

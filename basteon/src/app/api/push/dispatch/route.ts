@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { sendPushNotifications } from "@/lib/push";
+import { routeAlertAndNotify } from "@/lib/alertRouting";
 
 const payloadSchema = z.object({
-  title: z.string().min(1).max(100),
-  body: z.string().min(1).max(240),
-  tag: z.string().min(1).max(120),
-  url: z.string().startsWith("/"),
+  alertId: z.string().uuid(),
 });
 
 export async function POST(request: Request) {
-  if (request.headers.get("x-push-dispatch-secret") !== process.env.PUSH_DISPATCH_SECRET) {
+  const dispatchSecret = process.env.PUSH_DISPATCH_SECRET;
+  if (!dispatchSecret || request.headers.get("x-push-dispatch-secret") !== dispatchSecret) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const input = payloadSchema.safeParse(await request.json());
   if (!input.success) return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
 
-  await sendPushNotifications(input.data);
-  return NextResponse.json({ ok: true });
+  const routing = await routeAlertAndNotify(input.data.alertId);
+  return NextResponse.json({ ok: true, ...routing });
 }

@@ -105,7 +105,7 @@ export async function validateAndLinkOrganisation(input: ValidateOrgLinkInput): 
   }
 
   const { data: settings, error: settingsError } = await db.from("organisation_link_settings")
-    .select("require_invite,auto_approve_links,roster_id_case_mode,allow_email_domain,allow_work_id,work_id_regex")
+    .select("require_invite,auto_approve_links,roster_id_case_mode")
     .eq("organisation_id", input.organisationId).maybeSingle();
   if (settingsError) throw new Error(settingsError.message);
   const orgBlocked = organisation?.status === "suspended" && (!organisation.blocked_until || new Date(organisation.blocked_until).getTime() > Date.now());
@@ -132,24 +132,6 @@ export async function validateAndLinkOrganisation(input: ValidateOrgLinkInput): 
     input.identifierType,
     (settings?.roster_id_case_mode as "upper" | "lower" | "as_is" | undefined) ?? "upper",
   );
-  const identifierTypeAllowed = input.identifierType === "email"
-    ? settings?.allow_email_domain !== false
-    : settings?.allow_work_id !== false;
-  let workIdPattern: RegExp | null = null;
-  try {
-    workIdPattern = settings?.work_id_regex ? new RegExp(settings.work_id_regex) : null;
-  } catch {
-    await trackAttempt(input.userId, input.organisationId, ipHash, input.identifierType, false, "NOT_ELIGIBLE");
-    await insertAudit(input.organisationId, input.userId, "validate_rejected_invalid_org_rule", null, { identifierType: input.identifierType });
-    return result("NOT_ELIGIBLE", "We could not confirm eligibility. Please contact your organisation.", "contact_organisation");
-  }
-  const idFormatValid = input.identifierType === "email" || !workIdPattern || workIdPattern.test(identifierRaw);
-  if (!identifierTypeAllowed || !idFormatValid) {
-    await trackAttempt(input.userId, input.organisationId, ipHash, input.identifierType, false, "NOT_ELIGIBLE");
-    await insertAudit(input.organisationId, input.userId, "validate_rejected_not_eligible", null, { identifierType: input.identifierType });
-    return result("NOT_ELIGIBLE", "We could not confirm eligibility. Please contact your organisation.", "contact_organisation");
-  }
-
   const { data: entry, error: entryError } = await db
     .from("org_roster_entries")
     .select("id,membership_type,status,valid_from,valid_until,max_claims,claimed_by_user_id,claimed_at")
@@ -200,7 +182,10 @@ export async function validateAndLinkOrganisation(input: ValidateOrgLinkInput): 
     return result("ALREADY_CLAIMED", "This identifier has already been used.", "contact_organisation");
   }
 
-  const status = settings?.require_invite || settings?.auto_approve_links === false ? "pending" : "active";
+  const status = settings?.require_invite
+    || settings?.auto_approve_links === false
+    ? "pending"
+    : "active";
   const membershipType = entry.membership_type || "member";
   const roleHint = roleHintForMembershipType(membershipType);
   const membershipRole = roleHint === "responder" ? "responder" : "member";
