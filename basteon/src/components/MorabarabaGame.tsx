@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import styles from "./games.module.css";
+import { MorabarabaBoard } from "./MorabarabaBoard";
 
 type Player = 1 | 2;
 type Difficulty = "easy" | "medium" | "hard";
@@ -19,17 +20,9 @@ type GameState = {
   winner: Player | null;
 };
 
-type Point = { x: number; y: number };
-
 const HUMAN: Player = 1;
 const AI: Player = 2;
 const MAX_COWS = 12;
-
-const POINTS: Point[] = [
-  { x: 10, y: 10 }, { x: 50, y: 10 }, { x: 90, y: 10 }, { x: 90, y: 50 }, { x: 90, y: 90 }, { x: 50, y: 90 }, { x: 10, y: 90 }, { x: 10, y: 50 },
-  { x: 25, y: 25 }, { x: 50, y: 25 }, { x: 75, y: 25 }, { x: 75, y: 50 }, { x: 75, y: 75 }, { x: 50, y: 75 }, { x: 25, y: 75 }, { x: 25, y: 50 },
-  { x: 40, y: 40 }, { x: 50, y: 40 }, { x: 60, y: 40 }, { x: 60, y: 50 }, { x: 60, y: 60 }, { x: 50, y: 60 }, { x: 40, y: 60 }, { x: 40, y: 50 },
-];
 
 const MILLS: number[][] = [
   [0, 1, 2], [2, 3, 4], [4, 5, 6], [6, 7, 0],
@@ -265,13 +258,10 @@ function chooseAiAction(state: GameState, difficulty: Difficulty): Action | null
 
 export function MorabarabaGame() {
   const [state, setState] = useState<GameState>(() => emptyState());
-  const [selected, setSelected] = useState<number | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [thinking, setThinking] = useState(false);
 
   const pieces = useMemo(() => ({ 1: pieceCount(state.board, 1), 2: pieceCount(state.board, 2) }), [state.board]);
-  const humanCanFly = canFly(state.board, HUMAN);
-  const legalRemovalTargets = useMemo(() => state.pendingRemoval === HUMAN ? legalRemovals(state.board, HUMAN) : [], [state]);
 
   useEffect(() => {
     if (state.winner !== null) return;
@@ -286,7 +276,6 @@ export function MorabarabaGame() {
         setState((current) => applyAction(current, AI, action));
       }
       setThinking(false);
-      setSelected(null);
     }, difficulty === "hard" ? 480 : 260);
     return () => window.clearTimeout(timer);
   }, [difficulty, state]);
@@ -298,41 +287,10 @@ export function MorabarabaGame() {
     const allowed = legalActions(state, HUMAN).some((candidate) => JSON.stringify(candidate) === JSON.stringify(action));
     if (!allowed) return;
     setState((current) => applyAction(current, HUMAN, action));
-    setSelected(null);
-  }
-
-  function handlePointClick(index: number) {
-    if (state.winner !== null || thinking) return;
-
-    if (state.pendingRemoval === HUMAN) {
-      if (!legalRemovalTargets.includes(index)) return;
-      performHuman({ type: "remove", at: index });
-      return;
-    }
-
-    if (state.turn !== HUMAN) return;
-
-    if (state.phase === "place") {
-      if (state.board[index] !== 0) return;
-      performHuman({ type: "place", to: index });
-      return;
-    }
-
-    if (state.board[index] === HUMAN) {
-      setSelected((current) => current === index ? null : index);
-      return;
-    }
-
-    if (selected !== null && state.board[index] === 0) {
-      const valid = humanCanFly || ADJACENCY[selected].has(index);
-      if (!valid) return;
-      performHuman({ type: "move", from: selected, to: index });
-    }
   }
 
   function reset() {
     setState(emptyState());
-    setSelected(null);
     setThinking(false);
   }
 
@@ -382,32 +340,16 @@ export function MorabarabaGame() {
             </select>
           </div>
 
-          <div className={styles.boardWrap}>
-            <svg viewBox="0 0 100 100" className={`${styles.board} ${styles.roomBoard}`} role="img" aria-label="Morabaraba solo board">
-              <path d="M10 10 L90 10 L90 90 L10 90 Z" />
-              <path d="M25 25 L75 25 L75 75 L25 75 Z" />
-              <path d="M40 40 L60 40 L60 60 L40 60 Z" />
-              <path d="M10 50 L40 50 M60 50 L90 50" />
-              <path d="M50 10 L50 40 M50 60 L50 90" />
-              {EDGES.map(([from, to], index) => (
-                <line key={index} x1={POINTS[from].x} y1={POINTS[from].y} x2={POINTS[to].x} y2={POINTS[to].y} opacity={0.2} />
-              ))}
-              {POINTS.map((point, index) => {
-                const slot = state.board[index];
-                const isSelected = selected === index;
-                const isRemovable = state.pendingRemoval === HUMAN && legalRemovalTargets.includes(index);
-                const isTarget = selected !== null && slot === 0 && state.phase === "move" && (humanCanFly || ADJACENCY[selected].has(index));
-                return (
-                  <g key={index} onClick={() => handlePointClick(index)} style={{ cursor: "pointer" }}>
-                    <circle cx={point.x} cy={point.y} r={slot === 0 ? 2.2 : 4.5} className={slot === 0 ? styles.boardDot : slot === 1 ? styles.playerOneDot : styles.playerTwoDot} />
-                    {isTarget && <circle cx={point.x} cy={point.y} r={4.8} className={styles.legalTarget} />}
-                    {isSelected && <circle cx={point.x} cy={point.y} r={5.6} className={styles.tokenSelectionRing} />}
-                    {isRemovable && <circle cx={point.x} cy={point.y} r={5.8} className={styles.tokenRemovalRing} />}
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
+          <MorabarabaBoard
+            snapshot={state}
+            player={HUMAN}
+            busy={thinking}
+            onAction={(action, from, to) => {
+              if (action === "place" && typeof to === "number") performHuman({ type: "place", to });
+              if (action === "move" && typeof from === "number" && typeof to === "number") performHuman({ type: "move", from, to });
+              if (action === "remove" && typeof to === "number") performHuman({ type: "remove", at: to });
+            }}
+          />
 
           {!state.winner && state.pendingRemoval === null && (
             <p className={styles.gameNote}>

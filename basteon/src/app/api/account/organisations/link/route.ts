@@ -11,6 +11,12 @@ const schema = z.object({
   identifier: z.string().min(2),
   placeAddress: z.string().optional().nullable(),
 });
+const patchSchema = z.object({
+  organisationId: z.string().uuid(),
+  label: z.enum(["work", "school", "home", "other"]).optional(),
+  identifier: z.string().min(2).optional(),
+  placeAddress: z.string().optional().nullable(),
+});
 
 function membershipFromDomain(domain: string, rules: Array<{ domain: string; membership_type: string }>) {
   const match = rules
@@ -105,5 +111,26 @@ export async function DELETE(request: Request) {
     db.from("organisation_user_links").delete().eq("user_id", userId).eq("organisation_id", organisationId),
     db.from("organisation_memberships").delete().eq("user_id", userId).eq("organisation_id", organisationId).in("source", ["email_domain", "work_id"]),
   ]);
+  return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(request: Request) {
+  const userId = await currentUserId();
+  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const payload = patchSchema.safeParse(await request.json().catch(() => ({})));
+  if (!payload.success) return NextResponse.json({ error: payload.error.flatten() }, { status: 400 });
+  const input = payload.data;
+  const updates: Record<string, unknown> = {};
+  if (input.label) updates.label = input.label;
+  if (input.identifier) updates.identifier = input.identifier.trim();
+  if (input.placeAddress !== undefined) updates.place_address = input.placeAddress?.trim() || null;
+  if (!Object.keys(updates).length) return NextResponse.json({ error: "No updates provided." }, { status: 400 });
+  const db = createAdminClient();
+  const { error } = await db
+    .from("organisation_user_links")
+    .update(updates)
+    .eq("user_id", userId)
+    .eq("organisation_id", input.organisationId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true });
 }

@@ -1,11 +1,45 @@
 import { describe, expect, it } from "vitest";
 import { applyAnswer, needsPerson, newRound, nextMove, parseYesNo, rank, type Move } from "./engine";
+import { classify } from "./understand";
 
 function baseRoundFor(sense: "hear" | "smell" | "see" | "feel" | "taste") {
   return { ...newRound(sense), settingAsked: true, postureAsked: true, setting: sense === "smell" ? "bedroom" : "living" };
 }
 
 describe("stoep engine regressions", () => {
+  it("classifies short yes/no variants correctly", () => {
+    expect(classify("Yes").intent).toBe("YES");
+    expect(classify("no").intent).toBe("NO");
+    expect(classify("Nooe neither").intent).toBe("NO");
+    expect(classify("ja").intent).toBe("YES");
+    expect(classify("nee").intent).toBe("NO");
+  });
+
+  it("does not treat setting words as direct object answers", () => {
+    expect(classify("Bedroom").intent).not.toBe("DIRECT_ANSWER");
+    const res = applyAnswer(newRound("hear"), { kind: "setting" }, "Bedroom");
+    expect(res.reveal).toBeUndefined();
+  });
+
+  it("treats yes to a guess as a win signal", () => {
+    const round = baseRoundFor("hear");
+    const result = applyAnswer(round, { kind: "guess", label: "television" }, "Yes");
+    expect(result.yes).toBe(true);
+  });
+
+  it("reveals a different object when correcting guess by naming it", () => {
+    const round = baseRoundFor("hear");
+    const result = applyAnswer(round, { kind: "guess", label: "traffic" }, "It's television");
+    expect(result.reveal).toBe("television");
+  });
+
+  it("treats challenge text as non-win in guess mode", () => {
+    const round = baseRoundFor("smell");
+    const result = applyAnswer(round, { kind: "guess", label: "books" }, "How can a book smell fruity?");
+    expect(result.yes).toBe(false);
+    expect(result.reveal).toBeUndefined();
+  });
+
   it("parses 'Nooe neither' as NO for steady question", () => {
     const round = baseRoundFor("hear");
     const move: Move = { kind: "ask", id: "f:steady", text: "Is it a steady hum, tick or buzz?" };
@@ -70,4 +104,21 @@ describe("stoep engine regressions", () => {
   it("still triggers needsPerson on distress language", () => {
     expect(needsPerson("I want to die")).toBe(true);
   });
+
+  it("fuzz: classify/apply/nextMove never throws on random input", () => {
+    const random = (n: number) => Array.from({ length: n }, () => String.fromCharCode(32 + Math.floor(Math.random() * 95))).join("");
+    for (let i = 0; i < 10_000; i++) {
+      const text = i % 7 === 0 ? "👍" : i % 11 === 0 ? "👎" : random(8 + Math.floor(Math.random() * 48));
+      const c = classify(text);
+      expect(c.intent).toBeTruthy();
+      const round = newRound((["see", "feel", "hear", "smell", "taste"][i % 5]) as "see" | "feel" | "hear" | "smell" | "taste");
+      const move = nextMove(round);
+      const accepted = move.kind === "setting" || move.kind === "posture" || move.kind === "ask" || move.kind === "guess" || move.kind === "reveal" || move.kind === "stuck";
+      expect(accepted).toBe(true);
+      if (move.kind !== "stuck") {
+        const res = applyAnswer(round, move, text);
+        expect(res.round).toBeTruthy();
+      }
+    }
+  }, 300000);
 });

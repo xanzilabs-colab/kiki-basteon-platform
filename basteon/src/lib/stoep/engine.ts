@@ -15,7 +15,7 @@ import {
   type SettingId,
   type Zone,
 } from "./knowledge";
-import { classify, normalize, type UnderstandIntent } from "./understand";
+import { classify, normalize, type UnderstandIntent, type UnderstandResult } from "./understand";
 
 export const norm = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\b(a|an|the|my|some|our|his|her)\b/g, " ").replace(/\s+/g, " ").trim();
@@ -420,6 +420,11 @@ function isAffirmativeForGuess(intent: UnderstandIntent, text: string, label: st
 }
 
 export function applyAnswer(r: Round, m: Move, text: string): ApplyAnswerResult {
+  const understood = classify(text, { options: m.kind === "ask" ? m.options : undefined, rejected: r.rejected });
+  return applyUnderstanding(r, m, text, understood);
+}
+
+export function applyUnderstanding(r: Round, m: Move, text: string, intent: UnderstandResult): ApplyAnswerResult {
   const next: Round = {
     ...r,
     facts: { ...r.facts },
@@ -430,16 +435,26 @@ export function applyAnswer(r: Round, m: Move, text: string): ApplyAnswerResult 
     turns: [...r.turns, { role: "you", text }],
   };
 
-  const intent = classify(text, { options: m.kind === "ask" ? m.options : undefined, rejected: next.rejected });
-  const inferredGuess = inferObjectGuess(text, next);
-  pushDescriptorFacts(next, intent.entities.descriptors, intent.entities.colors);
+  const inferredGuess = m.kind === "setting" || m.kind === "posture" ? undefined : inferObjectGuess(text, next);
+  pushDescriptorFacts(next, intent.entities.descriptors ?? [], intent.entities.colors ?? []);
   if (
     inferredGuess &&
+    intent.intent !== "YES" &&
     !(m.kind === "ask" && Boolean(m.options)) &&
-    !intent.entities.descriptors.includes(inferredGuess as Descriptor) &&
-    !["green", "blue", "brown", "white", "black"].includes(inferredGuess)
+    !(intent.entities.descriptors ?? []).includes(inferredGuess as Descriptor) &&
+    !["green", "blue", "brown", "white", "black"].includes(inferredGuess) &&
+    !(m.kind === "guess" && isChallenge(text))
   ) {
-    return { round: next, ok: true, inferredGuess, reveal: inferredGuess, intent: intent.intent, reply: `Ahh, ${inferredGuess}? Got it.` };
+    const confirmsGuess = m.kind === "guess" && same(inferredGuess, m.label);
+    return {
+      round: next,
+      ok: true,
+      yes: confirmsGuess ? true : undefined,
+      inferredGuess,
+      reveal: inferredGuess,
+      intent: intent.intent,
+      reply: confirmsGuess ? "Yes! Lovely, thanks." : `Ahh, ${inferredGuess}! Got it.`,
+    };
   }
   if (intent.intent === "DISTRESS") return { round: next, ok: true, intent: intent.intent, reply: "I hear you. Let's get a real person in right now." };
   if (intent.intent === "FRUSTRATION") return { round: next, ok: true, intent: intent.intent, reply: "You're right, sorry. I'll use what you gave me and guess now." };
@@ -497,6 +512,7 @@ export function applyAnswer(r: Round, m: Move, text: string): ApplyAnswerResult 
   }
 
   if (m.kind === "guess") {
+    if (intent.intent === "YES") return { round: next, ok: true, yes: true, intent: intent.intent, reply: "Yes! Lovely, thanks." };
     if (isChallenge(text) || intent.intent === "CHALLENGE" || intent.intent === "CORRECTION") {
       if (!next.rejected.some((x) => same(x, m.label))) next.rejected.push(m.label);
       next.guesses++;

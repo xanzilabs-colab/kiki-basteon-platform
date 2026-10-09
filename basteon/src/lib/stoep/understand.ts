@@ -169,15 +169,32 @@ function extractDescriptors(input: string) {
   return [...new Set(out)];
 }
 
+const NOT_OBJECT = new Set(["yes", "no", "yeah", "yep", "nope", "nah", "ja", "nee", "ok", "okay", "maybe", "idk"]);
+const settingWords = () => SETTINGS.flatMap((s) => s.words.map((w) => strip(w)));
+
+function objScore(input: string, name: string) {
+  const x = strip(input).replace(/\b(it s|its|it is|i think|maybe|probably|the|a|an|my)\b/g, " ").replace(/\s+/g, " ").trim();
+  const y = strip(name);
+  if (!x || !y || NOT_OBJECT.has(x)) return 0;
+  if (x === y) return 1;
+  if (y.length >= 3 && ` ${x} `.includes(` ${y} `)) return 0.96;
+  if (Math.min(x.length, y.length) >= 5) {
+    const s = Math.max(jaroWinkler(x, y), (1 - lev(x, y) / Math.max(x.length, y.length)) * 0.97);
+    if (s >= 0.92) return s;
+  }
+  return 0;
+}
+
 function objectCandidates(input: string, rejected: string[] = []) {
   const cleaned = strip(input);
+  if (settingWords().includes(cleaned)) return [];
   const ranked: { label: string; score: number }[] = [];
   for (const object of OBJECTS) {
     if (rejected.some((x) => x.toLowerCase() === object.label.toLowerCase())) continue;
     const names = [object.label, ...object.alias].map((name) => SYNONYMS[name] ?? name);
     let best = 0;
-    for (const candidate of names) best = Math.max(best, fuzzyScore(cleaned, candidate));
-    if (best >= 0.68) ranked.push({ label: object.label, score: best });
+    for (const candidate of names) best = Math.max(best, objScore(cleaned, candidate));
+    if (best >= 0.92) ranked.push({ label: object.label, score: best });
   }
   return ranked.sort((a, b) => b.score - a.score);
 }
@@ -201,6 +218,26 @@ export function classify(text: string, ctx: UnderstandContext = {}): UnderstandR
     return { intent: "FRUSTRATION", confidence: 0.9, entities: { descriptors: descriptorHits, colors } };
   }
   if (/(no i said|i said|that's wrong|thats wrong|you heard me wrong)/.test(n)) return { intent: "CORRECTION", confidence: 0.9, entities: { descriptors: descriptorHits, colors } };
+
+  const squash = (s: string) => s.replace(/(.)\1+/g, "$1");
+  const tokens = cleaned.split(" ").filter(Boolean);
+  const first = tokens[0] ?? "";
+  const lead = (set: Set<string>) => set.has(first) || set.has(squash(first));
+  const YES_W = new Set(["yes", "yeah", "yep", "yup", "ya", "ye", "yea", "ja", "yebo", "sure", "correct", "exactly", "definitely", "absolutely", "ok", "okay", "mhm", "yh", "yess", "right"]);
+  const NO_W = new Set(["no", "nope", "nah", "nay", "nee", "neither", "none", "never", "nop", "naw"]);
+  const UNSURE_W = new Set(["idk", "dunno", "unsure", "maybe", "perhaps"]);
+  const emoji = text.includes("\u{1F44D}") ? "yes" : text.includes("\u{1F44E}") ? "no" : text.includes("\u{1F937}") ? "maybe" : "";
+  const claim = objectCandidates(cleaned, ctx.rejected)[0];
+  const sentenceNegated = /\b(not|isnt|isn t|aint|wasnt|doesnt|dont)\b/.test(cleaned);
+  const mk = (intent: UnderstandIntent, yesNo: "yes" | "no" | "maybe", obj?: string): UnderstandResult => ({
+    intent, confidence: 0.95, entities: { descriptors: descriptorHits, colors, yesNo, object: obj },
+  });
+  if (!ctx.options || tokens.length <= 3) {
+    if (/\byeah\s+nah\b/.test(cleaned) || /\bja\s+nee\b/.test(cleaned)) return mk("NO", "no", claim?.label);
+    if (emoji === "yes" || (lead(YES_W) && !sentenceNegated)) return mk("YES", "yes", claim?.label);
+    if (emoji === "no" || lead(NO_W) || (tokens.length <= 3 && sentenceNegated && !claim)) return mk("NO", "no", claim?.label);
+    if (emoji === "maybe" || lead(UNSURE_W) || /^(not sure|no idea|i dont know|i don t know)/.test(cleaned)) return mk("UNSURE", "maybe");
+  }
 
   if (ctx.options) {
     const [a, b] = ctx.options;

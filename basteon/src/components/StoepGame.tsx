@@ -7,12 +7,13 @@ import {
   Library, Send, ShieldX, Sofa, Sparkles, Trees, Wind, X,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ComponentType, type CSSProperties, type FormEvent, type ReactNode } from "react";
-import { askAi } from "@/lib/stoep/ai";
+import { askAi, type KikiInterpretResponse } from "@/lib/stoep/ai";
 import {
-  applyAnswer, buildGuesses, describeMove, guessText, matchesGuess, needsPerson, newRound, nextMove, questionsAsked,
+  applyUnderstanding, buildGuesses, describeMove, guessText, matchesGuess, needsPerson, newRound, nextMove, questionsAsked,
   rank, reaction, same, scoreSense, type Guess, type Move, type Round, type SenseResult,
 } from "@/lib/stoep/engine";
-import { SETTINGS, type SenseKey, type SettingId } from "@/lib/stoep/knowledge";
+import { DESCRIPTORS, SETTINGS, type Descriptor, type SenseKey, type SettingId } from "@/lib/stoep/knowledge";
+import { classify, type UnderstandIntent, type UnderstandResult } from "@/lib/stoep/understand";
 import styles from "./stoep.module.css"; // scene, top bar, person link (unchanged)
 import g from "./Stoepplay.module.css"; // new game UI
 
@@ -535,6 +536,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
   const [draft, setDraft] = useState("");
   const [outcome, setOutcome] = useState<"won" | "lost" | null>(null);
   const [stats, setStats] = useState({ rounds: 0, kiki: 0 });
+  const [aiHelperEnabled, setAiHelperEnabled] = useState(true);
   const logRef = useRef<Msg[]>([]);
   const timers = useRef<number[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
@@ -546,6 +548,47 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
 
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
   const push = (from: Msg["from"], text: string) => { logRef.current = [...logRef.current, { from, text }]; setLog(logRef.current); };
+  const interpreterMode = (process.env.NEXT_PUBLIC_KIKI_INTERPRETER ?? "auto").toLowerCase();
+
+  const toUnderstandResult = (raw: KikiInterpretResponse): UnderstandResult => {
+    const descriptorSet = new Set<string>(DESCRIPTORS);
+    const descriptors = (raw.descriptors ?? []).filter((value): value is Descriptor => descriptorSet.has(value));
+    return {
+      intent: raw.intent as UnderstandIntent,
+      confidence: Math.max(0, Math.min(1, raw.confidence ?? 0.7)),
+      entities: {
+        object: raw.object,
+        descriptors,
+        colors: raw.colors ?? [],
+        choice: raw.choice,
+        yesNo: raw.intent === "YES" ? "yes" : raw.intent === "NO" ? "no" : raw.intent === "UNSURE" ? "maybe" : undefined,
+      },
+    };
+  };
+
+  async function interpret(text: string, currentMove: Move, currentRound: Round): Promise<UnderstandResult> {
+    const local = classify(text, { options: currentMove.kind === "ask" ? currentMove.options : undefined, rejected: currentRound.rejected });
+    if (!aiHelperEnabled || interpreterMode === "local") return local;
+    const shouldAsk =
+      interpreterMode === "gemini"
+      || local.confidence < 0.8
+      || text.trim().split(/\s+/).length > 4
+      || text.includes("?")
+      || ((local.intent === "DESCRIPTOR" || local.intent === "UNSURE") && local.confidence < 0.9);
+    if (!shouldAsk) return local;
+    const ai = await askAi<KikiInterpretResponse>({
+      task: "interpret",
+      sense: currentRound.sense,
+      lastKiki: currentMove.kind === "ask" ? { kind: currentMove.kind, text: currentMove.text, options: currentMove.options } : currentMove,
+      guess: currentMove.kind === "guess" ? currentMove.label : undefined,
+      transcript: logRef.current.slice(-8),
+      candidates: rank(currentRound).slice(0, 15).map((item) => ({ label: item.o.label, aliases: item.o.alias, attrs: item.o.descriptors })),
+      text,
+    }, 9000);
+    if (!ai) return local;
+    onAi();
+    return toUnderstandResult(ai);
+  }
 
   function start(sense: SenseKey) {
     const r = newRound(sense);
@@ -556,19 +599,22 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
   }
 
   function turn(r: Round, lead = "", forced?: Move) {
-    setRound(r); setMove(null); setThinking(true); setMood("think");
-    later(() => {
-      const m = forced ?? nextMove(r);
-      if (m.kind === "stuck") { void giveUp(r, lead); return; }
-      setThinking(false); setMove(m); setMood("idle");
-      push("kiki", `${lead ? lead + " " : ""}${describeMove(m, r)}`);
-    }, 800);
+    setRound(r);
+    setMove(null);
+    setMood("think");
+    const m = forced ?? nextMove(r);
+    if (m.kind === "stuck") { void giveUp(r, lead); return; }
+    setMove(m);
+    setMood("idle");
+    push("kiki", `${lead ? lead + " " : ""}${describeMove(m, r)}`);
   }
 
   async function giveUp(r: Round, lead: string) {
     let guess: string | undefined;
-    if (!r.aiTried) {
+    if (!r.aiTried && aiHelperEnabled) {
       const topCandidates = rank(r).slice(0, 5).map((item) => item.o.label);
+      setThinking(true);
+      const startedAt = Date.now();
       const ai = await askAi<{ guess?: string; nextQuestion?: string; reply?: string }>({
         task: "clue",
         sense: r.sense,
@@ -577,6 +623,8 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
         facts: { setting: r.setting, posture: r.posture, descriptors: r.descriptors, flags: r.facts },
         candidates: topCandidates,
       });
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 600) await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
       guess = ai?.guess;
       if (ai) onAi();
       if (!guess && ai?.nextQuestion) {
@@ -587,7 +635,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
         return;
       }
     }
-    setRound({ ...r, aiTried: true });
+    setRound({ ...r, aiTried: aiHelperEnabled ? true : r.aiTried });
     setThinking(false);
     if (guess && !r.rejected.some((x) => same(x, guess))) {
       setMove({ kind: "guess", label: guess });
@@ -605,17 +653,18 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
     push("kiki", text);
   }
 
-  function submit(raw: string) {
+  async function submit(raw: string) {
     const text = raw.trim().slice(0, 120);
     if (!text || !move || !round || thinking || outcome) return;
     if (needsPerson(text)) onCare();
     push("you", text);
     setDraft("");
     if (move.kind === "reveal") return finish(false, `Ahh, ${text}! I'd never have guessed. Point to you.`);
-    const res = applyAnswer(round, move, text);
-    if (move.kind === "guess" && res.yes) return finish(true, `Yes! I got it in ${questionsAsked(round)} questions. Kiki's brain is glowing.`);
+    const understanding = await interpret(text, move, round);
+    const res = applyUnderstanding(round, move, text, understanding);
+    if (move.kind === "guess" && res.yes) return finish(true, `Yes! I got it in ${questionsAsked(round)} questions.`);
     const inferred = res.reveal ?? res.inferredGuess;
-    if (inferred) return finish(true, res.reply ?? `Ahh, ${inferred}? Got it.`);
+    if (inferred) return finish(true, `Ahh, ${inferred}! ${res.reply ?? "Got it."}`);
     if (res.intent === "FRUSTRATION") {
       const forced = nextMove(res.round);
       if (forced.kind === "guess") return turn(res.round, reaction(move, res, res.round), forced);
@@ -627,6 +676,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
     move?.kind === "setting" ? SETTINGS.map((s) => s.name)
     : move?.kind === "posture" ? ["Lying down", "Sitting", "Standing"]
     : move?.kind === "ask" && move.options ? [...move.options, "Neither", "Other"]
+    : move?.kind === "ask" && move.id.startsWith("ai:") ? ["Fruity", "Sweet", "Loud", "Soft", "Other"]
     : move?.kind === "ask" || move?.kind === "guess" ? ["Yes", "No", "Not sure"] : [];
   const used = round ? Math.min(questionsAsked(round), CLUE_TARGET) : 0;
 
@@ -647,7 +697,11 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
     <section className={g.chatWrap}>
       <div className={g.chatHead}>
         <Kiki mood={mood} size={52} look={draft ? { x: 0, y: 0.9 } : undefined} />
-        <div><strong>Kiki</strong><small>{outcome ? `Kiki ${stats.kiki}, you ${stats.rounds - stats.kiki}` : `Clue ${used} of ${CLUE_TARGET}`}</small></div>
+        <div>
+          <strong>Kiki</strong>
+          <small>{outcome ? `Kiki ${stats.kiki}, you ${stats.rounds - stats.kiki}` : `Clue ${used} of ${CLUE_TARGET}`}</small>
+          <small style={{ display: "block", opacity: 0.8 }}>AI helper: {aiHelperEnabled ? "On" : "Off"}</small>
+        </div>
       </div>
       <div className={g.chat} aria-live="polite">
         {log.map((m, i) => <p key={i} className={`${g.msg} ${m.from === "you" ? g.you : ""}`}>{m.text}</p>)}
@@ -671,7 +725,7 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
                       inputRef.current?.focus();
                       return;
                     }
-                    submit(q);
+                    void submit(q);
                   }}
                 >
                   {q}
@@ -679,7 +733,14 @@ function CluesGame({ onCare, onAi, onLevel, onMenu }: { onCare: () => void; onAi
               ))}
             </div>
           )}
-          <form className={g.inputRow} onSubmit={(e) => { e.preventDefault(); submit(draft); }}>
+          <div className={g.actions} style={{ paddingTop: 4 }}>
+            <button className={g.ghost} type="button" onClick={() => void submit("Not sure")}>Hint</button>
+            <button className={g.ghost} type="button" onClick={() => void submit("skip")}>Skip</button>
+            <button className={g.ghost} type="button" onClick={() => setMove({ kind: "guess", label: rank(round).slice(0, 1)[0]?.o.label ?? "music" })}>Just guess</button>
+            <button className={g.ghost} type="button" onClick={() => void giveUp(round, "Okay, I'll stop asking and guess now.")}>I give up</button>
+            <button className={g.ghost} type="button" onClick={() => setAiHelperEnabled((value) => !value)}>{aiHelperEnabled ? "Turn AI helper off" : "Turn AI helper on"}</button>
+          </div>
+          <form className={g.inputRow} onSubmit={(e) => { e.preventDefault(); void submit(draft); }}>
             <input ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={thinking ? "Kiki is thinking…" : "Type your answer"} disabled={thinking || !move} maxLength={120} aria-label="Your answer" autoComplete="off" />
             <button type="submit" disabled={thinking || !move} aria-label="Send"><Send size={18} /></button>
           </form>

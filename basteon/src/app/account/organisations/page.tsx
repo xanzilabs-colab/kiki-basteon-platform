@@ -37,6 +37,10 @@ export default function AccountOrganisationsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [editLabel, setEditLabel] = useState<"work" | "school" | "home" | "other">("work");
+  const [editIdentifier, setEditIdentifier] = useState("");
+  const [editPlaceAddress, setEditPlaceAddress] = useState("");
 
   async function refreshLinked() {
     const response = await fetch("/api/account/organisations/link", { cache: "no-store" });
@@ -103,6 +107,32 @@ export default function AccountOrganisationsPage() {
       body: JSON.stringify({ organisationId }),
     });
     if (!response.ok) setError("Could not unlink organisation.");
+    await refreshLinked();
+    setBusy(false);
+  }
+
+  async function saveEdit(organisationId: string) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/account/organisations/link", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        organisationId,
+        label: editLabel,
+        identifier: editIdentifier,
+        placeAddress: editPlaceAddress || null,
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not update linked organisation.");
+      setBusy(false);
+      return;
+    }
+    setMessage("Linked organisation updated.");
+    setEditingId("");
     await refreshLinked();
     setBusy(false);
   }
@@ -186,8 +216,44 @@ export default function AccountOrganisationsPage() {
                 <p className="muted text-xs capitalize">{item.label} · {item.membership_type} · {item.status}</p>
                 <p className="muted text-xs">{item.method} · {item.identifier}</p>
                 {item.organisation_branches?.name && <p className="muted text-xs">Branch: {item.organisation_branches.name}</p>}
+                {editingId === item.id && (
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    <label className="field">Relationship
+                      <select className="input" value={editLabel} onChange={(event) => setEditLabel(event.target.value as "work" | "school" | "home" | "other")}>
+                        <option value="work">Work</option>
+                        <option value="school">School</option>
+                        <option value="home">Home</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+                    <label className="field">Identifier
+                      <input className="input" value={editIdentifier} onChange={(event) => setEditIdentifier(event.target.value)} />
+                    </label>
+                    <label className="field md:col-span-2">Place address
+                      <input className="input" value={editPlaceAddress} onChange={(event) => setEditPlaceAddress(event.target.value)} placeholder="Campus, office, residence..." />
+                    </label>
+                    <div className="md:col-span-2 flex gap-2">
+                      <button className="btn btn-primary" disabled={busy} onClick={() => void saveEdit(item.organisation_id)}>Save changes</button>
+                      <button className="btn" disabled={busy} onClick={() => setEditingId("")}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <button className="btn" disabled={busy} onClick={() => void unlinkOrganisation(item.organisation_id)}><Unlink size={15} />Unlink</button>
+              <div className="flex gap-2">
+                <button
+                  className="btn"
+                  disabled={busy}
+                  onClick={() => {
+                    setEditingId(item.id);
+                    setEditLabel(item.label as "work" | "school" | "home" | "other");
+                    setEditIdentifier(item.identifier);
+                    setEditPlaceAddress(item.place_address ?? "");
+                  }}
+                >
+                  Edit
+                </button>
+                <button className="btn" disabled={busy} onClick={() => void unlinkOrganisation(item.organisation_id)}><Unlink size={15} />Unlink</button>
+              </div>
             </article>
           ))}
         </div>
