@@ -6,6 +6,7 @@ import {
   Bolt,
   Building2,
   CircleCheck,
+  House,
   LayoutDashboard,
   RefreshCw,
   Settings2,
@@ -855,7 +856,7 @@ export function OrganisationConsole() {
   }
 
   const dashboardTabs: Array<{ key: DashboardTab; label: string; icon: React.ComponentType<{ size?: number }> }> = [
-    { key: "home", label: "Home", icon: LayoutDashboard },
+    { key: "home", label: "Home", icon: House },
     { key: "beneficiaries", label: "Beneficiaries", icon: Users },
     { key: "responders", label: "Responders", icon: Shield },
     { key: "members", label: "Staff / Members", icon: Users },
@@ -1284,7 +1285,7 @@ export function OrganisationConsole() {
             <h3 className="text-sm font-bold">Import roster from CSV or paste</h3>
             <p className="muted mt-1 text-xs">CSV headers such as email, member ID, student number, work ID, name, or access code are detected automatically.</p>
             <label className="field mt-3 block">Choose CSV, TSV, or TXT (max 5 MB)
-              <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" onChange={(event) => void readRosterFile(event.target.files?.[0])} />
+              <input className="org-roster-file" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" onChange={(event) => void readRosterFile(event.target.files?.[0])} />
             </label>
             <form className="mt-3 space-y-3" onSubmit={(event) => void importRosterEntries(event)}>
               <label className="field block">Paste entries or CSV contents
@@ -1314,8 +1315,8 @@ export function OrganisationConsole() {
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-bold">Allowed identifiers</h3>
-              <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); void loadRoster(); }}>
-                <input aria-label="Search roster" value={rosterSearch} onChange={(event) => setRosterSearch(event.target.value)} placeholder="Search identifiers" />
+              <form className="org-roster-search-form" onSubmit={(event) => { event.preventDefault(); void loadRoster(); }}>
+                <input className="org-roster-search" aria-label="Search roster" value={rosterSearch} onChange={(event) => setRosterSearch(event.target.value)} placeholder="Search identifiers" />
                 <button className="btn" disabled={rosterLoading}>Search</button>
               </form>
             </div>
@@ -1628,9 +1629,9 @@ export function OrganisationConsole() {
         padding: 0 0 28px;
       }
       .org-console-content {
-        width: 100%;
-        margin: 0;
-        padding: 16px clamp(12px, 1.6vw, 24px) 0;
+        width: min(100%, 1560px);
+        margin: 0 auto;
+        padding: 22px clamp(18px, 3.5vw, 52px) 0;
       }
       .org-console-locked > :not(.org-console-lock-message):not(.ops-login-error):not(.ops-login-status) {
         pointer-events: none;
@@ -1647,7 +1648,7 @@ export function OrganisationConsole() {
       .org-console-header {
         width: 100%;
         margin: 0;
-        padding: 12px 0;
+        padding: 14px clamp(18px, 3.5vw, 52px);
         border: 0;
         border-bottom: 1px solid var(--line);
         border-radius: 0;
@@ -1728,15 +1729,17 @@ export function OrganisationConsole() {
         gap: 6px;
       }
       .org-console-tabs-shell {
-        padding: 6px;
+        padding: 8px 12px;
         background: var(--chrome);
         border: 1px solid var(--line);
         border-radius: 16px;
       }
       .org-console-tabs {
         display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
         gap: 6px;
-        overflow-x: auto;
+        width: 100%;
         scrollbar-width: none;
       }
       .org-console-tab {
@@ -1760,6 +1763,58 @@ export function OrganisationConsole() {
         color: var(--text);
         box-shadow: none;
       }
+      .org-roster-file {
+        display: block;
+        width: 100%;
+        min-height: 48px;
+        padding: 7px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 10px;
+        background: var(--well);
+        color: var(--text);
+        cursor: pointer;
+      }
+      .org-roster-file::file-selector-button {
+        min-height: 32px;
+        margin-right: 12px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .org-roster-file::-webkit-file-upload-button {
+        min-height: 32px;
+        margin-right: 12px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .org-roster-file:focus-visible,
+      .org-roster-search:focus-visible {
+        outline: 2px solid var(--line-focus);
+        outline-offset: 2px;
+      }
+      .org-roster-search-form { display: flex; width: min(100%, 380px); gap: 8px; }
+      .org-roster-search {
+        width: 100%;
+        min-width: 0;
+        min-height: 38px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--well);
+        color: var(--text);
+      }
+      .org-roster-search::placeholder { color: var(--muted); opacity: 1; }
       .org-console-hero { border-color: var(--line); background: var(--surface-2); }
       .org-console-metrics {
         display: grid;
@@ -1771,6 +1826,14 @@ export function OrganisationConsole() {
       }
       @media (min-width: 1024px) {
         .org-console-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      }
+      @media (max-width: 640px) {
+        .org-console-header { align-items: flex-start; }
+        .org-console-heading { min-width: 0; }
+        .org-console-title-row { align-items: flex-start; flex-direction: column; gap: 5px; }
+        .org-console-tabs-shell { padding: 6px; }
+        .org-console-tab { padding: 0 10px; font-size: 12px; }
+        .org-roster-search-form { width: 100%; }
       }
       .org-console-metric {
         border: 1px solid var(--line);
