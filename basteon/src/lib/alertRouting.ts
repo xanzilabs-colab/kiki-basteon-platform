@@ -151,7 +151,8 @@ export function planAlertTargets(input: {
     });
   }
 
-  const includePartners = result.length === 0;
+  const hasActiveLinkedOrganisation = input.links.some((link) => link.status === "active");
+  const includePartners = !hasActiveLinkedOrganisation;
   if (includePartners) {
     for (const coverage of input.partnerCoverage.filter((item) => item.active && item.emergency_type_code === input.emergencyTypeCode)) {
       const branches = input.partnerBranches.filter((branch) => branch.organisation_id === coverage.organisation_id);
@@ -188,7 +189,7 @@ export async function routeAlertAndNotify(alertId: string) {
   const db = createAdminClient();
   const { data: alert, error: alertError } = await db
     .from("alerts")
-    .select("id,device_id,type_code,lat,lng,devices!inner(user_id,device_name)")
+    .select("id,device_id,type_code,lat,lng,devices!inner(user_id)")
     .eq("id", alertId)
     .single();
   if (alertError || !alert) throw new Error(alertError?.message ?? "Alert not found.");
@@ -286,7 +287,6 @@ export async function routeAlertAndNotify(alertId: string) {
   }
 
   const recipientIds = new Set<string>();
-  const assignmentCandidates: Array<{ user_id: string; organisation_id: string; branch_id: string | null }> = [];
   for (const [organisationId, branchIds] of byOrg.entries()) {
     const { data: members } = await db
       .from("organisation_memberships")
@@ -310,13 +310,6 @@ export async function routeAlertAndNotify(alertId: string) {
     const recipients = pickDispatchRecipients(candidates, branchIds);
     for (const recipient of recipients) {
       recipientIds.add(recipient.user_id);
-      if (recipient.role === "responder" || recipient.role === "dispatcher") {
-        assignmentCandidates.push({
-          user_id: recipient.user_id,
-          organisation_id: organisationId,
-          branch_id: recipient.branch_id ?? branchIds.find(Boolean) ?? null,
-        });
-      }
     }
 
     if (!recipients.length) {
@@ -329,7 +322,7 @@ export async function routeAlertAndNotify(alertId: string) {
   }
 
   const title = typeCode === "medical" ? "Medical alert" : "General alert";
-  const body = `${(alert.devices as { device_name?: string | null } | null)?.device_name ?? alert.device_id} needs assistance.`;
+  const body = "An emergency alert needs your attention.";
   const notifications = [...recipientIds].map((userId) => ({
     user_id: userId,
     type: "system",
@@ -351,18 +344,6 @@ export async function routeAlertAndNotify(alertId: string) {
       url: "/responder",
     });
   }));
-
-  const firstAssignment = assignmentCandidates.find((candidate) => candidate.branch_id != null);
-  if (firstAssignment) {
-    await db.from("alert_assignments").insert({
-      alert_id: alertId,
-      organisation_id: firstAssignment.organisation_id,
-      branch_id: firstAssignment.branch_id,
-      responder_user_id: firstAssignment.user_id,
-      status: "assigned",
-    });
-    await db.from("alerts").update({ assigned_to: firstAssignment.user_id }).eq("id", alertId);
-  }
 
   return { targets: targets.length, recipients: recipientIds.size };
 }

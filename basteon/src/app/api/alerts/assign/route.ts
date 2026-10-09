@@ -46,11 +46,15 @@ export async function POST(request: Request) {
   }).select("*").single();
   if (assignmentError) return NextResponse.json({ error: assignmentError.message }, { status: 400 });
 
-  await db.from("alerts").update({
-    assigned_to: payload.data.responderUserId ?? null,
-    status: "acknowledged",
-  }).eq("id", payload.data.alertId);
-  await db.from("alert_dispatch_targets").update({ status: "accepted" }).eq("id", target.id);
+  const { error: auditError } = await db.from("alert_assignment_events").insert({
+    alert_id: payload.data.alertId,
+    assignment_id: assignment.id,
+    actor_id: actorId,
+    action: "assigned",
+    from_status: null,
+    to_status: "assigned",
+  });
+  if (auditError) return NextResponse.json({ error: auditError.message }, { status: 500 });
   await db.from("alert_routing_events").insert({
     alert_id: payload.data.alertId,
     stage: "assigned",
@@ -74,4 +78,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, assignment }, { status: 201 });
 }
-

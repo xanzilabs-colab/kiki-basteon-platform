@@ -9,6 +9,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { AlertList } from "@/components/AlertList";
 import { AlertDetailPanel } from "@/components/AlertDetailPanel";
 import { AlertBanner } from "@/components/AlertBanner";
+import { ResponderLocationPublisher } from "@/components/ResponderLocationPublisher";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Navbar } from "@/components/Navbar";
@@ -119,6 +120,7 @@ export default function ResponderPage() {
       </Navbar>
 
       <main className="relative min-h-0 min-w-0">
+        <ResponderLocationPublisher position={position} organisationId={organisationId} />
         {!organisationId && (
           <div className="absolute z-[1200] left-3 right-3 top-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)] panel border-l-4 border-[var(--warn)] px-3 py-2 text-[12px] text-[var(--warn)]">
             This responder account is not linked to an active organisation. Alert and telemetry access is hidden until linked.

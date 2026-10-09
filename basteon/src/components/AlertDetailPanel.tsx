@@ -7,6 +7,7 @@ import type { Alert, AlertEvent } from "@/lib/types";
 import { locationAgeMs, locationHealth } from "@/lib/locationTracking";
 import { StatusBadge } from "./StatusBadge";
 import { LocationSourceBadge } from "./LocationSourceBadge";
+import { AlertResponseActions } from "./AlertResponseActions";
 import { StatusActions } from "./StatusActions";
 import { AlertTimeline } from "./AlertTimeline";
 import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
@@ -233,9 +234,10 @@ export function AlertDetailPanel({
       </div>
       </div>
 
-      <div className="section shrink-0 border-t border-[var(--line-strong)] border-b-0 bg-[var(--surface)]">
-        <StatusActions alert={alert} admin={admin} onChanged={refresh} />
-      </div>
+      <AlertResponseActions alertId={alert.id} />
+      {canDispatch && <div className="section shrink-0 border-t border-[var(--line-strong)] border-b-0 bg-[var(--surface)]">
+        <StatusActions alert={alert} admin={admin} closeOnly onChanged={refresh} />
+      </div>}
     </div>
   );
 }

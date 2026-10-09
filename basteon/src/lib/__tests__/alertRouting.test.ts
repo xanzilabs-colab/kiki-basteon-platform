@@ -79,13 +79,28 @@ describe("alert routing planner", () => {
     expect(targets.some((target) => target.organisation_id === "p1")).toBe(false);
   });
 
-  it("4. falls back to partner tier when no linked coverage exists", () => {
+  it("4. does not fall back to partners when a linked organisation has no matching coverage", () => {
     const targets = planAlertTargets({
       emergencyTypeCode: "fire",
       lifeThreat: false,
       lat: -33.90,
       lng: 18.45,
       links,
+      linkedBranches,
+      linkedCoverage: [],
+      partnerBranches,
+      partnerCoverage: [{ organisation_id: "p1", branch_id: null, emergency_type_code: "fire", priority: 1, active: true }],
+    });
+    expect(targets).toHaveLength(0);
+  });
+
+  it("falls back to partners when the user has no active linked organisation", () => {
+    const targets = planAlertTargets({
+      emergencyTypeCode: "fire",
+      lifeThreat: false,
+      lat: -33.90,
+      lng: 18.45,
+      links: [],
       linkedBranches,
       linkedCoverage: [],
       partnerBranches,
@@ -252,6 +267,15 @@ describe("alert routing planner", () => {
 });
 
 describe("dispatch recipient selection", () => {
+  it("notifies every available responder in the routed branch", () => {
+    const recipients = pickDispatchRecipients([
+      { user_id: "u1", branch_id: "b1", role: "responder", availability: "available", last_seen_at: "2026-01-01T00:00:00Z" },
+      { user_id: "u2", branch_id: "b1", role: "responder", availability: "available", last_seen_at: "2026-01-02T00:00:00Z" },
+      { user_id: "u3", branch_id: "b2", role: "responder", availability: "available", last_seen_at: "2026-01-03T00:00:00Z" },
+    ] satisfies CandidateResponder[], ["b1"]);
+    expect(recipients.map((recipient) => recipient.user_id)).toEqual(["u2", "u1"]);
+  });
+
   it("prefers available responder in branch", () => {
     const recipients = pickDispatchRecipients([
       { user_id: "u1", branch_id: "b1", role: "responder", availability: "available", last_seen_at: "2026-01-01T00:00:00Z" },
