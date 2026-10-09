@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { List } from "lucide-react";
+import { List, Plus, Trees } from "lucide-react";
 import { KikiMark } from "@/components/KikiMark";
 import type { EntryPayloadV1, JournalEntryRow, JournalSymbol, Mood } from "@/lib/journal/types";
 import { layoutWorld } from "@/lib/journal/world/layout";
@@ -26,9 +26,9 @@ export function GardenScene({ entries, calm, onList, onSelect, onLeave }: Props)
       <SeasonalTree jacaranda={jacarandaInBloom(now)} season={season} /><div className={styles.gardenGround} aria-hidden="true"><i className={styles.path} /><i className={styles.fence} /></div>
       {mood && <div className={`${styles.weatherLayer} ${styles[`weather${mood[0].toUpperCase()}${mood.slice(1)}`]}`} aria-hidden="true" />}
     </div>
-    <header className={styles.gardenHeader}><div><p>{phase.phase === "golden" ? "Golden hour" : phase.phase === "night" ? "Quiet night" : "Your private place"}</p><h1>Garden</h1></div><button className={styles.gardenList} onClick={onList}><List size={17} /><span>List</span></button></header>
+    <header className={styles.gardenHeader}><p className={styles.eyebrow}>{phase.phase === "golden" ? "Golden hour" : phase.phase === "night" ? "Quiet night" : "Your private place"}</p><h1>Garden</h1><div className={styles.gseg} role="tablist" aria-label="View"><i className={styles.thumb} /><button role="tab" aria-selected="true"><Trees size={18} />Garden</button><button role="tab" aria-selected="false" onClick={onList}><List size={18} />List</button></div></header>
     <div className={styles.gardenWalk} style={{ width: `${Math.max(layout.width, 900)}px` }}>{layout.placed.map((placed) => { const entry = entries.find((item) => item.id === placed.id); return entry ? <button key={entry.id} className={`${styles.gardenEntry} ${styles[`depth${placed.layer}`]}`} style={{ left: `${placed.x}px`, bottom: `${64 + placed.y * 96}px`, transform: `translateX(-50%) scale(${placed.scale})` }} onClick={() => onSelect(entry)} aria-label={`Open ${entry.kind} from ${new Date(entry.occurred_at).toLocaleDateString()}`}><EntryToken symbol={entry.symbol} today={entry.occurred_at.slice(0, 10) === localDate()} /></button> : null; })}<span className={styles.writingSign}>Still writing<br />this one.</span></div>
-    <div className={styles.gardenFooter}>{entries.length === 0 ? <button className={styles.gardenWelcome} onClick={onLeave}><KikiMark size={22} />This is your garden. Leave something here.</button> : <button className={styles.gardenPrompt} onClick={onLeave}><span>Give me one moment</span><small>A photo, a voice, a thought, or a feeling.</small></button>}</div>
+    <div className={styles.gpanel}><div className={styles.prompt}><div className={styles.promptTile}><KikiMark size={22} /></div><div><b>{entries.length === 0 ? "This is your garden" : "Give me one moment"}</b><span>{entries.length === 0 ? "Leave something here and it will bloom." : "A photo, a voice, a thought, or a feeling."}</span></div></div><button className={styles.violetBtn} onClick={onLeave}><Plus size={22} />Leave something here</button></div>
   </section>;
 }
 
