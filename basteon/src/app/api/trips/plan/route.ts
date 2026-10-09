@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireTripUser } from "../_shared";
 
 const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) });
-const inputSchema = z.object({ origin: point, destination: point, mode: z.enum(["taxi", "walk"]) });
+const inputSchema = z.object({ origin: point, destination: point, mode: z.enum(["taxi", "walk", "ehail", "bus", "train"]) });
 
 export async function POST(request: Request) {
   const access = await requireTripUser();

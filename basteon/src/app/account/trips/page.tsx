@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bus, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, UsersRound } from "lucide-react";
+import { Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { formatDistance } from "@/lib/geo";
 import { remainingRouteDurationS } from "@/lib/hamba/geometry";
@@ -22,7 +22,11 @@ type RecentTrip = { id: string; destination_label: string; destination_lat: numb
 const transitModes = [
   { value: "taxi", label: "Taxi", icon: Bus },
   { value: "walk", label: "Walk", icon: Footprints },
+  { value: "ehail", label: "E-hail", icon: Car },
+  { value: "bus", label: "Bus", icon: Bus },
+  { value: "train", label: "Train", icon: TrainFront },
 ] as const;
+const modeLabels: Record<TripMode, string> = { taxi: "Taxi", walk: "Walk", ehail: "E-hail", bus: "Bus", train: "Train" };
 
 export default function TripsPage() {
   const { position, error: locationError } = useGeolocation();
@@ -198,7 +202,7 @@ export default function TripsPage() {
         <section className="hamba-active">
           <div className="hamba-map-stage">
             <TripMap points={activeTrip.planned_route.points} position={position} recenter={recenter} />
-            <div className="hamba-map-overlay"><span className="hamba-overlay-icon"><ShieldCheck size={18} /></span><div><h2>{activeTrip.destination_label}</h2><p>{activeTrip.mode === "walk" ? "Walk" : "Taxi"} · {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min estimated</p></div><button type="button" className="hamba-recenter" title="Center map on route" aria-label="Center map on route" onClick={() => setRecenter((current) => current + 1)}><LocateFixed size={18} /></button></div>
+            <div className="hamba-map-overlay"><span className="hamba-overlay-icon"><ShieldCheck size={18} /></span><div><h2>{activeTrip.destination_label}</h2><p>{modeLabels[activeTrip.mode]} · {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min estimated</p></div><button type="button" className="hamba-recenter" title="Center map on route" aria-label="Center map on route" onClick={() => setRecenter((current) => current + 1)}><LocateFixed size={18} /></button></div>
           </div>
           <div className="hamba-active-card">
             <div className="hamba-control-stats"><div><span>Next check-in</span><b><Timer size={20} />{countdown}</b></div><div><span>Planned distance</span><b>{formatDistance(activeTrip.route_distance_m / 1000)}</b></div></div>

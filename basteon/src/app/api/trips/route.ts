@@ -8,7 +8,7 @@ const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-
 const tripSchema = z.object({
   destinationLabel: z.string().trim().min(1).max(240),
   destination: point,
-  mode: z.enum(["taxi", "walk"]),
+  mode: z.enum(["taxi", "walk", "ehail", "bus", "train"]),
   route: z.object({ points: z.array(point).min(2).max(5_000), distanceM: z.number().nonnegative(), durationS: z.number().nonnegative() }),
 });
 

@@ -1,4 +1,4 @@
-export type TripMode = "taxi" | "walk";
+export type TripMode = "taxi" | "walk" | "ehail" | "bus" | "train";
 export type RouteWatchState = "normal" | "watch" | "concern" | "alert";
 
 export type GeoPoint = { lat: number; lng: number; accuracyM?: number; speedMps?: number; timestamp: number };
