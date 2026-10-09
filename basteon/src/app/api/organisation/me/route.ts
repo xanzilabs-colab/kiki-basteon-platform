@@ -31,7 +31,7 @@ export async function GET() {
   const [{ data: organisation }, { data: branches }, { data: members, error: membersError }, { data: settings }, { data: domains }, { data: coverage }, { data: onboarding }, { data: units }, { data: presence }, { data: policy }, { data: globalSupport }, { data: organisationSupport }, { data: authUsers, error: authUsersError }] = await Promise.all([
     db.from("organisations").select("*").eq("id", organisationId).single(),
     db.from("organisation_branches").select("*").eq("organisation_id", organisationId).order("created_at", { ascending: true }),
-    db.from("organisation_memberships").select("id,user_id,branch_id,membership_type,role,status,created_at,profiles(full_name,phone)").eq("organisation_id", organisationId).order("created_at"),
+    db.from("organisation_memberships").select("id,user_id,branch_id,membership_type,role,status,created_at").eq("organisation_id", organisationId).order("created_at"),
     db.from("organisation_link_settings").select("*").eq("organisation_id", organisationId).maybeSingle(),
     db.from("organisation_domains").select("*").eq("organisation_id", organisationId).order("priority", { ascending: true }),
     db.from("organisation_emergency_coverage").select("id,branch_id,emergency_type_code,priority,active").eq("organisation_id", organisationId).eq("active", true),
@@ -47,10 +47,16 @@ export async function GET() {
     return NextResponse.json({ error: membersError?.message ?? authUsersError?.message ?? "Could not load organisation members." }, { status: 500 });
   }
   const emailByUserId = new Map((authUsers?.users ?? []).map((user) => [user.id, user.email ?? null]));
-  const membersWithEmail = (members ?? []).map((member) => ({
-    ...member,
-    profiles: member.profiles ? { ...member.profiles, email: emailByUserId.get(member.user_id) ?? null } : member.profiles,
-  }));
+  const memberIds = (members ?? []).map((member) => member.user_id);
+  const { data: memberProfiles, error: profilesError } = memberIds.length
+    ? await db.from("profiles").select("id,full_name,phone").in("id", memberIds)
+    : { data: [], error: null };
+  if (profilesError) return NextResponse.json({ error: profilesError.message }, { status: 500 });
+  const profileById = new Map((memberProfiles ?? []).map((profile) => [profile.id, profile]));
+  const membersWithEmail = (members ?? []).map((member) => {
+    const profile = profileById.get(member.user_id);
+    return { ...member, profiles: { full_name: profile?.full_name ?? null, phone: profile?.phone ?? null, email: emailByUserId.get(member.user_id) ?? null } };
+  });
   return NextResponse.json({
     organisation,
     memberships,

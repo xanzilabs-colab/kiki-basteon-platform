@@ -86,8 +86,9 @@ export async function DELETE(request: Request) {
       details: {},
     });
     await Promise.all([
-      db.from("organisation_user_links").update({ status: "unlinked" }).eq("user_id", userId).eq("organisation_id", organisationId),
-      db.from("organisation_memberships").update({ status: "unlinked" }).eq("user_id", userId).eq("organisation_id", organisationId).eq("roster_entry_id", rosterLink.roster_entry_id),
+      db.from("organisation_user_links").delete().eq("user_id", userId).eq("organisation_id", organisationId),
+      db.from("organisation_memberships").delete().eq("user_id", userId).eq("organisation_id", organisationId).eq("roster_entry_id", rosterLink.roster_entry_id),
+      db.from("org_roster_entries").update({ claimed_by_user_id: null, claimed_at: null }).eq("id", rosterLink.roster_entry_id).eq("claimed_by_user_id", userId),
     ]);
   } else {
     await Promise.all([

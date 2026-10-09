@@ -881,7 +881,9 @@ export function OrganisationConsole() {
   const roleLabel = String(state?.memberships?.[0]?.role ?? "owner").toLowerCase();
   const orgTypeLabel = String(state?.organisation?.organisation_type ?? "business").toLowerCase();
 
-  if (!state) return <div className="panel p-5">Loading organisation console...</div>;
+  if (!state) return error
+    ? <div className="panel p-5"><p role="alert">{error}</p><button className="btn mt-3" onClick={() => void refresh()}>Try again</button></div>
+    : <div className="panel p-5">Loading organisation console...</div>;
 
   return (
     <>
