@@ -1228,9 +1228,24 @@
   font-size: clamp(1.5rem, 4.4vw, 2rem);
 }
 .morabarabaPage .softButton {
-  border-color: rgba(255, 200, 120, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 211, 127, 0.28);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055));
   color: #fff3de;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.16);
+}
+.morabarabaPage .softButton:hover,
+.morabarabaPage .morabarabaChatToggle:hover,
+.morabarabaPage .morabarabaReactionButton:hover {
+  border-color: rgba(255, 211, 127, 0.62);
+  background-color: rgba(255, 211, 127, 0.15);
+}
+.morabarabaPage .softButton:focus-visible,
+.morabarabaPage .primaryButton:focus-visible,
+.morabarabaPage .morabarabaChatToggle:focus-visible,
+.morabarabaPage .morabarabaReactionButton:focus-visible,
+.difficultySelect:focus-visible {
+  outline: 3px solid rgba(255, 211, 127, 0.72);
+  outline-offset: 2px;
 }
 .morabarabaPage .primaryButton {
   background: linear-gradient(180deg, #ffd37f, #ff9d42);
@@ -1298,15 +1313,86 @@
   cursor: not-allowed;
 }
 .morabarabaChatToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
   appearance: none;
-  border: 1px solid rgba(255, 200, 120, 0.2);
+  border: 1px solid rgba(255, 211, 127, 0.26);
   border-radius: 14px;
   padding: 0.78rem 0.95rem;
-  background: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(255, 211, 127, 0.14), rgba(255, 255, 255, 0.07));
   color: #fff3de;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+.morabarabaUnreadBadge {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #ff9d42;
+  color: #2b1507;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 900;
+}
+.morabarabaFloatingReactions {
+  position: fixed;
+  z-index: 12;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.morabarabaFloatingReaction {
+  position: absolute;
+  display: block;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.42));
+  animation: morabaraba-float-reaction 2.35s cubic-bezier(.18,.72,.3,1) both;
+  will-change: transform, opacity;
+}
+.difficultyControl {
+  display: grid;
+  grid-template-columns: auto minmax(150px, 190px);
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 200, 120, 0.19);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+}
+.difficultyLabel {
+  color: #fff3de;
+  font-size: 12px;
+  font-weight: 800;
+}
+.difficultySelect {
+  width: 100%;
+  min-height: 42px;
+  appearance: none;
+  border: 1px solid rgba(255, 211, 127, 0.32);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(48, 29, 50, 0.98), rgba(30, 18, 33, 0.98));
+  color: #fff3de;
+  padding: 0 34px 0 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, #ffd37f 50%), linear-gradient(135deg, #ffd37f 50%, transparent 50%);
+  background-position: calc(100% - 16px) 18px, calc(100% - 11px) 18px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.difficultySelect option {
+  background: #2a1829;
+  color: #fff3de;
 }
 .morabarabaChatBackdrop {
   position: fixed;
@@ -1337,6 +1423,20 @@
 }
 .morabarabaChatSheetOpen {
   transform: translateY(0);
+}
+
+@keyframes morabaraba-float-reaction {
+  0% { opacity: 0; transform: translate3d(0, 14px, 0) scale(.48) rotate(-12deg); }
+  14% { opacity: 1; transform: translate3d(0, 0, 0) scale(1.08) rotate(7deg); }
+  62% { opacity: 1; transform: translate3d(12px, -78px, 0) scale(.96) rotate(-5deg); }
+  100% { opacity: 0; transform: translate3d(-10px, -150px, 0) scale(.7) rotate(12deg); }
+}
+
+@media (max-width: 520px) {
+  .difficultyControl {
+    grid-template-columns: minmax(0, 1fr) minmax(130px, 1fr);
+    width: 100%;
+  }
 }
 
 .roomBoard .boardSocket {

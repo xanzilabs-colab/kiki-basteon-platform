@@ -331,14 +331,14 @@ export function MorabarabaGame() {
             <span className={styles.turnPill}>Cows · You {pieces[1]} · Kiki {pieces[2]}</span>
           </div>
 
-          <div className={styles.scoreRow}>
-            <span className={styles.turnPill}>AI Difficulty</span>
-            <select className="input h-9 w-[180px]" value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)} disabled={thinking}>
+          <label className={styles.difficultyControl}>
+            <span className={styles.difficultyLabel}>AI Difficulty</span>
+            <select className={styles.difficultySelect} value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)} disabled={thinking}>
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
               <option value="hard">Hard</option>
             </select>
-          </div>
+          </label>
 
           <MorabarabaBoard
             snapshot={state}

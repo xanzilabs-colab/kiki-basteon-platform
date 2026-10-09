@@ -188,6 +188,23 @@ function createAudioEngine() {
     splash() {
       burst("lowpass", 900, 0.38, 0.28);
     },
+    waterTouch() {
+      if (!on || !ctx || !master) return;
+      burst("lowpass", 780, 0.2, 0.16);
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = ctx.currentTime;
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(480, start);
+      oscillator.frequency.exponentialRampToValueAtTime(270, start + 0.2);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.095, start + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0008, start + 0.22);
+      oscillator.connect(gain);
+      gain.connect(master);
+      oscillator.start(start);
+      oscillator.stop(start + 0.24);
+    },
     chime(index: number) {
       if (!on || !ctx || !master || !echoIn) return;
       const notes = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
@@ -872,7 +889,8 @@ function createRiverScene(canvas: HTMLCanvasElement, hooks: SceneHooks) {
       }
     },
     pointerDown(x: number, y: number) {
-      if (y >= horizon + 8) {
+      const touchedWater = y >= horizon + 8;
+      if (touchedWater) {
         addRipple(x, y, 95, 0.6);
         addRipple(x, y, 95, 0.4, -12);
       }
@@ -880,6 +898,7 @@ function createRiverScene(canvas: HTMLCanvasElement, hooks: SceneHooks) {
         const p = boatPose(b);
         if (Math.hypot(p.x - x, p.y - y) < 80) b.boost = Math.min(3, b.boost + 1.6);
       }
+      return touchedWater;
     },
     reset() {
       boats.length = 0;
@@ -907,7 +926,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
   const [stars, setStars] = useState(0);
   const [launched, setLaunched] = useState(0);
   const [afloat, setAfloat] = useState(0);
-  const [sound, setSound] = useState(false);
+  const [sound, setSound] = useState(true);
   const [touched, setTouched] = useState(false);
   const [paperKey, setPaperKey] = useState(0);
   const [paperHidden, setPaperHidden] = useState(false);
@@ -939,6 +958,15 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     window.clearTimeout(captionTimer.current);
     captionTimer.current = window.setTimeout(() => setCaption(null), 4600);
   }, []);
+
+  const touchRiver = (x: number, y: number) => {
+    setTouched(true);
+    const touchedWater = sceneRef.current?.pointerDown(x, y) ?? false;
+    if (touchedWater && sound) {
+      audioRef.current?.setOn(true);
+      audioRef.current?.waterTouch();
+    }
+  };
 
   useEffect(() => {
     aliveRef.current = true;
@@ -1214,8 +1242,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
               }}
               onPointerDown={(e) => {
                 const p = toCanvasPoint(e);
-                setTouched(true);
-                sceneRef.current?.pointerDown(p.x, p.y);
+                touchRiver(p.x, p.y);
               }}
             />
           </div>
@@ -1349,8 +1376,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
             }}
             onPointerDown={(e) => {
               const p = toCanvasPoint(e);
-              setTouched(true);
-              sceneRef.current?.pointerDown(p.x, p.y);
+              touchRiver(p.x, p.y);
             }}
           />
           {!touched && <div className={styles.hint}>Touch the water</div>}

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound } from "lucide-react";
+import { Bus, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, UsersRound } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { formatDistance } from "@/lib/geo";
 import { remainingRouteDurationS } from "@/lib/hamba/geometry";
@@ -15,15 +15,13 @@ import { TravelTogetherPanel } from "@/components/TravelTogetherPanel";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false, loading: () => <div className="hamba-map hamba-map-loading">Loading map...</div> });
 type Place = { label: string; lat: number; lng: number };
+type RouteOrigin = { lat: number; lng: number };
 type Route = { points: Place[]; distanceM: number; durationS: number };
 type ActiveTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; planned_route: Route; route_distance_m: number; route_duration_s: number; started_at: string; expected_arrival_at: string; next_check_in_at: string | null; status: string };
 type RecentTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; status: string; created_at: string; ended_at: string | null };
 const transitModes = [
   { value: "taxi", label: "Taxi", icon: Bus },
   { value: "walk", label: "Walk", icon: Footprints },
-  { value: "ehail", label: "E-hail", icon: Car },
-  { value: "bus", label: "Bus", icon: Bus },
-  { value: "train", label: "Train", icon: TrainFront },
 ] as const;
 
 export default function TripsPage() {
@@ -31,6 +29,7 @@ export default function TripsPage() {
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<Place[]>([]);
   const [destination, setDestination] = useState<Place | null>(null);
+  const [routeOrigin, setRouteOrigin] = useState<RouteOrigin | null>(null);
   const [mode, setMode] = useState<TripMode>("taxi");
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedRoute, setSelectedRoute] = useState(0);
@@ -45,7 +44,19 @@ export default function TripsPage() {
   const previousWatchState = useRef<RouteWatchState>("normal");
 
   useEffect(() => {
-    fetch("/api/trips").then((response) => response.json()).then((data) => { setActiveTrip(data.trip ?? null); setRecentTrips(data.recent ?? []); }).catch(() => undefined);
+    fetch("/api/trips").then((response) => response.json()).then((data) => {
+      setActiveTrip(data.trip ?? null);
+      const recent = (data.recent ?? []) as RecentTrip[];
+      setRecentTrips(recent);
+      const selectedId = new URLSearchParams(window.location.search).get("destination");
+      const selected = recent.find((trip) => trip.id === selectedId);
+      if (selected) {
+        setDestination({ label: selected.destination_label, lat: selected.destination_lat, lng: selected.destination_lng });
+        setQuery(selected.destination_label);
+        setMode(selected.mode);
+        setTripTab("route");
+      }
+    }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -72,15 +83,22 @@ export default function TripsPage() {
 
   useEffect(() => {
     if (!destination || !position) return;
-    setRoutes([]);
+    if (!routeOrigin) {
+      setRouteOrigin({ lat: position.lat, lng: position.lng });
+      return;
+    }
+  }, [destination, position, routeOrigin]);
+
+  useEffect(() => {
+    if (!destination || !routeOrigin) return;
     setMessage("");
     const controller = new AbortController();
-    fetch("/api/trips/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: position, destination, mode }), signal: controller.signal })
+    fetch("/api/trips/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: routeOrigin, destination, mode }), signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data) => { setRoutes(data.routes); setSelectedRoute(0); })
       .catch(() => { if (!controller.signal.aborted) setMessage("Route planning is unavailable. Try again when you have data coverage."); });
     return () => controller.abort();
-  }, [destination, mode, position?.lat, position?.lng]);
+  }, [destination, mode, routeOrigin?.lat, routeOrigin?.lng]);
 
   useEffect(() => {
     if (!activeTrip || !position) return;
@@ -191,17 +209,17 @@ export default function TripsPage() {
       ) : (
         <section className="hamba-planner">
           <label className="hamba-field-label" htmlFor="trip-destination">Where are you going?</label>
-          <div className="hamba-search"><MapPinned size={19} /><input id="trip-destination" value={query} onChange={(event) => { setQuery(event.target.value); setDestination(null); setRoutes([]); }} placeholder="Type destination address..." autoComplete="off" /></div>
-          {places.length > 0 && <div className="hamba-suggestions">{places.map((place) => <button key={`${place.lat}-${place.lng}`} onClick={() => { setDestination(place); setQuery(place.label); setPlaces([]); }}>{place.label}</button>)}</div>}
+          <div className="hamba-search"><MapPinned size={19} /><input id="trip-destination" value={query} onChange={(event) => { setQuery(event.target.value); setDestination(null); setRouteOrigin(null); setRoutes([]); }} placeholder="Type destination address..." autoComplete="off" /></div>
+          {places.length > 0 && <div className="hamba-suggestions">{places.map((place) => <button key={`${place.lat}-${place.lng}`} onClick={() => { setDestination(place); setRouteOrigin(position ? { lat: position.lat, lng: position.lng } : null); setQuery(place.label); setPlaces([]); }}>{place.label}</button>)}</div>}
           <span className="hamba-field-label">Travel mode</span>
-          <div className="hamba-mode" role="group" aria-label="Travel mode">{transitModes.map((item) => <button key={item.value} type="button" className={mode === item.value ? "active" : ""} aria-pressed={mode === item.value} disabled={item.value !== "taxi" && item.value !== "walk"} title={item.value !== "taxi" && item.value !== "walk" ? "Not available for Route Watch" : item.label} onClick={() => { if ((item.value === "taxi" || item.value === "walk") && item.value !== mode) { setRoutes([]); setMode(item.value); } }}><item.icon size={18} /><span>{item.label}</span>{item.value !== "taxi" && item.value !== "walk" && <small>Unavailable</small>}</button>)}</div>
+          <div className="hamba-mode" role="group" aria-label="Travel mode">{transitModes.map((item) => <button key={item.value} type="button" className={mode === item.value ? "active" : ""} aria-pressed={mode === item.value} onClick={() => { if (item.value !== mode) { setRoutes([]); setMode(item.value); } }}><item.icon size={18} /><span>{item.label}</span></button>)}</div>
           <div className="hamba-safety-options"><div><Clock3 size={18} /><div><span>Check-in frequency</span><b>Adaptive · up to 15 min</b></div></div><Link href="/account/guardians"><UsersRound size={18} /><div><span>Guardian Circle</span><b>Manage contacts</b></div><ChevronRight size={14} /></Link></div>
           {destination && <><div className="hamba-preview"><TripMap points={route?.points ?? []} position={position} /></div><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
           <button className="btn btn-primary hamba-start" disabled={!destination || !position || !route || busy} onClick={() => void startTrip()}><Navigation size={17} />{busy ? "Starting..." : "Start active trip protection"}</button>
           {!position && <p className="hamba-note"><LocateFixed size={16} /> {locationError ?? "Enable location to plan a route."}</p>}
         </section>
       )}
-      {!activeTrip && <section className="hamba-recent"><div className="hamba-recent-head"><h2><History size={18} />Recent destinations</h2></div>{destinations.map((trip) => <button type="button" className="hamba-recent-item" key={trip.id} onClick={() => { setDestination({ label: trip.destination_label, lat: trip.destination_lat, lng: trip.destination_lng }); setQuery(trip.destination_label); setMode(trip.mode); setRoutes([]); setPlaces([]); }}><span className="hamba-recent-dot" /><div><b>{trip.destination_label}</b><p>{trip.mode} · {trip.status === "arrived" ? "Arrived safely" : "Cancelled"}</p></div><ChevronRight size={17} /></button>)}{destinations.length === 0 && <p className="hamba-empty">Your completed trips will appear here.</p>}</section>}
+      {!activeTrip && <section className="hamba-recent"><div className="hamba-recent-head"><h2><History size={18} />Recent destinations</h2></div>{destinations.map((trip) => <button type="button" className="hamba-recent-item" key={trip.id} onClick={() => { setDestination({ label: trip.destination_label, lat: trip.destination_lat, lng: trip.destination_lng }); setRouteOrigin(position ? { lat: position.lat, lng: position.lng } : null); setQuery(trip.destination_label); setMode(trip.mode); setRoutes([]); setPlaces([]); }}><span className="hamba-recent-dot" /><div><b>{trip.destination_label}</b><p>{trip.mode} · {trip.status === "arrived" ? "Arrived safely" : "Cancelled"}</p></div><ChevronRight size={17} /></button>)}{destinations.length === 0 && <p className="hamba-empty">Your completed trips will appear here.</p>}</section>}
       {message && <p className="hamba-message" role="status">{message}</p>}
       </> : <TravelTogetherPanel />}
     </div>

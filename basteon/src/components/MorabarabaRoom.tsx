@@ -30,6 +30,8 @@ type GameRoom = {
 };
 type GameMessage = { id: string; author_id: string; body: string; created_at: string };
 type GameSound = "move" | "mill" | "capture";
+const QUICK_REACTIONS = ["👏", "🔥", "😂", "😅", "🙌", "💪"] as const;
+type FloatingReaction = { id: number; emoji: string; left: number; bottom: number; delay: number };
 
 function CowReserve({ label, wins, placed, player }: { label: string; wins: number; placed: number; player: Player }) {
   const remaining = Math.max(0, 12 - placed);
@@ -109,6 +111,11 @@ function playGameSound(context: AudioContext, sound: GameSound) {
 export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const audioContextRef = useRef<AudioContext | null>(null);
+  const chatChannelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const chatOpenRef = useRef(false);
+  const reactionIdRef = useRef(0);
+  const longPressedReactionsRef = useRef(new Set<string>());
+  const reactionPressTimerRef = useRef<number | null>(null);
   const [room, setRoom] = useState<GameRoom | null>(null);
   const [userId, setUserId] = useState("");
   const [messages, setMessages] = useState<GameMessage[]>([]);
@@ -118,7 +125,19 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const [message, setMessage] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
-  const quickReactions = ["👏", "🔥", "😂", "😅", "🙌", "💪"];
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+
+  const showReactionBurst = useCallback((emoji: string) => {
+    const burst = Array.from({ length: 7 }, (_, index) => ({
+      id: ++reactionIdRef.current,
+      emoji,
+      left: 12 + Math.random() * 76,
+      bottom: 12 + Math.random() * 38,
+      delay: index * (90 + Math.random() * 100),
+    }));
+    setFloatingReactions((current) => [...current, ...burst]);
+  }, []);
 
   const getAudioContext = useCallback(() => {
     const AudioContextConstructor = window.AudioContext;
@@ -141,6 +160,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   }, []);
 
   useEffect(() => () => {
+    if (reactionPressTimerRef.current !== null) window.clearTimeout(reactionPressTimerRef.current);
     const context = audioContextRef.current;
     if (context && context.state !== "closed") void context.close();
   }, []);
@@ -179,15 +199,25 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
           }
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_messages", filter: `room_id=eq.${roomId}` }, (payload) => {
-          if (active) setMessages((current) => current.some((item) => item.id === (payload.new as GameMessage).id) ? current : [...current, payload.new as GameMessage]);
+          if (active) {
+            const incoming = payload.new as GameMessage;
+            setMessages((current) => current.some((item) => item.id === incoming.id) ? current : [...current, incoming]);
+            if (incoming.author_id !== user.id && !chatOpenRef.current) setUnreadCount((count) => count + 1);
+          }
+        })
+        .on("broadcast", { event: "reaction" }, ({ payload }) => {
+          const emoji = (payload as { emoji?: unknown } | null)?.emoji;
+          if (active && typeof emoji === "string" && QUICK_REACTIONS.includes(emoji as (typeof QUICK_REACTIONS)[number])) showReactionBurst(emoji);
         })
         .subscribe();
+      chatChannelRef.current = channel;
     })().catch(() => { if (active) setMessage("Could not connect to this game room."); }).finally(() => { if (active) setLoading(false); });
     return () => {
       active = false;
+      chatChannelRef.current = null;
       if (channel) void db.removeChannel(channel);
     };
-  }, [roomId, router]);
+  }, [roomId, router, showReactionBurst]);
 
   const act = useCallback(async (action: "place" | "move" | "remove", from?: number, to?: number) => {
     if (!room || busy) return;
@@ -233,6 +263,53 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
       setMessages((current) => current.some((item) => item.id === (data as GameMessage).id) ? current : [...current, data as GameMessage]);
     }
     setBusy(false);
+  }
+
+  async function sendReactionBurst(emoji: string) {
+    const channel = chatChannelRef.current;
+    if (!channel) {
+      setMessage("Reactions are not connected yet. Please try again.");
+      return;
+    }
+    try {
+      const status = await channel.send({ type: "broadcast", event: "reaction", payload: { emoji } });
+      if (status !== "ok") {
+        setMessage("Reaction could not be shared. Please try again.");
+        return;
+      }
+    } catch {
+      setMessage("Reaction could not be shared. Please try again.");
+      return;
+    }
+    showReactionBurst(emoji);
+  }
+
+  function openChat() {
+    chatOpenRef.current = true;
+    setUnreadCount(0);
+    setChatOpen(true);
+  }
+
+  function closeChat() {
+    chatOpenRef.current = false;
+    setChatOpen(false);
+  }
+
+  function beginReactionHold(emoji: string) {
+    if (reactionPressTimerRef.current !== null) window.clearTimeout(reactionPressTimerRef.current);
+    reactionPressTimerRef.current = window.setTimeout(() => {
+      reactionPressTimerRef.current = null;
+      longPressedReactionsRef.current.add(emoji);
+      void sendReactionBurst(emoji);
+      window.setTimeout(() => longPressedReactionsRef.current.delete(emoji), 1200);
+    }, 450);
+  }
+
+  function endReactionHold() {
+    if (reactionPressTimerRef.current !== null) {
+      window.clearTimeout(reactionPressTimerRef.current);
+      reactionPressTimerRef.current = null;
+    }
   }
 
   async function sendMessage(event: React.FormEvent) {
@@ -332,7 +409,10 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
               <CowReserve label="Buddy" wins={buddyWins} placed={buddyPlaced} player={buddyPlayer} />
               <MorabarabaBoard snapshot={state} player={player} busy={busy} onAction={(action, from, to) => void act(action, from, to)} />
               <CowReserve label="You" wins={ownWins} placed={ownPlaced} player={player} />
-              <button className={styles.morabarabaChatToggle} onClick={() => setChatOpen(true)}>Open room chat</button>
+              <button className={styles.morabarabaChatToggle} onClick={openChat}>
+                Open room chat
+                {unreadCount > 0 && <span className={styles.morabarabaUnreadBadge}>{unreadCount > 9 ? "9+" : unreadCount}</span>}
+              </button>
               {state.pendingRemoval !== null && (
                 <div className={styles.millNotice} role="status">
                   <strong>{state.pendingRemoval === player ? "Mill! Remove one Buddy cow to finish your turn." : "Mill made. Your turn waits while your Buddy removes a cow."}</strong>
@@ -361,14 +441,22 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
               type="button"
               aria-label="Close room chat"
               className={`${styles.morabarabaChatBackdrop} ${chatOpen ? styles.morabarabaChatBackdropOpen : ""}`}
-              onClick={() => setChatOpen(false)}
+              onClick={closeChat}
             />
+            <div className={styles.morabarabaFloatingReactions} aria-hidden="true">
+              {floatingReactions.map((reaction) => <span
+                key={reaction.id}
+                className={styles.morabarabaFloatingReaction}
+                style={{ left: `${reaction.left}%`, bottom: `${reaction.bottom}%`, animationDelay: `${reaction.delay}ms` }}
+                onAnimationEnd={() => setFloatingReactions((current) => current.filter((item) => item.id !== reaction.id))}
+              >{reaction.emoji}</span>)}
+            </div>
             <section className={`${styles.chatPanel} ${styles.morabarabaChat} ${styles.morabarabaChatSheet} ${chatOpen ? styles.morabarabaChatSheetOpen : ""}`} aria-label="Game chat">
               <div className={styles.chatHeading}>
                 <h2>Room chat</h2>
                 <div className={styles.actionRow}>
                   <span>Only you two</span>
-                  <button className={styles.softButton} onClick={() => setChatOpen(false)}>Close</button>
+                  <button className={styles.softButton} onClick={closeChat}>Close</button>
                 </div>
               </div>
               <div className={styles.chatMessages} aria-live="polite">
@@ -376,13 +464,21 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
                 {messages.length === 0 && <p className={styles.gameNote}>A quiet hello fits here.</p>}
               </div>
               <div className={styles.morabarabaReactions} aria-label="Quick reactions">
-                {quickReactions.map((reaction) => (
+                {QUICK_REACTIONS.map((reaction) => (
                   <button
                     key={reaction}
                     type="button"
                     className={styles.morabarabaReactionButton}
                     disabled={busy}
-                    onClick={() => void sendChatBody(reaction)}
+                    onPointerDown={() => beginReactionHold(reaction)}
+                    onPointerUp={endReactionHold}
+                    onPointerLeave={endReactionHold}
+                    onPointerCancel={endReactionHold}
+                    onContextMenu={(event) => event.preventDefault()}
+                    onClick={() => {
+                      if (longPressedReactionsRef.current.delete(reaction)) return;
+                      void sendChatBody(reaction);
+                    }}
                     aria-label={`Send ${reaction} reaction`}
                   >
                     {reaction}

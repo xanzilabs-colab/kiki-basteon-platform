@@ -164,10 +164,10 @@ export default function AccountPage() {
     </section>
 
     <section className="kiki-overview-section kiki-overview-recent" aria-labelledby="recent-trips-title">
-      <div className="kiki-overview-section-head"><h2 id="recent-trips-title">Recent trips</h2><Link href="/account/trips/history">See all</Link></div>
+      <div className="kiki-overview-section-head"><h2 id="recent-trips-title">Recent trips</h2><Link href="/account/trips">See all</Link></div>
       <div className="kiki-overview-group">
         {trips && trips.recent.length > 0
-          ? trips.recent.slice(0, 3).map((trip) => <Link className="kiki-overview-trip-row" href="/account/trips/history" key={trip.id}>
+          ? trips.recent.slice(0, 3).map((trip) => <Link className="kiki-overview-trip-row" href={`/account/trips?destination=${encodeURIComponent(trip.id)}`} key={trip.id}>
             <span className="kiki-overview-route" aria-hidden="true"><i /><u /><i /></span>
             <span className="kiki-overview-trip-copy">
               <strong>{trip.destination_label}</strong>

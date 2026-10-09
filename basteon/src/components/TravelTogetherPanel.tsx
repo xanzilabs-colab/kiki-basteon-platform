@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bus, Car, Eye, EyeOff, Footprints, Handshake, LocateFixed, MapPinned, RefreshCw, ShieldCheck, TrainFront, UserPlus, X } from "lucide-react";
+import { Bus, Car, Clock3, Eye, EyeOff, Footprints, Handshake, LocateFixed, MapPinned, RefreshCw, ShieldCheck, TrainFront, UserPlus, X } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFaceCheck, type FacePurpose } from "@/hooks/useFaceCheck";
 import { BUDDY_CONFIG } from "@/lib/buddies/config";
@@ -179,7 +179,7 @@ export function TravelTogetherPanel() {
   }
 
   return <div className="buddies-page">
-    <div className="buddies-heading"><div><p className="eyebrow">Privacy-first matching</p><h1 className="page-title">Travel together</h1></div><div className="flex flex-wrap items-center gap-2"><Link className="btn" href="/account/buddies/safe-places"><MapPinned size={16} />Safe spots & reports</Link><Link className="btn" href="/account/buddies/history">History</Link><span><ShieldCheck size={16} />Verified travel</span></div></div>
+    <div className="buddies-heading"><div><p className="eyebrow">Privacy-first matching</p><h1 className="page-title">Travel together</h1></div><div className="flex flex-wrap items-center gap-2"><Link className="btn" href="/account/buddies/safe-places"><MapPinned size={16} />Safe spots & reports</Link><Link className="btn" href="/account/buddies/history"><Clock3 size={16} />History</Link><span><ShieldCheck size={16} />Verified travel</span></div></div>
     <section className="buddies-panel buddies-radar-panel">
       <div className={radarStyles.gardenPond} aria-label="Approximate Travel Together zones, not geographic locations">
         <div className={radarStyles.pondWash} />
