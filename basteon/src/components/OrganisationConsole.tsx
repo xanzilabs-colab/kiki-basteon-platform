@@ -910,52 +910,31 @@ export function OrganisationConsole() {
       )}
     </div>
     <style jsx global>{`
-      .account-shell .org-console {
-        color: #29212f;
+      .org-console { color: #29212f; }
+      .org-console-header { padding: 4px 2px 6px; }
+      .org-console-heading { display: flex; align-items: center; gap: 12px; }
+      .org-console-mark {
+        width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+        font-weight: 800; background: #5b2c73; color: #fff;
       }
-      .account-shell .org-console-header {
-        padding: 4px 2px 6px;
-      }
-      .account-shell .org-console-heading {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-      .account-shell .org-console-mark {
-        width: 42px;
-        height: 42px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        font-weight: 800;
-        background: #5b2c73;
-        color: #fff;
-      }
-      .account-shell .org-console .panel {
+      .org-console .panel {
         border: 1px solid #dfd1ea;
         border-radius: 18px;
         background: #fff;
         box-shadow: none;
       }
-      .account-shell .org-console .pane-head {
+      .org-console .pane-head {
         border-radius: 18px 18px 0 0;
         min-height: 52px;
         padding-inline: 16px;
         border-bottom: 1px solid #eadff2;
         background: #f7f0fc;
       }
-      .account-shell .org-console-tabs-shell {
-        padding: 12px;
-        background: #f4eafc;
+      .org-console-tabs-shell { padding: 12px; background: #f4eafc; }
+      .org-console-tabs {
+        display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin;
       }
-      .account-shell .org-console-tabs {
-        display: flex;
-        gap: 8px;
-        overflow-x: auto;
-        padding-bottom: 2px;
-        scrollbar-width: thin;
-      }
-      .account-shell .org-console-tab {
+      .org-console-tab {
         border: 1px solid #e3d4ef;
         background: #fff;
         color: #4f345d;
@@ -965,92 +944,40 @@ export function OrganisationConsole() {
         padding-inline: 14px;
         white-space: nowrap;
       }
-      .account-shell .org-console-tab:hover {
-        background: #f1e6fb;
+      .org-console-tab:hover { background: #f1e6fb; }
+      .org-console-tab.is-active { border-color: #5b2c73; background: #5b2c73; color: #fff; }
+      .org-console-tab-description { color: #5d4f66; }
+      .org-console-hero { border-color: #d9c7e8; background: #f8efff; }
+      .org-console-metric {
+        border: 1px solid #e8def0; border-radius: 14px; box-shadow: none; background: #fcf7ff;
       }
-      .account-shell .org-console-tab.is-active {
-        border-color: #5b2c73;
-        background: #5b2c73;
-        color: #fff;
+      .org-console-metric p:last-child { color: #301a3d; }
+      .org-console-surface-block {
+        border: 1px solid #e8def0; border-radius: 14px; box-shadow: none; background: #fcf7ff;
       }
-      .account-shell .org-console-tab-description {
-        color: #5d4f66;
+      .org-console-action {
+        border: 1px solid #e6d8f2; min-height: 44px; border-radius: 12px; background: #fff; color: #3f2450;
       }
-      .account-shell .org-console-hero {
-        border-color: #d9c7e8;
-        background: #f8efff;
+      .org-console-action:hover { background: #f4e9fd; }
+      .org-console-log-row {
+        display: flex; justify-content: space-between; gap: 12px; align-items: center;
+        border: 1px solid #e9e0f0; border-radius: 10px; padding: 10px 12px; background: #fff;
       }
-      .account-shell .org-console-metric {
-        border: 1px solid #e8def0;
-        border-radius: 14px;
-        box-shadow: none;
-        background: #fcf7ff;
+      .org-console .field input,
+      .org-console .field select,
+      .org-console .field textarea {
+        border: 1px solid #e5d9ee; border-radius: 12px; min-height: 42px; background: #fff; color: #2a2130;
       }
-      .account-shell .org-console-metric p:last-child {
-        color: #301a3d;
-      }
-      .account-shell .org-console-surface-block {
-        border: 1px solid #e8def0;
-        border-radius: 14px;
-        box-shadow: none;
-        background: #fcf7ff;
-      }
-      .account-shell .org-console-action {
-        border: 1px solid #e6d8f2;
-        min-height: 44px;
-        border-radius: 12px;
-        background: #fff;
-        color: #3f2450;
-      }
-      .account-shell .org-console-action:hover {
-        background: #f4e9fd;
-      }
-      .account-shell .org-console-log-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        align-items: center;
-        border: 1px solid #e9e0f0;
-        border-radius: 10px;
-        padding: 10px 12px;
-        background: #fff;
-      }
-      .account-shell .org-console .field input,
-      .account-shell .org-console .field select,
-      .account-shell .org-console .field textarea {
-        border: 1px solid #e5d9ee;
-        border-radius: 12px;
-        min-height: 42px;
-        background: #fff;
-        color: #2a2130;
-      }
-      .account-shell .org-console .field textarea {
-        min-height: 110px;
-      }
-      .account-shell .org-console .field input:focus,
-      .account-shell .org-console .field select:focus,
-      .account-shell .org-console .field textarea:focus {
-        outline: 2px solid #7a3f98;
-        outline-offset: 1px;
-      }
-      .account-shell .org-console .tbl thead th {
-        background: #f5ecfc;
-        color: #442856;
-      }
-      .account-shell .org-console .tbl tbody td {
-        color: #2d2334;
-      }
+      .org-console .field textarea { min-height: 110px; }
+      .org-console .field input:focus,
+      .org-console .field select:focus,
+      .org-console .field textarea:focus { outline: 2px solid #7a3f98; outline-offset: 1px; }
+      .org-console .tbl thead th { background: #f5ecfc; color: #442856; }
+      .org-console .tbl tbody td { color: #2d2334; }
       @media (max-width: 768px) {
-        .account-shell .org-console-tabs {
-          scroll-snap-type: x mandatory;
-          padding-bottom: 4px;
-        }
-        .account-shell .org-console-tab {
-          scroll-snap-align: start;
-        }
-        .account-shell .org-console .pane-head {
-          font-size: 15px;
-        }
+        .org-console-tabs { scroll-snap-type: x mandatory; padding-bottom: 4px; }
+        .org-console-tab { scroll-snap-align: start; }
+        .org-console .pane-head { font-size: 15px; }
       }
     `}</style>
     </>
