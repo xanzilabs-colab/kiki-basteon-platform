@@ -432,6 +432,26 @@
   font-family: "Figtree", "Plus Jakarta Sans", "Manrope", system-ui, sans-serif;
 }
 
+.audioNote {
+  margin: 8px 0;
+  border: 1px solid rgba(255, 180, 170, 0.42);
+  border-radius: 12px;
+  background: rgba(55, 24, 43, 0.88);
+  color: #ffe2de;
+  padding: 9px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.boatsImmersive > .audioNote {
+  position: absolute;
+  z-index: 15;
+  right: 16px;
+  bottom: calc(105px + env(safe-area-inset-bottom));
+  left: 16px;
+  max-width: 560px;
+  margin-inline: auto;
+}
+
 .boatsHud {
   position: absolute;
   z-index: 15;

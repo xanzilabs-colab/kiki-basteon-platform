@@ -88,16 +88,23 @@ const pickSessionPrompts = () => {
 
 const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
+type WorryBoatsAudioUrls = {
+  natureAmbiance: string;
+  riverFlowing: string;
+  touchWater: string;
+  paperFolding: string;
+  paperFoldingAlternate: string;
+};
+
 /* ════════════════════════════════════════════════════════════
-   AUDIO — all synthesised, nothing to download
+   AUDIO — softly mastered field recordings with a retained landing splash
    ════════════════════════════════════════════════════════════ */
-function createAudioEngine() {
+function createAudioEngine(onPlaybackError: () => void) {
   let ctx: AudioContext | null = null;
   let master: GainNode | null = null;
   let echoIn: GainNode | null = null;
-  let bedSource: AudioBufferSourceNode | null = null;
-  let bedLfo: OscillatorNode | null = null;
-  let bedLfoGain: GainNode | null = null;
+  let tracks: Partial<Record<keyof WorryBoatsAudioUrls, HTMLAudioElement>> = {};
+  let nextFoldingTrack: "paperFolding" | "paperFoldingAlternate" = "paperFolding";
   let on = false;
 
   const ensure = () => {
@@ -108,36 +115,6 @@ function createAudioEngine() {
     master = ctx.createGain();
     master.gain.value = 0;
     master.connect(ctx.destination);
-
-    // river bed: slow brown noise through a drifting low-pass
-    const length = ctx.sampleRate * 4;
-    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < length; i++) {
-      const white = Math.random() * 2 - 1;
-      last = (last + 0.02 * white) / 1.02;
-      data[i] = last * 3.5;
-    }
-    bedSource = ctx.createBufferSource();
-    bedSource.buffer = buffer;
-    bedSource.loop = true;
-    const lowpass = ctx.createBiquadFilter();
-    lowpass.type = "lowpass";
-    lowpass.frequency.value = 420;
-    const bed = ctx.createGain();
-    bed.gain.value = 0.45;
-    bedSource.connect(lowpass);
-    lowpass.connect(bed);
-    bed.connect(master);
-    bedSource.start();
-    bedLfo = ctx.createOscillator();
-    bedLfo.frequency.value = 0.11;
-    bedLfoGain = ctx.createGain();
-    bedLfoGain.gain.value = 120;
-    bedLfo.connect(bedLfoGain);
-    bedLfoGain.connect(lowpass.frequency);
-    bedLfo.start();
 
     // echo for chimes
     echoIn = ctx.createGain();
@@ -151,6 +128,17 @@ function createAudioEngine() {
     delay.connect(master);
     echoIn.connect(master);
     return ctx;
+  };
+
+  const playTrack = (track: HTMLAudioElement | undefined, restart = false) => {
+    if (!on || !track) return;
+    if (restart) track.currentTime = 0;
+    void track.play().catch(onPlaybackError);
+  };
+
+  const playAmbience = () => {
+    playTrack(tracks.natureAmbiance);
+    playTrack(tracks.riverFlowing);
   };
 
   const burst = (type: BiquadFilterType, freq: number, duration: number, volume: number, offset = 0) => {
@@ -175,35 +163,48 @@ function createAudioEngine() {
   };
 
   return {
+    setSources(urls: WorryBoatsAudioUrls) {
+      Object.values(tracks).forEach((track) => track?.pause());
+      const makeTrack = (url: string, volume: number, loop = false) => {
+        const track = new Audio(url);
+        track.preload = "none";
+        track.volume = volume;
+        track.loop = loop;
+        return track;
+      };
+      tracks = {
+        natureAmbiance: makeTrack(urls.natureAmbiance, 0.46, true),
+        riverFlowing: makeTrack(urls.riverFlowing, 0.5, true),
+        touchWater: makeTrack(urls.touchWater, 0.76),
+        paperFolding: makeTrack(urls.paperFolding, 0.68, true),
+        paperFoldingAlternate: makeTrack(urls.paperFoldingAlternate, 0.64),
+      };
+    },
     setOn(value: boolean) {
       on = value;
       const c = ensure();
       if (!c || !master) return;
       void c.resume();
       master.gain.setTargetAtTime(value ? 0.9 : 0, c.currentTime, 0.4);
+      if (value) playAmbience();
+      else Object.values(tracks).forEach((track) => track?.pause());
     },
-    crinkle() {
-      [0, 0.07, 0.15, 0.23].forEach((o) => burst("highpass", 2600, 0.07, 0.13, o));
+    startFolding() {
+      const selected = nextFoldingTrack;
+      nextFoldingTrack = selected === "paperFolding" ? "paperFoldingAlternate" : "paperFolding";
+      const track = tracks[selected];
+      if (track) playTrack(track, true);
+      return () => {
+        if (!track) return;
+        track.pause();
+        track.currentTime = 0;
+      };
     },
     splash() {
       burst("lowpass", 900, 0.38, 0.28);
     },
     waterTouch() {
-      if (!on || !ctx || !master) return;
-      burst("lowpass", 780, 0.2, 0.16);
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const start = ctx.currentTime;
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(480, start);
-      oscillator.frequency.exponentialRampToValueAtTime(270, start + 0.2);
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.095, start + 0.012);
-      gain.gain.exponentialRampToValueAtTime(0.0008, start + 0.22);
-      oscillator.connect(gain);
-      gain.connect(master);
-      oscillator.start(start);
-      oscillator.stop(start + 0.24);
+      playTrack(tracks.touchWater, true);
     },
     chime(index: number) {
       if (!on || !ctx || !master || !echoIn) return;
@@ -227,19 +228,16 @@ function createAudioEngine() {
     stop() {
       on = false;
       if (master && ctx) master.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
-      try { bedLfo?.stop(); } catch {}
-      try { bedSource?.stop(); } catch {}
-      try { bedLfo?.disconnect(); } catch {}
-      try { bedLfoGain?.disconnect(); } catch {}
-      try { bedSource?.disconnect(); } catch {}
+      Object.values(tracks).forEach((track) => {
+        track?.pause();
+        if (track) track.src = "";
+      });
+      tracks = {};
       try { master?.disconnect(); } catch {}
       if (ctx) void ctx.close();
       ctx = null;
       master = null;
       echoIn = null;
-      bedSource = null;
-      bedLfo = null;
-      bedLfoGain = null;
     },
   };
 }
@@ -933,6 +931,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
   const [promptIndex, setPromptIndex] = useState(0);
   const [sessionPrompts] = useState<string[]>(() => pickSessionPrompts());
   const [caption, setCaption] = useState<{ id: number; text: string } | null>(null);
+  const [audioError, setAudioError] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [launching, setLaunching] = useState(false);
 
@@ -970,7 +969,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
 
   useEffect(() => {
     aliveRef.current = true;
-    audioRef.current = createAudioEngine();
+    audioRef.current = createAudioEngine(() => setAudioError("Worry Boats audio could not play. Check your connection and browser audio settings."));
     return () => {
       aliveRef.current = false;
       audioRef.current?.stop();
@@ -978,6 +977,31 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
       window.clearTimeout(captionTimer.current);
       window.clearTimeout(promptTimer.current);
     };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/games/worry-boats/audio", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Worry Boats audio could not be loaded.");
+        const data = await response.json() as { urls?: Partial<WorryBoatsAudioUrls> };
+        const urls = data.urls;
+        if (!urls || !urls.natureAmbiance || !urls.riverFlowing || !urls.touchWater || !urls.paperFolding || !urls.paperFoldingAlternate) {
+          throw new Error("Worry Boats audio is not available.");
+        }
+        audioRef.current?.setSources({
+          natureAmbiance: urls.natureAmbiance,
+          riverFlowing: urls.riverFlowing,
+          touchWater: urls.touchWater,
+          paperFolding: urls.paperFolding,
+          paperFoldingAlternate: urls.paperFoldingAlternate,
+        });
+        setAudioError("");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAudioError("Worry Boats audio could not be loaded. Please refresh and try again.");
+      });
+    return () => controller.abort();
   }, []);
 
   /* scene lifecycle */
@@ -1070,7 +1094,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     setBusy(true);
     setLaunching(true);
     setTouched(true);
-    audioRef.current?.crinkle();
+    if (sound) audioRef.current?.setOn(true);
     try {
       navigator.vibrate?.(12);
     } catch {
@@ -1125,9 +1149,11 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     const dx = target.x - (left + w / 2);
     const dy = target.y - (top + h / 2);
     const finalScale = `scale(${BOAT_W / w}, ${BOAT_H / h})`;
+    let stopFoldingSound: (() => void) | undefined;
 
     try {
       // 1 — fold in half
+      stopFoldingSound = audioRef.current?.startFolding();
       flyerText.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: "forwards" });
       crease.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, fill: "forwards" });
       await flyer.animate(
@@ -1144,6 +1170,8 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
         ],
         { duration: 440, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" },
       ).finished;
+      stopFoldingSound?.();
+      stopFoldingSound = undefined;
 
       // 3 — lift, arc and set it on the water
       await flyer.animate(
@@ -1163,8 +1191,11 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
       scene.spawnBoat(text.length);
       await flyer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, fill: "forwards" }).finished;
     } catch {
+      stopFoldingSound?.();
+      stopFoldingSound = undefined;
       scene.spawnBoat(text.length);
     } finally {
+      stopFoldingSound?.();
       flyer.getAnimations().forEach((a) => a.cancel());
       flyerText.getAnimations().forEach((a) => a.cancel());
       crease.getAnimations().forEach((a) => a.cancel());
@@ -1228,7 +1259,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
             </svg>
           </button>
         </div>
-
+        {audioError && <p className={styles.audioNote} role="status">{audioError}</p>}
         <div className={styles.boatsStage} ref={stageRef}>
           <div className={styles.boatsScene} ref={sceneBoxRef}>
             <canvas
@@ -1362,6 +1393,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
           </div>
         </div>
       </header>
+      {audioError && <p className={styles.audioNote} role="status">{audioError}</p>}
 
       <div className={styles.stage} ref={stageRef}>
         <div className={styles.scene} ref={sceneBoxRef}>
