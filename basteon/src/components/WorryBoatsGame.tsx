@@ -856,16 +856,6 @@ function createRiverScene(canvas: HTMLCanvasElement, hooks: SceneHooks) {
         addRipple(x, y, 95, 0.6);
         addRipple(x, y, 95, 0.4, -12);
       }
-      for (const ff of fireflies) {
-        const fx = (ff.bx + Math.sin(time * ff.speed + ff.phase) * 0.04) * W + ff.ox;
-        const fy = horizon - 6 + ff.by * H * 0.5 + ff.oy;
-        const dist = Math.hypot(fx - x, fy - y);
-        if (dist < 170) {
-          const push = (1 - dist / 170) * 60;
-          ff.ox += ((fx - x) / (dist || 1)) * push;
-          ff.oy += ((fy - y) / (dist || 1)) * push;
-        }
-      }
       for (const b of boats) {
         const p = boatPose(b);
         if (Math.hypot(p.x - x, p.y - y) < 80) b.boost = Math.min(3, b.boost + 1.6);
@@ -1162,7 +1152,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     return (
       <section className={`${styles.boatsImmersive} ${launching ? styles.boatsLaunching : ""}`}>
           <div className={`${styles.boatsHud} ${launching ? styles.boatsHudHidden : ""}`}>
-          <Link href="/games/calm" className={styles.boatCircleBtn} aria-label="Back to calm games">
+          <Link href="/games" className={styles.boatCircleBtn} aria-label="Back to games menu">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M15 5 8 12l7 7" />
             </svg>

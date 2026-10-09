@@ -472,6 +472,8 @@ export function OrganisationConsole() {
     .filter((presence) => presence.last_seen_at)
     .sort((a, b) => +new Date(b.last_seen_at) - +new Date(a.last_seen_at))
     .slice(0, 4);
+  const roleLabel = String(state?.memberships?.[0]?.role ?? "owner").toLowerCase();
+  const orgTypeLabel = String(state?.organisation?.organisation_type ?? "business").toLowerCase();
 
   if (!state) return <div className="panel p-5">Loading organisation console...</div>;
 
@@ -483,10 +485,10 @@ export function OrganisationConsole() {
           <div className="org-console-mark">{String(state.organisation.name ?? "O").trim().charAt(0).toUpperCase()}</div>
           <div>
             <div className="org-console-title-row">
-              <h1 className="page-title">{state.organisation.name}</h1>
-              <span className="org-console-pill">{state.organisation.organisation_type}</span>
+              <h1 className="page-title"><span className="org-console-hash">#</span>{state.organisation.name}</h1>
+              <span className="org-console-pill">{orgTypeLabel}</span>
             </div>
-            <p className="muted text-xs mt-1">Organisation operations • {state.memberships[0]?.role ?? "member"} access</p>
+            <p className="muted text-xs mt-1">Organisation operations • {roleLabel} access</p>
           </div>
         </div>
         <div className="org-console-header-actions">
@@ -566,7 +568,7 @@ export function OrganisationConsole() {
               <div>
                 <p className="muted text-xs uppercase tracking-wider">Units</p>
                 <p className="text-2xl font-semibold">{units.length}</p>
-                <p className="muted text-xs mt-1">Configured teams / vehicles</p>
+                <p className="muted text-xs mt-1">Configured zones</p>
               </div>
               <div className="org-metric-icon unit"><LayoutDashboard size={20} /></div>
             </div>
@@ -574,7 +576,7 @@ export function OrganisationConsole() {
               <div>
                 <p className="muted text-xs uppercase tracking-wider">Responders</p>
                 <p className="text-2xl font-semibold">{responderMembers.length + presenceOnlyResponders.length}</p>
-                <p className="muted text-xs mt-1">{availableResponderCount} available now</p>
+                <p className="org-on-duty mt-1"><i />{availableResponderCount} On Duty</p>
               </div>
               <div className="org-metric-icon responder"><Shield size={20} /></div>
             </div>
@@ -590,10 +592,10 @@ export function OrganisationConsole() {
           <section className="panel p-6 space-y-4">
             <h3 className="org-home-title"><Bolt size={14} />Organisation Quick Actions</h3>
             <div className="org-console-quick-actions">
-              <button className="org-console-action" type="button" onClick={() => setActiveTab("responders")}><span>Manage Responders</span><ArrowRight size={14} /></button>
-              <button className="org-console-action" type="button" onClick={() => setActiveTab("members")}><span>Manage Staff</span><ArrowRight size={14} /></button>
-              <button className="org-console-action" type="button" onClick={() => setActiveTab("beneficiaries")}><span>View Beneficiaries</span><ArrowRight size={14} /></button>
-              <button className="org-console-action" type="button" onClick={() => setActiveTab("settings")}><span>Linking Rules</span><ArrowRight size={14} /></button>
+              <button className="org-console-action" type="button" onClick={() => setActiveTab("responders")}><span><UserPlus size={16} className="org-action-icon responders" />Manage Responders</span><ArrowRight size={14} /></button>
+              <button className="org-console-action" type="button" onClick={() => setActiveTab("members")}><span><Users size={16} className="org-action-icon staff" />Manage Staff</span><ArrowRight size={14} /></button>
+              <button className="org-console-action" type="button" onClick={() => setActiveTab("beneficiaries")}><span><Users size={16} className="org-action-icon beneficiaries" />View Beneficiaries</span><ArrowRight size={14} /></button>
+              <button className="org-console-action" type="button" onClick={() => setActiveTab("settings")}><span><Settings2 size={16} className="org-action-icon rules" />Linking Rules</span><ArrowRight size={14} /></button>
             </div>
           </section>
           <div className="grid gap-4 lg:grid-cols-3">
@@ -957,20 +959,24 @@ export function OrganisationConsole() {
     <style jsx global>{`
       .org-console {
         font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: #e5e7eb;
-        background: #0b0d12;
-        max-width: 84rem;
-        margin: 0 auto;
-        padding: 0 0 28px;
+        color: var(--text);
+        background: var(--bg);
+        width: 100vw;
+        max-width: none;
+        min-height: 100dvh;
+        margin-left: calc(50% - 50vw);
+        margin-right: calc(50% - 50vw);
+        padding: 8px clamp(14px, 2.2vw, 28px) 28px;
       }
       .org-console .page-title { color: #ffffff; font-size: 1.125rem; font-weight: 800; line-height: 1.25; }
-      .org-console .eyebrow { color: #94a3b8; text-transform: uppercase; letter-spacing: .08em; }
-      .org-console .muted { color: #94a3b8; }
+      .org-console-hash { margin-right: 7px; color: var(--muted); }
+      .org-console .eyebrow { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+      .org-console .muted { color: var(--muted); }
       .org-console-header {
         padding: 14px 18px;
-        border: 1px solid rgba(255, 255, 255, .08);
+        border: 1px solid var(--line);
         border-radius: 14px;
-        background: #10131c;
+        background: var(--chrome);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -990,9 +996,9 @@ export function OrganisationConsole() {
         place-items: center;
         font-size: 11px;
         font-weight: 800;
-        color: #c4b5fd;
-        background: #111827;
-        border: 1px solid rgba(168, 85, 247, .35);
+        color: var(--text);
+        background: var(--surface-2);
+        border: 1px solid var(--line);
       }
       .org-console-mark {
         width: 40px;
@@ -1001,25 +1007,25 @@ export function OrganisationConsole() {
         display: grid;
         place-items: center;
         font-weight: 800;
-        background: linear-gradient(140deg, #7c3aed, #6366f1);
-        color: #fff;
-        border: 1px solid rgba(167, 139, 250, .45);
+        background: var(--surface-3);
+        color: var(--text);
+        border: 1px solid var(--line);
       }
       .org-console-pill {
         font-size: 10px;
         line-height: 1;
         text-transform: uppercase;
         letter-spacing: .08em;
-        color: #d8b4fe;
-        border: 1px solid rgba(168, 85, 247, .35);
-        background: rgba(124, 58, 237, .18);
+        color: var(--text-2);
+        border: 1px solid var(--line);
+        background: var(--surface-2);
         padding: 5px 7px;
         border-radius: 7px;
       }
       .org-console .panel {
-        border: 1px solid rgba(255, 255, 255, .08);
+        border: 1px solid var(--line);
         border-radius: 18px;
-        background: #141721;
+        background: var(--surface-1);
         box-shadow: none;
       }
       .org-console-surface { display: grid; gap: 16px; }
@@ -1031,13 +1037,13 @@ export function OrganisationConsole() {
       }
       .org-tab-title {
         margin: 0;
-        color: #ffffff;
+        color: var(--text);
         font-size: 1rem;
         font-weight: 800;
       }
       .org-home-title {
         margin: 0;
-        color: #fff;
+        color: var(--text);
         font-size: .75rem;
         font-weight: 800;
         letter-spacing: .08em;
@@ -1048,8 +1054,8 @@ export function OrganisationConsole() {
       }
       .org-console-tabs-shell {
         padding: 6px;
-        background: #10131c;
-        border: 1px solid rgba(255, 255, 255, .08);
+        background: var(--chrome);
+        border: 1px solid var(--line);
         border-radius: 16px;
       }
       .org-console-tabs {
@@ -1061,7 +1067,7 @@ export function OrganisationConsole() {
       .org-console-tab {
         border: 1px solid transparent;
         background: transparent;
-        color: #94a3b8;
+        color: var(--muted);
         font-weight: 700;
         min-height: 40px;
         border-radius: 12px;
@@ -1072,14 +1078,14 @@ export function OrganisationConsole() {
         white-space: nowrap;
         transition: all .15s ease;
       }
-      .org-console-tab:hover { background: #252a3d; color: #e2e8f0; }
+      .org-console-tab:hover { background: var(--surface-3); color: var(--text); }
       .org-console-tab.is-active {
-        border-color: #7c3aed;
-        background: #7c3aed;
-        color: #fff;
-        box-shadow: 0 4px 14px rgba(124, 58, 237, .35);
+        border-color: var(--line);
+        background: var(--surface-3);
+        color: var(--text);
+        box-shadow: none;
       }
-      .org-console-hero { border-color: #2a3147; background: #1a1e2b; }
+      .org-console-hero { border-color: var(--line); background: var(--surface-2); }
       .org-console-metrics {
         display: grid;
         grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -1092,9 +1098,9 @@ export function OrganisationConsole() {
         .org-console-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       }
       .org-console-metric {
-        border: 1px solid rgba(255, 255, 255, .08);
+        border: 1px solid var(--line);
         border-radius: 16px;
-        background: #1a1e2b;
+        background: var(--surface-2);
         min-height: 108px;
         padding: 16px;
         display: flex;
@@ -1102,9 +1108,9 @@ export function OrganisationConsole() {
         justify-content: space-between;
         gap: 10px;
       }
-      .org-console-metric p:first-child { color: #94a3b8; }
-      .org-console-metric p:nth-child(2) { color: #ffffff; }
-      .org-console-metric p:last-child { color: #cbd5e1; }
+      .org-console-metric p:first-child { color: var(--muted); }
+      .org-console-metric p:nth-child(2) { color: var(--text); }
+      .org-console-metric p:last-child { color: var(--text-2); }
       .org-metric-icon {
         width: 46px;
         height: 46px;
@@ -1113,10 +1119,10 @@ export function OrganisationConsole() {
         place-items: center;
         border: 1px solid;
       }
-      .org-metric-icon.branch { color: #c084fc; background: rgba(168, 85, 247, .13); border-color: rgba(168, 85, 247, .25); }
-      .org-metric-icon.unit { color: #60a5fa; background: rgba(59, 130, 246, .12); border-color: rgba(59, 130, 246, .24); }
-      .org-metric-icon.responder { color: #818cf8; background: rgba(99, 102, 241, .13); border-color: rgba(99, 102, 241, .24); }
-      .org-metric-icon.beneficiary { color: #f472b6; background: rgba(236, 72, 153, .12); border-color: rgba(236, 72, 153, .24); }
+      .org-metric-icon.branch { color: var(--text); background: var(--surface-3); border-color: var(--line); }
+      .org-metric-icon.unit { color: var(--text); background: var(--surface-3); border-color: var(--line); }
+      .org-metric-icon.responder { color: var(--text); background: var(--surface-3); border-color: var(--line); }
+      .org-metric-icon.beneficiary { color: var(--text); background: var(--surface-3); border-color: var(--line); }
       .org-console-surface-block {
         border: 1px solid #2a3147; border-radius: 14px; box-shadow: none; background: #1a1e2b;
       }
@@ -1129,12 +1135,15 @@ export function OrganisationConsole() {
       @media (min-width: 768px) {
         .org-console-quick-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
+      @media (min-width: 1200px) {
+        .org-console-quick-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      }
       .org-console-action {
-        border: 1px solid rgba(255, 255, 255, .06);
+        border: 1px solid var(--line);
         min-height: 48px;
         border-radius: 12px;
-        background: #1d2232;
-        color: #e2e8f0;
+        background: var(--surface-2);
+        color: var(--text);
         width: 100%;
         display: inline-flex;
         align-items: center;
@@ -1145,7 +1154,30 @@ export function OrganisationConsole() {
         font-weight: 700;
         transition: all .15s ease;
       }
-      .org-console-action:hover { background: #252b3f; border-color: rgba(255, 255, 255, .12); }
+      .org-console-action span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .org-action-icon.responders { color: var(--text); }
+      .org-action-icon.staff { color: var(--text); }
+      .org-action-icon.beneficiaries { color: var(--text); }
+      .org-action-icon.rules { color: var(--text); }
+      .org-on-duty {
+        color: var(--ok);
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .org-on-duty i {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--ok);
+      }
+      .org-console-action:hover { background: var(--surface-3); border-color: var(--line); }
       .org-progress-badge {
         font-size: 11px;
         font-weight: 800;
@@ -1203,7 +1235,7 @@ export function OrganisationConsole() {
         padding: 12px;
         background: #191d2a;
       }
-      .org-console-log-row p { color: #ffffff; }
+      .org-console-log-row p { color: var(--text); }
       .org-log-icon {
         width: 30px;
         height: 30px;
@@ -1228,27 +1260,32 @@ export function OrganisationConsole() {
       .org-console .field input:focus,
       .org-console .field select:focus,
       .org-console .field textarea:focus { outline: 2px solid #a855f7; outline-offset: 1px; }
-      .org-console .tbl thead th { background: #1a1e2b; color: #94a3b8; border-bottom: 1px solid rgba(255, 255, 255, .1); }
-      .org-console .tbl tbody td { color: #e2e8f0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+      .org-console .tbl thead th { background: var(--surface-2); color: var(--muted); border-bottom: 1px solid var(--line); }
+      .org-console .tbl tbody td { color: var(--text-2); border-bottom: 1px solid var(--line); }
       .org-console .btn {
-        border: 1px solid rgba(255, 255, 255, .1);
-        background: #1a1e2b;
-        color: #e2e8f0;
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        color: var(--text);
         border-radius: 12px;
         min-height: 38px;
       }
-      .org-console .btn:hover { background: #252a3d; }
+      .org-console .btn:hover { background: var(--surface-3); }
       .org-console .btn-primary {
-        border-color: #7c3aed;
-        background: #7c3aed;
-        color: #ffffff;
+        border-color: var(--line);
+        background: var(--surface-3);
+        color: var(--text);
       }
-      .org-console .btn-primary:hover { background: #6d28d9; }
+      .org-console .btn-primary:hover { background: var(--surface-2); }
       @media (max-width: 768px) {
         .org-console-tabs { scroll-snap-type: x mandatory; padding-bottom: 4px; }
         .org-console-tab { scroll-snap-align: start; }
         .org-console .pane-head { font-size: 15px; }
         .org-console-header { position: static; }
+        .org-console {
+          width: 100%;
+          margin: 0;
+          padding-inline: 0;
+        }
       }
     `}</style>
     </>

@@ -237,7 +237,7 @@ export function StoepGame() {
       <header className={`${styles.top} ${mode === "hub" ? g.hubTopBar : ""}`}>
         <button
           aria-label={mode === "hub" ? "Back" : "Menu"}
-          onClick={() => (mode === "hub" ? router.back() : restart())}
+          onClick={() => (mode === "hub" ? router.push("/games") : restart())}
         >
           <ArrowLeft size={16} />
           <span>{mode === "hub" ? "Back" : "Menu"}</span>
