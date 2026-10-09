@@ -8,6 +8,8 @@ type SearchOrganisation = {
   name: string;
   slug: string;
   organisation_type: string;
+  support_email?: string | null;
+  support_phone?: string | null;
   organisation_branches?: Array<{ id: string; name: string; city: string | null }>;
 };
 
@@ -19,9 +21,21 @@ type LinkedOrganisation = {
   identifier: string;
   membership_type: string;
   status: string;
+  roster_entry_id?: string | null;
+  org_roster_entries?: { status: string; valid_until: string | null } | null;
   place_address: string | null;
   organisations?: { name: string; organisation_type: string };
   organisation_branches?: { name: string; city: string | null } | null;
+};
+
+type ValidateCode = "LINKED" | "PENDING_APPROVAL" | "NOT_ELIGIBLE" | "EXPIRED" | "ALREADY_CLAIMED" | "RATE_LIMITED";
+const VALIDATION_COPY: Record<ValidateCode, string> = {
+  LINKED: "Organisation linked. You are covered by your organisation.",
+  PENDING_APPROVAL: "Request submitted. Waiting for organisation approval.",
+  NOT_ELIGIBLE: "We could not confirm eligibility. Contact your organisation or request approval.",
+  EXPIRED: "This roster access entry has expired. Contact your organisation.",
+  ALREADY_CLAIMED: "This identifier has already been claimed. Contact your organisation.",
+  RATE_LIMITED: "Too many attempts right now. Please wait and try again.",
 };
 
 export default function AccountOrganisationsPage() {
@@ -29,12 +43,13 @@ export default function AccountOrganisationsPage() {
   const [results, setResults] = useState<SearchOrganisation[]>([]);
   const [selected, setSelected] = useState<SearchOrganisation | null>(null);
   const [branchId, setBranchId] = useState("");
-  const [method, setMethod] = useState<"email_domain" | "work_id">("email_domain");
+  const [identifierType, setIdentifierType] = useState<"email" | "member_id" | "access_code">("email");
   const [identifier, setIdentifier] = useState("");
   const [label, setLabel] = useState<"work" | "school" | "home" | "other">("work");
   const [placeAddress, setPlaceAddress] = useState("");
   const [linked, setLinked] = useState<LinkedOrganisation[]>([]);
   const [message, setMessage] = useState("");
+  const [validationCode, setValidationCode] = useState<ValidateCode | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState("");
@@ -70,31 +85,36 @@ export default function AccountOrganisationsPage() {
     setBusy(true);
     setError("");
     setMessage("");
-    const response = await fetch("/api/account/organisations/link", {
+    setValidationCode(null);
+    const response = await fetch("/api/org-links/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         organisationId: selected.id,
         branchId: branchId || null,
         label,
-        method,
+        identifierType,
         identifier,
         placeAddress: placeAddress || null,
       }),
     });
     const body = await response.json().catch(() => null);
     if (!response.ok) {
-      setError((body as any)?.error ?? "Could not link organisation.");
+      setError((body as any)?.message ?? "Could not link organisation.");
       setBusy(false);
       return;
     }
-    setMessage("Organisation linked.");
-    setQuery("");
-    setResults([]);
-    setSelected(null);
-    setIdentifier("");
-    setPlaceAddress("");
-    await refreshLinked();
+    const code = String((body as any)?.code ?? "NOT_ELIGIBLE") as ValidateCode;
+    setValidationCode(code);
+    setMessage(VALIDATION_COPY[code] ?? "Linking completed.");
+    if (code === "LINKED" || code === "PENDING_APPROVAL") {
+      setQuery("");
+      setResults([]);
+      setSelected(null);
+      setIdentifier("");
+      setPlaceAddress("");
+      await refreshLinked();
+    }
     setBusy(false);
   }
 
@@ -189,14 +209,15 @@ export default function AccountOrganisationsPage() {
                   ))}
                 </select>
               </label>
-              <label className="field">Link method
-                <select className="input" value={method} onChange={(event) => setMethod(event.target.value as any)}>
-                  <option value="email_domain">Email / domain</option>
-                  <option value="work_id">Work / student ID</option>
+              <label className="field">Identifier type
+                <select className="input" value={identifierType} onChange={(event) => setIdentifierType(event.target.value as "email" | "member_id" | "access_code")}>
+                  <option value="email">Email</option>
+                  <option value="member_id">Member / student / work ID</option>
+                  <option value="access_code">Access code</option>
                 </select>
               </label>
-              <label className="field">{method === "email_domain" ? "Email address" : "Work / student ID"}
-                <input className="input" required value={identifier} onChange={(event) => setIdentifier(event.target.value)} />
+              <label className="field">{identifierType === "email" ? "Email address" : identifierType === "member_id" ? "Member / student / work ID" : "Access code"}
+                <input className="input" required type={identifierType === "email" ? "email" : "text"} value={identifier} onChange={(event) => setIdentifier(event.target.value)} />
               </label>
             </div>
             <label className="field">Place address (optional)<input className="input" value={placeAddress} onChange={(event) => setPlaceAddress(event.target.value)} placeholder="Campus, office, residence..." /></label>
@@ -213,7 +234,14 @@ export default function AccountOrganisationsPage() {
             <article key={item.id} className="flex flex-wrap items-start justify-between gap-3 border border-[var(--line)] p-3 text-[var(--text)]">
               <div>
                 <p className="font-semibold text-[var(--text)]">{item.organisations?.name}</p>
-                <p className="muted text-xs capitalize">{item.label} · {item.membership_type} · {item.status}</p>
+                <p className="muted text-xs capitalize">{item.label} · {item.membership_type} · {(() => {
+                  if (item.status !== "active") return item.status.replaceAll("_", " ");
+                  const entryStatus = item.org_roster_entries?.status;
+                  if (entryStatus === "removed" || entryStatus === "suspended" || entryStatus === "expired") return `access ${entryStatus}`;
+                  if (item.org_roster_entries?.valid_until && new Date(item.org_roster_entries.valid_until).getTime() < Date.now()) return "access expired";
+                  if (!item.roster_entry_id) return "not roster verified";
+                  return "active";
+                })()}</p>
                 <p className="muted text-xs">{item.method} · {item.identifier}</p>
                 {item.organisation_branches?.name && <p className="muted text-xs">Branch: {item.organisation_branches.name}</p>}
                 {editingId === item.id && (
@@ -261,6 +289,13 @@ export default function AccountOrganisationsPage() {
 
       {error && <p role="alert" className="ops-login-error">{error}</p>}
       {message && <p role="status" className="ops-login-status">{message}</p>}
+      {validationCode && validationCode !== "LINKED" && validationCode !== "PENDING_APPROVAL" && selected && (
+        <div className="panel flex flex-wrap items-center gap-3 p-4">
+          <p className="muted flex-1 text-sm">If you believe this is an error, your organisation can confirm your access or add you to its roster.</p>
+          {selected.support_email && <a className="btn" href={`mailto:${encodeURIComponent(selected.support_email)}?subject=${encodeURIComponent(`Organisation access: ${selected.name}`)}`}>Contact your organisation</a>}
+          {selected.support_phone && <a className="btn" href={`tel:${encodeURIComponent(selected.support_phone)}`}>Call organisation</a>}
+        </div>
+      )}
     </div>
   );
 }

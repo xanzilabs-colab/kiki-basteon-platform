@@ -47,7 +47,97 @@ type MeResponse = {
   } | null;
 };
 
-type DashboardTab = "home" | "beneficiaries" | "responders" | "members" | "settings" | "configurations";
+type DashboardTab = "home" | "beneficiaries" | "responders" | "members" | "roster" | "settings" | "configurations";
+type RosterEntry = {
+  id: string;
+  membership_type: string;
+  identifier_type: "email" | "member_id" | "access_code";
+  identifier_raw: string;
+  display_name: string | null;
+  status: "active" | "suspended" | "expired" | "removed";
+  valid_from: string;
+  valid_until: string | null;
+  source: string;
+  claimed_by_user_id: string | null;
+  claimed_at: string | null;
+  max_claims: number;
+  updated_at: string;
+};
+
+function SettingsSwitch({ checked, onChange, title, description }: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="org-setting-row">
+      <div className="min-w-0">
+        <p className="org-setting-title">{title}</p>
+        <p className="org-setting-description">{description}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={title}
+        className={`org-switch ${checked ? "is-on" : ""}`}
+        onClick={() => onChange(!checked)}
+      >
+        <span />
+      </button>
+    </div>
+  );
+}
+
+function parseRosterText(text: string, defaultType: "email" | "member_id" | "access_code") {
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const delimiter = [",", "\t", ";"].reduce((best, candidate) =>
+    lines[0].split(candidate).length > lines[0].split(best).length ? candidate : best,
+  ",");
+  const rows = lines.map((line) => {
+    const values: string[] = [];
+    let value = "";
+    let quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"' && line[i + 1] === '"' && quoted) { value += '"'; i++; }
+      else if (char === '"') quoted = !quoted;
+      else if (char === delimiter && !quoted) { values.push(value.trim()); value = ""; }
+      else value += char;
+    }
+    values.push(value.trim());
+    return values;
+  });
+
+  const header = rows[0].map((value) => value.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  const emailIndex = header.findIndex((value) => ["email", "emailaddress", "mail", "e-mail"].includes(value));
+  const idIndex = header.findIndex((value) => ["id", "memberid", "studentid", "studentnumber", "studentno", "workid", "staffid", "staffno", "employeeid", "employeenumber", "accesscode", "code"].includes(value));
+  const nameIndex = header.findIndex((value) => ["name", "fullname", "displayname", "membername"].includes(value));
+  const hasHeader = emailIndex >= 0 || idIndex >= 0;
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+
+  return dataRows.flatMap((row) => {
+    const values: Array<{ identifier: string; identifierType: "email" | "member_id" | "access_code" }> = [];
+    if (emailIndex >= 0 && row[emailIndex]) values.push({ identifier: row[emailIndex], identifierType: "email" });
+    if (idIndex >= 0 && row[idIndex]) values.push({
+      identifier: row[idIndex],
+      identifierType: header[idIndex] === "accesscode" || header[idIndex] === "code" ? "access_code" : "member_id",
+    });
+    if (!values.length) {
+      for (const candidate of row.filter(Boolean)) {
+        values.push({ identifier: candidate, identifierType: candidate.includes("@") ? "email" : defaultType });
+      }
+    }
+    return values.filter((value) => value.identifier.trim()).map((value) => ({
+      ...value,
+      displayName: nameIndex >= 0 ? row[nameIndex] || null : null,
+      membershipType: "member",
+      maxClaims: 1,
+    }));
+  });
+}
 
 export function OrganisationConsole() {
   const [state, setState] = useState<MeResponse | null>(null);
@@ -90,16 +180,33 @@ export function OrganisationConsole() {
   const [requireInvite, setRequireInvite] = useState(false);
   const [autoApproveLinks, setAutoApproveLinks] = useState(true);
   const [workIdRegex, setWorkIdRegex] = useState("");
+  const [rosterIdCaseMode, setRosterIdCaseMode] = useState<"upper" | "lower" | "as_is">("upper");
   const [supportContactName, setSupportContactName] = useState("");
   const [supportContactType, setSupportContactType] = useState<"email" | "phone">("email");
   const [supportContactValue, setSupportContactValue] = useState("");
   const [supportContactPurpose, setSupportContactPurpose] = useState("general support");
+  const [rosterRows, setRosterRows] = useState<RosterEntry[]>([]);
+  const [rosterTotal, setRosterTotal] = useState(0);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterSearch, setRosterSearch] = useState("");
+  const [rosterIdentifierType, setRosterIdentifierType] = useState<"email" | "member_id" | "access_code">("email");
+  const [rosterIdentifier, setRosterIdentifier] = useState("");
+  const [rosterMembershipType, setRosterMembershipType] = useState("member");
+  const [rosterDisplayName, setRosterDisplayName] = useState("");
+  const [rosterValidUntil, setRosterValidUntil] = useState("");
+  const [rosterMaxClaims, setRosterMaxClaims] = useState("1");
+  const [rosterBulkText, setRosterBulkText] = useState("");
+  const [rosterImportSource, setRosterImportSource] = useState<"csv" | "pasted">("pasted");
   const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   const [dashboardUnlocked, setDashboardUnlocked] = useState(false);
   const emergencyTypes = useEmergencyTypes();
   const membershipTypeOptions = useMemo(
     () => membershipTypeOptionsForOrganisation(state?.organisation ?? {}),
     [state?.organisation],
+  );
+  const rosterImportPreview = useMemo(
+    () => parseRosterText(rosterBulkText, rosterIdentifierType),
+    [rosterBulkText, rosterIdentifierType],
   );
 
   async function refresh() {
@@ -125,9 +232,11 @@ export function OrganisationConsole() {
     setRequireInvite(Boolean(state.settings.require_invite));
     setAutoApproveLinks(Boolean(state.settings.auto_approve_links));
     setWorkIdRegex(state.settings.work_id_regex ?? "");
+    setRosterIdCaseMode(state.settings.roster_id_case_mode ?? "upper");
   }, [state?.settings]);
   useEffect(() => {
     setDomainMembershipType((current) => membershipTypeOptions.some((option) => option.value === current) ? current : (membershipTypeOptions[0]?.value ?? "staff"));
+    setRosterMembershipType((current) => membershipTypeOptions.some((option) => option.value === current) ? current : (membershipTypeOptions[0]?.value ?? "member"));
   }, [membershipTypeOptions]);
 
   const organisationId = state?.organisation?.id ?? "";
@@ -160,12 +269,32 @@ export function OrganisationConsole() {
     [memberUserIds, responders],
   );
 
+  async function loadRoster(query = rosterSearch) {
+    if (!organisationId) return;
+    setRosterLoading(true);
+    const response = await fetch(`/api/organisation/roster?organisationId=${organisationId}&page=1&pageSize=100&q=${encodeURIComponent(query.trim())}`, { cache: "no-store" });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not load roster.");
+      setRosterLoading(false);
+      return;
+    }
+    setRosterRows((body as any)?.rows ?? []);
+    setRosterTotal(Number((body as any)?.total ?? 0));
+    setRosterLoading(false);
+  }
+
   useEffect(() => {
     if (!dashboardUnlockStorageKey) return;
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem(dashboardUnlockStorageKey) === "1";
     setDashboardUnlocked(saved);
   }, [dashboardUnlockStorageKey, onboardingComplete]);
+
+  useEffect(() => {
+    if (!organisationId || activeTab !== "roster") return;
+    void loadRoster();
+  }, [organisationId, activeTab]);
 
   function unlockDashboard() {
     if (!dashboardUnlockStorageKey || typeof window === "undefined") return;
@@ -497,6 +626,7 @@ export function OrganisationConsole() {
         requireInvite,
         autoApproveLinks,
         workIdRegex: workIdRegex.trim() || null,
+        rosterIdCaseMode,
       }),
     });
     const body = await response.json().catch(() => null);
@@ -579,11 +709,113 @@ export function OrganisationConsole() {
     await refresh();
   }
 
+  async function addRosterEntry(event: React.FormEvent) {
+    event.preventDefault();
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/roster", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        organisationId,
+        membershipType: rosterMembershipType,
+        identifierType: rosterIdentifierType,
+        identifier: rosterIdentifier,
+        displayName: rosterDisplayName || null,
+        validUntil: rosterValidUntil ? new Date(rosterValidUntil).toISOString() : null,
+        maxClaims: Number(rosterMaxClaims) || 1,
+        source: "manual",
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not add roster entry.");
+      setBusy(false);
+      return;
+    }
+    setRosterIdentifier("");
+    setRosterDisplayName("");
+    setRosterValidUntil("");
+    setMessage("Roster entry added.");
+    await loadRoster();
+    setBusy(false);
+  }
+
+  async function importRosterEntries(event: React.FormEvent) {
+    event.preventDefault();
+    if (!organisationId) return;
+    const entries = parseRosterText(rosterBulkText, rosterIdentifierType);
+    if (!entries.length) {
+      setError("No email addresses or identifiers were found in that input.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/roster", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organisationId, source: rosterImportSource, entries }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not import roster entries.");
+      setBusy(false);
+      return;
+    }
+    setMessage(`${Number(body?.inserted ?? 0)} roster entr${body?.inserted === 1 ? "y" : "ies"} imported${body?.duplicates ? `; ${body.duplicates} duplicates skipped` : ""}.`);
+    setRosterBulkText("");
+    await loadRoster();
+    setBusy(false);
+  }
+
+  async function setRosterEntryStatus(entry: RosterEntry, status: RosterEntry["status"]) {
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    const response = await fetch("/api/organisation/roster", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organisationId, id: entry.id, status }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not update roster entry.");
+      setBusy(false);
+      return;
+    }
+    setMessage(status === "removed" ? "Roster entry removed." : "Roster entry updated.");
+    await loadRoster();
+    setBusy(false);
+  }
+
+  async function readRosterFile(file?: File) {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Roster files must be 5 MB or smaller.");
+      return;
+    }
+    if (!/\.(csv|tsv|txt)$/i.test(file.name)) {
+      setError("Choose a CSV, TSV, or TXT file.");
+      return;
+    }
+    setError("");
+    setRosterImportSource(file.name.toLowerCase().endsWith(".csv") ? "csv" : "pasted");
+    try {
+      setRosterBulkText(await file.text());
+    } catch {
+      setError("The selected roster file could not be read.");
+    }
+  }
+
   const dashboardTabs: Array<{ key: DashboardTab; label: string; icon: React.ComponentType<{ size?: number }> }> = [
     { key: "home", label: "Home", icon: LayoutDashboard },
     { key: "beneficiaries", label: "Beneficiaries", icon: Users },
     { key: "responders", label: "Responders", icon: Shield },
     { key: "members", label: "Staff / Members", icon: Users },
+    { key: "roster", label: "Roster", icon: Users },
     { key: "settings", label: "Settings", icon: Settings2 },
     { key: "configurations", label: "Configurations", icon: Building2 },
   ];
@@ -592,6 +824,7 @@ export function OrganisationConsole() {
   const showBeneficiariesPanel = !inOnboardingMode && activeTab === "beneficiaries";
   const showRespondersPanel = !inOnboardingMode && activeTab === "responders";
   const showMembersPanel = !inOnboardingMode && activeTab === "members";
+  const showRosterPanel = !inOnboardingMode && activeTab === "roster";
   const showSettingsPanel = !inOnboardingMode && activeTab === "settings";
   const showConfigurationsPanel = inOnboardingMode || activeTab === "configurations";
   const availableResponderCount = responders.filter((presence) => presence.availability === "available").length;
@@ -863,37 +1096,32 @@ export function OrganisationConsole() {
 
       {(showSettingsPanel || inOnboardingMode) && (
       <section className="panel p-6 space-y-4">
-        <h2 className="org-tab-title">Linking Configuration</h2>
-        <p className="muted text-xs">Control how users can link themselves to this organisation by email domain or verified work/student ID.</p>
-        <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void saveLinkSettings(event)}>
-          <label className="field">
-            <span className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={allowEmailDomain} onChange={(event) => setAllowEmailDomain(event.target.checked)} />
-              Allow email-domain linking
-            </span>
-          </label>
-          <label className="field">
-            <span className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={allowWorkId} onChange={(event) => setAllowWorkId(event.target.checked)} />
-              Allow work/student ID linking
-            </span>
-          </label>
-          <label className="field">
-            <span className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={requireInvite} onChange={(event) => setRequireInvite(event.target.checked)} />
-              Require invite approval before activation
-            </span>
-          </label>
-          <label className="field">
-            <span className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={autoApproveLinks} onChange={(event) => setAutoApproveLinks(event.target.checked)} />
-              Auto-approve eligible links
-            </span>
-          </label>
-          <label className="field md:col-span-2">Work/Student ID regex rule (optional)
-            <input value={workIdRegex} onChange={(event) => setWorkIdRegex(event.target.value)} placeholder="e.g. ^[A-Z]{2}[0-9]{6}$" />
-          </label>
-          <button className="btn btn-primary md:col-span-2 md:justify-self-start" disabled={busy}>Save linking configuration</button>
+        <div>
+          <h2 className="org-tab-title">Linking Configuration</h2>
+          <p className="muted mt-1 text-xs">Choose which identifier types people can use and whether eligible requests need approval.</p>
+        </div>
+        <form className="space-y-4" onSubmit={(event) => void saveLinkSettings(event)}>
+          <div className="grid gap-2 md:grid-cols-2">
+            <SettingsSwitch checked={allowEmailDomain} onChange={setAllowEmailDomain} title="Email addresses" description="Allow people to identify themselves with an email address." />
+            <SettingsSwitch checked={allowWorkId} onChange={setAllowWorkId} title="Member and work IDs" description="Allow student, staff, member, and organisation-issued IDs." />
+            <SettingsSwitch checked={requireInvite} onChange={(checked) => { setRequireInvite(checked); if (checked) setAutoApproveLinks(false); }} title="Manual approval" description="Keep new links pending until an organisation manager approves them." />
+            <SettingsSwitch checked={autoApproveLinks} onChange={(checked) => { setAutoApproveLinks(checked); if (checked) setRequireInvite(false); }} title="Auto-approve eligible links" description="Activate a matching, eligible roster link immediately." />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="field">ID letter case
+              <select value={rosterIdCaseMode} onChange={(event) => setRosterIdCaseMode(event.target.value as typeof rosterIdCaseMode)}>
+                <option value="upper">Ignore case (uppercase)</option>
+                <option value="lower">Ignore case (lowercase)</option>
+                <option value="as_is">Case-sensitive</option>
+              </select>
+              <span className="mt-1 block text-[11px] font-normal text-[var(--muted)]">Applied consistently to roster imports and Kiki link checks.</span>
+            </label>
+            <label className="field">Work / Student ID format (optional)
+              <input className="mt-1 w-full" value={workIdRegex} onChange={(event) => setWorkIdRegex(event.target.value)} placeholder="Example: ^[A-Z]{2}[0-9]{6}$" />
+              <span className="mt-1 block text-[11px] font-normal text-[var(--muted)]">Use a regular expression to reject IDs that do not match your format.</span>
+            </label>
+          </div>
+          <button className="btn btn-primary" disabled={busy}>Save linking configuration</button>
         </form>
 
         <form className="grid gap-3 border-t border-[var(--line)] pt-3 md:grid-cols-4" onSubmit={(event) => void addDomainRule(event)}>
@@ -928,6 +1156,119 @@ export function OrganisationConsole() {
           </table>
         </div>
       </section>
+      )}
+
+      {showRosterPanel && (
+        <section className="panel p-5 space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="org-tab-title">Organisation access roster</h2>
+              <p className="muted mt-1 text-xs">Only identifiers on this list can link to the organisation. Entries are never exposed to Kiki users.</p>
+            </div>
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-2">
+              <span className="muted text-xs">Roster entries</span>
+              <strong className="ml-2 text-lg">{rosterTotal}</strong>
+            </div>
+          </div>
+
+          <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
+            <h3 className="text-sm font-bold">Add one person</h3>
+            <form className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4" onSubmit={(event) => void addRosterEntry(event)}>
+              <label className="field">Identifier type
+                <select value={rosterIdentifierType} onChange={(event) => setRosterIdentifierType(event.target.value as typeof rosterIdentifierType)}>
+                  <option value="email">Email</option>
+                  <option value="member_id">Member / student / work ID</option>
+                  <option value="access_code">Access code</option>
+                </select>
+              </label>
+              <label className="field">Identifier
+                <input required value={rosterIdentifier} onChange={(event) => setRosterIdentifier(event.target.value)} placeholder="Exact roster identifier" />
+              </label>
+              <label className="field">Membership type
+                <select value={rosterMembershipType} onChange={(event) => setRosterMembershipType(event.target.value)}>
+                  {membershipTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <label className="field">Display name (optional)
+                <input value={rosterDisplayName} onChange={(event) => setRosterDisplayName(event.target.value)} />
+              </label>
+              <label className="field">Valid until (optional)
+                <input type="date" value={rosterValidUntil} onChange={(event) => setRosterValidUntil(event.target.value)} />
+              </label>
+              <label className="field">Maximum claims
+                <input type="number" min="1" max="100" value={rosterMaxClaims} onChange={(event) => setRosterMaxClaims(event.target.value)} />
+              </label>
+              <button className="btn btn-primary self-end md:col-span-2 xl:col-span-2" disabled={busy}>Add roster entry</button>
+            </form>
+          </section>
+
+          <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
+            <h3 className="text-sm font-bold">Import roster from CSV or paste</h3>
+            <p className="muted mt-1 text-xs">CSV headers such as email, member ID, student number, work ID, name, or access code are detected automatically.</p>
+            <label className="field mt-3 block">Choose CSV, TSV, or TXT (max 5 MB)
+              <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" onChange={(event) => void readRosterFile(event.target.files?.[0])} />
+            </label>
+            <form className="mt-3 space-y-3" onSubmit={(event) => void importRosterEntries(event)}>
+              <label className="field block">Paste entries or CSV contents
+                <textarea rows={6} value={rosterBulkText} onChange={(event) => setRosterBulkText(event.target.value)} placeholder={"email,name\nperson@example.org,Alex Member\n\nOr paste one identifier per line"} />
+              </label>
+              {rosterBulkText.trim() && (
+                <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-1)] p-3">
+                  <p className="text-xs font-semibold">Import preview: {rosterImportPreview.length} identifier{rosterImportPreview.length === 1 ? "" : "s"} detected</p>
+                  <p className="muted mt-1 text-[11px]">
+                    {rosterImportPreview.slice(0, 3).map((entry) => `${entry.identifierType}: ${entry.identifier}`).join(" · ") || "No usable identifiers detected."}
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="field !flex flex-row items-center gap-2">Default type for plain IDs
+                  <select value={rosterIdentifierType} onChange={(event) => setRosterIdentifierType(event.target.value as typeof rosterIdentifierType)}>
+                    <option value="member_id">Member / student / work ID</option>
+                    <option value="email">Email</option>
+                    <option value="access_code">Access code</option>
+                  </select>
+                </label>
+                <button className="btn btn-primary" disabled={busy || !rosterBulkText.trim()}>Import roster</button>
+              </div>
+            </form>
+          </section>
+
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold">Allowed identifiers</h3>
+              <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); void loadRoster(); }}>
+                <input aria-label="Search roster" value={rosterSearch} onChange={(event) => setRosterSearch(event.target.value)} placeholder="Search identifiers" />
+                <button className="btn" disabled={rosterLoading}>Search</button>
+              </form>
+            </div>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>Identifier</th><th>Type</th><th>Name</th><th>Membership</th><th>Status</th><th>Claimed</th><th>Valid until</th><th>Source</th><th>Action</th></tr></thead>
+                <tbody>
+                  {rosterRows.map((entry) => (
+                    <tr key={entry.id}>
+                      <td>{entry.identifier_raw}</td>
+                      <td>{entry.identifier_type}</td>
+                      <td>{entry.display_name || "—"}</td>
+                      <td>{entry.membership_type}</td>
+                      <td>{entry.status}</td>
+                      <td>{entry.claimed_by_user_id ? (entry.claimed_at ? new Date(entry.claimed_at).toLocaleDateString() : "Yes") : "No"}</td>
+                      <td>{entry.valid_until ? new Date(entry.valid_until).toLocaleDateString() : "Never"}</td>
+                      <td>{entry.source}</td>
+                      <td>
+                        {entry.status === "active"
+                          ? <button className="btn" type="button" disabled={busy} onClick={() => void setRosterEntryStatus(entry, "removed")}>Remove</button>
+                          : <button className="btn" type="button" disabled={busy} onClick={() => void setRosterEntryStatus(entry, "active")}>Restore</button>}
+                      </td>
+                    </tr>
+                  ))}
+                  {!rosterLoading && rosterRows.length === 0 && <tr><td colSpan={9} className="muted text-center">No roster entries found. Add an entry manually or import a CSV.</td></tr>}
+                  {rosterLoading && <tr><td colSpan={9} className="muted text-center">Loading roster…</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
       )}
 
       {showConfigurationsPanel && (
@@ -1209,9 +1550,9 @@ export function OrganisationConsole() {
         padding: 0 0 28px;
       }
       .org-console-content {
-        width: min(100%, 1280px);
-        margin: 0 auto;
-        padding: 18px clamp(20px, 4vw, 56px) 0;
+        width: 100%;
+        margin: 0;
+        padding: 16px clamp(12px, 1.6vw, 24px) 0;
       }
       .org-console-locked > :not(.org-console-lock-message):not(.ops-login-error):not(.ops-login-status) {
         pointer-events: none;
@@ -1226,8 +1567,11 @@ export function OrganisationConsole() {
       .org-console .eyebrow { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
       .org-console .muted { color: var(--muted); }
       .org-console-header {
-        padding: 14px 18px;
-        border: 1px solid var(--line);
+        width: 100%;
+        margin: 0;
+        padding: 12px 0;
+        border: 0;
+        border-bottom: 1px solid var(--line);
         border-radius: 0;
         background: var(--chrome);
         display: flex;
@@ -1509,6 +1853,42 @@ export function OrganisationConsole() {
         color: #f8fafc;
       }
       .org-console .field { color: #cbd5e1; font-size: 12px; font-weight: 600; }
+      .org-setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 72px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface-2);
+        padding: 14px 16px;
+      }
+      .org-setting-title { margin: 0; color: var(--text); font-size: 13px; font-weight: 700; }
+      .org-setting-description { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+      .org-switch {
+        position: relative;
+        flex: 0 0 auto;
+        width: 44px;
+        height: 25px;
+        padding: 3px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #343945;
+        transition: background .18s ease, border-color .18s ease;
+      }
+      .org-switch span {
+        display: block;
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0,0,0,.35);
+        transition: transform .18s ease;
+      }
+      .org-switch.is-on { background: #22a06b; border-color: #22a06b; }
+      .org-switch.is-on span { transform: translateX(18px); }
+      .org-switch:focus-visible { outline: 2px solid #a855f7; outline-offset: 2px; }
       .org-console .field textarea { min-height: 110px; }
       .org-console .field input:focus,
       .org-console .field select:focus,
@@ -1533,8 +1913,8 @@ export function OrganisationConsole() {
         .org-console-tabs { scroll-snap-type: x mandatory; padding-bottom: 4px; }
         .org-console-tab { scroll-snap-align: start; }
         .org-console .pane-head { font-size: 15px; }
-        .org-console-header { position: static; }
-        .org-console-content { padding: 14px 14px 0; }
+        .org-console-header { position: static; padding: 12px 0; }
+        .org-console-content { padding: 12px 12px 0; }
       }
     `}</style>
     </>

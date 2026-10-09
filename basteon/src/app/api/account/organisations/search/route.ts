@@ -11,8 +11,10 @@ export async function GET(request: Request) {
   const db = createAdminClient();
   const { data, error } = await db
     .from("organisations")
-    .select("id,name,slug,organisation_type,status,organisation_branches(id,name,city)")
+    .select("id,name,slug,organisation_type,status,support_email,support_phone,organisation_branches(id,name,city)")
     .eq("status", "active")
+    .eq("is_partner", false)
+    .neq("organisation_type", "responder_partner")
     .ilike("name", `%${q}%`)
     .order("name")
     .limit(12);

@@ -53,12 +53,24 @@ This repository includes [vercel.json](./vercel.json) cron schedules for:
 
 - `GET /api/trips/watchdog` every 2 minutes
 - `GET /api/alerts/escalate` every minute
+- `GET /api/org-links/revalidate` every 6 hours (expires roster entries and ends stale org links after grace)
 
 Set `CRON_SECRET` in the deployment environment so Vercel cron authentication succeeds.  
 For manual service-to-service triggering, the existing `POST` endpoints still support:
 
 - `x-trip-watchdog-secret: $TRIP_WATCHDOG_SECRET`
 - `x-alert-escalation-secret: $ALERT_ESCALATION_SECRET`
+
+## Organisation Roster Linking (Roster-Only Validation)
+
+Organisation linking now validates strictly against organisation roster entries:
+
+- Endpoint: `POST /api/org-links/validate`
+- Accepted identifiers: `email`, `member_id`, `access_code`
+- Outcome codes: `LINKED`, `PENDING_APPROVAL`, `NOT_ELIGIBLE`, `EXPIRED`, `ALREADY_CLAIMED`, `RATE_LIMITED`
+- No OTP/second-factor flow is required when `organisation_link_settings.require_identifier_verification=false` (default).
+
+The validator is rate-limited per user and IP, does not reveal roster membership details to the claimant, and records link/rejection events in the roster audit log.
 
 ## Device Endpoint
 

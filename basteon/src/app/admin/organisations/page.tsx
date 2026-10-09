@@ -9,6 +9,7 @@ type Organisation = {
   name: string;
   slug: string;
   organisation_type: string;
+  is_partner: boolean;
   institution_kind: string | null;
   business_category: string | null;
   responder_category: string | null;
@@ -241,12 +242,13 @@ export default function AdminOrganisationsPage() {
           <div className="p-4">Loading organisations...</div>
         ) : (
           <table className="tbl">
-            <thead><tr><th>Name</th><th>Type</th><th>Category</th><th>Branches</th><th>Members</th><th>Status</th></tr></thead>
+            <thead><tr><th>Name</th><th>Type</th><th>Partner</th><th>Category</th><th>Branches</th><th>Members</th><th>Status</th></tr></thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="cursor-pointer hover:bg-[var(--surface-2)]" onClick={() => void openOrganisation(row.id)}>
                   <td>{row.name}</td>
                   <td>{row.organisation_type}</td>
+                  <td>{row.is_partner ? "Yes" : "No"}</td>
                   <td>{row.institution_kind || row.business_category || row.responder_category || "—"}</td>
                   <td>{row.organisation_branches?.length ?? 0}</td>
                   <td>{row.organisation_memberships?.length ?? 0}</td>
@@ -271,6 +273,7 @@ export default function AdminOrganisationsPage() {
           {detail && (
             <div className="mt-4 space-y-4">
               <section className="panel p-4">
+                <p className="text-sm">Responder partner: <b>{detail.organisation.is_partner ? "Yes" : "No"}</b></p>
                 <p className="text-sm">Owner: <b>{detail.owner?.name ?? "—"}</b></p>
                 <p className="text-sm">Support email: <b>{detail.organisation.support_email ?? "—"}</b></p>
                 <p className="text-sm">Support phone: <b>{detail.organisation.support_phone ?? "—"}</b></p>

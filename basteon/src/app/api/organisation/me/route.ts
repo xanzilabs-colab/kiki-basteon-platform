@@ -9,7 +9,11 @@ const settingsSchema = z.object({
   allowWorkId: z.boolean(),
   requireInvite: z.boolean(),
   autoApproveLinks: z.boolean(),
-  workIdRegex: z.string().optional().nullable(),
+  rosterIdCaseMode: z.enum(["upper", "lower", "as_is"]).optional(),
+  workIdRegex: z.string().optional().nullable().refine((value) => {
+    if (!value?.trim()) return true;
+    try { new RegExp(value); return true; } catch { return false; }
+  }, "Work/student ID regex is invalid."),
 });
 
 export async function GET() {
@@ -77,6 +81,7 @@ export async function PATCH(request: Request) {
     require_invite: payload.data.requireInvite,
     auto_approve_links: payload.data.autoApproveLinks,
     work_id_regex: payload.data.workIdRegex?.trim() || null,
+    ...(payload.data.rosterIdCaseMode ? { roster_id_case_mode: payload.data.rosterIdCaseMode } : {}),
   }, { onConflict: "organisation_id" });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true });

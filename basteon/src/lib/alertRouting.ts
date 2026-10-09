@@ -26,6 +26,7 @@ export type RoutingLink = {
   organisation_id: string;
   branch_id: string | null;
   status: string;
+  roster_entry_id?: string | null;
 };
 
 export type RoutingTarget = {
@@ -150,7 +151,7 @@ export function planAlertTargets(input: {
     });
   }
 
-  const includePartners = input.lifeThreat || result.length === 0;
+  const includePartners = result.length === 0;
   if (includePartners) {
     for (const coverage of input.partnerCoverage.filter((item) => item.active && item.emergency_type_code === input.emergencyTypeCode)) {
       const branches = input.partnerBranches.filter((branch) => branch.organisation_id === coverage.organisation_id);
@@ -197,17 +198,18 @@ export async function routeAlertAndNotify(alertId: string) {
   const [{ data: typeRow }, { data: links }, { data: partnerOrgs }, { data: partnerBranches }, { data: partnerCoverage }] = await Promise.all([
     db.from("emergency_types").select("code,life_threat").eq("code", typeCode).maybeSingle(),
     ownerId
-      ? db.from("organisation_user_links").select("organisation_id,branch_id,status").eq("user_id", ownerId).eq("status", "active")
+      ? db.from("organisation_user_links").select("organisation_id,branch_id,status,roster_entry_id").eq("user_id", ownerId).eq("status", "active")
       : Promise.resolve({ data: [] as RoutingLink[] }),
     db.from("organisations")
       .select("id")
-      .eq("organisation_type", "responder_partner")
+      .eq("is_partner", true)
       .eq("status", "active")
       .or(`blocked_until.is.null,blocked_until.lte.${new Date().toISOString()}`),
     db.from("organisation_branches").select("id,organisation_id,name,lat,lng,geofence_geojson,is_hq,active"),
     db.from("organisation_emergency_coverage").select("organisation_id,branch_id,emergency_type_code,priority,active").eq("active", true).eq("emergency_type_code", typeCode),
   ]);
-  const rawLinkedOrgIds = [...new Set((links ?? []).map((item) => item.organisation_id))];
+  const rosterLinkedRows = (links ?? []).filter((item) => Boolean(item.roster_entry_id));
+  const rawLinkedOrgIds = [...new Set(rosterLinkedRows.map((item) => item.organisation_id))];
   const { data: activeLinkedOrgs } = rawLinkedOrgIds.length
     ? await db.from("organisations")
       .select("id")
@@ -216,7 +218,7 @@ export async function routeAlertAndNotify(alertId: string) {
       .or(`blocked_until.is.null,blocked_until.lte.${new Date().toISOString()}`)
     : { data: [] as Array<{ id: string }> };
   const activeLinkedOrgIds = new Set((activeLinkedOrgs ?? []).map((row) => row.id));
-  const filteredLinks = (links ?? []).filter((link) => activeLinkedOrgIds.has(link.organisation_id));
+  const filteredLinks = rosterLinkedRows.filter((link) => activeLinkedOrgIds.has(link.organisation_id));
   const linkedOrgIds = [...new Set(filteredLinks.map((item) => item.organisation_id))];
   const [{ data: linkedBranches }, { data: linkedCoverage }] = linkedOrgIds.length
     ? await Promise.all([

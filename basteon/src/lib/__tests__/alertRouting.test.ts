@@ -49,7 +49,7 @@ describe("alert routing planner", () => {
     expect(targets.some((target) => target.organisation_id === "o1" && target.tier === 1)).toBe(true);
   });
 
-  it("2. includes partner tier for life threatening alerts", () => {
+  it("2. does not include partners when a linked organisation is a routing target", () => {
     const targets = planAlertTargets({
       emergencyTypeCode: "general",
       lifeThreat: true,
@@ -61,7 +61,7 @@ describe("alert routing planner", () => {
       partnerBranches,
       partnerCoverage,
     });
-    expect(targets.some((target) => target.organisation_id === "p1" && target.tier === 2)).toBe(true);
+    expect(targets.some((target) => target.organisation_id === "p1")).toBe(false);
   });
 
   it("3. skips partner tier for non-life-threatening when linked targets exist", () => {

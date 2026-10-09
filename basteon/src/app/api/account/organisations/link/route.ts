@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { currentUserId, emailDomain } from "@/lib/organisation";
+import { currentUserId } from "@/lib/organisation";
+import { validateAndLinkOrganisation } from "@/lib/orgLinkValidation";
 
 const schema = z.object({
   organisationId: z.string().uuid(),
-  branchId: z.string().uuid(),
+  branchId: z.string().uuid().optional().nullable(),
   label: z.enum(["work", "school", "home", "other"]).default("other"),
-  method: z.enum(["email_domain", "work_id"]),
+  method: z.enum(["email_domain", "work_id"]).optional(),
+  identifierType: z.enum(["email", "member_id", "access_code"]).optional(),
   identifier: z.string().min(2),
   placeAddress: z.string().optional().nullable(),
 });
@@ -18,21 +20,13 @@ const patchSchema = z.object({
   placeAddress: z.string().optional().nullable(),
 });
 
-function membershipFromDomain(domain: string, rules: Array<{ domain: string; membership_type: string }>) {
-  const match = rules
-    .slice()
-    .sort((a: any, b: any) => (a.priority ?? 100) - (b.priority ?? 100))
-    .find((r) => domain === r.domain || domain.endsWith(`.${r.domain}`));
-  return match?.membership_type ?? "general";
-}
-
 export async function GET() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const db = createAdminClient();
   const { data, error } = await db
     .from("organisation_user_links")
-    .select("id,label,method,identifier,membership_type,status,place_address,created_at,organisation_id,branch_id,organisations(id,name,slug,organisation_type),organisation_branches(id,name,city)")
+    .select("id,label,method,identifier,membership_type,status,place_address,created_at,organisation_id,branch_id,roster_entry_id,org_roster_entries(status,valid_until),organisations(id,name,slug,organisation_type,support_email,support_phone),organisation_branches(id,name,city)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -45,59 +39,20 @@ export async function POST(request: Request) {
   const payload = schema.safeParse(await request.json());
   if (!payload.success) return NextResponse.json({ error: payload.error.flatten() }, { status: 400 });
   const input = payload.data;
-  const db = createAdminClient();
-  const [{ data: settings }, { data: domains }] = await Promise.all([
-    db.from("organisation_link_settings").select("*").eq("organisation_id", input.organisationId).maybeSingle(),
-    db.from("organisation_domains").select("domain,membership_type,priority").eq("organisation_id", input.organisationId),
-  ]);
-  if (!settings) return NextResponse.json({ error: "Organisation not configured for linking" }, { status: 400 });
-  const { data: branch } = await db.from("organisation_branches").select("id").eq("id", input.branchId).eq("organisation_id", input.organisationId).eq("active", true).maybeSingle();
-  if (!branch) return NextResponse.json({ error: "Valid organisation branch is required." }, { status: 400 });
-
-  let membershipType = "general";
-  if (input.method === "email_domain") {
-    if (!settings.allow_email_domain) return NextResponse.json({ error: "This organisation does not accept email-domain linking." }, { status: 400 });
-    const domain = emailDomain(input.identifier.toLowerCase());
-    if (!domain) return NextResponse.json({ error: "A valid email-domain identifier is required." }, { status: 400 });
-    membershipType = membershipFromDomain(domain, domains ?? []);
-  } else {
-    if (!settings.allow_work_id) return NextResponse.json({ error: "This organisation does not accept work-ID linking." }, { status: 400 });
-    if (settings.work_id_regex) {
-      const regex = new RegExp(settings.work_id_regex);
-      if (!regex.test(input.identifier.trim())) return NextResponse.json({ error: "Work ID format is not valid for this organisation." }, { status: 400 });
-    }
-  }
-
-  const status = settings.require_invite ? "pending" : "active";
-  const role = membershipType === "security" ? "responder" : "member";
-  const source = input.method;
-  const identifier = input.identifier.trim();
-
-  const [{ error: linkError }, { error: memberError }] = await Promise.all([
-    db.from("organisation_user_links").upsert({
-      user_id: userId,
-      organisation_id: input.organisationId,
-      branch_id: input.branchId,
-      label: input.label,
-      place_address: input.placeAddress?.trim() || null,
-      method: input.method,
-      identifier,
-      membership_type: membershipType,
-      status,
-    }, { onConflict: "user_id,organisation_id,label" }),
-    db.from("organisation_memberships").upsert({
-      organisation_id: input.organisationId,
-      user_id: userId,
-      branch_id: input.branchId,
-      membership_type: membershipType,
-      role,
-      status,
-      source,
-      linked_identifier: identifier,
-    }, { onConflict: "organisation_id,user_id" }),
-  ]);
-  if (linkError || memberError) return NextResponse.json({ error: linkError?.message ?? memberError?.message ?? "Could not link organisation" }, { status: 400 });
-  return NextResponse.json({ ok: true, status, membershipType });
+  const identifierType = input.identifierType ?? (input.method === "email_domain" ? "email" : "member_id");
+  const forwarded = request.headers.get("x-forwarded-for");
+  const result = await validateAndLinkOrganisation({
+    userId,
+    organisationId: input.organisationId,
+    branchId: input.branchId ?? null,
+    identifierType,
+    identifier: input.identifier,
+    label: input.label,
+    placeAddress: input.placeAddress ?? null,
+    ipAddress: forwarded ? forwarded.split(",")[0]?.trim() ?? null : request.headers.get("x-real-ip"),
+  });
+  const status = result.code === "RATE_LIMITED" ? 429 : 200;
+  return NextResponse.json(result, { status });
 }
 
 export async function DELETE(request: Request) {
@@ -107,10 +62,29 @@ export async function DELETE(request: Request) {
   const organisationId = typeof body.organisationId === "string" ? body.organisationId : "";
   if (!organisationId) return NextResponse.json({ error: "organisationId required" }, { status: 400 });
   const db = createAdminClient();
-  await Promise.all([
-    db.from("organisation_user_links").delete().eq("user_id", userId).eq("organisation_id", organisationId),
-    db.from("organisation_memberships").delete().eq("user_id", userId).eq("organisation_id", organisationId).in("source", ["email_domain", "work_id"]),
-  ]);
+  const { data: links } = await db.from("organisation_user_links")
+    .select("id,roster_entry_id")
+    .eq("user_id", userId)
+    .eq("organisation_id", organisationId);
+  const rosterLink = (links ?? []).find((link: any) => link.roster_entry_id);
+  if (rosterLink) {
+    await db.from("org_roster_audit_log").insert({
+      org_id: organisationId,
+      actor_id: userId,
+      action: "user_unlinked",
+      entry_id: rosterLink.roster_entry_id,
+      details: {},
+    });
+    await Promise.all([
+      db.from("organisation_user_links").update({ status: "unlinked" }).eq("user_id", userId).eq("organisation_id", organisationId),
+      db.from("organisation_memberships").update({ status: "unlinked" }).eq("user_id", userId).eq("organisation_id", organisationId).eq("roster_entry_id", rosterLink.roster_entry_id),
+    ]);
+  } else {
+    await Promise.all([
+      db.from("organisation_user_links").delete().eq("user_id", userId).eq("organisation_id", organisationId),
+      db.from("organisation_memberships").delete().eq("user_id", userId).eq("organisation_id", organisationId).in("source", ["email_domain", "work_id"]),
+    ]);
+  }
   return NextResponse.json({ ok: true });
 }
 

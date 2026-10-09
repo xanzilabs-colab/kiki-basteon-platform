@@ -17,7 +17,7 @@ export async function GET() {
   const db = createAdminClient();
   const { data, error } = await db
     .from("organisations")
-    .select("id,name,slug,organisation_type,institution_kind,business_category,responder_category,status,blocked_until,blocked_reason,created_at,organisation_branches(id,name),organisation_memberships(id)")
+    .select("id,name,slug,organisation_type,is_partner,institution_kind,business_category,responder_category,status,blocked_until,blocked_reason,created_at,organisation_branches(id,name),organisation_memberships(id)")
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data ?? []);
@@ -61,6 +61,7 @@ export async function POST(request: Request) {
     name: input.name,
     slug,
     organisation_type: effectiveType,
+    is_partner: input.isPartner || effectiveType === "responder_partner",
     created_by: authCreated.user.id,
     support_email: input.ownerEmail,
     support_phone: input.ownerPhone ?? null,
