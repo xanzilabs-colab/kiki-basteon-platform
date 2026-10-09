@@ -910,70 +910,117 @@ export function OrganisationConsole() {
       )}
     </div>
     <style jsx global>{`
-      .org-console { color: #29212f; }
-      .org-console-header { padding: 4px 2px 6px; }
+      .org-console {
+        color: #e2e8f0;
+        background: #0b0d12;
+        max-width: 80rem;
+        margin: 0 auto;
+        padding: 0 0 24px;
+      }
+      .org-console .page-title { color: #ffffff; font-size: 24px; }
+      .org-console .eyebrow { color: #94a3b8; }
+      .org-console .muted { color: #94a3b8; }
+      .org-console-header {
+        padding: 16px 18px;
+        border: 1px solid #23283a;
+        border-radius: 16px;
+        background: #10131c;
+        position: sticky;
+        top: 8px;
+        z-index: 20;
+      }
       .org-console-heading { display: flex; align-items: center; gap: 12px; }
       .org-console-mark {
         width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
-        font-weight: 800; background: #5b2c73; color: #fff;
+        font-weight: 800; background: #7c3aed; color: #fff;
       }
       .org-console .panel {
-        border: 1px solid #dfd1ea;
+        border: 1px solid #252b3f;
         border-radius: 18px;
-        background: #fff;
+        background: #141721;
         box-shadow: none;
       }
       .org-console .pane-head {
         border-radius: 18px 18px 0 0;
         min-height: 52px;
         padding-inline: 16px;
-        border-bottom: 1px solid #eadff2;
-        background: #f7f0fc;
+        border-bottom: 1px solid #252b3f;
+        background: #1a1e2b;
+        color: #ffffff;
       }
-      .org-console-tabs-shell { padding: 12px; background: #f4eafc; }
+      .org-console-tabs-shell {
+        padding: 10px;
+        background: #10131c;
+        border: 1px solid #252b3f;
+      }
       .org-console-tabs {
         display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin;
       }
       .org-console-tab {
-        border: 1px solid #e3d4ef;
-        background: #fff;
-        color: #4f345d;
+        border: 1px solid #2a3147;
+        background: #1a1e2b;
+        color: #94a3b8;
         font-weight: 700;
         min-height: 40px;
         border-radius: 12px;
         padding-inline: 14px;
         white-space: nowrap;
       }
-      .org-console-tab:hover { background: #f1e6fb; }
-      .org-console-tab.is-active { border-color: #5b2c73; background: #5b2c73; color: #fff; }
-      .org-console-tab-description { color: #5d4f66; }
-      .org-console-hero { border-color: #d9c7e8; background: #f8efff; }
+      .org-console-tab:hover { background: #252a3d; color: #e2e8f0; }
+      .org-console-tab.is-active { border-color: #7c3aed; background: #7c3aed; color: #fff; }
+      .org-console-tab-description { color: #94a3b8; }
+      .org-console-hero { border-color: #2a3147; background: #1a1e2b; }
       .org-console-metric {
-        border: 1px solid #e8def0; border-radius: 14px; box-shadow: none; background: #fcf7ff;
+        border: 1px solid #2a3147; border-radius: 14px; box-shadow: none; background: #1a1e2b;
       }
-      .org-console-metric p:last-child { color: #301a3d; }
+      .org-console-metric p:first-child { color: #94a3b8; }
+      .org-console-metric p:nth-child(2) { color: #ffffff; }
+      .org-console-metric p:last-child { color: #cbd5e1; }
       .org-console-surface-block {
-        border: 1px solid #e8def0; border-radius: 14px; box-shadow: none; background: #fcf7ff;
+        border: 1px solid #2a3147; border-radius: 14px; box-shadow: none; background: #1a1e2b;
       }
+      .org-console-surface-block h3 { color: #ffffff; }
       .org-console-action {
-        border: 1px solid #e6d8f2; min-height: 44px; border-radius: 12px; background: #fff; color: #3f2450;
+        border: 1px solid #2e3550;
+        min-height: 44px;
+        border-radius: 12px;
+        background: #1d2232;
+        color: #e2e8f0;
       }
-      .org-console-action:hover { background: #f4e9fd; }
+      .org-console-action:hover { background: #252b3f; }
       .org-console-log-row {
         display: flex; justify-content: space-between; gap: 12px; align-items: center;
-        border: 1px solid #e9e0f0; border-radius: 10px; padding: 10px 12px; background: #fff;
+        border: 1px solid #2a3147; border-radius: 10px; padding: 10px 12px; background: #191d2a;
       }
+      .org-console-log-row p { color: #ffffff; }
       .org-console .field input,
       .org-console .field select,
       .org-console .field textarea {
-        border: 1px solid #e5d9ee; border-radius: 12px; min-height: 42px; background: #fff; color: #2a2130;
+        border: 1px solid #2e3550;
+        border-radius: 12px;
+        min-height: 42px;
+        background: #0f1219;
+        color: #f8fafc;
       }
+      .org-console .field { color: #cbd5e1; font-size: 12px; font-weight: 600; }
       .org-console .field textarea { min-height: 110px; }
       .org-console .field input:focus,
       .org-console .field select:focus,
-      .org-console .field textarea:focus { outline: 2px solid #7a3f98; outline-offset: 1px; }
-      .org-console .tbl thead th { background: #f5ecfc; color: #442856; }
-      .org-console .tbl tbody td { color: #2d2334; }
+      .org-console .field textarea:focus { outline: 2px solid #a855f7; outline-offset: 1px; }
+      .org-console .tbl thead th { background: #1a1e2b; color: #94a3b8; border-bottom: 1px solid #2a3147; }
+      .org-console .tbl tbody td { color: #e2e8f0; border-bottom: 1px solid #252b3f; }
+      .org-console .btn {
+        border: 1px solid #2e3550;
+        background: #1a1e2b;
+        color: #e2e8f0;
+      }
+      .org-console .btn:hover { background: #252a3d; }
+      .org-console .btn-primary {
+        border-color: #7c3aed;
+        background: #7c3aed;
+        color: #ffffff;
+      }
+      .org-console .btn-primary:hover { background: #6d28d9; }
       @media (max-width: 768px) {
         .org-console-tabs { scroll-snap-type: x mandatory; padding-bottom: 4px; }
         .org-console-tab { scroll-snap-align: start; }
