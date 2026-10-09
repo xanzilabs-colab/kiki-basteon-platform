@@ -1,0 +1,22 @@
+.org-sheet-layer {
+  --org-bg:#f7f4fb;--org-card:#fff;--org-ink:#2a0f3a;--org-ink-2:#55466a;--org-muted:#8a7d97;
+  --org-plum:#522868;--org-plum-dark:#34173f;--org-tonal:#ece5f6;--org-tonal-2:#e0d6ef;--org-line:#e6dff0;
+  --org-ok:#17824f;--org-ok-bg:#e2f5ea;--org-warn:#9a5a00;--org-warn-bg:#fff0d8;--org-bad:#c0293f;--org-bad-bg:#fde8ec;
+  z-index:10040;
+}
+.org-sheet { border:1px solid #e3d9eb; background:#fff; color:#2a0f3a; }
+.org-sheet-content { color:#2a0f3a; }
+.org-segment { border:1px solid #e6dff0; border-radius:14px; background:#f1edf5; padding:4px; }
+.org-segment button { background:transparent; }
+.org-segment button.selected { border:1px solid #e7deed; background:#fff; color:#522868; }
+.org-chip { background:#eee8f4; color:#513468!important; }
+.org-toast { max-width:calc(100vw - 32px); white-space:normal; }
+.org-toast { z-index:10060; }
+.org-toast.is-error { border:1px solid #f3c6cf; background:#9f253c; color:#fff; }
+.org-toast.is-error svg { color:#fff; }
+.org-inline-error { margin:0 0 14px; border:1px solid #f3c6cf; border-radius:12px; background:#fff0f2; padding:10px 12px; color:#9f253c; font-size:13px; line-height:1.4; }
+.org-field select { color-scheme:light; }
+@media(min-width:768px) {
+  .org-sheet-layer { align-items:center; padding:24px; }
+  .org-sheet { max-height:calc(100dvh - 48px); margin:0; border-radius:28px; }
+}

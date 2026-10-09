@@ -991,21 +991,21 @@
 .kiki-overview-trip-row {
   position: relative;
   display: flex;
-  min-height: 106px;
+  min-height: 72px;
   align-items: center;
-  gap: 14px;
-  padding: 16px;
+  gap: 10px;
+  padding: 11px 14px;
   color: #241a2c;
   text-decoration: none;
 }
-.kiki-overview-route { display: flex; width: 42px; flex: 0 0 42px; align-self: stretch; flex-direction: column; align-items: center; justify-content: center; padding: 4px 0; }
+.kiki-overview-route { display: flex; width: 32px; flex: 0 0 32px; align-items: center; justify-content: center; gap: 3px; }
 .kiki-overview-route i { width: 11px; height: 11px; border: 2.5px solid #4b1648; border-radius: 50%; background: #fff; }
 .kiki-overview-route i:last-child { background: #4b1648; }
-.kiki-overview-route u { width: 2px; min-height: 22px; flex: 1; margin: 3px 0; background: repeating-linear-gradient(#e6d8f2 0 4px, transparent 4px 8px); }
+.kiki-overview-route u { width: 8px; height: 2px; flex: 0 0 8px; margin: 0; background: repeating-linear-gradient(90deg, #bca7cd 0 3px, transparent 3px 5px); }
 .kiki-overview-trip-copy { min-width: 0; flex: 1; }
-.kiki-overview-trip-copy strong { display: block; overflow: hidden; color: #241a2c; font-size: 16.5px; font-weight: 600; letter-spacing: -.2px; line-height: 1.25; text-overflow: ellipsis; }
+.kiki-overview-trip-copy strong { display: block; overflow: hidden; color: #241a2c; font-size: 15px; font-weight: 650; letter-spacing: -.2px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .kiki-overview-trip-copy > span:not(.kiki-overview-arrived) { display: block; margin-top: 3px; color: #70687a; font-size: 14px; }
-.kiki-overview-trip-row time { align-self: flex-start; color: #70687a; font-size: 13.5px; white-space: nowrap; }
+.kiki-overview-trip-row time { align-self: center; color: #70687a; font-size: 11px; white-space: nowrap; }
 .kiki-overview-arrived { display: inline-flex!important; width: max-content; align-items: center; gap: 6px; margin-top: 10px!important; border-radius: 99px; background: #e3f8ee; padding: 5px 11px 5px 9px; color: #17794c!important; font-size: 13px!important; font-weight: 600; }
 .kiki-overview-empty { padding: 22px 16px; color: #70687a; font-size: 14px; line-height: 1.45; }
 @media (max-width: 400px) {

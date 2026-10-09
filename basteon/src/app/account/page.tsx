@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  Check,
   ChevronRight,
   MapPin,
   Navigation,
@@ -172,8 +171,6 @@ export default function AccountPage() {
             <span className="kiki-overview-route" aria-hidden="true"><i /><u /><i /></span>
             <span className="kiki-overview-trip-copy">
               <strong>{trip.destination_label}</strong>
-              <span>{trip.mode === "walk" ? "Walk" : "Taxi"}</span>
-              {trip.status === "arrived" && <span className="kiki-overview-arrived"><Check size={14} />Arrived safely</span>}
             </span>
             <time dateTime={trip.ended_at ?? trip.created_at}>{formatTripDate(trip.ended_at ?? trip.created_at)}</time>
           </Link>)

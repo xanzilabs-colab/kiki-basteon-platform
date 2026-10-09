@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
+import "./organisationsPortal.css";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -108,8 +110,8 @@ export default function AccountOrganisationsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [toast, setToast] = useState("");
+  const [toastIsError, setToastIsError] = useState(false);
   const linkedSection = useRef<HTMLElement>(null);
   const queryInput = useRef<HTMLInputElement>(null);
 
@@ -156,6 +158,12 @@ export default function AccountOrganisationsPage() {
   }, [toast]);
 
   useEffect(() => {
+    if (!error) return;
+    setToastIsError(true);
+    setToast(error);
+  }, [error]);
+
+  useEffect(() => {
     if (!sheet) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setSheet(null);
@@ -172,7 +180,6 @@ export default function AccountOrganisationsPage() {
     setPlaceAddress("");
     setSheet({ type: "link", stage: "form", organisation });
     setError("");
-    setMessage("");
   }
 
   async function linkOrganisation(event: React.FormEvent) {
@@ -181,7 +188,6 @@ export default function AccountOrganisationsPage() {
     const organisation = sheet.organisation;
     setBusy(true);
     setError("");
-    setMessage("");
     try {
       const response = await fetch("/api/org-links/validate", {
         method: "POST",
@@ -199,11 +205,12 @@ export default function AccountOrganisationsPage() {
       const code = (body?.code ?? "NOT_ELIGIBLE") as LinkCode;
       if (!response.ok && code !== "RATE_LIMITED") throw new Error(body?.message ?? "Could not link organisation.");
       if (code === "LINKED" || code === "PENDING_APPROVAL") {
-        setMessage(validationCopy[code]);
         setSheet(null);
         setQuery("");
         setResults([]);
         await refreshLinked();
+        setError("");
+        setToastIsError(false);
         setToast(code === "LINKED" ? `Linked to ${organisation.name}` : "Approval request submitted");
       } else {
         setSheet({ type: "link", stage: "fail", organisation, code, detail: body?.message });
@@ -228,6 +235,8 @@ export default function AccountOrganisationsPage() {
       if (!response.ok) throw new Error(body?.error ?? "Could not unlink organisation.");
       setSheet(null);
       await refreshLinked();
+      setError("");
+      setToastIsError(false);
       setToast("Organisation unlinked");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not unlink organisation.");
@@ -253,6 +262,8 @@ export default function AccountOrganisationsPage() {
       if (!response.ok) throw new Error(body?.error ?? "Could not update linked organisation.");
       setSheet(null);
       await refreshLinked();
+      setError("");
+      setToastIsError(false);
       setToast("Changes saved");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not update linked organisation.");
@@ -282,6 +293,103 @@ export default function AccountOrganisationsPage() {
 
   const searchTerm = query.trim();
   const activeSheet = sheet;
+  const sheetLayer = activeSheet && <div className="org-sheet-layer">
+    <button className="org-sheet-backdrop" type="button" aria-label="Close dialog" onClick={() => !busy && setSheet(null)} />
+    <section className="org-sheet" role="dialog" aria-modal="true" aria-labelledby="org-sheet-title" onClick={(event) => event.stopPropagation()}>
+      <div className="org-grabber" />
+      <div className="org-sheet-content">
+        {activeSheet.type === "link" && activeSheet.stage === "fail" ? (
+          <>
+            <div className="org-sheet-topline"><span /><button className="org-close" type="button" aria-label="Close" onClick={() => setSheet(null)}><X size={18} /></button></div>
+            <div className="org-failure">
+              <span className="org-failure-icon"><AlertTriangle size={31} /></span>
+              <h2 id="org-sheet-title">{activeSheet.code === "RATE_LIMITED" ? "Please wait a moment" : "We couldn’t confirm you"}</h2>
+              <p>{activeSheet.code ? validationCopy[activeSheet.code] : activeSheet.detail ?? validationCopy.NOT_ELIGIBLE} Ask the organisation to confirm your access or add you to its roster.</p>
+              <div className="org-action-stack">
+                {contactLink(activeSheet.organisation, "email") && <a className="org-button org-primary" href={contactLink(activeSheet.organisation, "email") ?? undefined}><Mail size={17} />Request approval</a>}
+                {contactLink(activeSheet.organisation, "phone") && <a className="org-button org-tonal" href={contactLink(activeSheet.organisation, "phone") ?? undefined}><Phone size={17} />Call organisation</a>}
+                <button className="org-button org-text-button" type="button" onClick={() => setSheet({ ...activeSheet, stage: "form", code: undefined, detail: undefined })}>Try a different ID</button>
+              </div>
+            </div>
+          </>
+        ) : activeSheet.type === "link" ? (
+          <form onSubmit={(event) => void linkOrganisation(event)}>
+            <div className="org-sheet-head">
+              <span className="org-avatar">{initials(activeSheet.organisation.name)}</span>
+              <span><b id="org-sheet-title">{activeSheet.organisation.name}</b><small>{activeSheet.organisation.organisation_type} · {(activeSheet.organisation.organisation_branches ?? []).length} {(activeSheet.organisation.organisation_branches ?? []).length === 1 ? "branch" : "branches"}</small></span>
+              <button className="org-close" type="button" aria-label="Close" disabled={busy} onClick={() => setSheet(null)}><X size={18} /></button>
+            </div>
+            <div className="org-field">
+              <label>Relationship</label>
+              <div className="org-segment" role="group" aria-label="Relationship">
+                {relationshipOptions.map(({ value, label, Icon }) => <button type="button" key={value} className={relationship === value ? "selected" : ""} aria-pressed={relationship === value} onClick={() => setRelationship(value)}><Icon size={17} />{label}</button>)}
+              </div>
+            </div>
+            {activeSheet.organisation.organisation_branches && activeSheet.organisation.organisation_branches.length > 1 && <label className="org-field"><span>Branch</span>
+              <select value={branchId} onChange={(event) => setBranchId(event.target.value)} required>
+                <option value="">Choose branch</option>
+                {activeSheet.organisation.organisation_branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>)}
+              </select>
+            </label>}
+            <label className="org-field" htmlFor="org-identifier-type"><span>Identifier type</span>
+              <select id="org-identifier-type" value={identifierType} onChange={(event) => setIdentifierType(event.target.value as IdentifierType)}>
+                <option value="member_id">Member / student / work ID</option>
+                <option value="email">Email address</option>
+                <option value="access_code">Access code</option>
+              </select>
+            </label>
+            <label className="org-field" htmlFor="org-identifier"><span>{identifierType === "email" ? "Email address" : identifierType === "access_code" ? "Access code" : "Student or work ID"}</span>
+              <input id="org-identifier" autoFocus autoComplete="off" value={identifier} onChange={(event) => setIdentifier(event.target.value)} placeholder={identifierType === "email" ? "name@organisation.com" : identifierType === "access_code" ? "Enter your access code" : "Student, staff or member ID"} required minLength={2} />
+              <small>Use the ID or email {activeSheet.organisation.name} knows you by.</small>
+            </label>
+            <label className="org-field" htmlFor="org-address"><span>Place address <em>· optional</em></span>
+              <span className="org-input-with-icon"><MapPin size={18} /><input id="org-address" value={placeAddress} onChange={(event) => setPlaceAddress(event.target.value)} placeholder="Campus, office or residence" /></span>
+            </label>
+            {error && <p className="org-inline-error" role="alert">{error}</p>}
+            <button className="org-button org-primary org-submit" type="submit" disabled={busy || identifier.trim().length < 2 || Boolean(activeSheet.organisation.organisation_branches?.length && !branchId)}><Link2 size={17} />{busy ? "Checking access…" : "Link organisation"}</button>
+            <p className="org-privacy-note"><LockKeyhole size={16} /><span>Your identifier is checked against this organisation’s roster. It is not shown to other Kiki users.</span></p>
+          </form>
+        ) : activeSheet.stage === "confirm" ? (
+          <div className="org-failure org-unlink-confirm">
+            <span className="org-failure-icon danger"><Unlink size={30} /></span>
+            <h2 id="org-sheet-title">Unlink {activeSheet.organisation.organisations?.name ?? "this organisation"}?</h2>
+            <p>Alerts will stop routing to this organisation. You can link again at any time.</p>
+            <div className="org-action-stack"><button className="org-button org-danger" type="button" disabled={busy} onClick={() => void unlinkOrganisation(activeSheet.organisation)}>{busy ? "Unlinking…" : "Unlink organisation"}</button><button className="org-button org-tonal" type="button" disabled={busy} onClick={() => setSheet({ ...activeSheet, stage: "form" })}>Keep linked</button></div>
+            {error && <p className="org-inline-error" role="alert">{error}</p>}
+          </div>
+        ) : (
+          <>
+            <div className="org-sheet-head">
+              <span className="org-avatar">{initials(activeSheet.organisation.organisations?.name ?? "Organisation")}</span>
+              <span><b id="org-sheet-title">{activeSheet.organisation.organisations?.name ?? "Organisation"}</b><small>{activeSheet.organisation.organisation_branches?.name ?? activeSheet.organisation.membership_type} · {activeSheet.organisation.membership_type}</small></span>
+              <button className="org-close" type="button" aria-label="Close" onClick={() => setSheet(null)}><X size={18} /></button>
+            </div>
+            {(() => {
+              const status = getLinkStatus(activeSheet.organisation);
+              return <div className={`org-status-panel ${status.tone}`}><span>{status.tone === "ok" ? <Check size={18} /> : <InfoIcon />}</span><div><b>{status.label === "Linked" ? "Linked and verified" : status.label}</b><p>{status.detail}</p></div></div>;
+            })()}
+            <div className="org-field">
+              <label>Relationship</label>
+              <div className="org-segment" role="group" aria-label="Relationship">
+                {relationshipOptions.map(({ value, label, Icon }) => <button type="button" key={value} className={editRelationship === value ? "selected" : ""} aria-pressed={editRelationship === value} onClick={() => setEditRelationship(value)}><Icon size={17} />{label}</button>)}
+              </div>
+            </div>
+            <label className="org-field" htmlFor="org-existing-identifier"><span>Student or work ID</span><input id="org-existing-identifier" value={activeSheet.organisation.identifier} readOnly aria-readonly="true" /><small>Identifiers are fixed to the verified roster claim. Contact your organisation if this needs correcting.</small></label>
+            <label className="org-field" htmlFor="org-existing-address"><span>Place address <em>· optional</em></span><span className="org-input-with-icon"><MapPin size={18} /><input id="org-existing-address" value={editAddress} onChange={(event) => setEditAddress(event.target.value)} placeholder="Campus, office or residence" /></span></label>
+            <div className="org-action-stack">
+              <button className="org-button org-primary org-submit" type="button" disabled={busy || (editRelationship === activeSheet.organisation.label && editAddress === (activeSheet.organisation.place_address ?? ""))} onClick={() => void saveEdit(activeSheet.organisation)}><Check size={17} />Save changes</button>
+              <button className="org-button org-text-button" type="button" disabled={busy} onClick={() => setSheet({ ...activeSheet, stage: "confirm" })}><Unlink size={16} />Unlink organisation</button>
+            </div>
+            {error && <p className="org-inline-error" role="alert">{error}</p>}
+            {activeSheet.organisation.status !== "active" && <div className="org-contact-row">
+              {contactLink(activeSheet.organisation.organisations, "email") && <a className="org-button org-tonal org-small-button" href={contactLink(activeSheet.organisation.organisations, "email") ?? undefined}><Mail size={16} />Contact</a>}
+              {contactLink(activeSheet.organisation.organisations, "phone") && <a className="org-button org-tonal org-small-button" href={contactLink(activeSheet.organisation.organisations, "phone") ?? undefined}><Phone size={16} />Call</a>}
+            </div>}
+          </>
+        )}
+      </div>
+    </section>
+  </div>;
 
   return (
     <>
@@ -341,106 +449,11 @@ export default function AccountOrganisationsPage() {
             )}
           </section>
 
-          {(error || message) && <div className={`org-page-message${error ? " is-error" : ""}`} role={error ? "alert" : "status"}>{error || message}</div>}
         </div>
       </div>
 
-      {activeSheet && <div className="org-sheet-layer">
-        <button className="org-sheet-backdrop" type="button" aria-label="Close dialog" onClick={() => !busy && setSheet(null)} />
-        <section className="org-sheet" role="dialog" aria-modal="true" aria-labelledby="org-sheet-title" onClick={(event) => event.stopPropagation()}>
-          <div className="org-grabber" />
-          <div className="org-sheet-content">
-            {activeSheet.type === "link" && activeSheet.stage === "fail" ? (
-              <>
-                <div className="org-sheet-topline"><span /><button className="org-close" type="button" aria-label="Close" onClick={() => setSheet(null)}><X size={18} /></button></div>
-                <div className="org-failure">
-                  <span className="org-failure-icon"><AlertTriangle size={31} /></span>
-                  <h2 id="org-sheet-title">{activeSheet.code === "RATE_LIMITED" ? "Please wait a moment" : "We couldn’t confirm you"}</h2>
-                  <p>{activeSheet.code ? validationCopy[activeSheet.code] : activeSheet.detail ?? validationCopy.NOT_ELIGIBLE} Ask the organisation to confirm your access or add you to its roster.</p>
-                  <div className="org-action-stack">
-                    {contactLink(activeSheet.organisation, "email") && <a className="org-button org-primary" href={contactLink(activeSheet.organisation, "email") ?? undefined}><Mail size={17} />Request approval</a>}
-                    {contactLink(activeSheet.organisation, "phone") && <a className="org-button org-tonal" href={contactLink(activeSheet.organisation, "phone") ?? undefined}><Phone size={17} />Call organisation</a>}
-                    <button className="org-button org-text-button" type="button" onClick={() => setSheet({ ...activeSheet, stage: "form", code: undefined, detail: undefined })}>Try a different ID</button>
-                  </div>
-                </div>
-              </>
-            ) : activeSheet.type === "link" ? (
-              <form onSubmit={(event) => void linkOrganisation(event)}>
-                <div className="org-sheet-head">
-                  <span className="org-avatar">{initials(activeSheet.organisation.name)}</span>
-                  <span><b id="org-sheet-title">{activeSheet.organisation.name}</b><small>{activeSheet.organisation.organisation_type} · {(activeSheet.organisation.organisation_branches ?? []).length} {(activeSheet.organisation.organisation_branches ?? []).length === 1 ? "branch" : "branches"}</small></span>
-                  <button className="org-close" type="button" aria-label="Close" disabled={busy} onClick={() => setSheet(null)}><X size={18} /></button>
-                </div>
-                <div className="org-field">
-                  <label>Relationship</label>
-                  <div className="org-segment" role="group" aria-label="Relationship">
-                    {relationshipOptions.map(({ value, label, Icon }) => <button type="button" key={value} className={relationship === value ? "selected" : ""} aria-pressed={relationship === value} onClick={() => setRelationship(value)}><Icon size={17} />{label}</button>)}
-                  </div>
-                </div>
-                {activeSheet.organisation.organisation_branches && activeSheet.organisation.organisation_branches.length > 1 && <label className="org-field"><span>Branch</span>
-                  <select value={branchId} onChange={(event) => setBranchId(event.target.value)} required>
-                    <option value="">Choose branch</option>
-                    {activeSheet.organisation.organisation_branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>)}
-                  </select>
-                </label>}
-                <label className="org-field" htmlFor="org-identifier-type"><span>Identifier type</span>
-                  <select id="org-identifier-type" value={identifierType} onChange={(event) => setIdentifierType(event.target.value as IdentifierType)}>
-                    <option value="member_id">Member / student / work ID</option>
-                    <option value="email">Email address</option>
-                    <option value="access_code">Access code</option>
-                  </select>
-                </label>
-                <label className="org-field" htmlFor="org-identifier"><span>{identifierType === "email" ? "Email address" : identifierType === "access_code" ? "Access code" : "Student or work ID"}</span>
-                  <input id="org-identifier" autoFocus autoComplete="off" value={identifier} onChange={(event) => setIdentifier(event.target.value)} placeholder={identifierType === "email" ? "name@organisation.com" : identifierType === "access_code" ? "Enter your access code" : "Student, staff or member ID"} required minLength={2} />
-                  <small>Use the ID or email {activeSheet.organisation.name} knows you by.</small>
-                </label>
-                <label className="org-field" htmlFor="org-address"><span>Place address <em>· optional</em></span>
-                  <span className="org-input-with-icon"><MapPin size={18} /><input id="org-address" value={placeAddress} onChange={(event) => setPlaceAddress(event.target.value)} placeholder="Campus, office or residence" /></span>
-                </label>
-                <button className="org-button org-primary org-submit" type="submit" disabled={busy || identifier.trim().length < 2 || Boolean(activeSheet.organisation.organisation_branches?.length && !branchId)}><Link2 size={17} />{busy ? "Checking access…" : "Link organisation"}</button>
-                <p className="org-privacy-note"><LockKeyhole size={16} /><span>Your identifier is checked against this organisation’s roster. It is not shown to other Kiki users.</span></p>
-              </form>
-            ) : activeSheet.stage === "confirm" ? (
-              <div className="org-failure org-unlink-confirm">
-                <span className="org-failure-icon danger"><Unlink size={30} /></span>
-                <h2 id="org-sheet-title">Unlink {activeSheet.organisation.organisations?.name ?? "this organisation"}?</h2>
-                <p>Alerts will stop routing to this organisation. You can link again at any time.</p>
-                <div className="org-action-stack"><button className="org-button org-danger" type="button" disabled={busy} onClick={() => void unlinkOrganisation(activeSheet.organisation)}>{busy ? "Unlinking…" : "Unlink organisation"}</button><button className="org-button org-tonal" type="button" disabled={busy} onClick={() => setSheet({ ...activeSheet, stage: "form" })}>Keep linked</button></div>
-              </div>
-            ) : (
-              <>
-                <div className="org-sheet-head">
-                  <span className="org-avatar">{initials(activeSheet.organisation.organisations?.name ?? "Organisation")}</span>
-                  <span><b id="org-sheet-title">{activeSheet.organisation.organisations?.name ?? "Organisation"}</b><small>{activeSheet.organisation.organisation_branches?.name ?? activeSheet.organisation.membership_type} · {activeSheet.organisation.membership_type}</small></span>
-                  <button className="org-close" type="button" aria-label="Close" onClick={() => setSheet(null)}><X size={18} /></button>
-                </div>
-                {(() => {
-                  const status = getLinkStatus(activeSheet.organisation);
-                  return <div className={`org-status-panel ${status.tone}`}><span>{status.tone === "ok" ? <Check size={18} /> : <InfoIcon />}</span><div><b>{status.label === "Linked" ? "Linked and verified" : status.label}</b><p>{status.detail}</p></div></div>;
-                })()}
-                <div className="org-field">
-                  <label>Relationship</label>
-                  <div className="org-segment" role="group" aria-label="Relationship">
-                    {relationshipOptions.map(({ value, label, Icon }) => <button type="button" key={value} className={editRelationship === value ? "selected" : ""} aria-pressed={editRelationship === value} onClick={() => setEditRelationship(value)}><Icon size={17} />{label}</button>)}
-                  </div>
-                </div>
-                <label className="org-field" htmlFor="org-existing-identifier"><span>Student or work ID</span><input id="org-existing-identifier" value={activeSheet.organisation.identifier} readOnly aria-readonly="true" /><small>Identifiers are fixed to the verified roster claim. Contact your organisation if this needs correcting.</small></label>
-                <label className="org-field" htmlFor="org-existing-address"><span>Place address <em>· optional</em></span><span className="org-input-with-icon"><MapPin size={18} /><input id="org-existing-address" value={editAddress} onChange={(event) => setEditAddress(event.target.value)} placeholder="Campus, office or residence" /></span></label>
-                <div className="org-action-stack">
-                  <button className="org-button org-primary org-submit" type="button" disabled={busy || (editRelationship === activeSheet.organisation.label && editAddress === (activeSheet.organisation.place_address ?? ""))} onClick={() => void saveEdit(activeSheet.organisation)}><Check size={17} />Save changes</button>
-                  <button className="org-button org-text-button" type="button" disabled={busy} onClick={() => setSheet({ ...activeSheet, stage: "confirm" })}><Unlink size={16} />Unlink organisation</button>
-                </div>
-                {activeSheet.organisation.status !== "active" && <div className="org-contact-row">
-                  {contactLink(activeSheet.organisation.organisations, "email") && <a className="org-button org-tonal org-small-button" href={contactLink(activeSheet.organisation.organisations, "email") ?? undefined}><Mail size={16} />Contact</a>}
-                  {contactLink(activeSheet.organisation.organisations, "phone") && <a className="org-button org-tonal org-small-button" href={contactLink(activeSheet.organisation.organisations, "phone") ?? undefined}><Phone size={16} />Call</a>}
-                </div>}
-              </>
-            )}
-          </div>
-        </section>
-      </div>}
-
-      {toast && <div className="org-toast" role="status"><Check size={17} />{toast}</div>}
+      {typeof document !== "undefined" && sheetLayer ? createPortal(sheetLayer, document.body) : null}
+      {typeof document !== "undefined" && toast ? createPortal(<div className={`org-toast${toastIsError ? " is-error" : ""}`} role={toastIsError ? "alert" : "status"}>{toastIsError ? <AlertTriangle size={17} /> : <Check size={17} />}{toast}</div>, document.body) : null}
     </>
   );
 }
