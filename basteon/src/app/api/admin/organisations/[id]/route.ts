@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { timingSafeEqual } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { randomPassword } from "@/lib/organisation";
@@ -61,6 +62,10 @@ const patchSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("reset_owner_password"),
   }),
+  z.object({
+    action: z.literal("set_partner"),
+    isPartner: z.boolean(),
+  }),
 ]);
 
 export async function PATCH(request: Request, context: Context) {
@@ -70,6 +75,17 @@ export async function PATCH(request: Request, context: Context) {
   const parsed = patchSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const db = createAdminClient();
+
+  if (parsed.data.action === "set_partner") {
+    const { data, error } = await db.from("organisations")
+      .update({ is_partner: parsed.data.isPartner })
+      .eq("id", id)
+      .select("id,is_partner")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!data) return NextResponse.json({ error: "Organisation not found." }, { status: 404 });
+    return NextResponse.json({ ok: true, isPartner: data.is_partner });
+  }
 
   if (parsed.data.action === "block") {
     const { error } = await db.from("organisations").update({
@@ -106,4 +122,39 @@ export async function PATCH(request: Request, context: Context) {
   const { error } = await db.auth.admin.updateUserById(owner.user_id, { password });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, password, ownerUserId: owner.user_id });
+}
+
+const deleteSchema = z.object({
+  adminPassword: z.string().min(1),
+});
+
+export async function DELETE(request: Request, context: Context) {
+  const auth = await allowed();
+  if (!auth.ok) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Admin password is required." }, { status: 400 });
+  const expectedPassword = process.env.ADMIN_CONTROL_PASSWORD;
+  if (!expectedPassword) {
+    return NextResponse.json({ error: "Organisation deletion is unavailable because admin control is not configured." }, { status: 503 });
+  }
+
+  const submitted = Buffer.from(parsed.data.adminPassword, "utf8");
+  const expected = Buffer.from(expectedPassword, "utf8");
+  if (submitted.length !== expected.length || !timingSafeEqual(submitted, expected)) {
+    return NextResponse.json({ error: "Admin password incorrect." }, { status: 403 });
+  }
+
+  const { id } = await context.params;
+  const db = createAdminClient();
+  const { data: organisation, error: lookupError } = await db.from("organisations")
+    .select("id,name")
+    .eq("id", id)
+    .maybeSingle();
+  if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  if (!organisation) return NextResponse.json({ error: "Organisation not found." }, { status: 404 });
+
+  const { error: deleteError } = await db.from("organisations").delete().eq("id", id);
+  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  return NextResponse.json({ ok: true, deletedOrganisationId: id });
 }

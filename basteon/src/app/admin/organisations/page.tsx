@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Plus } from "lucide-react";
+import { Building2, Plus, Trash2 } from "lucide-react";
 import { BUSINESS_INDUSTRY_OPTIONS, INSTITUTION_KIND_OPTIONS, ORGANISATION_CATEGORY_OPTIONS, RESPONDER_CATEGORY_OPTIONS } from "@/lib/organisationCategories";
 
 type Organisation = {
@@ -47,6 +47,10 @@ export default function AdminOrganisationsPage() {
   const [blockUntil, setBlockUntil] = useState("");
   const [blockReason, setBlockReason] = useState("Policy violation review");
   const [ownerPassword, setOwnerPassword] = useState("");
+  const [partnerBusy, setPartnerBusy] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const categoryOptions = orgType === "institution"
     ? INSTITUTION_KIND_OPTIONS
@@ -186,6 +190,56 @@ export default function AdminOrganisationsPage() {
     setDetailBusy(false);
   }
 
+  async function updatePartnerStatus(isPartner: boolean) {
+    if (!selectedId) return;
+    setPartnerBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch(`/api/admin/organisations/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set_partner", isPartner }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError(body?.error ?? "Could not update partner status.");
+      setPartnerBusy(false);
+      return;
+    }
+    setDetail((current) => current ? {
+      ...current,
+      organisation: { ...current.organisation, is_partner: Boolean(body?.isPartner) },
+    } : current);
+    setMessage(isPartner ? "Organisation marked as a partner." : "Organisation removed from partner defaults.");
+    await load();
+    setPartnerBusy(false);
+  }
+
+  async function deleteOrganisation(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    setDeleteBusy(true);
+    setError("");
+    const response = await fetch(`/api/admin/organisations/${selectedId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminPassword }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError(body?.error ?? "Could not delete organisation.");
+      setDeleteBusy(false);
+      return;
+    }
+    setMessage("Organisation deleted.");
+    setShowDeleteModal(false);
+    setAdminPassword("");
+    setSelectedId("");
+    setDetail(null);
+    await load();
+    setDeleteBusy(false);
+  }
+
   return (
     <div className="space-y-5 max-w-[1280px]">
       <div>
@@ -227,12 +281,20 @@ export default function AdminOrganisationsPage() {
           <label className="field">Owner name<input className="input" required value={ownerFullName} onChange={(event) => setOwnerFullName(event.target.value)} /></label>
           <label className="field">Owner email<input className="input" required type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label>
           <label className="field">Owner phone<input className="input" value={ownerPhone} onChange={(event) => setOwnerPhone(event.target.value)} /></label>
-          <label className="field md:col-span-2">
-            <span className="inline-flex items-center gap-2 text-[13px] font-semibold">
-              <input type="checkbox" checked={isPartner} onChange={(event) => setIsPartner(event.target.checked)} />
-              Mark this organisation as our responder partner
-            </span>
-          </label>
+          <div className="md:col-span-2 flex items-center justify-between gap-4 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
+            <div>
+              <p className="text-sm font-semibold">Partner organisation</p>
+              <p className="muted text-xs">Hide from organisation search and use as alert fallback.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPartner}
+              aria-label="Mark this organisation as a partner"
+              className={`admin-toggle ${isPartner ? "is-on" : ""}`}
+              onClick={() => setIsPartner((value) => !value)}
+            ><span /></button>
+          </div>
           <button className="btn btn-primary self-end" disabled={busy}>Create organisation</button>
         </form>
       </section>
@@ -273,7 +335,21 @@ export default function AdminOrganisationsPage() {
           {detail && (
             <div className="mt-4 space-y-4">
               <section className="panel p-4">
-                <p className="text-sm">Responder partner: <b>{detail.organisation.is_partner ? "Yes" : "No"}</b></p>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold">Partner organisation</p>
+                    <p className="muted text-xs">Hidden from Kiki search; used as an alert fallback when no linked organisation is available.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(detail.organisation.is_partner)}
+                    aria-label="Partner organisation"
+                    disabled={partnerBusy}
+                    className={`admin-toggle ${detail.organisation.is_partner ? "is-on" : ""}`}
+                    onClick={() => void updatePartnerStatus(!detail.organisation.is_partner)}
+                  ><span /></button>
+                </div>
                 <p className="text-sm">Owner: <b>{detail.owner?.name ?? "—"}</b></p>
                 <p className="text-sm">Support email: <b>{detail.organisation.support_email ?? "—"}</b></p>
                 <p className="text-sm">Support phone: <b>{detail.organisation.support_phone ?? "—"}</b></p>
@@ -300,10 +376,90 @@ export default function AdminOrganisationsPage() {
                 <button className="btn btn-primary" type="button" disabled={detailBusy} onClick={() => void resetOwnerPassword()}>Generate new owner password</button>
                 {ownerPassword && <p className="text-sm">New password: <b>{ownerPassword}</b></p>}
               </section>
+              <section className="panel border border-[var(--crit)] p-4 space-y-3">
+                <h3 className="font-semibold text-[var(--crit)]">Danger zone</h3>
+                <p className="muted text-sm">Permanently delete this organisation and its organisation-linked records. This cannot be undone.</p>
+                <button className="btn btn-danger" type="button" onClick={() => { setAdminPassword(""); setShowDeleteModal(true); }}>
+                  <Trash2 size={16} />Delete organisation
+                </button>
+              </section>
             </div>
           )}
         </div>
       )}
+      {showDeleteModal && selectedId && (
+        <div
+          className="fixed inset-0 z-[1300] grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !deleteBusy) setShowDeleteModal(false);
+          }}
+        >
+          <section
+            className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface-1)] p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-organisation-title"
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--crit-bg)] text-[var(--crit)]">
+              <Trash2 size={22} />
+            </div>
+            <h2 id="delete-organisation-title" className="text-lg font-bold">Delete {detail?.organisation?.name ?? "organisation"}?</h2>
+            <p className="muted mt-2 text-sm">This permanently removes the organisation and its linked records. Enter your admin control password to confirm.</p>
+            {error && <p className="ops-login-error mt-3" role="alert">{error}</p>}
+            <form className="mt-5 space-y-4" onSubmit={(event) => void deleteOrganisation(event)}>
+              <label className="field">Admin control password
+                <input
+                  className="input"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={adminPassword}
+                  onChange={(event) => setAdminPassword(event.target.value)}
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <button className="btn" type="button" disabled={deleteBusy} onClick={() => setShowDeleteModal(false)}>Cancel</button>
+                <button className="btn btn-danger" type="submit" disabled={deleteBusy || !adminPassword}>
+                  {deleteBusy ? "Deleting…" : "Confirm permanent deletion"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+      <style jsx global>{`
+        .admin-toggle {
+          position: relative;
+          display: inline-flex;
+          flex: none;
+          width: 46px;
+          height: 26px;
+          align-items: center;
+          padding: 3px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: var(--surface-3);
+          transition: background .16s ease, border-color .16s ease;
+        }
+        .admin-toggle span {
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: var(--text-2);
+          transition: transform .16s ease, background .16s ease;
+        }
+        .admin-toggle.is-on {
+          border-color: var(--ok);
+          background: var(--ok-bg);
+        }
+        .admin-toggle.is-on span {
+          transform: translateX(20px);
+          background: var(--ok);
+        }
+        .admin-toggle:disabled { cursor: not-allowed; opacity: .6; }
+        .admin-toggle:focus-visible { outline: 2px solid var(--line-focus); outline-offset: 3px; }
+      `}</style>
     </div>
   );
 }

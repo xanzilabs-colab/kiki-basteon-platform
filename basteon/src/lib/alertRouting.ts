@@ -212,11 +212,12 @@ export async function routeAlertAndNotify(alertId: string) {
   const rawLinkedOrgIds = [...new Set(rosterLinkedRows.map((item) => item.organisation_id))];
   const { data: activeLinkedOrgs } = rawLinkedOrgIds.length
     ? await db.from("organisations")
-      .select("id")
+      .select("id,is_partner")
       .in("id", rawLinkedOrgIds)
+      .eq("is_partner", false)
       .eq("status", "active")
       .or(`blocked_until.is.null,blocked_until.lte.${new Date().toISOString()}`)
-    : { data: [] as Array<{ id: string }> };
+    : { data: [] as Array<{ id: string; is_partner: boolean }> };
   const activeLinkedOrgIds = new Set((activeLinkedOrgs ?? []).map((row) => row.id));
   const filteredLinks = rosterLinkedRows.filter((link) => activeLinkedOrgIds.has(link.organisation_id));
   const linkedOrgIds = [...new Set(filteredLinks.map((item) => item.organisation_id))];
