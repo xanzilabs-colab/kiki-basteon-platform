@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Gamepad2, Handshake, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Gamepad2, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -337,9 +337,8 @@ export function AccountShell({ name, children }: { name: string; children: React
               <NavSigil><link.icon size={17} aria-hidden="true" /></NavSigil>{link.label}
             </Link>
           ))}
-          <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" ? "page" : undefined}><NavSigil><Route size={17} /></NavSigil>Trips</Link>
-          <Link href="/account/buddies" className="sidebar-link" aria-current={pathname === "/account/buddies" ? "page" : undefined}><NavSigil><Handshake size={17} /></NavSigil>Buddies</Link>
-          <Link href="/account/buddies/safe-places" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><NavSigil><MapPinned size={17} /></NavSigil>Safe places</Link>
+          <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" || pathname === "/account/buddies" ? "page" : undefined}><NavSigil><Route size={17} /></NavSigil>Trips</Link>
+          <Link href="/account/buddies/safe-places" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><NavSigil><MapPinned size={17} /></NavSigil>Safe spots &amp; reports</Link>
           <Link href="/games" className="sidebar-link" aria-current={pathname === "/games" ? "page" : undefined}><NavSigil><Gamepad2 size={17} /></NavSigil>Stoep</Link>
           <Link href="/w" className="sidebar-link" aria-current={pathname === "/w" ? "page" : undefined}><NavSigil><BookOpen size={17} /></NavSigil>Journal</Link>
         </nav>
@@ -398,9 +397,8 @@ export function AccountShell({ name, children }: { name: string; children: React
       {moreOpen && (
         <div className={`account-more-scrim ${moreClosing ? "is-closing" : ""}`} role="presentation" onClick={() => closeMore()}>
           <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
-            <button className="account-more-option" onClick={() => navigate("/account/trips")}><span><NavSigil><Route size={17} /></NavSigil> Trips</span><small>Hamba travel safety</small></button>
-            <button className="account-more-option" onClick={() => navigate("/account/buddies")}><span><NavSigil><Handshake size={17} /></NavSigil> Buddies</span><small>Find safer travel company</small></button>
-            <button className="account-more-option" onClick={() => navigate("/account/buddies/safe-places")}><span><NavSigil><MapPinned size={17} /></NavSigil> Safe places</span><small>Browse and suggest reviewed meeting places</small></button>
+            <button className="account-more-option" onClick={() => navigate("/account/trips")}><span><NavSigil><Route size={17} /></NavSigil> Trips</span><small>Route Watch and Travel Together</small></button>
+            <button className="account-more-option" onClick={() => navigate("/account/buddies/safe-places")}><span><NavSigil><MapPinned size={17} /></NavSigil> Safe spots &amp; reports</span><small>Browse spots and community reports</small></button>
             <button className="account-more-option" onClick={() => navigate("/games")}><span><NavSigil><Gamepad2 size={17} /></NavSigil> Stoep</span><small>Unwind and play</small></button>
             <button className="account-more-option" onClick={() => navigate("/w")}><span><NavSigil><BookOpen size={17} /></NavSigil> Journal</span><small>Your private garden</small></button>
             <button className="account-more-option" onClick={() => navigate("/account/guardians")}><span><NavSigil><ShieldCheck size={17} /></NavSigil> Guardians</span><small>Your private Guardian Circle</small></button>

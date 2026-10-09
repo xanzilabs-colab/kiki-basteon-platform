@@ -145,16 +145,15 @@ export function BuddySafePlaces() {
   return <div className="buddy-places buddies-page safe-spots-page">
     <div className="safe-spots-heading">
       <div>
-        <p className="safe-spots-eyebrow">Buddies</p>
-        <h1>Safe spots<br />&amp; meetings</h1>
+        <p className="safe-spots-eyebrow">Community safety</p>
+        <h1>Safe spots<br />and reports</h1>
       </div>
-      <Link className="safe-buddies-link" href="/account/buddies"><UsersRound size={17} />Buddies</Link>
     </div>
 
-    <div className="safe-spots-tabs" role="tablist" aria-label="Safe spots and meetings">
+    <div className="safe-spots-tabs" role="tablist" aria-label="Safe spots and reports">
       <span className={`safe-spots-tab-thumb ${tab}`} aria-hidden="true" />
       <button id="safe-tab-spots" type="button" role="tab" aria-selected={tab === "spots"} aria-controls="safe-panel-spots" onClick={() => setTab("spots")}><MapPin size={16} />Spots<span>{places.length}</span></button>
-      <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} />Alerts<span>{activeAlerts.length}</span></button>
+      <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} />Report<span>{activeAlerts.length}</span></button>
       <button id="safe-tab-meetings" type="button" role="tab" aria-selected={tab === "meetings"} aria-controls="safe-panel-meetings" onClick={() => setTab("meetings")}><Handshake size={16} />Meetings<span>{bubbles.length}</span></button>
     </div>
 
@@ -238,8 +237,8 @@ export function BuddySafePlaces() {
         <span className="safe-meeting-icon"><UsersRound size={19} /></span>
         <span className="safe-meeting-copy"><b>Bubble {index + 1}</b><small>{bubble.member_count} {bubble.member_count === 1 ? "Buddy" : "Buddies"} · Active meeting</small></span>
         <span className="safe-meeting-open">Open meeting<ChevronRight size={16} /></span>
-      </Link>)}</div> : <div className="safe-empty-card"><span><Handshake size={21} /></span><b>No active Bubble meetings</b><p>Create or join a Bubble to choose a meeting spot together.</p><Link href="/account/buddies">Go to Buddies<ChevronRight size={15} /></Link></div>}
-      <Link className="safe-meeting-create" href="/account/buddies"><Handshake size={17} />Create or join a Bubble<ChevronRight size={16} /></Link>
+      </Link>)}</div> : <div className="safe-empty-card"><span><Handshake size={21} /></span><b>No active Bubble meetings</b><p>Create or join a Bubble to choose a meeting spot together.</p><Link href="/account/trips?mode=travel-together">Go to Travel Together<ChevronRight size={15} /></Link></div>}
+      <Link className="safe-meeting-create" href="/account/trips?mode=travel-together"><Handshake size={17} />Create or join a Bubble<ChevronRight size={16} /></Link>
       <section className="safe-meeting-note"><span><Check size={16} /></span><p>Meeting locations are shared with your Bubble members so everyone can make their way to the same public place.</p></section>
     </section>
 

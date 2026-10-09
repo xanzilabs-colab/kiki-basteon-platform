@@ -258,6 +258,9 @@
 .account-shell .hamba-arrive:hover { background: #286644; }
 .hamba-empty { margin: 0; padding: 0 20px 20px; color: var(--muted); font-size: 12px; }
 .hamba-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.hamba-trip-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; margin:0 0 18px; border:1px solid #e7ccf0; border-radius:16px; background:#f4e6f8; padding:4px; }
+.hamba-trip-tabs button { display:flex; min-width:0; min-height:42px; align-items:center; justify-content:center; gap:7px; border:0; border-radius:12px; background:transparent; color:#756b7d; font-size:12px; font-weight:800; }
+.hamba-trip-tabs button[aria-selected="true"] { background:#fff; color:#4b1648; box-shadow:0 2px 8px rgba(53,16,58,.12); }
 .hamba-heading p { margin: 6px 0 0; color: #756b7d; font-size: 13px; }
 .hamba-engine { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; border-radius: 999px; background: #e9e2f5; color: #54256f; padding: 8px 10px; font-size: 12px; font-weight: 800; }
 .hamba-planner, .hamba-active-card { border: 1px solid #ded6e7; border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgba(50, 24, 63, .07); padding: 18px; }

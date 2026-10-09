@@ -11,6 +11,7 @@ import type { TripMode } from "@/lib/hamba/types";
 import { evaluateRouteWatch } from "@/lib/hamba/routeWatch";
 import type { GeoPoint, RouteWatchState } from "@/lib/hamba/types";
 import { enablePushNotifications } from "@/lib/usePushNotifications";
+import { TravelTogetherPanel } from "@/components/TravelTogetherPanel";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false, loading: () => <div className="hamba-map hamba-map-loading">Loading map...</div> });
 type Place = { label: string; lat: number; lng: number };
@@ -39,11 +40,16 @@ export default function TripsPage() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [recenter, setRecenter] = useState(0);
+  const [tripTab, setTripTab] = useState<"route" | "travel">("route");
   const fixes = useRef<GeoPoint[]>([]);
   const previousWatchState = useRef<RouteWatchState>("normal");
 
   useEffect(() => {
     fetch("/api/trips").then((response) => response.json()).then((data) => { setActiveTrip(data.trip ?? null); setRecentTrips(data.recent ?? []); }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "travel-together") setTripTab("travel");
   }, []);
 
   useEffect(() => {
@@ -162,9 +168,14 @@ export default function TripsPage() {
   return (
     <div className="hamba-page">
       <div className="hamba-heading">
-        <div><p className="eyebrow">{activeTrip ? "Live route watch" : "Personal safety"}</p><h1 className="page-title">{activeTrip ? "Active trip tracking" : "Plan a safe trip"}</h1></div>
-        <span className={activeTrip ? "hamba-live" : "hamba-engine"}>{activeTrip ? <><i />{activeTrip.status === "active" ? "Trip active" : activeTrip.status}</> : "No active trip"}</span>
+        <div><p className="eyebrow">{activeTrip && tripTab === "route" ? "Live route watch" : tripTab === "route" ? "Personal safety" : "Travel Together"}</p><h1 className="page-title">{activeTrip && tripTab === "route" ? "Active trip tracking" : "Where to?"}</h1></div>
+        {tripTab === "route" && <span className={activeTrip ? "hamba-live" : "hamba-engine"}>{activeTrip ? <><i />{activeTrip.status === "active" ? "Trip active" : activeTrip.status}</> : "No active trip"}</span>}
       </div>
+      <div className="hamba-trip-tabs" role="tablist" aria-label="Trip safety mode">
+        <button type="button" role="tab" aria-selected={tripTab === "route"} onClick={() => setTripTab("route")}><Navigation size={16} />Route Watch</button>
+        <button type="button" role="tab" aria-selected={tripTab === "travel"} onClick={() => setTripTab("travel")}><UsersRound size={16} />Travel Together</button>
+      </div>
+      {tripTab === "route" ? <>
       {activeTrip ? (
         <section className="hamba-active">
           <div className="hamba-map-stage">
@@ -192,6 +203,7 @@ export default function TripsPage() {
       )}
       {!activeTrip && <section className="hamba-recent"><div className="hamba-recent-head"><h2><History size={18} />Recent destinations</h2></div>{destinations.map((trip) => <button type="button" className="hamba-recent-item" key={trip.id} onClick={() => { setDestination({ label: trip.destination_label, lat: trip.destination_lat, lng: trip.destination_lng }); setQuery(trip.destination_label); setMode(trip.mode); setRoutes([]); setPlaces([]); }}><span className="hamba-recent-dot" /><div><b>{trip.destination_label}</b><p>{trip.mode} · {trip.status === "arrived" ? "Arrived safely" : "Cancelled"}</p></div><ChevronRight size={17} /></button>)}{destinations.length === 0 && <p className="hamba-empty">Your completed trips will appear here.</p>}</section>}
       {message && <p className="hamba-message" role="status">{message}</p>}
+      </> : <TravelTogetherPanel />}
     </div>
   );
 }
