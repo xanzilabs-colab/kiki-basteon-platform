@@ -178,19 +178,53 @@ export default function BuddiesPage() {
   return <div className="buddies-page">
     <div className="buddies-heading"><div><p className="eyebrow">Privacy-first matching</p><h1 className="page-title">Travel together</h1></div><div className="flex flex-wrap items-center gap-2"><Link className="btn" href="/account/buddies/safe-places"><MapPinned size={16} />Safe spots & meetings</Link><Link className="btn" href="/account/buddies/history">History</Link><span><ShieldCheck size={16} />Verified travel</span></div></div>
     <section className="buddies-panel buddies-radar-panel">
-      <div className="buddies-map" aria-label="Approximate Buddy zones, not geographic locations">
-        {[0, 1, 2].map((ring) => <i key={ring} className={`buddies-ring ring-${ring}`} />)}
-        <span className="buddies-zone-label">Approximate zones</span>
-        <span className="buddies-me">YOU</span>
-        {visible && bubbles.map((bubble) => {
-          const radius = Math.min(42, 20 + bubble.ring * 10 * bubble.radialPct);
+      <div className="buddy-trip-pond" aria-label="Approximate Buddy zones, not geographic locations">
+        <div className="buddy-trip-wash" />
+        <div className="buddy-trip-ripple buddy-trip-ripple-one" />
+        <div className="buddy-trip-ripple buddy-trip-ripple-two" />
+        <div className="buddy-trip-ripple buddy-trip-ripple-three" />
+        <div className="buddy-trip-guide" />
+        <div className="buddy-trip-guide-inner" />
+        <button type="button" className="buddy-trip-you" aria-label="You are at the center of the buddy radar">
+          <span className="buddy-trip-you-mark">YOU</span>
+        </button>
+        {visible && bubbles.map((bubble, index) => {
+          const radius = 24 + bubble.radialPct * 43;
           const radians = bubble.angleDeg * Math.PI / 180;
-          return <button key={bubble.id} type="button" aria-pressed={selected?.ref === bubble.ref} onClick={() => setSelected(bubble)} className={`buddies-bubble-marker ring-${bubble.ring}`} style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }} title={`${bubble.memberCount} Buddies travelling together`} aria-label={`Select Buddy bubble with ${bubble.memberCount} members`}><span>{bubble.avatar}</span><small>{bubble.memberCount}</small></button>;
+          return (
+            <button
+              key={bubble.id}
+              type="button"
+              aria-pressed={selected?.ref === bubble.ref}
+              onClick={() => setSelected(bubble)}
+              className={`buddy-trip-buddy buddy-trip-bubble buddy-trip-tone-${index % 4}`}
+              style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }}
+              title={`${bubble.memberCount} Buddies travelling together`}
+              aria-label={`Select Buddy bubble with ${bubble.memberCount} members`}
+            >
+              <span className="buddy-trip-buddy-mark">{bubble.avatar}</span>
+              <span className="buddy-trip-buddy-label"><strong>Bubble</strong><small>{bubble.memberCount} Buddies</small></span>
+            </button>
+          );
         })}
-        {visible && avatars.map((avatar) => {
-          const radius = Math.min(42, 20 + avatar.ring * 10 * avatar.radialPct);
+        {visible && avatars.map((avatar, index) => {
+          const radius = 24 + avatar.radialPct * 43;
           const radians = avatar.angleDeg * Math.PI / 180;
-          return <button key={avatar.ref} type="button" aria-pressed={selected?.ref === avatar.ref} onClick={() => setSelected(avatar)} className={`buddies-avatar ring-${avatar.ring}`} style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }} title={`${avatar.nickname}, ${avatar.mode}`} aria-label={`Select ${avatar.nickname}, ${avatar.mode}`}><span>{avatar.avatar}</span></button>;
+          return (
+            <button
+              key={avatar.ref}
+              type="button"
+              aria-pressed={selected?.ref === avatar.ref}
+              onClick={() => setSelected(avatar)}
+              className={`buddy-trip-buddy buddy-trip-tone-${index % 4}`}
+              style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }}
+              title={`${avatar.nickname}, ${avatar.mode}`}
+              aria-label={`Select ${avatar.nickname}, ${avatar.mode}`}
+            >
+              <span className="buddy-trip-buddy-mark">{avatar.avatar}</span>
+              <span className="buddy-trip-buddy-label"><strong>{avatar.nickname}</strong><small>{avatar.mode}</small></span>
+            </button>
+          );
         })}
       </div>
       <p className="buddies-privacy-note">Exact locations are hidden. Matches use generated aliases and broad travel zones.</p>
