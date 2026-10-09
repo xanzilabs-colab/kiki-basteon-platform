@@ -95,6 +95,9 @@ function createAudioEngine() {
   let ctx: AudioContext | null = null;
   let master: GainNode | null = null;
   let echoIn: GainNode | null = null;
+  let bedSource: AudioBufferSourceNode | null = null;
+  let bedLfo: OscillatorNode | null = null;
+  let bedLfoGain: GainNode | null = null;
   let on = false;
 
   const ensure = () => {
@@ -116,25 +119,25 @@ function createAudioEngine() {
       last = (last + 0.02 * white) / 1.02;
       data[i] = last * 3.5;
     }
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
+    bedSource = ctx.createBufferSource();
+    bedSource.buffer = buffer;
+    bedSource.loop = true;
     const lowpass = ctx.createBiquadFilter();
     lowpass.type = "lowpass";
     lowpass.frequency.value = 420;
     const bed = ctx.createGain();
     bed.gain.value = 0.45;
-    source.connect(lowpass);
+    bedSource.connect(lowpass);
     lowpass.connect(bed);
     bed.connect(master);
-    source.start();
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.11;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 120;
-    lfo.connect(lfoGain);
-    lfoGain.connect(lowpass.frequency);
-    lfo.start();
+    bedSource.start();
+    bedLfo = ctx.createOscillator();
+    bedLfo.frequency.value = 0.11;
+    bedLfoGain = ctx.createGain();
+    bedLfoGain.gain.value = 120;
+    bedLfo.connect(bedLfoGain);
+    bedLfoGain.connect(lowpass.frequency);
+    bedLfo.start();
 
     // echo for chimes
     echoIn = ctx.createGain();
@@ -203,6 +206,23 @@ function createAudioEngine() {
         osc.start(t);
         osc.stop(t + 2.5);
       });
+    },
+    stop() {
+      on = false;
+      if (master && ctx) master.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+      try { bedLfo?.stop(); } catch {}
+      try { bedSource?.stop(); } catch {}
+      try { bedLfo?.disconnect(); } catch {}
+      try { bedLfoGain?.disconnect(); } catch {}
+      try { bedSource?.disconnect(); } catch {}
+      try { master?.disconnect(); } catch {}
+      if (ctx) void ctx.close();
+      ctx = null;
+      master = null;
+      echoIn = null;
+      bedSource = null;
+      bedLfo = null;
+      bedLfoGain = null;
     },
   };
 }
@@ -925,6 +945,8 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
     audioRef.current = createAudioEngine();
     return () => {
       aliveRef.current = false;
+      audioRef.current?.stop();
+      audioRef.current = null;
       window.clearTimeout(captionTimer.current);
       window.clearTimeout(promptTimer.current);
     };

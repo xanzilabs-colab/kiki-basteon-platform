@@ -28,6 +28,7 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
 });
 
 export default function ResponderPage() {
+  const [responderView, setResponderView] = useState<"alerts" | "overview" | "settings">("alerts");
   const [organisationId, setOrganisationId] = useState("");
   const scopedOrganisationIds = useMemo(() => organisationId ? [organisationId] : [], [organisationId]);
   const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts({ scopeOrganisationIds: scopedOrganisationIds });
@@ -40,6 +41,8 @@ export default function ResponderPage() {
   const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [movingOnly, setMovingOnly] = useState(false);
+  const [selfAvailability, setSelfAvailability] = useState("off_duty");
+  const [supportContacts, setSupportContacts] = useState<Array<any>>([]);
   const emergencyTypes = useEmergencyTypes();
 
   useEffect(() => {
@@ -52,12 +55,31 @@ export default function ResponderPage() {
       const response = await fetch("/api/organisation/me", { cache: "no-store" });
       if (response.ok) {
         const body = await response.json();
+        if (body?.blocked?.isBlocked) {
+          setOrganisationName(body?.organisation?.name ?? "");
+          setOrganisationId("");
+          return;
+        }
         setOrganisationName(body?.organisation?.name ?? "");
         setOrganisationId(body?.organisation?.id ?? "");
         setCanDispatch(["owner", "admin", "manager", "dispatcher"].includes(body?.memberships?.[0]?.role ?? ""));
+        setSupportContacts([...(body?.supportContacts?.organisation ?? []), ...(body?.supportContacts?.global ?? [])]);
+        const ownPresence = (body?.responderPresence ?? []).find((row: any) => row.user_id === user.id);
+        if (ownPresence?.availability) setSelfAvailability(ownPresence.availability);
       }
     })();
   }, []);
+
+  async function updateSelfAvailability(next: string) {
+    if (!organisationId) return;
+    const response = await fetch("/api/organisation/responders/availability", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organisationId, availability: next }),
+    });
+    if (!response.ok) return;
+    setSelfAvailability(next);
+  }
 
   const active = useMemo(
     () => alerts.filter((a) => activeStatuses.includes(a.status)),
@@ -107,6 +129,11 @@ export default function ResponderPage() {
             <span className="status status-blue">Responder Console</span>
             {organisationName && <span className="muted">Organisation: {organisationName}</span>}
             {operatorName && <span className="muted">Operator: {operatorName}</span>}
+            <div className="ml-auto inline-flex gap-1 rounded border border-[var(--line)] bg-[var(--surface-2)] p-1">
+              <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "alerts"} onClick={() => setResponderView("alerts")}>Alerts</button>
+              <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "overview"} onClick={() => setResponderView("overview")}>Overview</button>
+              <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "settings"} onClick={() => setResponderView("settings")}>Settings</button>
+            </div>
           </div>
         </div>
         {alertError && (
@@ -133,14 +160,16 @@ export default function ResponderPage() {
           />
         </div>
 
-        <AlertBanner
-          count={unacked.length}
-          oldest={unacked[0] ?? null}
-          onJump={(a: Alert) => setSelectedId(a.id)}
-        />
+        {responderView === "alerts" && (
+          <AlertBanner
+            count={unacked.length}
+            oldest={unacked[0] ?? null}
+            onJump={(a: Alert) => setSelectedId(a.id)}
+          />
+        )}
 
         {/* ── Left rail: Incident queue ─────────────────────────── */}
-        <aside
+        {responderView === "alerts" && <aside
           aria-label="Incident queue"
           className="hidden md:flex absolute z-[1000] flex-col
                      panel
@@ -192,10 +221,10 @@ export default function ResponderPage() {
               GPS · {error}
             </div>
           )}
-        </aside>
+        </aside>}
 
         {/* ── Right rail: Incident detail ──────────────────────── */}
-        <aside
+        {responderView === "alerts" && <aside
           aria-label="Incident detail"
           className="
             absolute z-[1000] panel flex flex-col min-h-0 overflow-hidden
@@ -213,7 +242,49 @@ export default function ResponderPage() {
             canDispatch={canDispatch}
             onViewProfile={(alert) => setProfile(alert.device?.owner ?? null)}
           />
-        </aside>
+        </aside>}
+
+        {responderView === "overview" && (
+          <section className="absolute z-[1000] left-3 right-3 top-24 panel p-4 space-y-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]">
+            <h2 className="pane-head">Responder overview</h2>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="panel p-3"><p className="muted text-xs">Active alerts</p><p className="text-xl font-bold">{active.length}</p></div>
+              <div className="panel p-3"><p className="muted text-xs">Unacknowledged</p><p className="text-xl font-bold">{unacked.length}</p></div>
+              <div className="panel p-3"><p className="muted text-xs">Total alerts</p><p className="text-xl font-bold">{alerts.length}</p></div>
+            </div>
+            <p className="muted text-xs">Timeline and response progress remain live in the Alerts tab.</p>
+          </section>
+        )}
+
+        {responderView === "settings" && (
+          <section className="absolute z-[1000] left-3 right-3 top-24 panel p-4 space-y-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]">
+            <h2 className="pane-head">Responder settings & support</h2>
+            <div>
+              <p className="muted text-xs mb-2">Your availability</p>
+              <div className="flex flex-wrap gap-2">
+                {["available", "busy", "off_duty", "unavailable"].map((value) => (
+                  <button key={value} className="btn" disabled={!organisationId || selfAvailability === value} onClick={() => void updateSelfAvailability(value)}>{value}</button>
+                ))}
+              </div>
+            </div>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>Purpose</th></tr></thead>
+                <tbody>
+                  {supportContacts.map((contact) => (
+                    <tr key={contact.id}>
+                      <td>{contact.contact_name}</td>
+                      <td>{contact.contact_type}</td>
+                      <td>{contact.contact_value}</td>
+                      <td>{contact.purpose}</td>
+                    </tr>
+                  ))}
+                  {supportContacts.length === 0 && <tr><td colSpan={4} className="muted text-center">No support contacts available.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         <UserProfileDrawer profile={profile} onClose={() => setProfile(null)} />
       </main>

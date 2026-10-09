@@ -28,6 +28,15 @@ type MeResponse = {
   units: Array<any>;
   responderPresence: Array<any>;
   dispatchPolicy: { acknowledge_timeout_seconds: number; escalation_timeout_seconds: number; auto_assign_enabled: boolean } | null;
+  supportContacts: {
+    global: Array<any>;
+    organisation: Array<any>;
+  };
+  blocked: {
+    isBlocked: boolean;
+    until: string | null;
+    reason: string | null;
+  };
   onboarding: {
     organisation_profile_done: boolean;
     branches_done: boolean;
@@ -58,6 +67,14 @@ export function OrganisationConsole() {
   const [responderRole, setResponderRole] = useState("responder");
   const [responderBranch, setResponderBranch] = useState("");
   const [responderUnit, setResponderUnit] = useState("");
+  const [editingMemberUserId, setEditingMemberUserId] = useState("");
+  const [editMemberName, setEditMemberName] = useState("");
+  const [editMemberPhone, setEditMemberPhone] = useState("");
+  const [editMemberRole, setEditMemberRole] = useState("responder");
+  const [editMemberBranch, setEditMemberBranch] = useState("");
+  const [editMemberUnit, setEditMemberUnit] = useState("");
+  const [editMemberStatus, setEditMemberStatus] = useState("active");
+  const [editMemberAvailability, setEditMemberAvailability] = useState("off_duty");
   const [generatedCredentials, setGeneratedCredentials] = useState<{ email: string; password: string; fullName: string } | null>(null);
   const [generatedCredentialPdfUrl, setGeneratedCredentialPdfUrl] = useState("");
   const [coverageTypeCode, setCoverageTypeCode] = useState("general");
@@ -73,6 +90,10 @@ export function OrganisationConsole() {
   const [requireInvite, setRequireInvite] = useState(false);
   const [autoApproveLinks, setAutoApproveLinks] = useState(true);
   const [workIdRegex, setWorkIdRegex] = useState("");
+  const [supportContactName, setSupportContactName] = useState("");
+  const [supportContactType, setSupportContactType] = useState<"email" | "phone">("email");
+  const [supportContactValue, setSupportContactValue] = useState("");
+  const [supportContactPurpose, setSupportContactPurpose] = useState("general support");
   const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   const [dashboardUnlocked, setDashboardUnlocked] = useState(false);
   const emergencyTypes = useEmergencyTypes();
@@ -379,6 +400,62 @@ export function OrganisationConsole() {
     setBusy(false);
   }
 
+  function beginEditMember(member: any) {
+    const presence = responders.find((row) => row.user_id === member.user_id);
+    setEditingMemberUserId(member.user_id);
+    setEditMemberName(member.profiles?.full_name ?? member.user_id);
+    setEditMemberPhone(member.profiles?.phone ?? "");
+    setEditMemberRole(member.role ?? "responder");
+    setEditMemberBranch(member.branch_id ?? "");
+    setEditMemberUnit(presence?.unit_id ?? "");
+    setEditMemberStatus(member.status ?? "active");
+    setEditMemberAvailability(presence?.availability ?? "off_duty");
+  }
+
+  function cancelEditMember() {
+    setEditingMemberUserId("");
+    setEditMemberName("");
+    setEditMemberPhone("");
+    setEditMemberRole("responder");
+    setEditMemberBranch("");
+    setEditMemberUnit("");
+    setEditMemberStatus("active");
+    setEditMemberAvailability("off_duty");
+  }
+
+  async function saveMemberEdit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!organisationId || !editingMemberUserId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/responders", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update",
+        organisationId,
+        userId: editingMemberUserId,
+        fullName: editMemberName,
+        phone: editMemberPhone || null,
+        role: editMemberRole,
+        branchId: editMemberBranch,
+        unitId: editMemberUnit || null,
+        status: editMemberStatus,
+        availability: editMemberAvailability,
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not update member account.");
+      setBusy(false);
+      return;
+    }
+    setMessage("Member account updated.");
+    cancelEditMember();
+    await refresh();
+  }
+
   async function addCoverage(event: React.FormEvent) {
     event.preventDefault();
     if (!organisationId) return;
@@ -452,6 +529,56 @@ export function OrganisationConsole() {
     await refresh();
   }
 
+  async function addSupportContact(event: React.FormEvent) {
+    event.preventDefault();
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/support-contacts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        organisationId,
+        contactName: supportContactName,
+        contactType: supportContactType,
+        contactValue: supportContactValue,
+        purpose: supportContactPurpose,
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not add support contact.");
+      setBusy(false);
+      return;
+    }
+    setSupportContactName("");
+    setSupportContactValue("");
+    setSupportContactPurpose("general support");
+    setMessage("Support contact added.");
+    await refresh();
+  }
+
+  async function removeSupportContact(id: string) {
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/organisation/support-contacts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organisationId, id }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not remove support contact.");
+      setBusy(false);
+      return;
+    }
+    setMessage("Support contact removed.");
+    await refresh();
+  }
+
   const dashboardTabs: Array<{ key: DashboardTab; label: string; icon: React.ComponentType<{ size?: number }> }> = [
     { key: "home", label: "Home", icon: LayoutDashboard },
     { key: "beneficiaries", label: "Beneficiaries", icon: Users },
@@ -468,6 +595,7 @@ export function OrganisationConsole() {
   const showSettingsPanel = !inOnboardingMode && activeTab === "settings";
   const showConfigurationsPanel = inOnboardingMode || activeTab === "configurations";
   const availableResponderCount = responders.filter((presence) => presence.availability === "available").length;
+  const blockedNow = Boolean(state?.blocked?.isBlocked);
   const recentPresence = [...responders]
     .filter((presence) => presence.last_seen_at)
     .sort((a, b) => +new Date(b.last_seen_at) - +new Date(a.last_seen_at))
@@ -479,7 +607,7 @@ export function OrganisationConsole() {
 
   return (
     <>
-    <div className="org-console w-full space-y-6">
+    <div className="org-console w-full">
       <header className="org-console-header">
         <div className="org-console-heading">
           <div className="org-console-mark">{String(state.organisation.name ?? "O").trim().charAt(0).toUpperCase()}</div>
@@ -496,9 +624,27 @@ export function OrganisationConsole() {
           <div className="org-console-avatar">{String(state.organisation.name ?? "TH").trim().slice(0, 2).toUpperCase()}</div>
         </div>
       </header>
-
+      <div className={`org-console-content space-y-6 ${blockedNow ? "org-console-locked" : ""}`}>
       {error && <p role="alert" className="ops-login-error">{error}</p>}
       {message && <p role="status" className="ops-login-status">{message}</p>}
+      {blockedNow && (
+        <section className="panel p-5 space-y-3 org-console-lock-message">
+          <h2 className="org-tab-title">Account blocked</h2>
+          <p className="muted text-sm">
+            This organisation account is temporarily blocked and cannot receive services or use dashboard actions right now.
+          </p>
+          <p className="text-sm">Blocked until: <b>{state.blocked.until ? new Date(state.blocked.until).toLocaleString() : "Not specified"}</b></p>
+          {state.blocked.reason && <p className="text-sm">Reason: <b>{state.blocked.reason}</b></p>}
+          <p className="text-sm">Contact admin support:</p>
+          <ul className="space-y-1 text-sm">
+            {(state.supportContacts?.global ?? []).map((contact: any) => (
+              <li key={`blocked-support-${contact.id}`}>
+                <b>{contact.contact_name}</b> · {contact.purpose} · {contact.contact_type === "email" ? contact.contact_value : contact.contact_value}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {inOnboardingMode && onboardingComplete && (
         <section className="org-console-hero panel p-4 space-y-3">
@@ -665,8 +811,55 @@ export function OrganisationConsole() {
               </tbody>
             </table>
           </div>
+
+          <section className="space-y-3 border-t border-[var(--line)] pt-3">
+            <h3 className="text-sm font-bold">Support / Help contacts</h3>
+            <p className="muted text-xs">Global contacts are managed by admin. Add organisation-specific support contacts for responders and staff.</p>
+            <form className="grid gap-3 md:grid-cols-4" onSubmit={(event) => void addSupportContact(event)}>
+              <label className="field">Person name<input required value={supportContactName} onChange={(event) => setSupportContactName(event.target.value)} /></label>
+              <label className="field">Type
+                <select value={supportContactType} onChange={(event) => setSupportContactType(event.target.value as "email" | "phone")}>
+                  <option value="email">email</option>
+                  <option value="phone">phone</option>
+                </select>
+              </label>
+              <label className="field">Value<input required value={supportContactValue} onChange={(event) => setSupportContactValue(event.target.value)} /></label>
+              <label className="field">Purpose<input required value={supportContactPurpose} onChange={(event) => setSupportContactPurpose(event.target.value)} placeholder="blocked accounts, general support, errors..." /></label>
+              <button className="btn btn-primary md:col-span-4 md:justify-self-start" disabled={busy}>Add support contact</button>
+            </form>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr><th>Scope</th><th>Name</th><th>Type</th><th>Value</th><th>Purpose</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {(state.supportContacts?.global ?? []).map((contact: any) => (
+                    <tr key={`global-${contact.id}`}>
+                      <td>Admin</td>
+                      <td>{contact.contact_name}</td>
+                      <td>{contact.contact_type}</td>
+                      <td>{contact.contact_value}</td>
+                      <td>{contact.purpose}</td>
+                      <td className="muted text-xs">Managed by admin</td>
+                    </tr>
+                  ))}
+                  {(state.supportContacts?.organisation ?? []).map((contact: any) => (
+                    <tr key={`org-${contact.id}`}>
+                      <td>Organisation</td>
+                      <td>{contact.contact_name}</td>
+                      <td>{contact.contact_type}</td>
+                      <td>{contact.contact_value}</td>
+                      <td>{contact.purpose}</td>
+                      <td><button className="btn" type="button" disabled={busy} onClick={() => void removeSupportContact(contact.id)}>Remove</button></td>
+                    </tr>
+                  ))}
+                  {((state.supportContacts?.global?.length ?? 0) + (state.supportContacts?.organisation?.length ?? 0)) === 0 && (
+                    <tr><td colSpan={6} className="muted text-center">No support contacts available yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </section>
-      )}
+        )}
 
       {(showSettingsPanel || inOnboardingMode) && (
       <section className="panel p-6 space-y-4">
@@ -886,6 +1079,52 @@ export function OrganisationConsole() {
           <h2 className="org-tab-title flex items-center gap-2"><Shield size={18} />Members & Responder Accounts</h2>
           <button className="btn btn-primary" type="button" onClick={() => setActiveTab("responders")}>+ Add Staff Member</button>
         </div>
+        {editingMemberUserId && (
+          <form className="grid gap-3 border border-[var(--line)] bg-[var(--surface-2)] p-3 md:grid-cols-4" onSubmit={(event) => void saveMemberEdit(event)}>
+            <label className="field">Name<input value={editMemberName} onChange={(event) => setEditMemberName(event.target.value)} required /></label>
+            <label className="field">Phone<input value={editMemberPhone} onChange={(event) => setEditMemberPhone(event.target.value)} /></label>
+            <label className="field">Role
+              <select value={editMemberRole} onChange={(event) => setEditMemberRole(event.target.value)}>
+                <option value="dispatcher">Dispatcher</option>
+                <option value="responder">Responder</option>
+                <option value="manager">Manager</option>
+                <option value="viewer">Viewer</option>
+              </select>
+            </label>
+            <label className="field">Branch
+              <select value={editMemberBranch} onChange={(event) => setEditMemberBranch(event.target.value)} required>
+                <option value="">Select branch</option>
+                {branchOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+              </select>
+            </label>
+            <label className="field">Unit
+              <select value={editMemberUnit} onChange={(event) => setEditMemberUnit(event.target.value)}>
+                <option value="">No unit</option>
+                {units.filter((unit) => !editMemberBranch || unit.branch_id === editMemberBranch).map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
+              </select>
+            </label>
+            <label className="field">Status
+              <select value={editMemberStatus} onChange={(event) => setEditMemberStatus(event.target.value)}>
+                <option value="active">active</option>
+                <option value="pending">pending</option>
+                <option value="suspended">suspended</option>
+                <option value="archived">archived</option>
+              </select>
+            </label>
+            <label className="field">Availability
+              <select value={editMemberAvailability} onChange={(event) => setEditMemberAvailability(event.target.value)}>
+                <option value="available">available</option>
+                <option value="busy">busy</option>
+                <option value="off_duty">off_duty</option>
+                <option value="unavailable">unavailable</option>
+              </select>
+            </label>
+            <div className="flex items-end gap-2 md:col-span-4">
+              <button className="btn btn-primary" disabled={busy}>Save account changes</button>
+              <button className="btn" type="button" disabled={busy} onClick={cancelEditMember}>Cancel</button>
+            </div>
+          </form>
+        )}
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>Name</th><th>Role</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
@@ -900,6 +1139,7 @@ export function OrganisationConsole() {
                   <td>
                     {(member.role === "responder" || member.role === "dispatcher" || member.role === "manager" || member.role === "viewer") && (
                       <div className="flex flex-wrap gap-2">
+                        <button className="btn" type="button" disabled={busy} onClick={() => beginEditMember(member)}>Edit account</button>
                         <button className="btn" disabled={busy} onClick={() => void regeneratePassword(member.user_id)}>Generate new password</button>
                         <a className="btn" href={`/api/organisation/responders/${member.user_id}/credential-pdf?organisationId=${organisationId}`}>Credential PDF</a>
                       </div>
@@ -956,17 +1196,30 @@ export function OrganisationConsole() {
       </section>
       )}
     </div>
+    </div>
     <style jsx global>{`
       .org-console {
         font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         color: var(--text);
         background: var(--bg);
-        width: 100vw;
+        width: 100%;
         max-width: none;
         min-height: 100dvh;
-        margin-left: calc(50% - 50vw);
-        margin-right: calc(50% - 50vw);
-        padding: 8px clamp(14px, 2.2vw, 28px) 28px;
+        margin: 0;
+        padding: 0 0 28px;
+      }
+      .org-console-content {
+        width: min(100%, 1280px);
+        margin: 0 auto;
+        padding: 18px clamp(20px, 4vw, 56px) 0;
+      }
+      .org-console-locked > :not(.org-console-lock-message):not(.ops-login-error):not(.ops-login-status) {
+        pointer-events: none;
+        opacity: .45;
+      }
+      .org-console-lock-message {
+        border-color: var(--warn);
+        background: var(--warn-bg);
       }
       .org-console .page-title { color: #ffffff; font-size: 1.125rem; font-weight: 800; line-height: 1.25; }
       .org-console-hash { margin-right: 7px; color: var(--muted); }
@@ -975,14 +1228,14 @@ export function OrganisationConsole() {
       .org-console-header {
         padding: 14px 18px;
         border: 1px solid var(--line);
-        border-radius: 14px;
+        border-radius: 0;
         background: var(--chrome);
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         position: sticky;
-        top: 8px;
+        top: 0;
         z-index: 30;
       }
       .org-console-heading { display: flex; align-items: center; gap: 12px; }
@@ -1281,11 +1534,7 @@ export function OrganisationConsole() {
         .org-console-tab { scroll-snap-align: start; }
         .org-console .pane-head { font-size: 15px; }
         .org-console-header { position: static; }
-        .org-console {
-          width: 100%;
-          margin: 0;
-          padding-inline: 0;
-        }
+        .org-console-content { padding: 14px 14px 0; }
       }
     `}</style>
     </>

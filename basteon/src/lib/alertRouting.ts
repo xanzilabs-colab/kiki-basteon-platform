@@ -199,11 +199,25 @@ export async function routeAlertAndNotify(alertId: string) {
     ownerId
       ? db.from("organisation_user_links").select("organisation_id,branch_id,status").eq("user_id", ownerId).eq("status", "active")
       : Promise.resolve({ data: [] as RoutingLink[] }),
-    db.from("organisations").select("id").eq("organisation_type", "responder_partner").eq("status", "active"),
+    db.from("organisations")
+      .select("id")
+      .eq("organisation_type", "responder_partner")
+      .eq("status", "active")
+      .or(`blocked_until.is.null,blocked_until.lte.${new Date().toISOString()}`),
     db.from("organisation_branches").select("id,organisation_id,name,lat,lng,geofence_geojson,is_hq,active"),
     db.from("organisation_emergency_coverage").select("organisation_id,branch_id,emergency_type_code,priority,active").eq("active", true).eq("emergency_type_code", typeCode),
   ]);
-  const linkedOrgIds = [...new Set((links ?? []).map((item) => item.organisation_id))];
+  const rawLinkedOrgIds = [...new Set((links ?? []).map((item) => item.organisation_id))];
+  const { data: activeLinkedOrgs } = rawLinkedOrgIds.length
+    ? await db.from("organisations")
+      .select("id")
+      .in("id", rawLinkedOrgIds)
+      .eq("status", "active")
+      .or(`blocked_until.is.null,blocked_until.lte.${new Date().toISOString()}`)
+    : { data: [] as Array<{ id: string }> };
+  const activeLinkedOrgIds = new Set((activeLinkedOrgs ?? []).map((row) => row.id));
+  const filteredLinks = (links ?? []).filter((link) => activeLinkedOrgIds.has(link.organisation_id));
+  const linkedOrgIds = [...new Set(filteredLinks.map((item) => item.organisation_id))];
   const [{ data: linkedBranches }, { data: linkedCoverage }] = linkedOrgIds.length
     ? await Promise.all([
       db.from("organisation_branches").select("id,organisation_id,name,lat,lng,geofence_geojson,is_hq,active").in("organisation_id", linkedOrgIds),
@@ -220,7 +234,7 @@ export async function routeAlertAndNotify(alertId: string) {
     lifeThreat: typeRow?.life_threat ?? true,
     lat: alert.lat,
     lng: alert.lng,
-    links: (links ?? []) as RoutingLink[],
+    links: filteredLinks as RoutingLink[],
     linkedBranches: (linkedBranches ?? []) as RoutingBranch[],
     linkedCoverage: (linkedCoverage ?? []) as RoutingCoverage[],
     partnerBranches: filteredPartnerBranches as RoutingBranch[],

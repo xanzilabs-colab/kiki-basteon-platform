@@ -15,6 +15,14 @@ type Organisation = {
   status: string;
   organisation_branches?: Array<{ id: string }>;
   organisation_memberships?: Array<{ id: string }>;
+  blocked_until?: string | null;
+  blocked_reason?: string | null;
+};
+
+type OrganisationDetail = {
+  organisation: Organisation & { support_email?: string | null; support_phone?: string | null };
+  owner: { userId: string; name: string | null } | null;
+  counts: { members: number; responders: number; beneficiaries: number };
 };
 
 export default function AdminOrganisationsPage() {
@@ -32,6 +40,12 @@ export default function AdminOrganisationsPage() {
   const [ownerPhone, setOwnerPhone] = useState("");
   const [isPartner, setIsPartner] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [selectedId, setSelectedId] = useState("");
+  const [detail, setDetail] = useState<OrganisationDetail | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [blockUntil, setBlockUntil] = useState("");
+  const [blockReason, setBlockReason] = useState("Policy violation review");
+  const [ownerPassword, setOwnerPassword] = useState("");
 
   const categoryOptions = orgType === "institution"
     ? INSTITUTION_KIND_OPTIONS
@@ -57,6 +71,22 @@ export default function AdminOrganisationsPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function openOrganisation(id: string) {
+    setSelectedId(id);
+    setDetailBusy(true);
+    setOwnerPassword("");
+    const response = await fetch(`/api/admin/organisations/${id}`, { cache: "no-store" });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not load organisation details.");
+      setDetailBusy(false);
+      return;
+    }
+    setDetail(body as OrganisationDetail);
+    setBlockUntil(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
+    setDetailBusy(false);
+  }
 
   async function create(event: React.FormEvent) {
     event.preventDefault();
@@ -96,6 +126,63 @@ export default function AdminOrganisationsPage() {
     setIsPartner(false);
     await load();
     setBusy(false);
+  }
+
+  async function blockOrganisation() {
+    if (!selectedId || !blockUntil) return;
+    setDetailBusy(true);
+    const response = await fetch(`/api/admin/organisations/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "block", blockedUntil: new Date(blockUntil).toISOString(), reason: blockReason }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not block organisation.");
+      setDetailBusy(false);
+      return;
+    }
+    setMessage("Organisation temporarily blocked.");
+    await Promise.all([load(), openOrganisation(selectedId)]);
+    setDetailBusy(false);
+  }
+
+  async function unblockOrganisation() {
+    if (!selectedId) return;
+    setDetailBusy(true);
+    const response = await fetch(`/api/admin/organisations/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "unblock" }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not unblock organisation.");
+      setDetailBusy(false);
+      return;
+    }
+    setMessage("Organisation unblocked.");
+    await Promise.all([load(), openOrganisation(selectedId)]);
+    setDetailBusy(false);
+  }
+
+  async function resetOwnerPassword() {
+    if (!selectedId) return;
+    setDetailBusy(true);
+    const response = await fetch(`/api/admin/organisations/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset_owner_password" }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError((body as any)?.error ?? "Could not reset owner password.");
+      setDetailBusy(false);
+      return;
+    }
+    setOwnerPassword((body as any).password ?? "");
+    setMessage("Owner password reset.");
+    setDetailBusy(false);
   }
 
   return (
@@ -157,7 +244,7 @@ export default function AdminOrganisationsPage() {
             <thead><tr><th>Name</th><th>Type</th><th>Category</th><th>Branches</th><th>Members</th><th>Status</th></tr></thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id}>
+                <tr key={row.id} className="cursor-pointer hover:bg-[var(--surface-2)]" onClick={() => void openOrganisation(row.id)}>
                   <td>{row.name}</td>
                   <td>{row.organisation_type}</td>
                   <td>{row.institution_kind || row.business_category || row.responder_category || "—"}</td>
@@ -170,6 +257,50 @@ export default function AdminOrganisationsPage() {
           </table>
         )}
       </section>
+
+      {selectedId && (
+        <div className="fixed inset-y-0 right-0 z-[1200] w-full max-w-[50vw] min-w-[340px] border-l border-[var(--line)] bg-[var(--surface-1)] p-5 shadow-[0_0_28px_rgba(0,0,0,.35)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="eyebrow">Organisation details</p>
+              <h2 className="page-title mt-1 text-[24px]">{detail?.organisation?.name ?? "Loading..."}</h2>
+            </div>
+            <button className="btn" type="button" onClick={() => { setSelectedId(""); setDetail(null); }}>Close</button>
+          </div>
+          {detailBusy && <p className="muted mt-3">Loading details…</p>}
+          {detail && (
+            <div className="mt-4 space-y-4">
+              <section className="panel p-4">
+                <p className="text-sm">Owner: <b>{detail.owner?.name ?? "—"}</b></p>
+                <p className="text-sm">Support email: <b>{detail.organisation.support_email ?? "—"}</b></p>
+                <p className="text-sm">Support phone: <b>{detail.organisation.support_phone ?? "—"}</b></p>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="panel p-2"><p className="text-lg font-bold">{detail.counts.members}</p><p className="muted text-xs">Members</p></div>
+                  <div className="panel p-2"><p className="text-lg font-bold">{detail.counts.responders}</p><p className="muted text-xs">Responders</p></div>
+                  <div className="panel p-2"><p className="text-lg font-bold">{detail.counts.beneficiaries}</p><p className="muted text-xs">Beneficiaries</p></div>
+                </div>
+              </section>
+
+              <section className="panel p-4 space-y-3">
+                <h3 className="font-semibold">Temporary account block</h3>
+                <label className="field">Blocked until<input className="input" type="datetime-local" value={blockUntil} onChange={(event) => setBlockUntil(event.target.value)} /></label>
+                <label className="field">Reason<input className="input" value={blockReason} onChange={(event) => setBlockReason(event.target.value)} /></label>
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn btn-danger" type="button" disabled={detailBusy} onClick={() => void blockOrganisation()}>Block organisation</button>
+                  <button className="btn" type="button" disabled={detailBusy} onClick={() => void unblockOrganisation()}>Unblock organisation</button>
+                </div>
+                <p className="muted text-xs">While blocked, organisation dashboards show a lock notice and no services are available.</p>
+              </section>
+
+              <section className="panel p-4 space-y-3">
+                <h3 className="font-semibold">Owner account controls</h3>
+                <button className="btn btn-primary" type="button" disabled={detailBusy} onClick={() => void resetOwnerPassword()}>Generate new owner password</button>
+                {ownerPassword && <p className="text-sm">New password: <b>{ownerPassword}</b></p>}
+              </section>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

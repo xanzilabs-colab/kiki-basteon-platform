@@ -18,7 +18,7 @@ export async function GET() {
   if (memberships.length === 0) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const organisationId = memberships[0].organisation_id as string;
   const db = createAdminClient();
-  const [{ data: organisation }, { data: branches }, { data: members }, { data: settings }, { data: domains }, { data: coverage }, { data: onboarding }, { data: units }, { data: presence }, { data: policy }] = await Promise.all([
+  const [{ data: organisation }, { data: branches }, { data: members }, { data: settings }, { data: domains }, { data: coverage }, { data: onboarding }, { data: units }, { data: presence }, { data: policy }, { data: globalSupport }, { data: organisationSupport }] = await Promise.all([
     db.from("organisations").select("*").eq("id", organisationId).single(),
     db.from("organisation_branches").select("*").eq("organisation_id", organisationId).order("created_at", { ascending: true }),
     db.from("organisation_memberships").select("id,user_id,branch_id,membership_type,role,status,created_at,profiles(full_name,phone)").eq("organisation_id", organisationId).order("created_at"),
@@ -29,6 +29,8 @@ export async function GET() {
     db.from("organisation_units").select("*").eq("organisation_id", organisationId).order("created_at"),
     db.from("responder_presence").select("user_id,branch_id,unit_id,availability,last_seen_at,profiles(full_name)").eq("organisation_id", organisationId).order("last_seen_at", { ascending: false }),
     db.from("organisation_dispatch_policies").select("*").eq("organisation_id", organisationId).maybeSingle(),
+    db.from("support_contacts").select("*").eq("scope", "global").eq("active", true).order("purpose", { ascending: true }).order("contact_name", { ascending: true }),
+    db.from("support_contacts").select("*").eq("scope", "organisation").eq("organisation_id", organisationId).eq("active", true).order("purpose", { ascending: true }).order("contact_name", { ascending: true }),
   ]);
   return NextResponse.json({
     organisation,
@@ -42,6 +44,18 @@ export async function GET() {
     units: units ?? [],
     responderPresence: presence ?? [],
     dispatchPolicy: policy ?? null,
+    supportContacts: {
+      global: globalSupport ?? [],
+      organisation: organisationSupport ?? [],
+    },
+    blocked: {
+      isBlocked: Boolean(
+        organisation?.status === "suspended"
+        && (!organisation?.blocked_until || new Date(organisation.blocked_until).getTime() > Date.now()),
+      ),
+      until: organisation?.blocked_until ?? null,
+      reason: organisation?.blocked_reason ?? null,
+    },
   });
 }
 

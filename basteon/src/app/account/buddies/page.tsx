@@ -7,6 +7,7 @@ import { Bus, Car, Eye, EyeOff, Footprints, Handshake, LocateFixed, MapPinned, R
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFaceCheck, type FacePurpose } from "@/hooks/useFaceCheck";
 import { BUDDY_CONFIG } from "@/lib/buddies/config";
+import radarStyles from "@/app/games/games.module.css";
 
 type Place = { label: string; lat: number; lng: number };
 type Avatar = { ref: string; nickname: string; avatar: string; ring: number; angleDeg: number; radialPct: number; badges: string[]; destinationArea: string | null; mode: string };
@@ -178,54 +179,57 @@ export default function BuddiesPage() {
   return <div className="buddies-page">
     <div className="buddies-heading"><div><p className="eyebrow">Privacy-first matching</p><h1 className="page-title">Travel together</h1></div><div className="flex flex-wrap items-center gap-2"><Link className="btn" href="/account/buddies/safe-places"><MapPinned size={16} />Safe spots & meetings</Link><Link className="btn" href="/account/buddies/history">History</Link><span><ShieldCheck size={16} />Verified travel</span></div></div>
     <section className="buddies-panel buddies-radar-panel">
-      <div className="buddy-trip-pond" aria-label="Approximate Buddy zones, not geographic locations">
-        <div className="buddy-trip-wash" />
-        <div className="buddy-trip-ripple buddy-trip-ripple-one" />
-        <div className="buddy-trip-ripple buddy-trip-ripple-two" />
-        <div className="buddy-trip-ripple buddy-trip-ripple-three" />
-        <div className="buddy-trip-guide" />
-        <div className="buddy-trip-guide-inner" />
-        <button type="button" className="buddy-trip-you" aria-label="You are at the center of the buddy radar">
-          <span className="buddy-trip-you-mark">YOU</span>
-        </button>
+      <div className={radarStyles.gardenPond} aria-label="Approximate Buddy zones, not geographic locations">
+        <div className={radarStyles.pondWash} />
+        <div className={`${radarStyles.pondRipple} ${radarStyles.rippleOne}`} />
+        <div className={`${radarStyles.pondRipple} ${radarStyles.rippleTwo}`} />
+        <div className={`${radarStyles.pondRipple} ${radarStyles.rippleThree}`} />
+        <div className={radarStyles.pondGuide} />
+        <div className={radarStyles.pondGuideInner} />
         {visible && bubbles.map((bubble, index) => {
           const radius = 24 + bubble.radialPct * 43;
           const radians = bubble.angleDeg * Math.PI / 180;
+          const tone = ["", radarStyles.gardenBuddyTone1, radarStyles.gardenBuddyTone2, radarStyles.gardenBuddyTone3][index % 4];
           return (
             <button
               key={bubble.id}
               type="button"
               aria-pressed={selected?.ref === bubble.ref}
               onClick={() => setSelected(bubble)}
-              className={`buddy-trip-buddy buddy-trip-bubble buddy-trip-tone-${index % 4}`}
+              className={`${radarStyles.gardenBuddy} ${tone}`}
               style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }}
               title={`${bubble.memberCount} Buddies travelling together`}
               aria-label={`Select Buddy bubble with ${bubble.memberCount} members`}
             >
-              <span className="buddy-trip-buddy-mark">{bubble.avatar}</span>
-              <span className="buddy-trip-buddy-label"><strong>Bubble</strong><small>{bubble.memberCount} Buddies</small></span>
+              <span className={radarStyles.gardenBuddyMark}>{bubble.avatar}</span>
+              <span className={radarStyles.gardenBuddyLabel}><strong>Bubble</strong><small>{bubble.memberCount} members</small></span>
             </button>
           );
         })}
         {visible && avatars.map((avatar, index) => {
           const radius = 24 + avatar.radialPct * 43;
           const radians = avatar.angleDeg * Math.PI / 180;
+          const tone = ["", radarStyles.gardenBuddyTone1, radarStyles.gardenBuddyTone2, radarStyles.gardenBuddyTone3][index % 4];
           return (
             <button
               key={avatar.ref}
               type="button"
               aria-pressed={selected?.ref === avatar.ref}
               onClick={() => setSelected(avatar)}
-              className={`buddy-trip-buddy buddy-trip-tone-${index % 4}`}
+              className={`${radarStyles.gardenBuddy} ${tone}`}
               style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }}
               title={`${avatar.nickname}, ${avatar.mode}`}
               aria-label={`Select ${avatar.nickname}, ${avatar.mode}`}
             >
-              <span className="buddy-trip-buddy-mark">{avatar.avatar}</span>
-              <span className="buddy-trip-buddy-label"><strong>{avatar.nickname}</strong><small>{avatar.mode}</small></span>
+              <span className={radarStyles.gardenBuddyMark}>{avatar.avatar}</span>
+              <span className={radarStyles.gardenBuddyLabel}><strong>{avatar.nickname}</strong><small>{avatar.mode}</small></span>
             </button>
           );
         })}
+        <button type="button" className={radarStyles.gardenYou} aria-label="Your location is represented by the broad center ring">
+          <span className={radarStyles.gardenYouMark}>YOU</span>
+          <span className={radarStyles.gardenYouLabel}>YOU</span>
+        </button>
       </div>
       <p className="buddies-privacy-note">Exact locations are hidden. Matches use generated aliases and broad travel zones.</p>
       {visible && <><div className="flex items-center justify-center gap-2"><button className="btn buddies-refresh" onClick={() => void refreshNearby()} title={`Nearby also refreshes automatically every ${BUDDY_CONFIG.minRefreshMs / 1000} seconds`}><RefreshCw size={16} />Refresh nearby</button><button className="btn buddies-refresh px-3" onClick={clearMapGroups} title="Clear existing group markers from this map" aria-label="Clear existing group markers"><X size={16} /></button></div>{nearbyLoaded && avatars.length + bubbles.length === 0 && <p className="buddies-privacy-note">No compatible visible Buddies nearby right now.</p>}</>}
