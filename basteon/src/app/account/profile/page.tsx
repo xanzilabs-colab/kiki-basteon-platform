@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 
 type AccountProfile = { full_name: string | null; avatar_path: string | null; dark_theme: boolean | null };
 
@@ -31,6 +32,7 @@ export default function ProfilePage() {
         <button type="button" onClick={() => void toggleTheme()}><span><Moon size={17} />Dark Theme Mode</span><b>{profile?.dark_theme ? "On" : "Off"}</b></button>
         <Link href="/account/guardians"><span><Shield size={17} />Guardian Circle</span><ChevronRight size={17} /></Link>
       </nav>
+      <LocationPrivacyCard />
       <button type="button" className="kiki-profile-logout" onClick={() => void signOut()}>Log Out Account</button>
     </section>
   </div>;
