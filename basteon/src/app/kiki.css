@@ -1047,7 +1047,7 @@
   .hamba-planner, .hamba-active-card, .hamba-recent { padding-right: 16px; padding-left: 16px; }
   .hamba-page .hamba-mode { padding: 6px; }
 }
-.hamba-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+.hamba-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 14px; }
 .hamba-tools button { border: 1px solid #e7ccf0; border-radius: 99px; background: #fff; padding: 7px 12px; color: #5c1d5e; font-size: 12px; font-weight: 800; }
 .hamba-tools button.active { border-color: #54256f; background: #54256f; color: #fff; }
 .hamba-stop-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0; border: 1px solid #e7ccf0; border-radius: 14px; background: #faf8fc; padding: 10px 12px; }
@@ -1068,3 +1068,5 @@
 .smart-safety-switch[aria-checked="true"] span { transform: translateX(20px); }
 .smart-safety-switch:disabled { opacity: .5; cursor: not-allowed; }
 .smart-safety-alert { margin: 8px 0 0; border-radius: 12px; background: #fff4e5; padding: 9px 11px; color: #8a4b00; font-size: 12px; }
+.hamba-tools + .hamba-note, .hamba-tools ~ .hamba-note { margin-top: 0; margin-bottom: 12px; }
+.hamba-tools ~ .hamba-preview { margin-top: 4px; }
