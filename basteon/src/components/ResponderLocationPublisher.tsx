@@ -26,6 +26,11 @@ export function ResponderLocationPublisher({
       if (!active || running || !current) return;
       running = true;
       try {
+        await fetch("/api/organisation/responders/presence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ organisationId, lat: current.lat, lng: current.lng }),
+        }).catch(() => null);
         const { data: { user } } = await client.auth.getUser();
         if (!user) return;
         const { data: assignments, error: assignmentError } = await client

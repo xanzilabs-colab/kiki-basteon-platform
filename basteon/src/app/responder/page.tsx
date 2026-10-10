@@ -76,7 +76,7 @@ export default function ResponderPage() {
     const response = await fetch("/api/organisation/responders/availability", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organisationId, availability: next }),
+      body: JSON.stringify({ organisationId, availability: next, ...(position ? { lastLat: position.lat, lastLng: position.lng } : {}) }),
     });
     if (!response.ok) return;
     setSelfAvailability(next);
