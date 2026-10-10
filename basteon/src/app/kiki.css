@@ -276,7 +276,7 @@
 .account-shell .hamba-mode button.active { background: #54256f; color: #fff; }
 .hamba-mode button small { font-size: 8px; font-weight: 500; }
 .hamba-mode button:disabled { opacity: .6; cursor: not-allowed; }
-.hamba-page .hamba-mode button { height:auto; aspect-ratio:1; border-radius:14px; }
+.hamba-page .hamba-mode button { height:64px; aspect-ratio:auto; border-radius:14px; }
 .buddies-page .hamba-mode,.hamba-page .hamba-mode { padding: 8px; }
 .buddies-page { max-width: 720px; }
 .account-shell .buddies-heading .page-title { font-size: 24px; font-weight: 900; }
@@ -1040,11 +1040,11 @@
 @media (max-width: 767px) { .kiki-overview { width: calc(100% + 40px); margin-right: -20px; margin-left: -20px; } }
 @media (prefers-reduced-motion: reduce) { .kiki-overview * { animation: none!important; transition: none!important; } }
 /* Trips: six travel modes, route tools, stop pins, avatar marker, tighter horizontal padding */
-.hamba-mode { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (min-width: 640px) { .hamba-mode { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.hamba-mode { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.hamba-page .hamba-mode button { height: 60px; gap: 4px; padding: 0 2px; font-size: 9px; }
 @media (max-width: 767px) {
-  .hamba-page { margin-right: -16px; margin-left: -16px; }
-  .hamba-planner, .hamba-active-card, .hamba-recent { padding-right: 10px; padding-left: 10px; }
+  .hamba-page { margin-right: 0; margin-left: 0; }
+  .hamba-planner, .hamba-active-card, .hamba-recent { padding-right: 16px; padding-left: 16px; }
   .hamba-page .hamba-mode { padding: 6px; }
 }
 .hamba-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
