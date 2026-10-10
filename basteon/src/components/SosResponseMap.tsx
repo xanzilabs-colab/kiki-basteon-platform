@@ -14,6 +14,8 @@ export type MapResponder = {
   id: string;
   name: string;
   status: string;
+  organisation?: string | null;
+  role?: string | null;
   location: MapPoint | null;
   route?: ResponseRoute;
 };

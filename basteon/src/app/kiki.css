@@ -230,6 +230,7 @@
 @media (prefers-reduced-motion: reduce) { .account-page-transition,.account-more-scrim,.account-more-sheet,.account-more-option,.account-more-scrim.is-closing,.account-more-scrim.is-closing .account-more-sheet { animation:none; transition:none; } }
 .account-more-scrim { justify-content:flex-end; }.account-more-sheet { width:min(86vw,420px); max-height:80dvh; margin-left:auto; overflow-y:auto; border-radius:24px 0 0 0; }.account-more-sheet .btn { position:sticky; bottom:0; background:#fff; }
 .hamba-page { max-width: 720px; }
+@media (max-width: 767px) { .hamba-page { margin-right: -12px; margin-left: -12px; } .hamba-planner, .hamba-active-card { padding-right: 14px; padding-left: 14px; } }
 .account-shell .hamba-heading .page-title { font-size: 24px; font-weight: 900; }
 .hamba-field-label { display: block; margin: 0 0 7px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .hamba-field-label select { display: block; width: 100%; margin-top: 8px; text-transform: none; }

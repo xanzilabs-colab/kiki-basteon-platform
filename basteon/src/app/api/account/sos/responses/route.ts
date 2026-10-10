@@ -57,12 +57,22 @@ export async function GET(request: Request) {
   const responderIds = [...new Set((assignments ?? []).map((row) => row.responder_user_id).filter((id): id is string => Boolean(id)))];
   const [{ data: presence, error: presenceError }, { data: profiles, error: profilesError }] = responderIds.length
     ? await Promise.all([
-        db.from("responder_presence").select("user_id,last_lat,last_lng,last_seen_at").in("user_id", responderIds),
+        db.from("responder_presence").select("user_id,organisation_id,last_lat,last_lng,last_seen_at").in("user_id", responderIds),
         db.from("profiles").select("id,full_name").in("id", responderIds),
       ])
     : [{ data: [], error: null }, { data: [], error: null }];
   if (presenceError) return NextResponse.json({ error: presenceError.message }, { status: 500 });
   if (profilesError) return NextResponse.json({ error: profilesError.message }, { status: 500 });
+
+  const orgIds = [...new Set((presence ?? []).map((row) => row.organisation_id).filter((id): id is string => Boolean(id)))];
+  const [{ data: orgRows }, { data: roleRows }] = orgIds.length
+    ? await Promise.all([
+        db.from("organisations").select("id,name").in("id", orgIds),
+        db.from("organisation_memberships").select("user_id,organisation_id,role").in("organisation_id", orgIds).in("user_id", responderIds),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const orgName = new Map((orgRows ?? []).map((org) => [org.id, org.name]));
+  const roleByKey = new Map((roleRows ?? []).map((row) => [`${row.organisation_id}:${row.user_id}`, row.role]));
 
   const now = Date.now();
   const presenceByUser = new Map((presence ?? []).map((row) => [row.user_id, row]));
@@ -77,6 +87,8 @@ export async function GET(request: Request) {
       id: assignment.id,
       name: nameByUser.get(assignment.responder_user_id) || "Kiki responder",
       status: assignment.status,
+      organisation: latest?.organisation_id ? orgName.get(latest.organisation_id) ?? null : null,
+      role: latest?.organisation_id ? roleByKey.get(`${latest.organisation_id}:${assignment.responder_user_id}`) ?? null : null,
       acceptedAt: assignment.acknowledged_at ?? assignment.assigned_at,
       location: locationIsFresh
         ? { lat: latest.last_lat, lng: latest.last_lng, seenAt: latest.last_seen_at }

@@ -9,6 +9,7 @@ import {
   Route,
   ShieldCheck,
   Siren,
+  X,
   UsersRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -31,7 +32,9 @@ type ReadinessData = {
   responderCount: number;
 };
 
-type NearbyData = { count: number | null; scope: "linked" | "partners" | null; radiusKm: number; activeAlert: { id: string; type: "sos" | "medical" } | null };
+type NearbyResponderItem = { id: string; name: string; role: string; organisation: string; distanceKm: number };
+type NearbyData = { count: number | null; scope: "linked" | "partners" | null; radiusKm: number; responders: NearbyResponderItem[] };
+type ActiveSos = { id: string; type: "sos" | "medical"; status: string; acknowledged: number; enRoute: number; onScene: number };
 const DEVICE_ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
 function formatTripDate(value: string) {
@@ -50,6 +53,9 @@ export default function AccountPage() {
   const [readinessError, setReadinessError] = useState(false);
   const [nearby, setNearby] = useState<NearbyData | null>(null);
   const [nearbyError, setNearbyError] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [activeSos, setActiveSos] = useState<ActiveSos | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,16 +67,24 @@ export default function AccountPage() {
         .catch(() => { if (!cancelled) setNearbyError(true); });
     };
     const refresh = () => {
-      if (!navigator.geolocation) return load();
+      if (!navigator.geolocation) { setLocationDenied(true); return load(); }
       navigator.geolocation.getCurrentPosition(
-        (position) => load({ lat: position.coords.latitude, lng: position.coords.longitude }),
-        () => load(),
-        { timeout: 8_000, maximumAge: 60_000 },
+        (position) => { setLocationDenied(false); load({ lat: position.coords.latitude, lng: position.coords.longitude }); },
+        () => { setLocationDenied(true); load(); },
+        { timeout: 8_000, maximumAge: 30_000 },
       );
     };
+    const refreshSos = () => {
+      void fetch("/api/account/sos/active", { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => { if (!cancelled && data) setActiveSos(data.alert ?? null); })
+        .catch(() => undefined);
+    };
     refresh();
+    refreshSos();
     const timer = window.setInterval(refresh, 30_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    const sosTimer = window.setInterval(refreshSos, 5_000);
+    return () => { cancelled = true; window.clearInterval(timer); window.clearInterval(sosTimer); };
   }, []);
 
   useEffect(() => {
@@ -131,8 +145,9 @@ export default function AccountPage() {
   return <div className="kiki-overview">
     <h1 className="kiki-overview-title">You’re protected.</h1>
 
-    {nearby?.activeAlert && <button type="button" className="kiki-overview-cta" style={{ background: "#d9264e", width: "100%", marginBottom: 14 }} onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: nearby.activeAlert }))}>
-      <Siren size={21} aria-hidden="true" />Active alert · view live response
+    {activeSos && <button type="button" className="kiki-overview-cta" style={{ background: "#d9264e", width: "100%", marginBottom: 14, height: "auto", padding: "14px 18px", flexDirection: "column", alignItems: "flex-start", gap: 2 }} onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Siren size={20} aria-hidden="true" />Active {activeSos.type === "medical" ? "medical alert" : "SOS"} · tap to view live response</span>
+      <small style={{ opacity: .9, fontWeight: 600 }}>{activeSos.onScene ? "Responder has arrived" : activeSos.enRoute ? `${activeSos.enRoute} responder${activeSos.enRoute === 1 ? "" : "s"} en route` : activeSos.acknowledged ? `${activeSos.acknowledged} responder${activeSos.acknowledged === 1 ? "" : "s"} acknowledged · not yet en route` : "Alert sent · waiting for a responder"}</small>
     </button>}
 
     <section className="kiki-overview-hero" aria-label="Safety readiness">
@@ -172,12 +187,12 @@ export default function AccountPage() {
           <span className={`kiki-overview-state${connectedDeviceCount ? " is-on" : ""}`}><i />{readinessError ? "Unavailable" : connectedDeviceCount ? "Connected" : deviceCount ? "Offline" : "Not linked"}</span>
           <ChevronRight className="kiki-overview-chevron" size={17} />
         </Link>
-        <Link className="kiki-overview-status-row" href="/account/guardians">
+        <button type="button" className="kiki-overview-status-row" style={{ width: "100%", textAlign: "left" }} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
           <span className="kiki-overview-tile-icon"><ShieldCheck size={22} /></span>
-          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearby?.count == null ? (nearbyError ? "Nearby responders unavailable" : nearby ? "Enable location to see responders" : "Checking nearby responders…") : `${nearby.count} ${nearby.count === 1 ? "responder" : "responders"} nearby`}</span></span>
+          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearby?.count == null ? (nearbyError ? "Nearby responders unavailable" : locationDenied ? "Enable location to see responders" : "Checking nearby responders…") : `${nearby.count} ${nearby.count === 1 ? "responder" : "responders"} nearby`}</span></span>
           <span className={`kiki-overview-state${nearby?.count ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : nearby?.count == null ? "Unknown" : nearby.count ? "Available" : "None nearby"}</span>
           <ChevronRight className="kiki-overview-chevron" size={17} />
-        </Link>
+        </button>
 
         <Link className="kiki-overview-status-row" href="/account/buddies">
           <span className="kiki-overview-tile-icon"><UsersRound size={22} /></span>
@@ -193,6 +208,25 @@ export default function AccountPage() {
         </Link>
       </div>
     </section>
+    {sheetOpen && <div role="dialog" aria-modal="true" aria-label="Nearby responders" onClick={() => setSheetOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1500, background: "rgba(29,3,31,.55)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ background: "#fff", width: "min(100%,520px)", maxHeight: "80vh", overflowY: "auto", borderRadius: "24px 24px 0 0", padding: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 900 }}>Responders nearby</h2>
+          <button type="button" className="btn" aria-label="Close" onClick={() => setSheetOpen(false)}><X size={16} /></button>
+        </div>
+        <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+          {nearby?.scope === "linked" ? "From your linked organisation" : "From official partner organisations"} · available and on duty within {nearby?.radiusKm ?? 10} km
+        </p>
+        {nearbyError ? <p>Nearby responders could not be loaded. Try again shortly.</p>
+          : locationDenied && nearby?.count == null ? <p>Location is off or blocked. Allow location access in your browser to see responders near you.</p>
+          : !nearby ? <p>Loading…</p>
+          : nearby.count === 0 ? <p>No available responders within {nearby.radiusKm} km right now.{nearby.scope === "partners" ? " Only official partner organisations are searched because you aren’t linked to an organisation." : ""}</p>
+          : <ul style={{ display: "grid", gap: 10 }}>{nearby.responders.map((item) => <li key={item.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #f1edf5", paddingBottom: 8 }}>
+            <span><b>{item.name}</b><br /><small className="muted">{item.role} · {item.organisation}</small></span>
+            <span style={{ textAlign: "right", fontSize: 12 }}><b>{item.distanceKm} km</b><br /><small style={{ color: "#258257" }}>Available</small></span>
+          </li>)}</ul>}
+      </div>
+    </div>}
 
     <section className="kiki-overview-section kiki-overview-recent" aria-labelledby="recent-trips-title">
       <div className="kiki-overview-section-head"><h2 id="recent-trips-title">Recent trips</h2><Link href="/account/trips">See all</Link></div>

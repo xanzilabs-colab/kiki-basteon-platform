@@ -13,14 +13,16 @@ const ResponseMap = dynamic(() => import("./SosResponseMap"), {
 
 type ResponseData = {
   alert: { id: string; status: string; typeCode: string | null; lat: number | null; lng: number | null; triggeredAt: string; updatedAt: string };
-  responders: Array<{ id: string; name: string; status: string; acceptedAt: string; location: (MapPoint & { seenAt: string }) | null }>;
+  responders: Array<{ id: string; name: string; status: string; organisation?: string | null; role?: string | null; acceptedAt: string; location: (MapPoint & { seenAt: string }) | null }>;
 };
 type RouteCacheEntry = { route: ResponseRoute; origin: MapPoint; responder: MapPoint; checkedAt: number };
 
 const statusCopy: Record<string, string> = {
-  acknowledged: "Accepted your alert",
-  en_route: "On the way",
+  acknowledged: "Acknowledged · travel not confirmed yet",
+  en_route: "En route to you",
   on_scene: "Arrived at your location",
+  withdrawn: "No longer responding",
+  unavailable: "No longer responding",
 };
 
 function distanceMeters(from: MapPoint, to: MapPoint) {
@@ -36,10 +38,10 @@ function formatDistance(meters: number) {
   return meters < 1_000 ? `${Math.round(meters)} m` : `${(meters / 1_000).toFixed(1)} km`;
 }
 
-function formatEta(seconds: number | null, responderStatus?: string) {
+function formatEta(route: ResponseRoute | undefined, responderStatus?: string) {
   if (responderStatus === "on_scene") return "On scene";
-  if (seconds == null) return "ETA unavailable";
-  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (!route || !route.roadRoute || route.durationS == null) return "ETA unavailable";
+  const minutes = Math.max(1, Math.round(route.durationS / 60));
   return `~${minutes} min`;
 }
 
@@ -212,7 +214,7 @@ export function SosResponseScreen({
     return { ...responder, route };
   }), [caller, data?.responders, routes]);
   const nearest = mapResponders
-    .filter((responder) => responder.location && responder.route)
+    .filter((responder) => (responder.status === "en_route" || responder.status === "on_scene") && responder.location && responder.route)
     .sort((a, b) => (a.route?.distanceM ?? Infinity) - (b.route?.distanceM ?? Infinity))[0];
   const onTheWay = data?.responders.filter((responder) => responder.status === "en_route").length ?? 0;
   const onScene = data?.responders.some((responder) => responder.status === "on_scene") ?? false;
@@ -252,9 +254,9 @@ export function SosResponseScreen({
             <p className="text-xs text-[#64736e]">{type === "medical" ? "Medical emergency" : "Kiki emergency alert"} · Ref {alertId.slice(0, 8).toUpperCase()}</p>
           </div>
         </div>
-        {closed && <button className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#dce5e0] px-3 text-sm font-semibold hover:bg-[#f4f7f5]" onClick={onClose}>
-          <ArrowLeft size={16} /><span>Back</span>
-        </button>}
+        <button className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#dce5e0] px-3 text-sm font-semibold hover:bg-[#f4f7f5]" onClick={onClose} title={closed ? undefined : "Close this view. Your alert stays active."}>
+          <ArrowLeft size={16} /><span>{closed ? "Back" : "Close"}</span>
+        </button>
       </header>
 
       <div className="mx-auto grid w-full max-w-[1500px] flex-1 gap-4 p-3 sm:p-5 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -297,15 +299,21 @@ export function SosResponseScreen({
             {loading && !data && <p className="mt-3 text-xs text-[#64736e]">Connecting to your responders…</p>}
           </section>
 
-          {nearest && (
+          {nearest ? (
             <section className="rounded-3xl border border-[#cfe4da] bg-[#edf7f2] p-5">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[.12em] text-[#3c6e59]">Closest responder</p>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[.12em] text-[#3c6e59]">Nearest responder · {nearest.status === "on_scene" ? "arrived" : "en route"}</p>
               <h2 className="text-lg font-bold">{nearest.name}</h2>
+              <p className="text-xs text-[#52665e]">{[nearest.role, nearest.organisation].filter(Boolean).join(" · ") || "Kiki responder"}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">Distance</p><p className="mt-1 font-bold">{formatDistance(nearest.route!.distanceM)}</p></div>
-                <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">Estimated arrival</p><p className="mt-1 inline-flex items-center gap-1 font-bold"><Clock3 size={14} />{formatEta(nearest.route!.durationS, nearest.status)}</p></div>
+                <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">Estimated arrival</p><p className="mt-1 inline-flex items-center gap-1 font-bold"><Clock3 size={14} />{formatEta(nearest.route, nearest.status)}</p></div>
               </div>
-              {!nearest.route!.roadRoute && <p className="mt-2 text-[10px] leading-4 text-[#687972]">Approximate straight-line estimate. Road routing is unavailable; actual distance and arrival time may differ.</p>}
+              {!nearest.route!.roadRoute && <p className="mt-2 text-[10px] leading-4 text-[#687972]">Straight-line distance only. Road routing is unavailable, so no arrival time is shown.</p>}
+            </section>
+          ) : !closed && (
+            <section className="rounded-3xl border border-[#e7eeea] bg-white p-5 text-sm leading-6 text-[#64736e]">
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-[.12em] text-[#71817b]">Nearest responder</p>
+              {accepted ? "Responders have acknowledged your alert, but none has confirmed they are travelling yet." : "Waiting for a responder to acknowledge your alert."}
             </section>
           )}
 
@@ -318,9 +326,10 @@ export function SosResponseScreen({
                     <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#0f766e]" />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">{responder.name}</p>
+                      <p className="text-xs text-[#64736e]">{[responder.role, responder.organisation].filter(Boolean).join(" · ")}</p>
                       <p className="text-xs text-[#64736e]">{statusCopy[responder.status] ?? responder.status.replaceAll("_", " ")}</p>
                     </div>
-                    {responder.route ? <span className="text-right text-xs font-semibold">{formatDistance(responder.route.distanceM)}<br /><span className="text-[#64736e]">{formatEta(responder.route.durationS, responder.status)}</span></span> : <span className="text-right text-xs text-[#64736e]">{responder.location ? "Updating route…" : "Location updating"}</span>}
+                    {responder.route && responder.status !== "acknowledged" ? <span className="text-right text-xs font-semibold">{formatDistance(responder.route.distanceM)}<br /><span className="text-[#64736e]">{formatEta(responder.route, responder.status)}</span></span> : <span className="text-right text-xs text-[#64736e]">{responder.status === "acknowledged" ? "Not travelling yet" : responder.location ? "Updating route…" : "Location unavailable"}</span>}
                   </li>
                 ))}
               </ul>
