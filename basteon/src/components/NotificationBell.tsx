@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Bell, CheckCheck, Handshake } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type NotificationItem = { id: string; type: string; title: string; body: string; href: string | null; read: boolean; createdAt: string };
 
@@ -72,9 +73,18 @@ export function NotificationBell() {
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("focus", onVisible); };
   }, [load]);
 
+  // Realtime (RLS limits events to this user's rows); every event reloads the authoritative inbox so counts can't drift.
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase.channel("notifications-inbox")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => { void load(); })
+      .subscribe((status) => { if (status === "SUBSCRIBED") void load(); });
+    return () => { void supabase.removeChannel(channel); };
+  }, [load]);
+
   useEffect(() => {
     if (!open) return;
-    const onPointer = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
+    const onPointer =  (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);

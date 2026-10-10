@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Brain, Clock3, Database, Route, ShieldCheck, Trash2 } from "lucide-react";
+import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 
 type Settings = {
   learningEnabled: boolean;
@@ -143,6 +144,7 @@ export default function SmartSafetyPage() {
     <header><span>PRIVACY-FIRST CONTROLS</span><h1>Smart Safety</h1><p>Optional trip estimates, gentle check-ins and community route hints. Every feature starts off.</p></header>
     {error && <p className="smart-safety-alert" role="alert">{error}</p>}
     {message && <p className="smart-safety-success" role="status">{message}</p>}
+    <LocationPrivacyCard />
     {loading ? <p>Loading your preferences…</p> : <section className="smart-safety-card">
       <h2><Brain size={18} />Personal trip learning</h2>
       <p className="smart-safety-intro">Kiki can learn broad origin/destination patterns from completed trips. It stores a one-way hash of coarse clusters, not your route points.</p>

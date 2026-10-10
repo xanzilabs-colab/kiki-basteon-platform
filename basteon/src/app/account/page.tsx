@@ -13,6 +13,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLocationEligibility } from "@/hooks/useLocationEligibility";
 import { createClient } from "@/lib/supabase/client";
 
 type TripActivity = {
@@ -56,6 +57,7 @@ export default function AccountPage() {
   const [locationDenied, setLocationDenied] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeSos, setActiveSos] = useState<ActiveSos | null>(null);
+  const { allowed, reason: eligibility } = useLocationEligibility();
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +69,9 @@ export default function AccountPage() {
         .catch(() => { if (!cancelled) setNearbyError(true); });
     };
     const refresh = () => {
-      if (!navigator.geolocation) { setLocationDenied(true); return load(); }
+      if (eligibility === "loading") return;
+      // Nearby responders need the Live Location Sharing setting as well as the browser permission.
+      if (!allowed || !navigator.geolocation) { setLocationDenied(true); return load(); }
       navigator.geolocation.getCurrentPosition(
         (position) => { setLocationDenied(false); load({ lat: position.coords.latitude, lng: position.coords.longitude }); },
         () => { setLocationDenied(true); load(); },
@@ -85,7 +89,7 @@ export default function AccountPage() {
     const timer = window.setInterval(refresh, 30_000);
     const sosTimer = window.setInterval(refreshSos, 5_000);
     return () => { cancelled = true; window.clearInterval(timer); window.clearInterval(sosTimer); };
-  }, []);
+  }, [allowed, eligibility]);
 
   useEffect(() => {
     let cancelled = false;

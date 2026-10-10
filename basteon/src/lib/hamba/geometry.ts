@@ -1,4 +1,5 @@
-import type { GeoPoint, PlannedRoute } from "./types";
+import type { PlannedRoute } from "./types";
+type GeoPoint = { lat: number; lng: number; [key: string]: unknown };
 
 const radians = (value: number) => value * Math.PI / 180;
 export function distanceM(a: GeoPoint, b: GeoPoint) {

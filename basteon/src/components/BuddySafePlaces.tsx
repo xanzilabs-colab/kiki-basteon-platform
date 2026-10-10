@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   AlertTriangle, BusFront, Building2, Check, ChevronRight, Church, Clock3, Coffee,
   Fuel, Handshake, Hospital, LocateFixed, MapPin, MapPinned, Navigation, RefreshCw,
@@ -94,6 +95,21 @@ export function BuddySafePlaces() {
       });
     return () => controller.abort();
   }, []);
+
+  // Live feed: a server broadcast pings subscribers, who then refetch authoritative data (also on reconnect and tab focus).
+  useEffect(() => {
+    if (!searched || !point) return;
+    const query = new URLSearchParams({ lat: String(point.lat), lng: String(point.lng) });
+    const refresh = () => { void meetingFetch<{ alerts: CommunityAlert[] }>(`/api/buddies/community-alerts?${query}`).then((data) => setAlerts(data.alerts)).catch(() => undefined); };
+    const supabase = createClient();
+    const channel = supabase.channel("community-alerts")
+      .on("broadcast", { event: "changed" }, refresh)
+      .subscribe((status) => { if (status === "SUBSCRIBED") refresh(); });
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    const timer = window.setInterval(onVisible, 60_000);
+    return () => { document.removeEventListener("visibilitychange", onVisible); window.clearInterval(timer); void supabase.removeChannel(channel); };
+  }, [searched, point]);
 
   async function search() {
     setBusy(true);

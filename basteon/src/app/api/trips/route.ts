@@ -9,8 +9,10 @@ const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-
 const tripSchema = z.object({
   destinationLabel: z.string().trim().min(1).max(240),
   destination: point,
-  mode: z.enum(["taxi", "walk", "ehail", "bus", "train"]),
+  mode: z.enum(["taxi", "walk", "ehail", "bus", "train", "cycling"]),
   route: z.object({ points: z.array(point).min(2).max(5_000), distanceM: z.number().nonnegative(), durationS: z.number().nonnegative() }),
+  checkpoints: z.array(point.extend({ label: z.string().max(80).optional(), expectedAt: z.string().datetime() })).max(6).default([]),
+  tools: z.array(z.enum(["auto", "stops", "draw"])).max(3).default([]),
 });
 
 export async function GET() {
@@ -21,7 +23,8 @@ export async function GET() {
     db.from("trips").select("*").eq("owner_id", access.user.id).in("status", ["planned", "active", "concern", "alert"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     db.from("trips").select("id,destination_label,destination_lat,destination_lng,mode,status,created_at,ended_at").eq("owner_id", access.user.id).in("status", ["arrived", "cancelled"]).order("created_at", { ascending: false }).limit(5),
   ]);
-  return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ trip: data, recent: recent ?? [] });
+  const { data: checkpoints } = data ? await db.from("trip_checkpoints").select("id,lat,lng,label,expected_at,status").eq("trip_id", data.id).order("position") : { data: [] };
+  return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ trip: data, recent: recent ?? [], checkpoints: checkpoints ?? [] });
 }
 
 export async function POST(request: Request) {
@@ -79,8 +82,14 @@ export async function POST(request: Request) {
     last_check_in_at: now.toISOString(),
     next_check_in_at: nextCheckInAt(now, expectedArrival).toISOString(),
     consented_at: now.toISOString(),
+    route_tools: input.data.tools,
     location_retention_until: new Date(now.getTime() + 30 * 24 * 60 * 60_000).toISOString(),
   }).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ trip: data }, { status: 201 });
+  let checkpoints: unknown[] = [];
+  if (input.data.checkpoints.length > 0) {
+    const { data: inserted } = await db.from("trip_checkpoints").insert(input.data.checkpoints.map((cp, index) => ({ trip_id: data.id, position: index + 1, lat: cp.lat, lng: cp.lng, label: cp.label ?? `Stop ${index + 1}`, expected_at: cp.expectedAt }))).select("id,lat,lng,label,expected_at,status");
+    checkpoints = inserted ?? [];
+  }
+  return NextResponse.json({ trip: data, checkpoints }, { status: 201 });
 }

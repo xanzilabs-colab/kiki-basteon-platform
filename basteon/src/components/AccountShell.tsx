@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
 import { NotificationBell } from "@/components/NotificationBell";
+import { SafetyIntelWatcher } from "@/components/SafetyIntelWatcher";
 import { primeRingtone, startRingtone } from "@/lib/ringtone";
 import { SosActionButton } from "./sos/SosActionButton";
 import { SosResponseScreen } from "./SosResponseScreen";
@@ -316,6 +317,7 @@ export function AccountShell({ name, children }: { name: string; children: React
           <div className="account-header-actions">
             <div className="md:hidden"><button className="account-header-action" title="Start safety call" onClick={() => void startSafetyCall()}><Volume2 size={17} /></button></div>
             <NotificationBell />
+            <SafetyIntelWatcher />
           </div>
           <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
             <LogOut size={17} aria-hidden="true" />

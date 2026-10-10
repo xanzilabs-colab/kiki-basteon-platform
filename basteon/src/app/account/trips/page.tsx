@@ -3,10 +3,11 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound } from "lucide-react";
+import { Bike, Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { formatDistance } from "@/lib/geo";
 import { remainingRouteDurationS } from "@/lib/hamba/geometry";
+import { buildManualRoute, checkpointTimes, thin, type TripTools } from "@/lib/hamba/manualRoute";
 import type { TripMode } from "@/lib/hamba/types";
 import { evaluateRouteWatch } from "@/lib/hamba/routeWatch";
 import type { GeoPoint, RouteWatchState } from "@/lib/hamba/types";
@@ -16,6 +17,7 @@ import { TravelTogetherPanel } from "@/components/TravelTogetherPanel";
 const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false, loading: () => <div className="hamba-map hamba-map-loading">Loading map...</div> });
 type Place = { label: string; lat: number; lng: number };
 type RouteOrigin = { lat: number; lng: number };
+type CheckpointView = { id: string; lat: number; lng: number; label: string | null; expected_at: string | null; status: string };
 type Route = { points: Place[]; distanceM: number; durationS: number };
 type ActiveTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; planned_route: Route; route_distance_m: number; route_duration_s: number; started_at: string; expected_arrival_at: string; next_check_in_at: string | null; status: string };
 type RecentTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; status: string; created_at: string; ended_at: string | null };
@@ -25,8 +27,9 @@ const transitModes = [
   { value: "ehail", label: "E-hail", icon: Car },
   { value: "bus", label: "Bus", icon: Bus },
   { value: "train", label: "Train", icon: TrainFront },
+  { value: "cycling", label: "Cycling", icon: Bike },
 ] as const;
-const modeLabels: Record<TripMode, string> = { taxi: "Taxi", walk: "Walk", ehail: "E-hail", bus: "Bus", train: "Train" };
+const modeLabels: Record<TripMode, string> = { taxi: "Taxi", walk: "Walk", ehail: "E-hail", bus: "Bus", train: "Train", cycling: "Cycling" };
 
 export default function TripsPage() {
   const { position, error: locationError } = useGeolocation();
@@ -43,6 +46,13 @@ export default function TripsPage() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [recenter, setRecenter] = useState(0);
+  const [tools, setTools] = useState<TripTools>({ auto: true, stops: false, draw: false });
+  const [stops, setStops] = useState<{ lat: number; lng: number }[]>([]);
+  const [drawn, setDrawn] = useState<{ lat: number; lng: number }[]>([]);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [estimated, setEstimated] = useState(false);
+  const [checkpoints, setCheckpoints] = useState<CheckpointView[]>([]);
+  const nextStop = checkpoints.find((cp) => cp.status !== "checked_in" && cp.status !== "skipped" && cp.status !== "escalated") ?? null;
   const [tripTab, setTripTab] = useState<"route" | "travel">("route");
   const fixes = useRef<GeoPoint[]>([]);
   const previousWatchState = useRef<RouteWatchState>("normal");
@@ -50,6 +60,7 @@ export default function TripsPage() {
   useEffect(() => {
     fetch("/api/trips").then((response) => response.json()).then((data) => {
       setActiveTrip(data.trip ?? null);
+      setCheckpoints(data.checkpoints ?? []);
       const recent = (data.recent ?? []) as RecentTrip[];
       setRecentTrips(recent);
       const selectedId = new URLSearchParams(window.location.search).get("destination");
@@ -96,13 +107,29 @@ export default function TripsPage() {
   useEffect(() => {
     if (!destination || !routeOrigin) return;
     setMessage("");
+    if (!tools.auto) {
+      setRoutes([buildManualRoute(routeOrigin, destination, mode, stops, drawn) as unknown as Route]);
+      setSelectedRoute(0);
+      setEstimated(true);
+      return;
+    }
+    const waypoints = [...stops.slice(0, 5), ...thin(drawn, 5)];
     const controller = new AbortController();
-    fetch("/api/trips/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: routeOrigin, destination, mode }), signal: controller.signal })
+    fetch("/api/trips/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: routeOrigin, destination, mode, waypoints }), signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data) => { setRoutes(data.routes); setSelectedRoute(0); })
+      .then((data) => { setRoutes(data.routes); setSelectedRoute(0); setEstimated(Boolean(data.estimated)); })
       .catch(() => { if (!controller.signal.aborted) setMessage("Route planning is unavailable. Try again when you have data coverage."); });
     return () => controller.abort();
-  }, [destination, mode, routeOrigin?.lat, routeOrigin?.lng]);
+  }, [destination, mode, routeOrigin?.lat, routeOrigin?.lng, tools.auto, stops, drawn]);
+
+  useEffect(() => {
+    void fetch("/api/account/profile/avatar").then((response) => response.ok ? response.json() : null).then((data) => setAvatarUrl(data?.url ?? null)).catch(() => undefined);
+  }, []);
+
+  function addMapPoint(point: { lat: number; lng: number }) {
+    if (tools.draw) setDrawn((current) => current.length < 200 ? [...current, point] : current);
+    else if (tools.stops) setStops((current) => current.length < 6 ? [...current, point] : current);
+  }
 
   useEffect(() => {
     if (!activeTrip || !position) return;
@@ -144,7 +171,8 @@ export default function TripsPage() {
     setBusy(true);
     void enablePushNotifications();
     try {
-      const response = await fetch("/api/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ destinationLabel: destination.label, destination, mode, route }) });
+      const checkpoints = stops.map((stop, i) => ({ ...stop, label: `Stop ${i + 1}`, expectedAt: new Date(checkpointTimes(route, stops, Date.now())[i]).toISOString() }));
+      const response = await fetch("/api/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ destinationLabel: destination.label, destination, mode, route, checkpoints, tools: Object.entries(tools).filter(([, on]) => on).map(([name]) => name) }) });
       const data = await response.json();
       if (!response.ok) return setMessage(typeof data.error === "string" ? data.error : "Could not start your trip.");
       localStorage.setItem("hamba-active-route", JSON.stringify(route));
@@ -153,19 +181,20 @@ export default function TripsPage() {
       setNow(Date.now());
       setMessage("");
       setActiveTrip(data.trip);
+      setCheckpoints(data.checkpoints ?? []);
     } catch { setMessage("Could not start your trip. Check your connection and try again."); }
     finally { setBusy(false); }
   }
 
-  async function checkIn() {
+  async function checkIn(checkpointId?: string) {
     if (!activeTrip) return;
     setBusy(true);
     try {
-      const response = await fetch(`/api/trips/${activeTrip.id}/check-in`, { method: "POST" });
+      const response = await fetch(`/api/trips/${activeTrip.id}/check-in`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(checkpointId ? { checkpointId } : {}) });
       if (!response.ok) return setMessage("Check-in could not be recorded. Please try again.");
       setMessage("Check-in recorded. Route Watch is still monitoring your trip.");
       const refreshed = await fetch("/api/trips");
-      if (refreshed.ok) { const data = await refreshed.json(); setActiveTrip(data.trip ?? null); }
+      if (refreshed.ok) { const data = await refreshed.json(); setActiveTrip(data.trip ?? null); setCheckpoints(data.checkpoints ?? []); }
     } catch { setMessage("Check-in could not be confirmed. Check your connection."); }
     finally { setBusy(false); }
   }
@@ -178,7 +207,7 @@ export default function TripsPage() {
       const response = await fetch(`/api/trips/${activeTrip.id}/arrive`, { method: "POST" });
       if (!response.ok) return setMessage("Arrival could not be confirmed. Your trip remains active.");
       setRecentTrips((current) => [{ ...activeTrip, created_at: activeTrip.started_at, ended_at: new Date().toISOString(), status: "arrived" }, ...current].slice(0, 5));
-      localStorage.removeItem("hamba-active-route"); setActiveTrip(null); setDestination(null); setRoutes([]); setQuery(""); setMessage("Trip ended. Glad you arrived safely.");
+      localStorage.removeItem("hamba-active-route"); setActiveTrip(null); setCheckpoints([]); setStops([]); setDrawn([]); setDestination(null); setRoutes([]); setQuery(""); setMessage("Trip ended. Glad you arrived safely.");
     } catch { setMessage("Arrival could not be confirmed. Your trip remains active."); }
     finally { setBusy(false); }
   }
@@ -201,11 +230,12 @@ export default function TripsPage() {
       {activeTrip ? (
         <section className="hamba-active">
           <div className="hamba-map-stage">
-            <TripMap points={activeTrip.planned_route.points} position={position} recenter={recenter} />
+            <TripMap points={activeTrip.planned_route.points} position={position} recenter={recenter} avatarUrl={avatarUrl} stops={checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng }))} />
             <div className="hamba-map-overlay"><span className="hamba-overlay-icon"><ShieldCheck size={18} /></span><div><h2>{activeTrip.destination_label}</h2><p>{modeLabels[activeTrip.mode]} · {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min estimated</p></div><button type="button" className="hamba-recenter" title="Center map on route" aria-label="Center map on route" onClick={() => setRecenter((current) => current + 1)}><LocateFixed size={18} /></button></div>
           </div>
           <div className="hamba-active-card">
             <div className="hamba-control-stats"><div><span>Next check-in</span><b><Timer size={20} />{countdown}</b></div><div><span>Planned distance</span><b>{formatDistance(activeTrip.route_distance_m / 1000)}</b></div></div>
+            {nextStop && <div className="hamba-stop-card"><div><span>Next stop</span><b>{nextStop.label ?? "Stop"}{nextStop.expected_at ? ` · ${new Date(nextStop.expected_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</b>{nextStop.status === "missed" && <small>We haven't heard from you. Tap to confirm you're OK.</small>}</div><button className="btn" disabled={busy} onClick={() => void checkIn(nextStop.id)}><CheckCircle2 size={16} />I'm here</button></div>}
             <div className="hamba-actions"><button className="btn" disabled={busy} onClick={() => void checkIn()}><CheckCircle2 size={16} />Check in now</button><button className="btn hamba-arrive" disabled={busy} onClick={() => void arrive()}><Flag size={16} />I've arrived</button></div>
             {!position && <p className="hamba-note"><LocateFixed size={16} />{locationError ?? "Waiting for your phone location."}</p>}
           </div>
@@ -218,7 +248,17 @@ export default function TripsPage() {
           <span className="hamba-field-label">Travel mode</span>
           <div className="hamba-mode" role="group" aria-label="Travel mode">{transitModes.map((item) => <button key={item.value} type="button" className={mode === item.value ? "active" : ""} aria-pressed={mode === item.value} onClick={() => { if (item.value !== mode) { setRoutes([]); setMode(item.value); } }}><item.icon size={18} /><span>{item.label}</span></button>)}</div>
           <div className="hamba-safety-options"><div><Clock3 size={18} /><div><span>Check-in frequency</span><b>Adaptive · up to 15 min</b></div></div><Link href="/account/guardians"><UsersRound size={18} /><div><span>Guardian Circle</span><b>Manage contacts</b></div><ChevronRight size={14} /></Link></div>
-          {destination && <><div className="hamba-preview"><TripMap points={route?.points ?? []} position={position} /></div><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
+          {destination && <><div className="hamba-tools" role="group" aria-label="Route tools">
+            <button type="button" className={tools.auto ? "active" : ""} aria-pressed={tools.auto} onClick={() => setTools((t) => ({ ...t, auto: !t.auto }))}>Auto-route</button>
+            <button type="button" className={tools.stops ? "active" : ""} aria-pressed={tools.stops} onClick={() => setTools((t) => ({ ...t, stops: !t.stops, draw: t.stops ? t.draw : false }))}>Add stops{stops.length ? ` (${stops.length})` : ""}</button>
+            <button type="button" className={tools.draw ? "active" : ""} aria-pressed={tools.draw} onClick={() => setTools((t) => ({ ...t, draw: !t.draw, stops: t.draw ? t.stops : false }))}>Draw route</button>
+            {(stops.length > 0 || drawn.length > 0) && <button type="button" onClick={() => { setStops([]); setDrawn([]); }}>Clear</button>}
+          </div>
+          {(tools.stops || tools.draw) && <p className="hamba-note">{tools.draw ? "Tap the map to draw your route." : "Tap the map to add a stop. Stops become check-in points."}</p>}
+          {!tools.auto && <p className="hamba-note">Auto-route is off, so the route follows your stops and drawing. The time is an estimate.</p>}
+          {tools.auto && estimated && <p className="hamba-note">Routing service unavailable for this mode, so this is a straight-line estimate.</p>}
+          <div className="hamba-preview"><TripMap points={route?.points ?? []} position={position} stops={stops} drawn={drawn} avatarUrl={avatarUrl} onMapClick={addMapPoint} /></div></>}
+          {destination && <><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
           <button className="btn btn-primary hamba-start" disabled={!destination || !position || !route || busy} onClick={() => void startTrip()}><Navigation size={17} />{busy ? "Starting..." : "Start active trip protection"}</button>
           {!position && <p className="hamba-note"><LocateFixed size={16} /> {locationError ?? "Enable location to plan a route."}</p>}
         </section>

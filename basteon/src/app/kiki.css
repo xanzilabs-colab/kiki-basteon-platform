@@ -1039,3 +1039,19 @@
 }
 @media (max-width: 767px) { .kiki-overview { width: calc(100% + 40px); margin-right: -20px; margin-left: -20px; } }
 @media (prefers-reduced-motion: reduce) { .kiki-overview * { animation: none!important; transition: none!important; } }
+/* Trips: six travel modes, route tools, stop pins, avatar marker, tighter horizontal padding */
+.hamba-mode { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 640px) { .hamba-mode { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 767px) {
+  .hamba-page { margin-right: -16px; margin-left: -16px; }
+  .hamba-planner, .hamba-active-card, .hamba-recent { padding-right: 10px; padding-left: 10px; }
+  .hamba-page .hamba-mode { padding: 6px; }
+}
+.hamba-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+.hamba-tools button { border: 1px solid #e7ccf0; border-radius: 99px; background: #fff; padding: 7px 12px; color: #5c1d5e; font-size: 12px; font-weight: 800; }
+.hamba-tools button.active { border-color: #54256f; background: #54256f; color: #fff; }
+.hamba-stop-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0; border: 1px solid #e7ccf0; border-radius: 14px; background: #faf8fc; padding: 10px 12px; }
+.hamba-stop-card span { display: block; color: #756b7d; font-size: 11px; }
+.hamba-stop-card small { display: block; color: #b4233f; font-size: 11px; }
+.hamba-stop-pin span { display: grid; width: 26px; height: 26px; place-items: center; border: 2px solid #fff; border-radius: 50%; background: #d94362; color: #fff; font-size: 12px; font-weight: 900; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.hamba-avatar-pin img, .hamba-avatar-pin span { display: grid; width: 38px; height: 38px; place-items: center; border: 3px solid #fff; border-radius: 50%; background: #54256f; color: #fff; font-weight: 900; object-fit: cover; box-shadow: 0 0 0 3px rgba(84,37,111,.35), 0 2px 8px rgba(0,0,0,.3); }
