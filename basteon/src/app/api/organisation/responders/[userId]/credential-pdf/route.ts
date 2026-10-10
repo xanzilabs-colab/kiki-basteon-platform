@@ -16,11 +16,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
   const db = createAdminClient();
   const { data: membership } = await db
     .from("organisation_memberships")
-    .select("id,role,membership_type,branch_id,profiles(full_name),organisation_branches(name),organisations(name)")
+    .select("id,role,membership_type,branch_id")
     .eq("organisation_id", organisationId)
     .eq("user_id", userId)
     .maybeSingle();
   if (!membership) return NextResponse.json({ error: "Responder not found for organisation" }, { status: 404 });
+  const [{ data: profile }, { data: branch }, { data: organisation }] = await Promise.all([
+    db.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+    membership.branch_id ? db.from("organisation_branches").select("name").eq("id", membership.branch_id).maybeSingle() : Promise.resolve({ data: null }),
+    db.from("organisations").select("name").eq("id", organisationId).maybeSingle(),
+  ]);
+  (membership as any).profiles = profile;
+  (membership as any).organisation_branches = branch;
+  (membership as any).organisations = organisation;
 
   const lines = [
     "BASTEON RESPONDER ONBOARDING CREDENTIALS",

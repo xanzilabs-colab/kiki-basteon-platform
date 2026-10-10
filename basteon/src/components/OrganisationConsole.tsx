@@ -19,6 +19,7 @@ import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { membershipTypeOptionsForOrganisation, roleHintForMembershipType } from "@/lib/organisationCategories";
 
 type MeResponse = {
+  userId?: string;
   organisation: any;
   memberships: Array<{ role: string; organisation_id: string }>;
   branches: Array<any>;
@@ -199,6 +200,13 @@ export function OrganisationConsole() {
   const [linkRequests, setLinkRequests] = useState<OrganisationLinkRequest[]>([]);
   const [linkRequestsLoading, setLinkRequestsLoading] = useState(false);
   const [rosterSearch, setRosterSearch] = useState("");
+  const [benSearch, setBenSearch] = useState("");
+  const [benBranch, setBenBranch] = useState("");
+  const [memSearch, setMemSearch] = useState("");
+  const [memBranch, setMemBranch] = useState("");
+  const [respSearch, setRespSearch] = useState("");
+  const [respBranch, setRespBranch] = useState("");
+  const [contactSearch, setContactSearch] = useState("");
   const [rosterIdentifierType, setRosterIdentifierType] = useState<"email" | "member_id" | "access_code">("email");
   const [rosterIdentifier, setRosterIdentifier] = useState("");
   const [rosterMembershipType, setRosterMembershipType] = useState("member");
@@ -278,6 +286,49 @@ export function OrganisationConsole() {
     () => responders.filter((presence) => !memberUserIds.has(presence.user_id)),
     [memberUserIds, responders],
   );
+
+  const matchesQuery = (query: string, ...values: unknown[]) => {
+    const needle = query.trim().toLowerCase();
+    return !needle || values.some((value) => String(value ?? "").toLowerCase().includes(needle));
+  };
+  const filteredBeneficiaries = beneficiaryMembers.filter((member) => (!benBranch || member.branch_id === benBranch) && matchesQuery(benSearch, member.profiles?.full_name, member.profiles?.email, member.membership_type, member.status));
+  const filteredMembers = visibleMembers.filter((member) => (!memBranch || member.branch_id === memBranch) && matchesQuery(memSearch, member.profiles?.full_name, member.profiles?.email, member.role, member.membership_type, member.status));
+  const filteredPresenceOnly = presenceOnlyResponders.filter((presence) => (!memBranch || presence.branch_id === memBranch) && matchesQuery(memSearch, presence.profiles?.full_name, presence.profiles?.email, presence.availability));
+  const emailByUser = new Map(members.map((member) => [member.user_id, member.profiles?.email]));
+  const filteredResponders = responders.filter((presence) => (!respBranch || presence.branch_id === respBranch) && matchesQuery(respSearch, presence.profiles?.full_name, presence.profiles?.email ?? emailByUser.get(presence.user_id), presence.availability));
+  const listToolbar = (query: string, setQuery: (value: string) => void, branch: string, setBranch: (value: string) => void, placeholder: string) => (
+    <div className="flex flex-wrap items-center gap-2">
+      <input className="org-list-search" aria-label={placeholder} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={placeholder} />
+      <select className="org-list-search" style={{ maxWidth: 220 }} aria-label="Filter by branch" value={branch} onChange={(event) => setBranch(event.target.value)}>
+        <option value="">All branches</option>
+        {branchOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </select>
+    </div>
+  );
+
+  async function memberAction(userId: string, action: "revoke" | "block" | "unblock") {
+    if (!organisationId) return;
+    const label = action === "revoke" ? "Revoke this person's access? They will need to link again." : action === "block" ? "Block this person? They will lose access and cannot re-link until unblocked." : "";
+    if (label && !window.confirm(label)) return;
+    setBusy(true);
+    setError("");
+    const response = await fetch("/api/organisation/members", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organisationId, userId, action }) });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) setError((body as any)?.error ?? "Could not update member.");
+    else { setMessage(action === "revoke" ? "Access revoked." : action === "block" ? "Member blocked." : "Member unblocked."); await refresh(); }
+    setBusy(false);
+  }
+
+  async function deleteRosterEntry(entry: RosterEntry) {
+    if (!organisationId || !window.confirm("Delete this roster entry? Anyone linked through it will lose access.")) return;
+    setBusy(true);
+    setError("");
+    const response = await fetch("/api/organisation/roster", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organisationId, id: entry.id }) });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) setError((body as any)?.error ?? "Could not delete roster entry.");
+    else { setMessage("Roster entry deleted."); await loadRoster(); await refresh(); }
+    setBusy(false);
+  }
 
   async function loadRoster(query = rosterSearch) {
     if (!organisationId) return;
@@ -882,8 +933,8 @@ export function OrganisationConsole() {
   const orgTypeLabel = String(state?.organisation?.organisation_type ?? "business").toLowerCase();
 
   if (!state) return error
-    ? <div className="panel p-5"><p role="alert">{error}</p><button className="btn mt-3" onClick={() => void refresh()}>Try again</button></div>
-    : <div className="panel p-5">Loading organisation console...</div>;
+    ? <div className="panel m-4 p-5"><p role="alert">{error}</p><button className="btn mt-3" onClick={() => void refresh()}>Try again</button></div>
+    : <div className="panel m-4 p-5">Loading organisation console...</div>;
 
   return (
     <>
@@ -1075,19 +1126,31 @@ export function OrganisationConsole() {
         <section className="panel p-6 space-y-4">
           <h2 className="org-tab-title">Beneficiaries & Residents</h2>
           <p className="muted text-xs">People linked to this organisation who are protected beneficiaries.</p>
+          {listToolbar(benSearch, setBenSearch, benBranch, setBenBranch, "Search beneficiaries")}
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Status</th></tr></thead>
+              <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
-                {beneficiaryMembers.map((member) => (
+                {filteredBeneficiaries.map((member) => (
                   <tr key={member.id}>
                     <td>{member.profiles?.full_name || member.user_id}</td>
                     <td>{member.profiles?.email || "—"}</td>
                     <td>{member.membership_type}</td>
+                    <td>{branchOptions.find((branch) => branch.id === member.branch_id)?.name ?? "—"}</td>
                     <td>{member.status}</td>
+                    <td>
+                      {member.role !== "owner" && member.user_id !== state.userId && (
+                        <div className="flex flex-wrap gap-2">
+                          <button className="btn" type="button" disabled={busy} onClick={() => void memberAction(member.user_id, "revoke")}>Revoke</button>
+                          {member.status === "suspended"
+                            ? <button className="btn" type="button" disabled={busy} onClick={() => void memberAction(member.user_id, "unblock")}>Unblock</button>
+                            : <button className="btn btn-danger" type="button" disabled={busy} onClick={() => void memberAction(member.user_id, "block")}>Block</button>}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
-                {beneficiaryMembers.length === 0 && <tr><td colSpan={4} className="muted text-center">No beneficiaries linked yet.</td></tr>}
+                {filteredBeneficiaries.length === 0 && <tr><td colSpan={6} className="muted text-center">{beneficiaryMembers.length === 0 ? "No beneficiaries linked yet." : "No beneficiaries match your filters."}</td></tr>}
               </tbody>
             </table>
           </div>
@@ -1107,11 +1170,12 @@ export function OrganisationConsole() {
               <label className="field">Purpose<input required value={supportContactPurpose} onChange={(event) => setSupportContactPurpose(event.target.value)} placeholder="blocked accounts, general support, errors..." /></label>
               <button className="btn btn-primary md:col-span-4 md:justify-self-start" disabled={busy}>Add support contact</button>
             </form>
+            <input className="org-list-search" aria-label="Search support contacts" value={contactSearch} onChange={(event) => setContactSearch(event.target.value)} placeholder="Search support contacts" />
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead><tr><th>Scope</th><th>Name</th><th>Type</th><th>Value</th><th>Purpose</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {(state.supportContacts?.global ?? []).map((contact: any) => (
+                  {(state.supportContacts?.global ?? []).filter((contact: any) => matchesQuery(contactSearch, contact.contact_name, contact.contact_value, contact.purpose)).map((contact: any) => (
                     <tr key={`global-${contact.id}`}>
                       <td>Admin</td>
                       <td>{contact.contact_name}</td>
@@ -1121,7 +1185,7 @@ export function OrganisationConsole() {
                       <td className="muted text-xs">Managed by admin</td>
                     </tr>
                   ))}
-                  {(state.supportContacts?.organisation ?? []).map((contact: any) => (
+                  {(state.supportContacts?.organisation ?? []).filter((contact: any) => matchesQuery(contactSearch, contact.contact_name, contact.contact_value, contact.purpose)).map((contact: any) => (
                     <tr key={`org-${contact.id}`}>
                       <td>Organisation</td>
                       <td>{contact.contact_name}</td>
@@ -1340,6 +1404,7 @@ export function OrganisationConsole() {
                         {entry.status === "active"
                           ? <button className="btn" type="button" disabled={busy} onClick={() => void setRosterEntryStatus(entry, "removed")}>Remove</button>
                           : <button className="btn" type="button" disabled={busy} onClick={() => void setRosterEntryStatus(entry, "active")}>Restore</button>}
+                        <button className="btn btn-danger ml-2" type="button" disabled={busy} onClick={() => void deleteRosterEntry(entry)}>Delete</button>
                       </td>
                     </tr>
                   ))}
@@ -1547,13 +1612,15 @@ export function OrganisationConsole() {
             </div>
           </form>
         )}
+        {listToolbar(memSearch, setMemSearch, memBranch, setMemBranch, "Search staff / members")}
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Name</th><th>Role</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
-              {visibleMembers.map((member) => (
+              {filteredMembers.map((member) => (
                 <tr key={member.id}>
                   <td>{member.profiles?.full_name || member.user_id}</td>
+                  <td>{member.profiles?.email || "—"}</td>
                   <td>{member.role}</td>
                   <td>{member.membership_type}</td>
                   <td>{branchOptions.find((branch) => branch.id === member.branch_id)?.name ?? "—"}</td>
@@ -1569,9 +1636,10 @@ export function OrganisationConsole() {
                   </td>
                 </tr>
               ))}
-              {presenceOnlyResponders.map((presence) => (
+              {filteredPresenceOnly.map((presence) => (
                 <tr key={`presence-${presence.user_id}`}>
                   <td>{presence.profiles?.full_name ?? presence.user_id}</td>
+                  <td>{presence.profiles?.email || "—"}</td>
                   <td>responder</td>
                   <td>responder</td>
                   <td>{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "—"}</td>
@@ -1579,8 +1647,8 @@ export function OrganisationConsole() {
                   <td className="muted text-xs">Managed from responder roster</td>
                 </tr>
               ))}
-              {visibleMembers.length === 0 && presenceOnlyResponders.length === 0 && (
-                <tr><td colSpan={6} className="muted text-center">No member or responder accounts found yet.</td></tr>
+              {filteredMembers.length === 0 && filteredPresenceOnly.length === 0 && (
+                <tr><td colSpan={7} className="muted text-center">No member or responder accounts match.</td></tr>
               )}
             </tbody>
           </table>
@@ -1591,13 +1659,15 @@ export function OrganisationConsole() {
       {(showRespondersPanel || inOnboardingMode) && (
       <section className="panel p-6 space-y-4">
         <h2 className="org-tab-title">Responder Teams & Live Duty Status</h2>
+        {listToolbar(respSearch, setRespSearch, respBranch, setRespBranch, "Search responders")}
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Name</th><th>Availability</th><th>Branch</th><th>Unit</th><th>Last seen</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Availability</th><th>Branch</th><th>Unit</th><th>Last seen</th><th>Actions</th></tr></thead>
             <tbody>
-              {responders.map((presence) => (
+              {filteredResponders.map((presence) => (
                 <tr key={presence.user_id}>
                   <td>{presence.profiles?.full_name ?? presence.user_id}</td>
+                  <td>{presence.profiles?.email ?? emailByUser.get(presence.user_id) ?? "—"}</td>
                   <td>{presence.availability}</td>
                   <td>{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "—"}</td>
                   <td>{units.find((unit) => unit.id === presence.unit_id)?.name ?? "—"}</td>
@@ -1611,7 +1681,7 @@ export function OrganisationConsole() {
                   </td>
                 </tr>
               ))}
-              {responders.length === 0 && <tr><td colSpan={6} className="muted text-center">No responder presence records yet.</td></tr>}
+              {filteredResponders.length === 0 && <tr><td colSpan={7} className="muted text-center">No responders match.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1650,7 +1720,7 @@ export function OrganisationConsole() {
       .org-console-header {
         width: 100%;
         margin: 0;
-        padding: 0;
+        padding: 14px clamp(14px, 2vw, 28px);
         border: 0;
         border-bottom: 1px solid var(--line);
         border-radius: 0;
@@ -2056,9 +2126,15 @@ export function OrganisationConsole() {
         .org-console-tabs { scroll-snap-type: x mandatory; padding-bottom: 4px; }
         .org-console-tab { scroll-snap-align: start; }
         .org-console .pane-head { font-size: 15px; }
-        .org-console-header { position: static; padding: 0; }
-        .org-console-content { padding: 12px 8px 0; }
+        .org-console-header { position: static; padding: 12px 14px; }
+        .org-console-content { padding: 12px 12px 0; }
       }
+      .org-console .field input.org-roster-file { display: block; min-height: 56px; margin-top: 4px; padding: 10px 12px; line-height: 1.2; }
+      .org-console .field input.org-roster-file::file-selector-button { margin: 0 12px 0 0; padding: 7px 14px; }
+      .org-list-search { width: 100%; max-width: 320px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--well); color: var(--text); }
+      .org-list-search:focus { outline: 2px solid #a855f7; outline-offset: 1px; }
+      .org-console .btn-danger { border-color: transparent; background: var(--crit); color: #fff; }
+      .org-console .panel { padding-inline: clamp(14px, 2vw, 24px); }
     `}</style>
     </>
   );

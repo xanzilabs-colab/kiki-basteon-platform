@@ -58,6 +58,7 @@ export async function GET() {
     return { ...member, profiles: { full_name: profile?.full_name ?? null, phone: profile?.phone ?? null, email: emailByUserId.get(member.user_id) ?? null } };
   });
   return NextResponse.json({
+    userId,
     organisation,
     memberships,
     branches: branches ?? [],
@@ -67,7 +68,7 @@ export async function GET() {
     coverage: coverage ?? [],
     onboarding: onboarding ?? null,
     units: units ?? [],
-    responderPresence: presence ?? [],
+    responderPresence: (presence ?? []).map((row: any) => ({ ...row, profiles: { ...(row.profiles ?? {}), email: emailByUserId.get(row.user_id) ?? null } })),
     dispatchPolicy: policy ?? null,
     supportContacts: {
       global: globalSupport ?? [],

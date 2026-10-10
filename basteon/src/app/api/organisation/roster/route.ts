@@ -209,3 +209,28 @@ export async function PATCH(request: Request) {
   });
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(request: Request) {
+  const { userId, memberships } = await requireOrganisationAccess(["owner", "admin", "manager"]);
+  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const parsed = z.object({ organisationId: z.string().uuid(), id: z.string().uuid() }).safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!memberships.some((m: any) => m.organisation_id === parsed.data.organisationId)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  const db = createAdminClient();
+  const { data: entry } = await db.from("org_roster_entries").select("id,identifier_type").eq("id", parsed.data.id).eq("org_id", parsed.data.organisationId).maybeSingle();
+  if (!entry) return NextResponse.json({ error: "Roster entry not found." }, { status: 404 });
+
+  await db.from("organisation_user_links").delete().eq("organisation_id", parsed.data.organisationId).eq("roster_entry_id", entry.id);
+  await db.from("organisation_memberships").delete().eq("organisation_id", parsed.data.organisationId).eq("roster_entry_id", entry.id).eq("source", "roster");
+  const { error } = await db.from("org_roster_entries").delete().eq("id", entry.id).eq("org_id", parsed.data.organisationId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  await db.from("org_roster_audit_log").insert({
+    org_id: parsed.data.organisationId,
+    actor_id: userId,
+    action: "roster_entry_deleted",
+    entry_id: null,
+    details: { identifierType: entry.identifier_type },
+  });
+  return NextResponse.json({ ok: true });
+}

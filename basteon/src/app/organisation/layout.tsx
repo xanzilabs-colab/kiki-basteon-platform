@@ -5,5 +5,5 @@ export default async function OrganisationLayout({ children }: { children: React
   const client = await createClient();
   const { data: { user } } = await client.auth.getUser();
   if (!user) redirect("/organisation/login");
-  return <main className="h-screen min-h-screen overflow-y-auto p-4 md:p-6">{children}</main>;
+  return <main className="h-screen min-h-screen overflow-y-auto">{children}</main>;
 }
