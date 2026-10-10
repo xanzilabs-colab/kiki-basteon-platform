@@ -2,12 +2,12 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bike, Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { formatDistance } from "@/lib/geo";
 import { remainingRouteDurationS } from "@/lib/hamba/geometry";
-import { buildManualRoute, checkpointTimes, thin, type TripTools } from "@/lib/hamba/manualRoute";
+import { buildManualRoute, checkpointTimes, mergeBySeq, thin, type TripTools } from "@/lib/hamba/manualRoute";
 import type { TripMode } from "@/lib/hamba/types";
 import { evaluateRouteWatch } from "@/lib/hamba/routeWatch";
 import type { GeoPoint, RouteWatchState } from "@/lib/hamba/types";
@@ -47,8 +47,8 @@ export default function TripsPage() {
   const [now, setNow] = useState(Date.now());
   const [recenter, setRecenter] = useState(0);
   const [tools, setTools] = useState<TripTools>({ auto: true, stops: false, draw: false });
-  const [stops, setStops] = useState<{ lat: number; lng: number }[]>([]);
-  const [drawn, setDrawn] = useState<{ lat: number; lng: number }[]>([]);
+  const [stops, setStops] = useState<{ lat: number; lng: number; n?: number }[]>([]);
+  const [drawn, setDrawn] = useState<{ lat: number; lng: number; n?: number }[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [estimated, setEstimated] = useState(false);
   const [checkpoints, setCheckpoints] = useState<CheckpointView[]>([]);
@@ -113,22 +113,27 @@ export default function TripsPage() {
       setEstimated(true);
       return;
     }
-    const waypoints = [...stops.slice(0, 5), ...thin(drawn, 5)];
+    const waypoints = mergeBySeq(stops.slice(0, 5), thin(drawn, 5)).map(({ lat, lng }) => ({ lat, lng }));
     const controller = new AbortController();
-    fetch("/api/trips/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: routeOrigin, destination, mode, waypoints }), signal: controller.signal })
-      .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data) => { setRoutes(data.routes); setSelectedRoute(0); setEstimated(Boolean(data.estimated)); })
-      .catch(() => { if (!controller.signal.aborted) setMessage("Route planning is unavailable. Try again when you have data coverage."); });
-    return () => controller.abort();
+    const timer = setTimeout(() => {
+      fetch("/api/trips/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ origin: routeOrigin, destination, mode, waypoints }), signal: controller.signal })
+        .then((response) => response.ok ? response.json() : Promise.reject())
+        .then((data) => { setRoutes(data.routes); setSelectedRoute(0); setEstimated(Boolean(data.estimated)); })
+        .catch(() => { if (!controller.signal.aborted) setMessage("Route planning is unavailable. Try again when you have data coverage."); });
+    }, drawn.length ? 500 : 0);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [destination, mode, routeOrigin?.lat, routeOrigin?.lng, tools.auto, stops, drawn]);
 
   useEffect(() => {
     void fetch("/api/account/profile/avatar").then((response) => response.ok ? response.json() : null).then((data) => setAvatarUrl(data?.url ?? null)).catch(() => undefined);
   }, []);
 
+  const seq = useRef(0);
+  const addDrawPoint = useCallback((point: { lat: number; lng: number }) => {
+    setDrawn((current) => current.length < 300 ? [...current, { ...point, n: ++seq.current }] : current);
+  }, []);
   function addMapPoint(point: { lat: number; lng: number }) {
-    if (tools.draw) setDrawn((current) => current.length < 200 ? [...current, point] : current);
-    else if (tools.stops) setStops((current) => current.length < 6 ? [...current, point] : current);
+    if (tools.stops) setStops((current) => current.length < 6 ? [...current, { ...point, n: ++seq.current }] : current);
   }
 
   useEffect(() => {
@@ -254,11 +259,10 @@ export default function TripsPage() {
             <button type="button" className={tools.draw ? "active" : ""} aria-pressed={tools.draw} onClick={() => setTools((t) => ({ ...t, draw: !t.draw, stops: t.draw ? t.stops : false }))}>Draw route</button>
             {(stops.length > 0 || drawn.length > 0) && <button type="button" onClick={() => { setStops([]); setDrawn([]); }}>Clear</button>}
           </div>
-          {(tools.stops || tools.draw) && <p className="hamba-note">{tools.draw ? "Tap the map to draw your route." : "Tap the map to add a stop. Stops become check-in points."}</p>}
+          {(tools.stops || tools.draw) && <p className="hamba-note">{tools.draw ? "Press and drag on the map to draw your route." : "Tap the map to add a stop. Stops become check-in points."}</p>}
           {!tools.auto && <p className="hamba-note">Auto-route is off, so the route follows your stops and drawing. The time is an estimate.</p>}
           {tools.auto && estimated && <p className="hamba-note">Routing service unavailable for this mode, so this is a straight-line estimate.</p>}
-          <div className="hamba-preview"><TripMap points={route?.points ?? []} position={position} stops={stops} drawn={drawn} avatarUrl={avatarUrl} onMapClick={addMapPoint} /></div></>}
-          {destination && <><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
+          <div className="hamba-preview"><TripMap points={route?.points ?? []} position={position} stops={stops} drawn={drawn} avatarUrl={avatarUrl}           onMapClick={addMapPoint} drawing={tools.draw} onDraw={addDrawPoint} /></div></>}          {destination && <><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
           <button className="btn btn-primary hamba-start" disabled={!destination || !position || !route || busy} onClick={() => void startTrip()}><Navigation size={17} />{busy ? "Starting..." : "Start active trip protection"}</button>
           {!position && <p className="hamba-note"><LocateFixed size={16} /> {locationError ?? "Enable location to plan a route."}</p>}
         </section>

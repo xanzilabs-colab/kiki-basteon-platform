@@ -1,8 +1,11 @@
 import { distanceM, remainingRouteDistanceM } from "./geometry";
 
-export type LatLng = { lat: number; lng: number };
+export type LatLng = { lat: number; lng: number; n?: number };
 export type TripTools = { auto: boolean; stops: boolean; draw: boolean };
 export type ManualRoute = { points: LatLng[]; distanceM: number; durationS: number };
+
+/** Stops and drawn points interleaved in the order the user added them (by sequence number). */
+export const mergeBySeq = (stops: LatLng[], drawn: LatLng[]) => [...stops, ...drawn].sort((a, b) => (a.n ?? 0) - (b.n ?? 0));
 
 export const MODE_SPEED_MPS: Record<string, number> = { walk: 1.35, cycling: 4.2, taxi: 11, ehail: 11, bus: 8, train: 15 };
 
@@ -16,7 +19,7 @@ export function thin<T>(items: T[], max: number): T[] {
 
 /** Route built directly from the user's own geometry. Duration is an estimate from average mode speed. */
 export function buildManualRoute(origin: LatLng, destination: LatLng, mode: string, stops: LatLng[], drawn: LatLng[]): ManualRoute {
-  const points = [origin, ...stops, ...drawn, destination];
+  const points = [origin, ...mergeBySeq(stops, drawn), destination];
   const length = polylineLengthM(points);
   return { points, distanceM: Math.round(length), durationS: Math.max(60, Math.round(length / (MODE_SPEED_MPS[mode] ?? 8))) };
 }

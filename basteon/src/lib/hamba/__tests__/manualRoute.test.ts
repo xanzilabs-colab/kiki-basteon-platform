@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildManualRoute, checkpointTimes, thin } from "../manualRoute";
+import { buildManualRoute, checkpointTimes, mergeBySeq, thin } from "../manualRoute";
 
 const o = { lat: 0, lng: 0 };
 const d = { lat: 0, lng: 0.02 };
@@ -27,5 +27,12 @@ describe("manual route", () => {
     expect(t).toHaveLength(10);
     expect(t[0]).toBe(0);
     expect(t.at(-1)).toBe(99);
+  });
+});
+
+describe("mergeBySeq", () => {
+  it("orders stops and drawn points by when they were added", () => {
+    const merged = mergeBySeq([{ lat: 1, lng: 1, n: 1 }, { lat: 3, lng: 3, n: 4 }], [{ lat: 2, lng: 2, n: 2 }, { lat: 2.5, lng: 2.5, n: 3 }]);
+    expect(merged.map((p) => p.n)).toEqual([1, 2, 3, 4]);
   });
 });

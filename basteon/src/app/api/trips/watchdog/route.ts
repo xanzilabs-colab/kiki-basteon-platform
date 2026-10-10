@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotificationsToUser } from "@/lib/push";
 import { createNotification } from "@/lib/notifications";
+import { notifyGuardians } from "@/lib/hamba/guardianNotify";
 import { checkpointConfig, deviationConfig, evaluateCheckpoint, isOffRoute, isOverdue } from "@/lib/hamba/checkpoints";
 
 async function runWatchdog() {
@@ -46,6 +47,7 @@ async function processMonitoring(db: Db) {
         await db.from("trip_checkpoints").update({ status: "escalated" }).eq("id", cp.id);
         await db.from("trips").update({ status: "concern", route_watch_state: "concern" }).eq("id", trip.id);
         await db.from("trip_events").insert({ trip_id: trip.id, event_type: "checkpoint_escalated", state: "concern", risk_score: 70, reasons: [{ signal: "missed_checkpoint", score: 70, reason: `No check-in at ${label} after ${cfg.maxReminders} reminders.` }] });
+        await notifyGuardians(db, trip.owner_id, `no check-in at ${label}.`).catch(() => null);
       }
     }
 
@@ -53,7 +55,8 @@ async function processMonitoring(db: Db) {
       await db.from("trips").update({ status: "concern", route_watch_state: "concern" }).eq("id", trip.id);
       await db.from("trip_events").insert({ trip_id: trip.id, event_type: "trip_overdue", state: "concern", risk_score: 55, reasons: [{ signal: "overdue", score: 55, reason: "Trip is past its expected arrival time." }] });
       await createNotification({ userId: trip.owner_id, type: "trip_checkpoint", title: "Trip running late", body: "Your trip is past its expected arrival. Check in when you can.", href: "/account/trips" });
-      continue;
+            await notifyGuardians(db, trip.owner_id, "the trip is past its expected arrival.").catch(() => null);
+            continue;
     }
 
     const route = (trip.planned_route as { points?: { lat: number; lng: number }[] } | null)?.points;
@@ -64,6 +67,7 @@ async function processMonitoring(db: Db) {
         await db.from("trips").update({ status: "concern", route_watch_state: "concern" }).eq("id", trip.id);
         await db.from("trip_events").insert({ trip_id: trip.id, event_type: "route_deviation", state: "concern", risk_score: 60, reasons: [{ signal: "off_route", score: 60, reason: `Last ${dev.consecutiveFixes} location updates were more than ${dev.offRouteM} m from the planned route.` }] });
         await createNotification({ userId: trip.owner_id, type: "trip_checkpoint", title: "Off your planned route", body: "You seem to be away from your route. Check in if you're OK.", href: "/account/trips" });
+        await notifyGuardians(db, trip.owner_id, "they appear to be off their planned route.").catch(() => null);
       }
     }
   }
