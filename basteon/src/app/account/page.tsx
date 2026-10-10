@@ -8,6 +8,7 @@ import {
   Radio,
   Route,
   ShieldCheck,
+  Siren,
   UsersRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -30,6 +31,7 @@ type ReadinessData = {
   responderCount: number;
 };
 
+type NearbyData = { count: number | null; scope: "linked" | "partners" | null; radiusKm: number; activeAlert: { id: string; type: "sos" | "medical" } | null };
 const DEVICE_ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
 function formatTripDate(value: string) {
@@ -46,6 +48,30 @@ export default function AccountPage() {
   const [buddyError, setBuddyError] = useState(false);
   const [readiness, setReadiness] = useState<ReadinessData | null>(null);
   const [readinessError, setReadinessError] = useState(false);
+  const [nearby, setNearby] = useState<NearbyData | null>(null);
+  const [nearbyError, setNearbyError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = (coords?: { lat: number; lng: number }) => {
+      const query = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : "";
+      void fetch(`/api/account/nearby-responders${query}`, { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error("unavailable")))
+        .then((data) => { if (!cancelled) { setNearby(data); setNearbyError(false); } })
+        .catch(() => { if (!cancelled) setNearbyError(true); });
+    };
+    const refresh = () => {
+      if (!navigator.geolocation) return load();
+      navigator.geolocation.getCurrentPosition(
+        (position) => load({ lat: position.coords.latitude, lng: position.coords.longitude }),
+        () => load(),
+        { timeout: 8_000, maximumAge: 60_000 },
+      );
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 30_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +131,10 @@ export default function AccountPage() {
   return <div className="kiki-overview">
     <h1 className="kiki-overview-title">You’re protected.</h1>
 
+    {nearby?.activeAlert && <button type="button" className="kiki-overview-cta" style={{ background: "#d9264e", width: "100%", marginBottom: 14 }} onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: nearby.activeAlert }))}>
+      <Siren size={21} aria-hidden="true" />Active alert · view live response
+    </button>}
+
     <section className="kiki-overview-hero" aria-label="Safety readiness">
       <div className="kiki-overview-hero-row">
         <div className="kiki-overview-ring" role="img" aria-label={`${progress}% ready`}>
@@ -144,10 +174,11 @@ export default function AccountPage() {
         </Link>
         <Link className="kiki-overview-status-row" href="/account/guardians">
           <span className="kiki-overview-tile-icon"><ShieldCheck size={22} /></span>
-          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{responderCount} {responderCount === 1 ? "contact" : "contacts"} active</span></span>
-          <span className={`kiki-overview-state${responderCount ? " is-on" : ""}`}><i />{readinessError ? "Unavailable" : responderCount ? "Ready" : "Add contact"}</span>
+          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearby?.count == null ? (nearbyError ? "Nearby responders unavailable" : nearby ? "Enable location to see responders" : "Checking nearby responders…") : `${nearby.count} ${nearby.count === 1 ? "responder" : "responders"} nearby`}</span></span>
+          <span className={`kiki-overview-state${nearby?.count ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : nearby?.count == null ? "Unknown" : nearby.count ? "Available" : "None nearby"}</span>
           <ChevronRight className="kiki-overview-chevron" size={17} />
         </Link>
+
         <Link className="kiki-overview-status-row" href="/account/buddies">
           <span className="kiki-overview-tile-icon"><UsersRound size={22} /></span>
           <span className="kiki-overview-status-copy"><strong>Buddy watch</strong><span>{buddy?.active ? buddy.visible ? "Visible to nearby Buddies" : "Buddy trip active · hidden" : "No Buddy trip active"}</span></span>

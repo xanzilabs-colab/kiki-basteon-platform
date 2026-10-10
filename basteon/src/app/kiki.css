@@ -276,7 +276,7 @@
 .hamba-mode button small { font-size: 8px; font-weight: 500; }
 .hamba-mode button:disabled { opacity: .6; cursor: not-allowed; }
 .hamba-page .hamba-mode button { height:auto; aspect-ratio:1; border-radius:14px; }
-.buddies-page .hamba-mode { padding: 8px; }
+.buddies-page .hamba-mode,.hamba-page .hamba-mode { padding: 8px; }
 .buddies-page { max-width: 720px; }
 .account-shell .buddies-heading .page-title { font-size: 24px; font-weight: 900; }
 .buddies-radar-panel { text-align: center; }

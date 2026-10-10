@@ -98,6 +98,15 @@ export function AccountShell({ name, children }: { name: string; children: React
   }, []);
 
   useEffect(() => {
+    const open = (event: Event) => {
+      const detail = (event as CustomEvent<{ id: string; type: SosType }>).detail;
+      if (detail?.id) setSosSent({ id: detail.id, type: detail.type === "medical" ? "medical" : "sos" });
+    };
+    window.addEventListener("kiki:open-sos-response", open);
+    return () => window.removeEventListener("kiki:open-sos-response", open);
+  }, []);
+
+  useEffect(() => {
     if (!sosOpen) return;
     const previousFocus = document.activeElement as HTMLElement | null;
     sosDialog.current?.querySelector<HTMLButtonElement>("button")?.focus();
