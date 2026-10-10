@@ -2,7 +2,7 @@
 
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Barlow } from "next/font/google";
-import { ArrowLeft, Camera, CloudSun, Eye, EyeOff, KeyRound, List, Lock, Mic, PenLine, Plus, Settings, Sprout, Square, Trees, X } from "lucide-react";
+import { ArrowLeft, Camera, ChevronsUpDown, Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudSun, Eye, EyeOff, Image as ImageIcon, Info, KeyRound, List, Lock, Mic, Pause, PenLine, Play, Plus, Rainbow, Settings, Sprout, Square, Sun, Trash2, Trees, Wind, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { createKeyBundle, decryptBytes, decryptJson, deriveKek, encryptBytes, encryptJson, fromB64, parseRecoveryCode, recoveryKeyFromBytes, unwrapDek } from "@/lib/journal/crypto";
@@ -21,6 +21,7 @@ type DecryptedEntry = JournalEntryRow & { payload: EntryPayloadV1 };
 type Gate = "loading" | "setup" | "unlock" | "recovery";
 const defaults: Record<JournalKind, JournalSymbol> = { moment: "flower", voice: "lantern", thought: "butterfly", feeling: "cloud" };
 const moods: Mood[] = ["sunny", "breezy", "cloudy", "drizzle", "storm", "fog", "rainbow"];
+const MOOD_ICON: Record<Mood, typeof Sun> = { sunny: Sun, breezy: Wind, cloudy: Cloud, drizzle: CloudDrizzle, storm: CloudLightning, fog: CloudFog, rainbow: Rainbow };
 const localDate = () => new Date().toLocaleDateString("en-CA");
 const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 const MAX_FILE_BYTES = MAX_MEDIA_BYTES - 28;
@@ -228,49 +229,69 @@ function LeaveSheet({ kind, userId, onClose, onSaved }: { kind: JournalKind; use
   const accept = current === "moment" ? "image/*" : "audio/*";
   const canSave = !saving && !recording && (!needsMedia || Boolean(file)) && (current !== "thought" || Boolean(text.trim()));
   return (
-    <div className={styles.scrim}>
-      <section className={styles.sheet} role="dialog" aria-modal="true" aria-label="Leave something here">
-        <button className={styles.close} onClick={onClose} aria-label="Close"><X /></button>
-        <h2>Leave something here</h2>
-        <div className={styles.kindGrid}>
-          {(["moment", "voice", "thought", "feeling"] as JournalKind[]).map((item) => (
-            <button type="button" className={current === item ? styles.selected : ""} onClick={() => chooseKind(item)} key={item} disabled={recording}>
-              {item === "moment" ? <Camera /> : item === "voice" ? <Mic /> : item === "thought" ? <PenLine /> : <CloudSun />}<span>A {item}</span>
-            </button>
-          ))}
-        </div>
-        {current === "feeling" && <div className={styles.moods}>{moods.map((item) => <button type="button" className={mood === item ? styles.selected : ""} onClick={() => setMood(item)} key={item}>{item}</button>)}</div>}
-        {needsMedia && (
-          <div className={mediaStyles.mediaPicker}>
-            <input ref={fileInput} className={mediaStyles.fileInput} type="file" accept={accept} onChange={selectFile} aria-label={current === "moment" ? "Choose an image" : "Choose an audio file"} />
-            <div className={mediaStyles.mediaActions}>
-              <button type="button" className="btn" disabled={saving || recording} onClick={() => fileInput.current?.click()}>
-                {current === "moment" ? <Camera size={17} /> : <Mic size={17} />}
-                {current === "moment" ? "Choose photo" : "Choose from device"}
+    <div className={styles.scrim} onClick={(event) => { if (event.target === event.currentTarget && !recording) onClose(); }}>
+      <section className={`${styles.sheet} ${styles.leaveSheet}`} role="dialog" aria-modal="true" aria-label="Leave something here">
+        <div className={styles.grab} />
+        <div className={styles.shScroll}>
+          <div className={styles.shTop}><h2>Leave something here</h2><button className={styles.x} onClick={onClose} aria-label="Close"><X size={18} /></button></div>
+          <div className={styles.types} role="tablist">
+            {(["moment", "voice", "thought", "feeling"] as JournalKind[]).map((item) => (
+              <button type="button" role="tab" aria-selected={current === item} className={`${styles.optB} ${current === item ? styles.optOn : ""}`} onClick={() => chooseKind(item)} key={item} disabled={recording}>
+                {item === "moment" ? <Camera size={24} /> : item === "voice" ? <Mic size={24} /> : item === "thought" ? <PenLine size={24} /> : <CloudSun size={24} />}{item[0].toUpperCase() + item.slice(1)}
               </button>
-              {current === "voice" && (
-                <button type="button" className="btn" disabled={saving} onClick={() => recording ? stopRecording() : void startRecording()}>
-                  {recording ? <Square size={16} /> : <Mic size={17} />}
-                  {recording ? `Stop recording · ${formatDuration(recordingMs)}` : "Record voice note"}
-                </button>
-              )}
-            </div>
-            {recording && <p className={mediaStyles.recordingStatus} role="status">Recording voice note · {formatDuration(recordingMs)}</p>}
-            {file && (
-              <div className={mediaStyles.mediaPreview}>
-                {previewUrl && file.type.startsWith("image/") && <img src={previewUrl} alt={`Selected photo: ${file.name}`} />}
-                {previewUrl && file.type.startsWith("audio/") && <audio controls preload="metadata" src={previewUrl} />}
-                <div className={mediaStyles.fileDetails}><strong>{file.name}</strong><small>{(file.size / (1024 * 1024)).toFixed(1)} MB{durationMs ? ` · ${formatDuration(durationMs)}` : ""}</small></div>
-                <button type="button" className={mediaStyles.removeMedia} aria-label="Remove selected file" onClick={() => { setFile(null); setDurationMs(undefined); }}><X size={18} /></button>
-              </div>
-            )}
+            ))}
           </div>
-        )}
-        <textarea className="input" maxLength={current === "moment" ? 300 : 5000} placeholder={current === "feeling" ? "Anything you want to add?" : current === "moment" ? "A caption (optional)" : "Describe it"} value={text} onChange={(event) => setText(event.target.value)} />
-        <button className="btn btn-primary" disabled={!canSave} onClick={() => void save()}><Lock size={16} />Leave it here</button>
+          {current === "thought" && <><span className={styles.label}>What&apos;s on your mind?</span><textarea className={styles.ta} style={{ minHeight: 150 }} maxLength={5000} placeholder="Write it down. It stays between you and the garden." value={text} onChange={(event) => setText(event.target.value)} /></>}
+          {current === "feeling" && <><span className={styles.label}>How does it feel?</span><div className={styles.wx}>{moods.map((item) => { const Icon = MOOD_ICON[item]; return <button type="button" key={item} className={`${styles.optB} ${mood === item ? styles.optOn : ""}`} onClick={() => setMood(item)}><Icon size={24} />{item[0].toUpperCase() + item.slice(1)}</button>; })}</div><span className={styles.label}>Anything you want to add? <span className={styles.opt}>· optional</span></span><textarea className={styles.ta} style={{ minHeight: 96 }} maxLength={5000} placeholder="A few words" value={text} onChange={(event) => setText(event.target.value)} /></>}
+          {current === "moment" && (
+            <>
+              <span className={styles.label}>Photo</span>
+              <input ref={fileInput} className={mediaStyles.fileInput} id="journal-photo-library" type="file" accept="image/*" onChange={selectFile} aria-label="Choose an image" />
+              <input className={mediaStyles.fileInput} id="journal-photo-camera" type="file" accept="image/*" capture="environment" onChange={selectFile} aria-label="Take a photo" />
+              {file && previewUrl && file.type.startsWith("image/") ? (
+                <div className={styles.ph}><img src={previewUrl} alt={`Selected photo: ${file.name}`} /><button type="button" className={styles.rm} aria-label="Remove photo" onClick={() => { setFile(null); setDurationMs(undefined); }}><X size={16} /></button></div>
+              ) : (
+                <div className={styles.drop}><div className={styles.dropIc}><ImageIcon size={26} /></div><b>Add a photo</b><span>Take one now or pick from your library.</span><div className={styles.two}><label htmlFor="journal-photo-camera" className={styles.tonalBtn}><Camera size={20} />Take</label><label htmlFor="journal-photo-library" className={styles.tonalBtn}><ImageIcon size={20} />Library</label></div></div>
+              )}
+              <span className={styles.label}>Caption <span className={styles.opt}>· optional</span></span><textarea className={styles.ta} style={{ minHeight: 84 }} maxLength={300} placeholder="A caption" value={text} onChange={(event) => setText(event.target.value)} />
+            </>
+          )}
+          {current === "voice" && (
+            <>
+              <span className={styles.label}>Voice note</span>
+              <input ref={fileInput} className={mediaStyles.fileInput} id="journal-audio-file" type="file" accept="audio/*" onChange={selectFile} aria-label="Choose an audio file" />
+              {recording ? (
+                <div className={styles.rec}><div className={styles.tm}><span className={styles.recdot} />{formatDuration(recordingMs)}</div><div className={styles.live} aria-hidden="true">{Array.from({ length: 28 }, (_, index) => <i key={index} style={{ "--h": `${12 + Math.round(Math.abs(Math.sin(index * 1.7)) * 26)}px`, "--d": `${(index % 7) / 9}s` } as React.CSSProperties} />)}</div><button type="button" className={styles.recbtn} onClick={() => stopRecording()} aria-label="Stop recording"><Square size={30} /></button><span className={styles.hint} role="status">Recording… tap to stop</span></div>
+              ) : file && previewUrl && file.type.startsWith("audio/") ? (
+                <AudioPlayer src={previewUrl} fallbackMs={durationMs} onRemove={() => { setFile(null); setDurationMs(undefined); }} />
+              ) : (
+                <div className={styles.rec}><button type="button" className={styles.recbtn} disabled={saving} onClick={() => void startRecording()} aria-label="Start recording"><Mic size={32} /></button><b className={styles.recTitle}>Tap to record</b><span className={styles.hint}>Or <label htmlFor="journal-audio-file" className={styles.linkb}>choose a file</label></span></div>
+              )}
+              <span className={styles.label}>Caption <span className={styles.opt}>· optional</span></span><textarea className={styles.ta} style={{ minHeight: 84 }} maxLength={5000} placeholder="A caption" value={text} onChange={(event) => setText(event.target.value)} />
+            </>
+          )}
+        </div>
+        <div className={styles.shFoot}>
+          <p className={styles.only}><Lock size={16} />Only me. Saved to your private journal.</p>
+          <button className={styles.violetBtn} disabled={!canSave} onClick={() => void save()}><Lock size={20} />Leave it here</button>
+        </div>
       </section>
     </div>
   );
+}
+
+function AudioPlayer({ src, fallbackMs, onRemove }: { src: string; fallbackMs?: number; onRemove?: () => void }) {
+  const audio = useRef<HTMLAudioElement>(null); const [playing, setPlaying] = useState(false); const [time, setTime] = useState(0); const [duration, setDuration] = useState((fallbackMs ?? 0) / 1000);
+  const bars = useMemo(() => Array.from({ length: 30 }, (_, index) => Math.round(20 + 70 * Math.abs(Math.sin(index * .55 + 3) * Math.cos(index * .21 + 3.9)))), []);
+  const fmt = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  const filled = duration ? Math.round((time / duration) * bars.length) : 0;
+  return <div className={styles.player}>
+    <audio ref={audio} src={src} preload="metadata" onLoadedMetadata={(event) => { if (Number.isFinite(event.currentTarget.duration)) setDuration(event.currentTarget.duration); }} onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)} onEnded={() => setPlaying(false)} />
+    <button type="button" className={styles.plBtn} aria-label={playing ? "Pause" : "Play"} onClick={() => { const element = audio.current; if (!element) return; if (playing) { element.pause(); setPlaying(false); } else { void element.play(); setPlaying(true); } }}>{playing ? <Pause size={20} /> : <Play size={20} />}</button>
+    <div className={styles.wave} onClick={(event) => { const element = audio.current; if (!element || !duration) return; const rect = event.currentTarget.getBoundingClientRect(); element.currentTime = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * duration; }}>{bars.map((height, index) => <i key={index} className={index < filled ? styles.waveOn : ""} style={{ height: `${height}%` }} />)}</div>
+    <div className={styles.plTime}>{fmt(time)} / {fmt(duration)}</div>
+    {onRemove && <button type="button" className={styles.plX} aria-label="Remove recording" onClick={onRemove}><X size={18} /></button>}
+  </div>;
 }
 
 function EntryViewer({ entry, userId, onClose, onDeleted }: { entry: DecryptedEntry; userId: string; onClose: () => void; onDeleted: () => Promise<void> }) {
@@ -308,8 +329,9 @@ function EntryViewer({ entry, userId, onClose, onDeleted }: { entry: DecryptedEn
     };
   }, [entry.id, entry.media_path, mediaMime, userId]);
 
+  const [confirming, setConfirming] = useState(false);
+  const KindIcon = KIND_ICON[entry.kind]; const when = `${dayLabel(entry.occurred_at)} · ${new Date(entry.occurred_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`; const body = entry.payload.text || entry.payload.caption;
   async function remove() {
-    if (!confirm("Delete this? It can't be undone.")) return;
     setBusy(true);
     try {
       const path = await api.deleteEntry(entry.id);
@@ -322,26 +344,59 @@ function EntryViewer({ entry, userId, onClose, onDeleted }: { entry: DecryptedEn
     }
   }
 
+  if (confirming) return (
+    <div className={styles.scrim} onClick={(event) => { if (event.target === event.currentTarget) setConfirming(false); }}>
+      <section className={`${styles.sheet} ${styles.leaveSheet}`} role="dialog" aria-modal="true" aria-label="Delete entry">
+        <div className={styles.grab} />
+        <div className={styles.shScroll}><div className={styles.conf}><div className={styles.confIll}><Trash2 size={30} /></div><h3>Delete this {entry.kind}?</h3><p>It will be removed from your garden for good. This can&apos;t be undone.</p></div></div>
+        <div className={styles.shFoot}><button className={styles.delBtn} disabled={busy} onClick={() => void remove()}><Trash2 size={20} />Delete</button><button className={styles.tonalBtn} style={{ height: 56 }} onClick={() => setConfirming(false)}>Keep it</button></div>
+      </section>
+    </div>
+  );
+
   return (
-    <div className={styles.scrim}>
-      <section className={styles.sheet} role="dialog" aria-modal="true" aria-label="Journal entry">
-        <button className={styles.close} onClick={onClose} aria-label="Close"><X /></button>
-        <p>{new Date(entry.occurred_at).toLocaleString()}</p>
-        <h2><Symbol symbol={entry.symbol} /> {entry.kind}</h2>
-        <p><Lock size={14} /> Only me</p>
-        <p className={styles.entryText}>{entry.payload.text || entry.payload.caption || (entry.kind === "voice" ? "Voice note" : "Photo")}</p>
-        {entry.media_path && (
-          <div className={mediaStyles.savedMedia}>
-            {mediaUrl && mediaMime.startsWith("image/") && <img src={mediaUrl} alt="Journal attachment" />}
-            {mediaUrl && mediaMime.startsWith("audio/") && <audio controls preload="metadata" src={mediaUrl} />}
-            {mediaUrl && !mediaMime.startsWith("image/") && !mediaMime.startsWith("audio/") && <a className="btn" href={mediaUrl} download={`garden-${entry.kind}-attachment`}>Download attachment</a>}
-            {!mediaUrl && mediaError && <p role="alert">This attachment could not be opened on this device.</p>}
-            {!mediaUrl && !mediaError && <p role="status">Opening encrypted attachment…</p>}
-          </div>
-        )}
-        <button className="btn" disabled={busy} onClick={() => void remove()}>Delete</button>
+    <div className={styles.scrim} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className={`${styles.sheet} ${styles.leaveSheet}`} role="dialog" aria-modal="true" aria-label="Journal entry">
+        <div className={styles.grab} />
+        <div className={styles.shScroll}>
+          <div className={styles.shTop} style={{ justifyContent: "flex-end", paddingBottom: 6 }}><button className={styles.x} onClick={onClose} aria-label="Close"><X size={18} /></button></div>
+          <div className={styles.wxhero}><div className={styles.wxTile} style={{ background: KIND_TILE[entry.kind] }}><KindIcon size={32} /></div><div><b>{KIND_LABEL[entry.kind]}</b><span>{when}</span></div></div>
+          {entry.kind === "thought" && body && <div className={styles.big}>{body}</div>}
+          {entry.kind === "feeling" && body && <div className={styles.quote}>{body}</div>}
+          {entry.media_path && (
+            <div className={styles.viewerMedia}>
+              {mediaUrl && mediaMime.startsWith("image/") && <div className={styles.ph}><img src={mediaUrl} alt="Journal attachment" /></div>}
+              {mediaUrl && mediaMime.startsWith("audio/") && <AudioPlayer src={mediaUrl} fallbackMs={entry.payload.media?.durationMs} />}
+              {mediaUrl && !mediaMime.startsWith("image/") && !mediaMime.startsWith("audio/") && <a className={styles.tonalBtn} href={mediaUrl} download={`garden-${entry.kind}-attachment`}>Download attachment</a>}
+              {!mediaUrl && mediaError && <p role="alert" className={styles.cap}>This attachment could not be opened on this device.</p>}
+              {!mediaUrl && !mediaError && <div className={styles.skel} role="status"><Lock size={18} />Opening encrypted attachment…</div>}
+            </div>
+          )}
+          {(entry.kind === "moment" || entry.kind === "voice") && body && <div className={styles.cap}>{body}</div>}
+          <p className={styles.only} style={{ marginTop: 6 }}><Lock size={16} />Only me</p>
+        </div>
+        <div className={styles.shFoot}><button className={styles.delBtn} disabled={busy} onClick={() => setConfirming(true)}><Trash2 size={20} />Delete</button></div>
       </section>
     </div>
   );
 }
-function JournalSettings({ settings, onClose, onChange, onLock }: { settings: { autoLock: number; calm: boolean }; onClose: () => void; onChange: (settings: { autoLock: number; calm: boolean }) => void; onLock: () => void }) { async function setAutoLock(autoLock: number) { await api.updateSettings(autoLock); onChange({ ...settings, autoLock }); } function setCalm(calm: boolean) { localStorage.setItem("kiki-journal-calm", calm ? "1" : "0"); onChange({ ...settings, calm }); } return <div className={styles.scrim}><section className={styles.sheet} role="dialog" aria-modal="true" aria-label="Journal settings"><button className={styles.close} onClick={onClose}><X/></button><p className={styles.sheetEyebrow}>Journal controls</p><h2>Settings</h2><label>Auto-lock<select className="input" value={settings.autoLock} onChange={(event) => void setAutoLock(Number(event.target.value))}>{[60,300,900].map((value) => <option value={value} key={value}>{value === 60 ? "1 minute" : `${value / 60} minutes`}</option>)}</select></label><label className={styles.settingToggle}><span>Calm mode<small>Reduce garden motion</small></span><input type="checkbox" checked={settings.calm} onChange={(event) => setCalm(event.target.checked)}/></label><p>Without your lock or your recovery code, the journal cannot be recovered by anyone, including us.</p><button className={styles.setupSecondary} onClick={onLock}>Lock journal now</button></section></div>; }
+function JournalSettings({ settings, onClose, onChange, onLock }: { settings: { autoLock: number; calm: boolean }; onClose: () => void; onChange: (settings: { autoLock: number; calm: boolean }) => void; onLock: () => void }) {
+  async function setAutoLock(autoLock: number) { await api.updateSettings(autoLock); onChange({ ...settings, autoLock }); }
+  function setCalm(calm: boolean) { localStorage.setItem("kiki-journal-calm", calm ? "1" : "0"); onChange({ ...settings, calm }); }
+  const options = [60, 300, 900, 1800];
+  const values = options.includes(settings.autoLock) ? options : [...options, settings.autoLock].sort((a, b) => a - b);
+  return <div className={styles.scrim} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className={`${styles.sheet} ${styles.leaveSheet}`} role="dialog" aria-modal="true" aria-label="Journal settings">
+      <div className={styles.grab} />
+      <div className={styles.shScroll}>
+        <div className={styles.shTop}><div><span className={styles.eyebrowMuted}>Journal controls</span><h2>Settings</h2></div><button className={styles.x} onClick={onClose} aria-label="Close"><X size={18} /></button></div>
+        <div className={styles.grp}>
+          <div className={styles.rowi}><div className={styles.rowT}><b>Auto-lock</b><span>Lock after you&apos;ve been away</span></div><div className={styles.sel}><select aria-label="Auto-lock" value={settings.autoLock} onChange={(event) => void setAutoLock(Number(event.target.value))}>{values.map((value) => <option value={value} key={value}>{value === 60 ? "1 minute" : `${value / 60} minutes`}</option>)}</select><ChevronsUpDown size={18} /></div></div>
+          <div className={styles.rowi}><div className={styles.rowT}><b>Calm mode</b><span>Reduce garden motion</span></div><label className={styles.sw}><input type="checkbox" aria-label="Calm mode" checked={settings.calm} onChange={(event) => setCalm(event.target.checked)} /><i /></label></div>
+        </div>
+        <div className={styles.callout}><Info size={22} /><div>Without your lock or your recovery code, the journal can&apos;t be recovered by anyone, including us.</div></div>
+      </div>
+      <div className={styles.shFoot}><button className={styles.plumBtn} onClick={onLock}><Lock size={20} />Lock journal now</button></div>
+    </section>
+  </div>;
+}
