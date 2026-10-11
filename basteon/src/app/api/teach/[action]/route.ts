@@ -404,7 +404,11 @@ export async function POST(request: Request, context: Context) {
         const { count, error: activeError } = await db.from("teach_sessions").select("id", { count: "exact", head: true })
           .in("status", ["waiting", "active"]).or(`p1.eq.${user.id},p2.eq.${user.id}`);
         if (activeError) throw new Error("teach_active_session_lookup_failed");
-        if (count) return fail("age_band_locked", 409);
+        const { count: readRoomCount, error: readRoomError } = await db.from("read_room_sessions")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "active").or(`p1.eq.${user.id},p2.eq.${user.id}`);
+        if (readRoomError) throw new Error("read_room_active_session_lookup_failed");
+        if (count || readRoomCount) return fail("age_band_locked", 409);
       }
       const identity = existing ?? generatedIdentity(`${user.id}:${crypto.randomUUID()}`);
       const { error } = await db.from("teach_members").upsert({

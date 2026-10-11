@@ -18,11 +18,11 @@ type NearbyBuddy = {
   angleDeg: number;
   radialPct: number;
 };
-type IncomingInvite = { id: string; host_id: string; invite_expires_at: string | null };
+type IncomingInvite = { id: string; game: GameType; host_id: string; invite_expires_at: string | null };
 type OutgoingInvite = { id: string; buddy: string; expiresAt: string | null };
 type ActiveRoom = {
   id: string;
-  game: "morabaraba" | "linkup" | "teach_one";
+  game: "morabaraba" | "linkup" | "teach_one" | "read_room";
   status: "waiting" | "ready_check" | "playing" | "paused" | "post_game";
   invite_status: "pending" | "accepted" | "declined" | "expired";
   host_id: string;
@@ -32,19 +32,32 @@ type ActiveRoom = {
 
 const buddyEmojis = ["🐰", "🦊", "🐼", "🐻", "🐝", "🌼", "🦋", "🐧", "🌙", "🌿"];
 
-type GameType = "morabaraba" | "linkup" | "teach_one";
+type GameType = "morabaraba" | "linkup" | "teach_one" | "read_room";
+const gameLabels: Record<GameType, string> = {
+  morabaraba: "Morabaraba",
+  linkup: "Kiki Links",
+  teach_one: "Each One Teach One",
+  read_room: "Read the Room",
+};
+const roomPaths: Record<GameType, (id: string) => string> = {
+  morabaraba: (id) => `/games/play/${id}`,
+  linkup: (id) => `/games/linkup/room/${id}`,
+  teach_one: (id) => `/games/teach/room/${id}`,
+  read_room: (id) => `/games/read-room/room/${id}`,
+};
 
 export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   const router = useRouter();
-  const gameName = game === "linkup" ? "Kiki Links" : game === "teach_one" ? "Each One Teach One" : "Morabaraba";
-  const gardenName = game === "linkup" ? "Kiki Links Garden" : game === "teach_one" ? "Teach One Garden" : "Morabaraba Garden";
-  const roomPath = (roomId: string) => game === "linkup"
-    ? `/games/linkup/room/${roomId}`
-    : game === "teach_one" ? `/games/teach/room/${roomId}` : `/games/play/${roomId}`;
-  const soloPath = game === "linkup" ? "/games/linkup/solo" : game === "teach_one" ? "/games/teach/kiki" : "/games/play/solo";
+  const gameName = game === "linkup" ? "Kiki Links" : game === "teach_one" ? "Each One Teach One" : game === "read_room" ? "Read the Room" : "Morabaraba";
+  const gardenName = game === "linkup" ? "Kiki Links Garden" : game === "teach_one" ? "Teach One Garden" : game === "read_room" ? "Read the Room Garden" : "Morabaraba Garden";
+  const roomPath = (roomId: string) => roomPaths[game](roomId);
+  const soloPath = game === "linkup" ? "/games/linkup/solo"
+    : game === "teach_one" ? "/games/teach/kiki"
+      : game === "read_room" ? "/games/read-room/kiki" : "/games/play/solo";
   const { position, error: locationError } = useGeolocation();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [invitationError, setInvitationError] = useState("");
   const [presenceError, setPresenceError] = useState("");
   const [buddies, setBuddies] = useState<NearbyBuddy[]>([]);
   const [selected, setSelected] = useState<NearbyBuddy | null>(null);
@@ -100,12 +113,11 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             p_radius_km: 3,
           })
           : Promise.resolve({ data: [] as Array<{ user_id: string; lat: number; lng: number }>, error: null });
-        const [{ data, error }, { data: invites }, { data: rooms, error: roomsError }] = await Promise.all([
+        const [{ data, error }, { data: invites, error: invitesError }, { data: rooms, error: roomsError }] = await Promise.all([
           nearbyRequest,
           db.from("game_rooms")
             .select("id,game,host_id,invite_expires_at")
             .eq("guest_id", currentUserId)
-            .eq("game", game)
             .eq("status", "ready_check")
             .eq("invite_status", "pending")
             .gt("invite_expires_at", new Date().toISOString())
@@ -113,7 +125,6 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             .limit(1),
           db.from("game_rooms")
             .select("id,game,status,invite_status,host_id,guest_id,invite_expires_at")
-            .eq("game", game)
             .or(`host_id.eq.${currentUserId},guest_id.eq.${currentUserId}`)
             .in("status", ["waiting", "ready_check", "playing", "paused", "post_game"])
             .order("updated_at", { ascending: false })
@@ -148,6 +159,12 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
         const pendingInvites = (invites ?? []) as IncomingInvite[];
         const openRooms = (!roomsError && rooms ? rooms : []) as ActiveRoom[];
         if (!ignore) {
+          if (invitesError || roomsError || error) {
+            console.error("game_lobby_refresh_failed", { nearbyError: error, invitesError, roomsError });
+            setInvitationError("Nearby players, invitations, or rooms could not be refreshed. Reopen the garden to retry.");
+          } else {
+            setInvitationError("");
+          }
           setBuddies(nextBuddies);
           setSelected((current) => current && nextBuddies.some((buddy) => buddy.userId === current.userId) ? current : null);
           setIncomingInvite(pendingInvites[0] ?? null);
@@ -196,7 +213,6 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
 
     const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,game,status,invite_status,host_id,guest_id,invite_expires_at")
       .or(`host_id.eq.${user.id},guest_id.eq.${user.id}`)
-      .eq("game", game)
       .in("status", ["waiting", "ready_check", "playing", "paused", "post_game"])
       .order("created_at", { ascending: false })
       .limit(1)
@@ -210,7 +226,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
 
     if (existingRoom) {
       let roomIsComplete = existingRoom.status === "post_game";
-      if (game === "linkup" && !roomIsComplete) {
+      if (existingRoom.game === "linkup" && !roomIsComplete) {
         const { data: linkedMatch, error: matchLookupError } = await db.from("linkup_matches")
           .select("status")
           .eq("room_id", existingRoom.id)
@@ -247,7 +263,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
           setBusy(false);
           return;
         }
-        router.push(roomPath(existingRoom.id));
+        router.push(roomPaths[existingRoom.game as GameType](existingRoom.id));
         setBusy(false);
         return;
       }
@@ -270,6 +286,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
       p_game: game,
     });
     if (error) {
+      console.error("game_room_create_failed", { code: error.code, message: error.message });
       setMessage(
         error.message.includes("room_already_open") || error.message.includes("duplicate key")
           ? "You already have an open game room. Open or leave it from My active rooms below."
@@ -277,9 +294,11 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             ? "That Buddy is already in an open game room. Try inviting them again when they're free."
           : error.message.includes("buddy_unavailable")
             ? "That Buddy is no longer available nearby. Choose someone else or create an open room."
+          : error.message.includes("invalid_game") || error.message.includes("game_rooms_game_check")
+            ? `The ${gameName} invite is not enabled on the game server yet. Please try again after the game update is applied.`
           : selectedBuddy
-            ? "This buddy is not open for a game right now. Try another nearby match."
-            : "A game room could not be created. Please try again."
+            ? `The invitation could not be created (${error.code || "unknown error"}). Please retry or share this code with support.`
+            : `A game room could not be created (${error.code || "unknown error"}). Please try again.`
       );
       setBusy(false);
       return;
@@ -303,7 +322,13 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
         .select("status,invite_status,guest_id,invite_expires_at")
         .eq("id", outgoingInvite!.id)
         .maybeSingle();
-      if (!active || error || !data) return;
+      if (!active) return;
+      if (error || !data) {
+        if (error) console.error("game_invite_status_lookup_failed", error);
+        setInvitationError("Your invitation status could not be refreshed. Reopen the garden to retry.");
+        return;
+      }
+      setInvitationError("");
       if (data.invite_status === "accepted" && data.guest_id && data.status !== "ended") {
         setOutgoingInvite(null);
         router.push(roomPath(outgoingInvite!.id));
@@ -357,13 +382,14 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
     });
     setInviteBusy(false);
     if (error) {
+      console.error("game_invite_response_failed", { code: error.code, message: error.message });
       setMessage(error.message.includes("invite_unavailable") ? "This invite has expired or is no longer available." : "Your response could not be sent. Please try again.");
-      setIncomingInvite(null);
+      if (error.message.includes("invite_unavailable")) setIncomingInvite(null);
       return;
     }
     const room = data as { invite_status: string };
     setIncomingInvite(null);
-    if (accept && room.invite_status === "accepted") router.push(roomPath(incomingInvite.id));
+    if (accept && room.invite_status === "accepted") router.push(roomPaths[incomingInvite.game](incomingInvite.id));
     else setMessage(room.invite_status === "expired" ? "This invite expired before you could accept it." : "Invite declined.");
   }
 
@@ -425,7 +451,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             <span className={styles.selectionMark}>{selected ? selected.avatar : <UsersRound size={20} />}</span>
             <span className={styles.selectionCopy}>
               <strong>{selected ? selected.label : buddies.length ? "Choose a nearby Buddy" : "Your garden is quiet"}</strong>
-              <small>{presenceError || (locationError ? "Enable location to see nearby players." : selected ? `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length ? "Tap a Buddy to invite them to play." : game === "teach_one" ? "Choose a nearby Buddy to send a private invitation." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
+              <small>{presenceError || (locationError ? "Enable location to see nearby players." : selected ? `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length ? "Tap a Buddy to invite them to play." : game === "teach_one" || game === "read_room" ? "Choose a nearby Buddy to send a private invitation." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
             </span>
             {selected && <button type="button" className={styles.clearSelection} aria-label="Clear selected Buddy" onClick={() => setSelected(null)}><X size={18} /></button>}
           </div>
@@ -434,7 +460,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
         <footer className={styles.gardenFooter}>
           <Link href={soloPath} className={styles.createGardenRoom}>
             <Flower2 size={19} />
-            <span>{game === "teach_one" ? "Teach with Kiki" : "Play solo against Kiki AI"}</span>
+            <span>{game === "teach_one" ? "Teach with Kiki" : game === "read_room" ? "Read the Room with Kiki" : "Play solo against Kiki AI"}</span>
           </Link>
           {activeRooms.length > 0 && (
             <section className={styles.gardenOpenRooms} aria-label={`Your ${gameName} rooms`}>
@@ -448,7 +474,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
                         <small>{roomStatusLabel(room)} · {room.status.replace("_", " ")}</small>
                       </div>
                       <span className={styles.gardenOpenRoomActions}>
-                        <button type="button" onClick={() => router.push(roomPath(room.id))}>Open</button>
+                        <button type="button" onClick={() => router.push(roomPaths[room.game](room.id))}>Open</button>
                         <button type="button" onClick={() => void leaveOpenRoom(room.id)} disabled={leavingRoomId === room.id}>
                           {leavingRoomId === room.id ? "Leaving…" : "Leave"}
                         </button>
@@ -459,20 +485,21 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
               </ul>
             </section>
           )}
-          <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite) || game === "teach_one" && !selected}>
+          <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite) || (game === "teach_one" || game === "read_room") && !selected}>
             {selected ? <UsersRound size={19} /> : <Plus size={20} />}
-            <span>{busy ? "Sending invite…" : outgoingInvite ? `Waiting for ${outgoingInvite.buddy}…` : selected ? `Invite ${selected.label}` : game === "teach_one" ? "Choose a nearby Buddy first" : `Create a ${gameName} Room`}</span>
+            <span>{busy ? "Sending invite…" : outgoingInvite ? `Waiting for ${outgoingInvite.buddy}…` : selected ? `Invite ${selected.label}` : game === "teach_one" || game === "read_room" ? "Choose a nearby Buddy first" : `Create a ${gameName} Room`}</span>
           </button>
           {outgoingInvite && <p className={styles.gardenInviteWaiting} role="status">Invite sent. The room opens for both of you when {outgoingInvite.buddy} accepts.</p>}
           <p className={styles.gardenPrivacyNote}><LockKeyhole size={13} /> Only broad distance rings are shown here.</p>
           {message && <p role="status" className={styles.gardenMessage}>{message}</p>}
+          {invitationError && <p role="alert" className={styles.gardenMessage}>{invitationError}</p>}
         </footer>
 
         {incomingInvite && (
           <div className={styles.gardenInviteBackdrop} role="presentation">
             <section className={styles.gardenInviteDialog} role="dialog" aria-modal="true" aria-labelledby="garden-invite-title">
               <span className={styles.gardenInviteIcon}><Flower2 size={26} /></span>
-              <p>{gameName} invitation</p>
+              <p>{gameLabels[incomingInvite.game]} invitation</p>
               <h2 id="garden-invite-title">A nearby Buddy wants to play.</h2>
               <small>Accept to join their private room. You can decline without sharing your exact location.</small>
               <div className={styles.gardenInviteActions}>

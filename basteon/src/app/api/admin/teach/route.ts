@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { validateCard } from "@/lib/games/teach/engine";
 
 const reviewSchema = z.object({
-  action: z.enum(["approve", "reject", "remove", "verify_author", "resolve_report"]),
+  action: z.enum(["approve", "reject", "remove", "verify_author", "resolve_report", "resolve_read_room_report"]),
   cardId: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
   reportId: z.string().uuid().optional(),
@@ -37,7 +37,11 @@ export async function GET() {
   }
   if (!reviewer) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const db = createAdminClient();
-  const [{ data: cards, error: cardsError }, { data: reports, error: reportsError }] = await Promise.all([
+  const [
+    { data: cards, error: cardsError },
+    { data: reports, error: reportsError },
+    { data: readRoomReports, error: readRoomReportsError },
+  ] = await Promise.all([
     db.from("teach_cards")
       .select("id,author_id,topic_id,problem,tip,example,check_q,check_options,check_answer,tier,status,flagged,helpful_distinct,report_count,created_at")
       .or("status.eq.pending,flagged.eq.true")
@@ -45,15 +49,19 @@ export async function GET() {
     db.from("teach_reports")
       .select("id,card_id,session_id,reporter_id,reason,status,created_at")
       .eq("status", "open").order("created_at", { ascending: true }).limit(100),
+    db.from("read_room_reports")
+      .select("id,session_id,reporter_id,target_id,reason,status,created_at")
+      .eq("status", "open").order("created_at", { ascending: true }).limit(100),
   ]);
-  if (cardsError || reportsError) {
-    console.error("teach moderation queue load failed", { cardsError, reportsError });
+  if (cardsError || reportsError || readRoomReportsError) {
+    console.error("teach moderation queue load failed", { cardsError, reportsError, readRoomReportsError });
     return NextResponse.json({ error: "moderation_queue_unavailable" }, { status: 500 });
   }
   return NextResponse.json({
     banner: "Community tips are not professional advice.",
     cards: cards ?? [],
     reports: reports ?? [],
+    readRoomReports: readRoomReports ?? [],
   }, { headers: { "cache-control": "private, no-store" } });
 }
 
@@ -100,6 +108,17 @@ export async function POST(request: Request) {
     if (report.card_id) {
       const { error: refreshError } = await db.rpc("teach_refresh_card", { p_card: report.card_id });
       if (refreshError) return NextResponse.json({ error: "card_report_count_update_failed" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (input.action === "resolve_read_room_report") {
+    if (!input.reportId || !input.reportStatus) return NextResponse.json({ error: "report_fields_required" }, { status: 400 });
+    const { error } = await db.from("read_room_reports").update({ status: input.reportStatus })
+      .eq("id", input.reportId).eq("status", "open");
+    if (error) {
+      console.error("read room report resolution failed", error);
+      return NextResponse.json({ error: "read_room_report_update_failed" }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }

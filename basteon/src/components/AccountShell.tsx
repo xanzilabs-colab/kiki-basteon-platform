@@ -272,8 +272,8 @@ export function AccountShell({ name, children }: { name: string; children: React
 
   const callDuration = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
   return (
-    <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr] md:overflow-hidden">
-      <aside inert={sosOpen} className="sidebar hidden md:flex md:min-h-0 md:flex-col">
+    <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]">
+      <aside inert={sosOpen} className="sidebar hidden md:flex md:h-[106%] md:min-h-0 md:flex-col">
         <div className="sidebar-head">
           <KikiMark size={100} zoom={2} />
           <span>KIKI CONNECT</span>

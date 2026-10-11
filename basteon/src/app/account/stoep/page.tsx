@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Flower2, Gamepad2, Map } from "lucide-react";
+import { ArrowRight, BookOpen, Eye, Flower2, Gamepad2, Map } from "lucide-react";
 import styles from "@/app/games/games.module.css";
 
 const stoepGames = [
   { href: "/games/calm/five-things", title: "Five Things", description: "Look around or use the quiet garden to notice what is here right now.", icon: Flower2, accent: "Grounding" },
   { href: "/games/calm/boats", title: "Worry Boats", description: "Name the worry, launch it, and let it drift away.", icon: Map, accent: "Release" },
   { href: "/games/teach", title: "Each One Teach One", description: "Share an everyday tip anonymously and learn from a nearby Buddy.", icon: BookOpen, accent: "Learn together" },
+  { href: "/games/read-room", title: "Read the Room", description: "Explore gentle fictional moments from more than one perspective.", icon: Eye, accent: "Perspective" },
   { href: "/games/play", title: "Play with a buddy", description: "Find a quick light round and enjoy a short two-player game.", icon: Gamepad2, accent: "Buddy" },
 ];
 

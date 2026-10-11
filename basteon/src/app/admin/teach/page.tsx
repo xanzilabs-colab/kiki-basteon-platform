@@ -28,10 +28,20 @@ type TeachReport = {
   status: string;
   created_at: string;
 };
+type ReadRoomReport = {
+  id: string;
+  session_id: string;
+  reporter_id: string;
+  target_id: string;
+  reason: string;
+  status: string;
+  created_at: string;
+};
 
 export default function TeachModerationPage() {
   const [cards, setCards] = useState<TeachCard[]>([]);
   const [reports, setReports] = useState<TeachReport[]>([]);
+  const [readRoomReports, setReadRoomReports] = useState<ReadRoomReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -48,6 +58,7 @@ export default function TeachModerationPage() {
       if (!response.ok) throw new Error(body.error || "The moderation queue could not be loaded.");
       setCards(body.cards as TeachCard[]);
       setReports(body.reports as TeachReport[]);
+      setReadRoomReports(body.readRoomReports as ReadRoomReport[]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The moderation queue could not be loaded.");
     } finally {
@@ -164,6 +175,24 @@ export default function TeachModerationPage() {
               <div className="flex gap-2">
                 <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_report", reportId: report.id, reportStatus: "actioned" })} className="rounded border border-emerald-900 px-3 py-2 text-xs text-emerald-200 disabled:opacity-40">Action taken</button>
                 <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_report", reportId: report.id, reportStatus: "dismissed" })} className="rounded border border-[#34353D] px-3 py-2 text-xs text-slate-300 disabled:opacity-40">Dismiss</button>
+              </div>
+            </article>
+          ))}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-white"><Flag size={16} />Read the Room reports <span className="text-xs text-slate-400">({readRoomReports.length})</span></div>
+        {!loading && readRoomReports.length === 0
+          ? <p className="rounded border border-[#282930] bg-[#16171B] p-4 text-sm text-slate-400">No open Read the Room reports.</p>
+          : readRoomReports.map((report) => (
+            <article key={report.id} className="flex flex-wrap items-start justify-between gap-3 rounded border border-[#282930] bg-[#16171B] p-4">
+              <div className="space-y-1 text-sm text-slate-200">
+                <p>{report.reason}</p>
+                <p className="text-xs text-slate-400">Reporter {report.reporter_id} · Reported user {report.target_id} · {new Date(report.created_at).toLocaleString()}</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_read_room_report", reportId: report.id, reportStatus: "actioned" })} className="rounded border border-emerald-900 px-3 py-2 text-xs text-emerald-200 disabled:opacity-40">Action taken</button>
+                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_read_room_report", reportId: report.id, reportStatus: "dismissed" })} className="rounded border border-[#34353D] px-3 py-2 text-xs text-slate-300 disabled:opacity-40">Dismiss</button>
               </div>
             </article>
           ))}
