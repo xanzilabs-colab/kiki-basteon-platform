@@ -234,6 +234,15 @@ async function getSnapshot(match: Match, uid: string) {
   const liveFuseLeftMs = match.mode === "bomb" && safeBombState?.end && match.turn_started_at
     ? Math.max(0, match.fuse_left_ms - Math.max(0, Date.now() - toEpoch(match.turn_started_at)))
     : match.fuse_left_ms;
+  let rematchRoom: { rematch_host: boolean; rematch_guest: boolean } | null = null;
+  if (match.room_id) {
+    const { data, error } = await db.from("game_rooms")
+      .select("rematch_host,rematch_guest")
+      .eq("id", match.room_id)
+      .maybeSingle();
+    if (error) throw new Error("rematch_state_lookup_failed");
+    rematchRoom = data;
+  }
   return {
     serverNow: new Date().toISOString(),
     match: {
@@ -244,6 +253,9 @@ async function getSnapshot(match: Match, uid: string) {
       player1Id: match.player1_id,
       player2Id: match.player2_id,
       botActorId: match.bot_actor_id,
+      roomId: match.room_id,
+      rematchHost: rematchRoom?.rematch_host ?? false,
+      rematchGuest: rematchRoom?.rematch_guest ?? false,
       status: match.status,
       roundNo: match.round_no,
       scores: match.scores,
@@ -284,30 +296,20 @@ async function resolveRound(match: Match, round: Round) {
   const usedWords = [...match.used_words, ...results.filter((result) => result.valid).map((result) => result.word)];
   const roundWinner = round.round_no >= 10 ? matchWinner(scores) : null;
   const finalRound = round.round_no >= 11 || (round.round_no >= 10 && roundWinner !== null);
-  const winner = finalRound ? matchWinner(scores) : null;
-  const { data: claimed, error: claimError } = await db.from("linkup_rounds").update({
-    phase: finalRound ? "finished" : "result",
-    phase_started_at: new Date().toISOString(),
-    deadline_at: finalRound ? null : addMs(RESULT_WINDOW_MS),
-    results: results.map((result) => ({ ...result, userId: result.userId === botId ? null : result.userId })),
-  }).eq("id", round.id).eq("phase", "answer").select("id").maybeSingle();
-  if (claimError) throw new Error("round_resolve_failed");
-  if (!claimed) return;
-  for (const result of results) {
-    const actorId = result.userId === botId ? match.bot_actor_id ?? "kiki" : result.userId;
-    const { error } = await db.from("linkup_answers").update({ points: result.points }).eq("round_id", round.id).eq("actor_id", actorId);
-    if (error) throw new Error("answer_score_save_failed");
-  }
-  const { error: scoreError } = await db.from("linkup_matches").update({
-    scores, streaks, used_words: usedWords, round_no: round.round_no,
-    status: finalRound ? "finished" : "active",
-    finished_at: finalRound ? new Date().toISOString() : null,
-  }).eq("id", match.id);
-  if (scoreError) throw new Error("match_score_save_failed");
-  if (match.room_id) {
-    const { error: roomError } = await db.from("game_rooms").update({ status: finalRound ? "post_game" : "playing", round_no: round.round_no }).eq("id", match.room_id);
-    if (roomError) throw new Error("room_round_save_failed");
-  }
+  const finishedAt = finalRound ? new Date().toISOString() : null;
+  const { data: committed, error: commitError } = await db.rpc("linkup_commit_round", {
+    p_match_id: match.id,
+    p_round_id: round.id,
+    p_round_no: round.round_no,
+    p_results: results.map((result) => ({ ...result, userId: result.userId === botId ? null : result.userId })),
+    p_scores: scores,
+    p_streaks: streaks,
+    p_used_words: usedWords,
+    p_deadline_at: finalRound ? null : addMs(RESULT_WINDOW_MS),
+    p_finished_at: finishedAt,
+  });
+  if (commitError) throw new Error("round_resolve_failed");
+  if (!committed) return;
 }
 
 function buildPickedSpec(match: Match, round: Round, picked: Record<string, string>) {

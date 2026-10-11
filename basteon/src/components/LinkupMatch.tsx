@@ -19,6 +19,9 @@ type Snapshot = {
     player1Id: string;
     player2Id: string | null;
     botActorId: string | null;
+    roomId: string | null;
+    rematchHost: boolean;
+    rematchGuest: boolean;
     status: string;
     roundNo: number;
     scores: Record<string, number>;
@@ -158,6 +161,9 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const opponent = isBot ? match?.botActorId ?? "kiki" : match?.player2Id ?? "";
   const myScore = match ? match.scores[userId] ?? 0 : 0;
   const otherScore = match ? match.scores[opponent] ?? 0 : 0;
+  const rematchRequested = match?.roomId && userId
+    ? userId === match.player1Id ? match.rematchHost : match.rematchGuest
+    : false;
   const currentSpec = round?.spec;
   const mineWarning = Boolean(word && currentSpec?.mines.some((mine) => word.toLowerCase().includes(mine)));
   const serverNow = snapshot?.serverNow ? Date.parse(snapshot.serverNow) : now;
@@ -185,6 +191,24 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       ? round.picks[pickRoles.endPicker]
       : myRole === "START" ? round.picks[pickRoles.startPicker] : round.picks[pickRoles.endPicker]
     : undefined;
+
+  async function requestRematch() {
+    if (!match || busy) return;
+    setBusy(true);
+    setMessage("");
+    const { data, error } = await createClient().rpc("linkup_rematch", { p_match_id: match.id });
+    if (error) {
+      setMessage(error.message === "rematch_unavailable"
+        ? "This match is not ready for a rematch."
+        : "A new round could not be started.");
+    } else if (data?.started) {
+      setMessage("Your rematch is starting…");
+    } else {
+      setMessage("Waiting for your Buddy to choose another round.");
+    }
+    setBusy(false);
+    void refresh().catch(() => setMessage("Could not refresh the rematch status."));
+  }
 
   useEffect(() => {
     const current = match?.mode === "bomb" ? match.liveFuseLeftMs : 0;
@@ -329,7 +353,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
             {round.results?.some((result) => result.stolen > 0) && <p className={styles.banner}>Points flying across the table!</p>}
           </section>
         )}
-        {isFinal && <section className={styles.result}><h2>{myScore === otherScore ? "A tie!" : myScore > otherScore ? "You win!" : `${isBot ? "Kiki" : "Your Buddy"} wins!`}</h2><p>Final score: {myScore} · {otherScore}</p><p>{round?.answers.filter((answer) => answer.valid).length ?? 0} valid words · mode: {match.mode}</p><button type="button" onClick={() => router.push(isBot ? "/games/linkup/solo" : "/games/linkup")}>Play again</button><Link href="/games/linkup">Back to the radar</Link></section>}
+        {isFinal && <section className={styles.result}><h2>{myScore === otherScore ? "A tie!" : myScore > otherScore ? "You win!" : `${isBot ? "Kiki" : "Your Buddy"} wins!`}</h2><p>Final score: {myScore} · {otherScore}</p><p>{round?.answers.filter((answer) => answer.valid).length ?? 0} valid words · mode: {match.mode}</p>{match.roomId ? <button type="button" onClick={() => void requestRematch()} disabled={busy || Boolean(rematchRequested)}>{busy ? "Starting…" : rematchRequested ? "Waiting for Buddy…" : "Play another round"}</button> : <button type="button" onClick={() => router.push("/games/linkup/solo")}>Play another round</button>}<Link href="/games/linkup">Back to the radar</Link></section>}
         {message && <p role="status" className={styles.message}>{message}</p>}
         {helpOpen && <div className={styles.help}><button type="button" onClick={() => setHelpOpen(false)}>Close</button><p>Choose a letter, then race to type a word that starts and ends with the revealed letters. Minefield words must avoid the displayed mine letters.</p></div>}
       </div>
