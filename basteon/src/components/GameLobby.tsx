@@ -189,7 +189,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
       return;
     }
 
-    const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,game,status,invite_status,guest_id,invite_expires_at")
+    const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,game,status,invite_status,host_id,guest_id,invite_expires_at")
       .or(`host_id.eq.${user.id},guest_id.eq.${user.id}`)
       .eq("game", game)
       .in("status", ["waiting", "ready_check", "playing", "paused", "post_game"])
@@ -204,6 +204,20 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
     }
 
     if (existingRoom) {
+      let roomIsComplete = existingRoom.status === "post_game";
+      if (game === "linkup" && !roomIsComplete) {
+        const { data: linkedMatch, error: matchLookupError } = await db.from("linkup_matches")
+          .select("status")
+          .eq("room_id", existingRoom.id)
+          .maybeSingle();
+        if (matchLookupError) {
+          setMessage("Your existing game room could not be checked. Please try again.");
+          setBusy(false);
+          return;
+        }
+        roomIsComplete = linkedMatch?.status === "finished";
+      }
+
       const inviteStillPending = existingRoom.invite_status === "pending"
         && existingRoom.status === "ready_check"
         && existingRoom.invite_expires_at
@@ -215,14 +229,23 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
         return;
       }
 
-      if (selectedBuddy) {
-        setMessage("You already have an open game room. Open it or leave it from My active rooms, then invite again.");
+      const inviteExpired = existingRoom.invite_status === "pending"
+        && existingRoom.invite_expires_at
+        && new Date(existingRoom.invite_expires_at).getTime() <= Date.now();
+      if (!roomIsComplete && !inviteExpired) {
+        setActiveRooms((current) => [
+          existingRoom as ActiveRoom,
+          ...current.filter((room) => room.id !== existingRoom.id),
+        ]);
+        if (selectedBuddy) {
+          setMessage("You already have an open game room. Open it or leave it from My rooms, then invite again.");
+          setBusy(false);
+          return;
+        }
+        router.push(roomPath(existingRoom.id));
         setBusy(false);
         return;
       }
-      router.push(roomPath(existingRoom.id));
-      setBusy(false);
-      return;
     }
 
     if (selectedBuddy && positionRef.current) {

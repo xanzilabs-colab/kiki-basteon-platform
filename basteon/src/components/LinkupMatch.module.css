@@ -39,6 +39,9 @@
 .answer input { width: 100%; min-height: 54px; padding: 0 14px; border: 2px solid #dfd2e8; border-radius: 15px; outline: 0; background: #fff; color: #312039; font-size: 1.15rem; }
 .answer input:focus { border-color: #80549d; box-shadow: 0 0 0 3px #80549d25; animation: inputPulse .36s ease-out; }
 .answer button, .boom button { min-height: 49px; border: 0; border-radius: 15px; background: linear-gradient(110deg, #79509a, #a36199); color: white; font-weight: 850; transition: transform .18s ease, box-shadow .18s ease; }
+.answer .micButton { width: max-content; min-height: 42px; padding: 0 13px; background: #efe7f4; color: #5a3c70; touch-action: none; }
+.answer .micButton.listening { background: #8654a0; color: white; animation: inputPulse .8s ease-in-out infinite alternate; }
+.answer .micButton:disabled { cursor: not-allowed; }
 .answer button:hover, .boom button:hover { transform: translateY(-1px); box-shadow: 0 12px 24px #7b4b96aa; }
 .answer button:disabled { opacity: .55; }
 .warning { color: #9a4c32; font-weight: 750; }
@@ -46,8 +49,9 @@
 .message { color: #724d83; text-align: center; }
 .result { margin-top: 24px; }
 .result p { padding: 10px; border-radius: 13px; background: #f8f3fa; }
+.finalActions { display: grid; gap: 12px; }
 .roundPoints { color: #4c7d50; font-weight: 850; }
-.result a { display: inline-flex; margin-top: 10px; color: #64417c; font-weight: 850; }
+.result a { display: inline-flex; color: #64417c; font-weight: 850; }
 .help { position: fixed; z-index: 4; inset: auto 12px 12px; padding: 19px; border-radius: 22px; background: white; box-shadow: 0 6px 40px #24132f55; }
 .help button { float: right; min-height: 38px; padding: 0 13px; border: 0; border-radius: 12px; background: #eee5f3; color: #523768; font-weight: 800; }
 .bombStage { display: grid; justify-items: center; gap: 9px; margin: 34px auto 12px; }

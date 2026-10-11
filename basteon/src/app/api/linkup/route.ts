@@ -345,8 +345,50 @@ function buildPickedSpec(match: Match, round: Round, picked: Record<string, stri
   };
 }
 
+async function autoPickRound(match: Match, round: Round) {
+  if (round.phase !== "pick" || !round.deadline_at || Date.parse(round.deadline_at) > Date.now()) return;
+  const roles = rolesForRound(round.round_no, match.player1_id, match.player2_id ?? match.bot_actor_id ?? "kiki");
+  const rng = mulberry32(match.seed + round.round_no * 17);
+  const chainCarries = match.mode === "chain" && round.round_no > 1 && Boolean(round.picks.carryStart);
+  const picks = { ...round.picks };
+  if (match.vs_bot) {
+    if (chainCarries) picks[roles.endPicker] = picks[roles.endPicker] ?? botLetter("end", rng);
+    else {
+      picks[roles.startPicker] = picks[roles.startPicker] ?? botLetter("start", rng);
+      picks[roles.endPicker] = picks[roles.endPicker] ?? botLetter("end", rng);
+    }
+  } else if (chainCarries) {
+    picks[roles.endPicker] = picks[roles.endPicker] ?? botLetter("end", rng);
+  } else {
+    picks[roles.startPicker] = picks[roles.startPicker] ?? botLetter("start", rng);
+    picks[roles.endPicker] = picks[roles.endPicker] ?? botLetter("end", rng);
+  }
+  const built = buildPickedSpec(match, round, picks);
+  const { error } = await admin().from("linkup_rounds").update({
+    picks: built.picks,
+    spec: built.spec,
+    phase: "reveal",
+    phase_started_at: new Date().toISOString(),
+    deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
+  }).eq("id", round.id).eq("phase", "pick").lte("deadline_at", new Date().toISOString());
+  if (error) throw new Error("pick_timeout_advance_failed");
+}
+
+async function markBombRoomFinished(match: Match) {
+  if (!match.room_id) return;
+  const { error } = await admin().from("game_rooms").update({
+    status: "post_game",
+    updated_at: new Date().toISOString(),
+  }).eq("id", match.room_id);
+  if (error) throw new Error("bomb_room_finish_failed");
+}
+
 async function advanceRound(match: Match, round: Round) {
   const db = admin();
+  if (round.phase === "pick") {
+    await autoPickRound(match, round);
+    return;
+  }
   if (!round.spec) return;
   if (round.phase === "reveal") {
     if (!round.deadline_at || Date.parse(round.deadline_at) > Date.now()) return;
@@ -436,6 +478,7 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
       start: spec.start, end: spec.end, word: verdict.word, valid: verdict.valid,
       reason: verdict.reason, used_ms: usedMs, fuse_after_ms: state.fuseLeftMs, resolved: true,
     });
+    if (state.exploded) await markBombRoomFinished(match);
     return;
   }
   if (action.action === "advance") {
@@ -451,10 +494,12 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
     }
     if (elapsed >= match.fuse_left_ms) {
       state = { ...state, fuseLeftMs: 0, exploded: true, loser: state.holder };
-      await db.from("linkup_matches").update({
+      const { data: claimed, error } = await db.from("linkup_matches").update({
         bomb_state: state, fuse_left_ms: 0, status: "finished", holder_id: state.holder === match.bot_actor_id ? null : state.holder,
         finished_at: new Date().toISOString(),
-      }).eq("id", match.id).eq("bomb_state->>holder", state.holder).eq("turn_no", match.turn_no).eq("status", "active");
+      }).eq("id", match.id).eq("bomb_state->>holder", state.holder).eq("turn_no", match.turn_no).eq("status", "active").select("id").maybeSingle();
+      if (error) throw new Error("bomb_explosion_update_failed");
+      if (claimed) await markBombRoomFinished(match);
       return;
     }
     if (match.vs_bot && state.holder === match.bot_actor_id && state.end) {
@@ -493,6 +538,7 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
           fuse_after_ms: nextState.fuseLeftMs,
           resolved: true,
         }, { onConflict: "match_id,turn_no" });
+        if (claimed && nextState.exploded) await markBombRoomFinished(match);
       }
     }
   }
@@ -509,6 +555,7 @@ export async function GET(request: Request) {
     if (!match) return fail("match_not_found", 404);
     await initializeMatch(match);
     match = (await loadMatch(parsed.data, user.id))!;
+    if (match.mode === "bomb" && match.status === "finished") await markBombRoomFinished(match);
     if (match.mode !== "bomb") {
       const round = await currentRound(match.id);
       if (round) await advanceRound(match, round);
@@ -530,11 +577,18 @@ export async function POST(request: Request) {
   try {
     const match = await loadMatch(action.matchId, user.id);
     if (!match) return fail("match_not_found", 404);
-    if (match.status === "finished") return NextResponse.json(await getSnapshot(match, user.id));
+    if (match.status === "finished") {
+      if (match.mode === "bomb") await markBombRoomFinished(match);
+      return NextResponse.json(await getSnapshot(match, user.id));
+    }
     if (match.mode === "bomb") {
       await actOnBomb(match, user.id, action);
     } else {
       let round = await currentRound(match.id);
+      if (round?.phase === "pick" && round.deadline_at && Date.parse(round.deadline_at) <= Date.now()) {
+        await autoPickRound(match, round);
+        round = await currentRound(match.id);
+      }
       if (action.action === "pick" && round?.phase === "pick" && action.letter) {
         const botId = match.bot_actor_id ?? "kiki";
         const roles = rolesForRound(round.round_no, match.player1_id, match.player2_id ?? botId);
@@ -596,30 +650,6 @@ export async function POST(request: Request) {
           await admin().from("linkup_rounds").update({
             locked_user_ids: Array.from(new Set([...round.locked_user_ids, user.id])),
           }).eq("id", round.id).eq("phase", "answer");
-        }
-      } else if (action.action === "advance") {
-        if (round?.phase === "pick" && round.deadline_at && Date.parse(round.deadline_at) <= Date.now()) {
-          const roles = rolesForRound(round.round_no, match.player1_id, match.player2_id ?? match.bot_actor_id ?? "kiki");
-          const rng = mulberry32(match.seed + round.round_no * 17);
-          const chainCarries = match.mode === "chain" && round.round_no > 1 && Boolean(round.picks.carryStart);
-          const picks = { ...round.picks };
-          if (match.vs_bot) {
-            if (chainCarries) picks[roles.endPicker] = picks[roles.endPicker] ?? botLetter("end", rng);
-            else {
-              picks[roles.startPicker] = picks[roles.startPicker] ?? botLetter("start", rng);
-              picks[roles.endPicker] = picks[roles.endPicker] ?? botLetter("end", rng);
-            }
-          } else if (chainCarries) {
-            picks[roles.endPicker] = picks[roles.endPicker] ?? botLetter("end", rng);
-          } else {
-            picks[roles.startPicker] = picks[roles.startPicker] ?? botLetter("start", rng);
-            picks[roles.endPicker] = picks[roles.endPicker] ?? botLetter("end", rng);
-          }
-          const built = buildPickedSpec(match, round, picks);
-          await admin().from("linkup_rounds").update({
-            picks: built.picks, spec: built.spec, phase: "reveal",
-            phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
-          }).eq("id", round.id).eq("phase", "pick");
         }
       }
       round = await currentRound(match.id);

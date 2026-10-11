@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bomb, Flame, Heart, Link2, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Bomb, Flame, Heart, Link2, Mic, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BOMB, rolesForRound, wildcardBanner } from "@/lib/games/linkup/engine";
 import type { Mode, RoundSpec } from "@/lib/games/linkup/engine";
@@ -57,6 +57,18 @@ type Snapshot = {
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+};
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
 export function LinkupMatch({ matchId }: { matchId: string }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -66,11 +78,110 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [sound, setSound] = useState(true);
+  const [listening, setListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [helpOpen, setHelpOpen] = useState(false);
   const lastTickRef = useRef(0);
   const lastPhaseRef = useRef<string | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
+  useEffect(() => {
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    setSpeechSupported(Boolean(speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition));
+  }, []);
+
+  const startDictation = useCallback(() => {
+    if (recognitionRef.current) return;
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      setMessage("Voice input is not supported in this browser.");
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = navigator.language || "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) setWord(transcript);
+    };
+    recognition.onerror = (event) => {
+      const errorMessage = event.error === "not-allowed" || event.error === "service-not-allowed"
+        ? "Microphone permission was denied."
+        : event.error === "no-speech"
+          ? "No speech was detected. Hold the microphone and try again."
+          : "Voice input failed. Please try typing your answer.";
+      setMessage(errorMessage);
+      setListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+    recognitionRef.current = recognition;
+    setMessage("");
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      recognitionRef.current = null;
+      setListening(false);
+      setMessage("Could not start voice input. Check microphone access and try again.");
+    }
+  }, []);
+
+  const stopDictation = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    try {
+      recognition.stop();
+    } catch {
+      setMessage("Voice input could not be stopped. Please try typing your answer.");
+      recognitionRef.current = null;
+      setListening(false);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+  }, []);
+
+  const speechButton = (
+    <button
+      type="button"
+      className={`${styles.micButton} ${listening ? styles.listening : ""}`}
+      disabled={!speechSupported}
+      aria-label={listening ? "Release to finish speaking" : "Hold to speak your answer"}
+      title={speechSupported ? "Hold to speak" : "Voice input is unavailable in this browser"}
+      onPointerDown={(event) => { event.preventDefault(); startDictation(); }}
+      onPointerUp={stopDictation}
+      onPointerCancel={stopDictation}
+      onPointerLeave={stopDictation}
+      onKeyDown={(event) => {
+        if (event.key === " " || event.key === "Enter") {
+          event.preventDefault();
+          startDictation();
+        }
+      }}
+      onKeyUp={(event) => {
+        if (event.key === " " || event.key === "Enter") stopDictation();
+      }}
+      onBlur={stopDictation}
+    >
+      <Mic size={18} /> {listening ? "Listening…" : "Hold to speak"}
+    </button>
+  );
 
   const playTone = useCallback((frequency: number, duration = 0.08, type: OscillatorType = "sine", gainValue = 0.04) => {
     if (!sound || typeof window === "undefined") return;
@@ -115,6 +226,11 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     return () => { active = false; window.clearInterval(timer); };
   }, [refresh]);
 
+  useEffect(() => {
+    setWord("");
+    setHistory([]);
+  }, [matchId]);
+
   const send = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
     if (busy) return;
     setBusy(true);
@@ -152,6 +268,13 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       if (answer?.word) setHistory((current) => [...current.slice(-9), answer.word]);
     }
   }, [snapshot?.round?.id, snapshot?.round?.phase]);
+
+  useEffect(() => {
+    if (snapshot?.round?.roundNo === 1 && snapshot.round.phase === "pick") {
+      setWord("");
+      setHistory([]);
+    }
+  }, [snapshot?.round?.id]);
 
   const state = snapshot;
   const match = state?.match;
@@ -196,7 +319,26 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     if (!match || busy) return;
     setBusy(true);
     setMessage("");
-    const { data, error } = await createClient().rpc("linkup_rematch", { p_match_id: match.id });
+    const db = createClient();
+    if (match.vsBot) {
+      const difficulty = ["easy", "medium", "hard"].includes(match.difficulty ?? "")
+        ? match.difficulty!
+        : "medium";
+      const { data, error } = await db.rpc("linkup_create_bot_match", {
+        p_mode: match.mode,
+        p_difficulty: difficulty,
+      });
+      const nextMatchId = (data as { id?: string } | null)?.id;
+      if (error || !nextMatchId) {
+        setMessage("A new Kiki match could not be started. Please try again.");
+        setBusy(false);
+        return;
+      }
+      router.replace(`/games/linkup/match/${nextMatchId}`);
+      return;
+    }
+
+    const { data, error } = await db.rpc("linkup_rematch", { p_match_id: match.id });
     if (error) {
       setMessage(error.message === "rematch_unavailable"
         ? "This match is not ready for a rematch."
@@ -247,8 +389,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
               <div className={styles.bombIcon}><Bomb size={62} /></div>
               <p>BOOM!</p><h2>{bomb.loser === userId ? "You were holding it!" : `${bomb.loser === match.botActorId ? "Kiki" : "Your Buddy"} was holding it`}</h2>
               <p>{bomb.used.length} words · longest: {Object.values(bomb.longest).filter(Boolean).sort((a, b) => b.length - a.length)[0] || "—"}</p>
-              <button type="button" onClick={() => router.push(isBot ? "/games/linkup/solo" : "/games/linkup")}>Play again</button>
-              <button type="button" className={styles.secondary} onClick={() => router.push("/games/linkup")}>Back to the radar</button>
+              <button type="button" onClick={() => void requestRematch()} disabled={busy || Boolean(rematchRequested)}>{busy ? "Starting…" : !isBot && rematchRequested ? "Waiting for Buddy…" : "Play another round"}</button>
             </section>
           ) : (
             <>
@@ -265,6 +406,8 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
               {holderTurn && bomb.end && <form className={styles.answer} onSubmit={(event) => { event.preventDefault(); void send("answer", { text: word }); setWord(""); }}>
                 <label htmlFor="bomb-answer">Make a word from {bomb.start.toUpperCase()} to {bomb.end.toUpperCase()}</label>
                 <input id="bomb-answer" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} maxLength={32} />
+                {speechButton}
+                {!speechSupported && <small>Voice input is unavailable in this browser.</small>}
                 <button disabled={busy || !word.trim()}>Pass it!</button>
               </form>}
               <p className={styles.wordsUsed}>Words played: {bomb.used.length} · {bomb.used.slice(-4).join(" · ")}</p>
@@ -330,6 +473,8 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
             <form className={styles.answer} onSubmit={(event) => { event.preventDefault(); void send("answer", { text: word }); setWord(""); }}>
               <label htmlFor="linkup-word">Type a word</label>
               <input id="linkup-word" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} maxLength={32} />
+              {speechButton}
+              {!speechSupported && <small>Voice input is unavailable in this browser.</small>}
               {mineWarning && <small className={styles.warning}>Careful — that word contains a mine letter.</small>}
               <button disabled={busy || !word.trim() || Boolean(round.ownAnswer)}>{round.ownAnswer ? "Locked in ✓" : "Lock answer"}</button>
               {isBot && !round.answers.some((answer) => answer.actor_id === match.botActorId) && <p className={styles.message}>Kiki is thinking…</p>}
@@ -353,7 +498,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
             {round.results?.some((result) => result.stolen > 0) && <p className={styles.banner}>Points flying across the table!</p>}
           </section>
         )}
-        {isFinal && <section className={styles.result}><h2>{myScore === otherScore ? "A tie!" : myScore > otherScore ? "You win!" : `${isBot ? "Kiki" : "Your Buddy"} wins!`}</h2><p>Final score: {myScore} · {otherScore}</p><p>{round?.answers.filter((answer) => answer.valid).length ?? 0} valid words · mode: {match.mode}</p>{match.roomId ? <button type="button" onClick={() => void requestRematch()} disabled={busy || Boolean(rematchRequested)}>{busy ? "Starting…" : rematchRequested ? "Waiting for Buddy…" : "Play another round"}</button> : <button type="button" onClick={() => router.push("/games/linkup/solo")}>Play another round</button>}<Link href="/games/linkup">Back to the radar</Link></section>}
+        {isFinal && <section className={styles.result}><h2>{myScore === otherScore ? "A tie!" : myScore > otherScore ? "You win!" : `${isBot ? "Kiki" : "Your Buddy"} wins!`}</h2><p>Final score: {myScore} · {otherScore}</p><p>{round?.answers.filter((answer) => answer.valid).length ?? 0} valid words · mode: {match.mode}</p><button type="button" onClick={() => void requestRematch()} disabled={busy || Boolean(rematchRequested)}>{busy ? "Starting…" : !isBot && rematchRequested ? "Waiting for Buddy…" : "Play another round"}</button></section>}
         {message && <p role="status" className={styles.message}>{message}</p>}
         {helpOpen && <div className={styles.help}><button type="button" onClick={() => setHelpOpen(false)}>Close</button><p>Choose a letter, then race to type a word that starts and ends with the revealed letters. Minefield words must avoid the displayed mine letters.</p></div>}
       </div>
