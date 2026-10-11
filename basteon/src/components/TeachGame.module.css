@@ -1,0 +1,70 @@
+.page { min-height: 100vh; padding: 20px; background: radial-gradient(circle at 10% 0, #f7eaf2 0, transparent 34%), #f7f7f2; color: #30283a; }
+.shell { width: min(760px, 100%); margin: 0 auto; }
+.header { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 13px; min-height: 68px; padding: 10px 0; background: #f7f7f2ed; backdrop-filter: blur(12px); }
+.header > a { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 15px; background: white; color: #59406b; }
+.header small, .roundHeading small { color: #876b94; font-size: .72rem; font-weight: 850; letter-spacing: .12em; }
+.header h1 { margin: 2px 0 0; font-size: clamp(1.25rem, 4vw, 1.8rem); line-height: 1.1; }
+.quickExit { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; margin-left: auto; padding: 0 12px; border: 0; border-radius: 14px; background: #f4dce0; color: #7b3247; font-weight: 850; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 18px; }
+.tools button, .sectionTitle button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 0 12px; border: 1px solid #e9dfeb; border-radius: 13px; background: #fff; color: #5d4670; font-weight: 750; }
+.panel { padding: clamp(20px, 5vw, 32px); border: 1px solid #ece4ee; border-radius: 25px; background: #fffefa; box-shadow: 0 15px 48px #56396912; }
+.panel h2 { margin: 0 0 8px; font-size: clamp(1.35rem, 4vw, 1.8rem); }
+.panel p { line-height: 1.55; }
+.field { display: grid; gap: 9px; margin: 20px 0; color: #4f3d5a; font-weight: 800; }
+.field select, .form input, .form textarea { width: 100%; min-height: 48px; padding: 11px 13px; border: 1px solid #dacddd; border-radius: 14px; background: white; color: #30283a; font: inherit; }
+.choiceRow, .actionRow { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 4px; }
+.choiceRow button, .form > button, .actionRow > button:not(.subtle), .feedback > button, .final > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 17px; border: 0; border-radius: 15px; background: linear-gradient(110deg, #77518e, #a65e92); color: white; font-weight: 850; }
+.choiceRow button:disabled, .form button:disabled { opacity: .55; }
+.privacy, .disclaimer { color: #736879; font-size: .89rem; }
+.note { padding: 12px 14px; border-radius: 14px; background: #f8f0dc; color: #695532; }
+.notice, .error { display: flex; align-items: flex-start; gap: 9px; margin: 12px 0; padding: 13px; border-radius: 14px; }
+.notice { background: #fff4d8; color: #674b17; }
+.notice button { margin-left: auto; border: 0; background: transparent; color: inherit; text-decoration: underline; }
+.error { background: #fde9e9; color: #8b3030; }
+.partners { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.partners > div { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 13px; border-radius: 16px; background: #f4edf6; }
+.partners span { font-size: 1.4rem; }
+.waiting { display: grid; justify-items: center; gap: 10px; padding: 34px 8px; text-align: center; }
+.spinner { width: 42px; height: 42px; border: 4px solid #eaddf0; border-top-color: #875aa0; border-radius: 50%; animation: spin 1s linear infinite; }
+.roundHeading { position: relative; margin: 0 0 16px; }
+.roundHeading h2 { margin: 3px 0; }
+.timer { position: absolute; top: 8px; right: 0; color: #815b8e; font-weight: 900; font-variant-numeric: tabular-nums; }
+.form { display: grid; gap: 15px; }
+.form > label { display: grid; gap: 7px; color: #51415b; font-weight: 800; }
+.form label > span { color: #7e7184; font-weight: 550; }
+.form textarea { min-height: 84px; resize: vertical; }
+.form label small { justify-self: end; color: #84798a; font-size: .78rem; }
+.hint { margin: 0; padding: 12px; border-radius: 14px; background: #f5f0f7; color: #624e6f; font-weight: 700; }
+.form fieldset { display: grid; gap: 9px; min-width: 0; margin: 0; padding: 13px; border: 1px solid #e4d9e8; border-radius: 15px; }
+.form legend { padding: 0 6px; color: #51415b; font-weight: 800; }
+.optionRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.optionRow label, .radioChoice { display: flex; align-items: center; gap: 9px; min-height: 46px; color: #403447; font-weight: 650; }
+.optionRow input[type="radio"], .radioChoice input { width: 20px; height: 20px; accent-color: #80549a; }
+.subtle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 0 12px; border: 1px solid #e2d6e6; border-radius: 14px; background: white; color: #674c76; font-weight: 800; }
+.tipCard { margin: 16px 0; padding: 17px; border: 1px solid #e6dce9; border-radius: 18px; background: #fff; }
+.tipCard > small { color: #80628d; font-weight: 850; }
+.tipCard h3 { margin: 6px 0; }
+.tipCard p { white-space: pre-wrap; }
+.report { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; background: #fff0ed; color: #873b35; font-weight: 800; }
+.feedback { margin-top: 18px; padding-top: 14px; border-top: 1px solid #eee5ef; }
+.feedback p { display: flex; align-items: center; gap: 8px; color: #654579; font-weight: 850; }
+.feedback p span { padding: 5px 9px; border-radius: 20px; background: #f2e8f4; }
+.final { display: grid; justify-items: center; gap: 10px; text-align: center; }
+.final h2 { margin-top: 10px; }
+.scoreRow { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+.scoreRow p { display: grid; gap: 4px; min-width: 120px; padding: 13px; border-radius: 16px; background: #f4edf6; }
+.scoreRow strong { color: #68417b; font-size: 1.4rem; }
+.sectionTitle { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.footer { padding: 18px 10px 30px; color: #796f7c; font-size: .82rem; text-align: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 520px) {
+  .page { padding: 12px; }
+  .header { gap: 8px; }
+  .header h1 { font-size: 1.2rem; }
+  .quickExit { padding: 0 8px; font-size: .82rem; }
+  .panel { border-radius: 20px; }
+  .choiceRow > button { flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; border-top-color: #eaddf0; border-left-color: #875aa0; }
+}

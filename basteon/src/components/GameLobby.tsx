@@ -22,7 +22,7 @@ type IncomingInvite = { id: string; host_id: string; invite_expires_at: string |
 type OutgoingInvite = { id: string; buddy: string; expiresAt: string | null };
 type ActiveRoom = {
   id: string;
-  game: "morabaraba" | "linkup";
+  game: "morabaraba" | "linkup" | "teach_one";
   status: "waiting" | "ready_check" | "playing" | "paused" | "post_game";
   invite_status: "pending" | "accepted" | "declined" | "expired";
   host_id: string;
@@ -32,11 +32,16 @@ type ActiveRoom = {
 
 const buddyEmojis = ["🐰", "🦊", "🐼", "🐻", "🐝", "🌼", "🦋", "🐧", "🌙", "🌿"];
 
-type GameType = "morabaraba" | "linkup";
+type GameType = "morabaraba" | "linkup" | "teach_one";
 
 export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   const router = useRouter();
-  const roomPath = (roomId: string) => game === "linkup" ? `/games/linkup/room/${roomId}` : `/games/play/${roomId}`;
+  const gameName = game === "linkup" ? "Kiki Links" : game === "teach_one" ? "Each One Teach One" : "Morabaraba";
+  const gardenName = game === "linkup" ? "Kiki Links Garden" : game === "teach_one" ? "Teach One Garden" : "Morabaraba Garden";
+  const roomPath = (roomId: string) => game === "linkup"
+    ? `/games/linkup/room/${roomId}`
+    : game === "teach_one" ? `/games/teach/room/${roomId}` : `/games/play/${roomId}`;
+  const soloPath = game === "linkup" ? "/games/linkup/solo" : game === "teach_one" ? "/games/teach/kiki" : "/games/play/solo";
   const { position, error: locationError } = useGeolocation();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -286,7 +291,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
       setBusy(false);
       return;
     }
-    router.push(`/games/play/${room.id}`);
+    router.push(roomPath(room.id));
   }
 
   useEffect(() => {
@@ -368,7 +373,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
         <header className={styles.gardenHeader}>
           <Link href="/games" className={styles.gardenIconButton} aria-label="Back to games"><ArrowLeft size={19} /></Link>
           <div className={styles.gardenHeading}>
-            <h1>{game === "linkup" ? "Kiki Links Garden" : "Morabaraba Garden"}</h1>
+            <h1>{gardenName}</h1>
             <span><i />{locationError ? "Location access needed" : position ? "Broad location rings active" : "Finding your garden…"}</span>
           </div>
           <button type="button" className={styles.gardenIconButton} aria-label="Location privacy information" onClick={() => setPrivacyOpen(true)}><LockKeyhole size={18} /></button>
@@ -402,7 +407,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
                   disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)}
                   onClick={() => setSelected(buddy)}
                   style={{ left: `${left}%`, top: `${top}%` }}
-                  aria-label={`Invite ${buddy.label}, approximately ${buddy.distanceKm.toFixed(1)} kilometres away to play ${game === "linkup" ? "Kiki Links" : "Morabaraba"}`}
+                  aria-label={`Invite ${buddy.label}, approximately ${buddy.distanceKm.toFixed(1)} kilometres away to play ${gameName}`}
                 >
                   <span className={styles.gardenBuddyMark}>{buddy.avatar}</span>
                   <span className={styles.gardenBuddyLabel}><strong>{buddy.label}</strong><small>{buddy.distanceKm.toFixed(1)} km</small></span>
@@ -420,19 +425,19 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             <span className={styles.selectionMark}>{selected ? selected.avatar : <UsersRound size={20} />}</span>
             <span className={styles.selectionCopy}>
               <strong>{selected ? selected.label : buddies.length ? "Choose a nearby Buddy" : "Your garden is quiet"}</strong>
-              <small>{presenceError || (locationError ? "Enable location to see nearby players." : selected ? `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length ? "Tap a Buddy to invite them to play." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
+              <small>{presenceError || (locationError ? "Enable location to see nearby players." : selected ? `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length ? "Tap a Buddy to invite them to play." : game === "teach_one" ? "Choose a nearby Buddy to send a private invitation." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
             </span>
             {selected && <button type="button" className={styles.clearSelection} aria-label="Clear selected Buddy" onClick={() => setSelected(null)}><X size={18} /></button>}
           </div>
         </section>
 
         <footer className={styles.gardenFooter}>
-          <Link href={game === "linkup" ? "/games/linkup/solo" : "/games/play/solo"} className={styles.createGardenRoom}>
+          <Link href={soloPath} className={styles.createGardenRoom}>
             <Flower2 size={19} />
-            <span>Play solo against Kiki AI</span>
+            <span>{game === "teach_one" ? "Teach with Kiki" : "Play solo against Kiki AI"}</span>
           </Link>
           {activeRooms.length > 0 && (
-            <section className={styles.gardenOpenRooms} aria-label={`Your ${game === "linkup" ? "Kiki Links" : "Morabaraba"} rooms`}>
+            <section className={styles.gardenOpenRooms} aria-label={`Your ${gameName} rooms`}>
               <h3>My rooms</h3>
               <ul>
                 {activeRooms.map((room) => {
@@ -454,9 +459,9 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
               </ul>
             </section>
           )}
-          <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)}>
+          <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite) || game === "teach_one" && !selected}>
             {selected ? <UsersRound size={19} /> : <Plus size={20} />}
-            <span>{busy ? "Sending invite…" : outgoingInvite ? `Waiting for ${outgoingInvite.buddy}…` : selected ? `Invite ${selected.label}` : `Create a ${game === "linkup" ? "Kiki Links" : "Morabaraba"} Room`}</span>
+            <span>{busy ? "Sending invite…" : outgoingInvite ? `Waiting for ${outgoingInvite.buddy}…` : selected ? `Invite ${selected.label}` : game === "teach_one" ? "Choose a nearby Buddy first" : `Create a ${gameName} Room`}</span>
           </button>
           {outgoingInvite && <p className={styles.gardenInviteWaiting} role="status">Invite sent. The room opens for both of you when {outgoingInvite.buddy} accepts.</p>}
           <p className={styles.gardenPrivacyNote}><LockKeyhole size={13} /> Only broad distance rings are shown here.</p>
@@ -467,7 +472,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
           <div className={styles.gardenInviteBackdrop} role="presentation">
             <section className={styles.gardenInviteDialog} role="dialog" aria-modal="true" aria-labelledby="garden-invite-title">
               <span className={styles.gardenInviteIcon}><Flower2 size={26} /></span>
-              <p>{game === "linkup" ? "Kiki Links invitation" : "Morabaraba invitation"}</p>
+              <p>{gameName} invitation</p>
               <h2 id="garden-invite-title">A nearby Buddy wants to play.</h2>
               <small>Accept to join their private room. You can decline without sharing your exact location.</small>
               <div className={styles.gardenInviteActions}>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ChartLine, ExternalLink, ListChecks, MapPin, Radio, RadioTower, Settings2, ShieldCheck, Siren, Users } from "lucide-react";
+import { BookOpen, Building2, ChartLine, ExternalLink, ListChecks, MapPin, Radio, RadioTower, Settings2, ShieldCheck, Siren, Users } from "lucide-react";
 
 const links = [
   { name: "Overview", href: "/admin", Icon: ChartLine },
@@ -10,6 +10,7 @@ const links = [
   { name: "Users", href: "/admin/users", Icon: Users },
   { name: "Alert Audit Log", href: "/admin/alerts", Icon: ListChecks },
   { name: "Buddies safety", href: "/admin/buddies", Icon: ShieldCheck },
+  { name: "Teach moderation", href: "/admin/teach", Icon: BookOpen },
   { name: "Buddy safe spots", href: "/admin/buddy-places", Icon: MapPin },
   { name: "Organisations", href: "/admin/organisations", Icon: Building2 },
   { name: "Responders (Partners)", href: "/admin/responders", Icon: Siren },
