@@ -78,6 +78,7 @@
   font-weight: 850;
   box-shadow: 0 11px 24px #70458830;
 }
+.secondary { display: flex; min-height: 48px; align-items: center; justify-content: center; margin-top: 10px; border: 1px solid #d8c9e2; border-radius: 15px; background: #ffffffd9; color: #604176; font-weight: 850; text-decoration: none; }
 .readyPanel { margin-top: 22px; padding: 17px; border: 1px solid #ded2e8; border-radius: 20px; background: #ffffffc9; }
 .readyPanel h2 { margin: 0; font-size: 1.08rem; }
 .readyPanel p { color: #6c5974; font-size: .88rem; }

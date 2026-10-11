@@ -32,6 +32,7 @@ type Snapshot = {
     passerId: string | null;
     bombStart: string | null;
     bombEnd: string | null;
+    availableBombEndLetters: string[];
     bombState: {
       holder: string; passer: string; start: string; end: string | null;
       fuseLeftMs: number; used: string[]; words: Record<string, number>;
@@ -56,6 +57,8 @@ type Snapshot = {
 };
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
+const displayLetter = (value: string | null | undefined) =>
+  typeof value === "string" && value.length > 0 ? value.toUpperCase() : "?";
 
 type SpeechRecognitionLike = {
   lang: string;
@@ -163,11 +166,15 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       className={`${styles.micButton} ${listening ? styles.listening : ""}`}
       disabled={!speechSupported}
       aria-label={listening ? "Release to finish speaking" : "Hold to speak your answer"}
+      aria-pressed={listening}
       title={speechSupported ? "Hold to speak" : "Voice input is unavailable in this browser"}
-      onPointerDown={(event) => { event.preventDefault(); startDictation(); }}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        startDictation();
+      }}
       onPointerUp={stopDictation}
       onPointerCancel={stopDictation}
-      onPointerLeave={stopDictation}
       onKeyDown={(event) => {
         if (event.key === " " || event.key === "Enter") {
           event.preventDefault();
@@ -179,7 +186,8 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       }}
       onBlur={stopDictation}
     >
-      <Mic size={18} /> {listening ? "Listening…" : "Hold to speak"}
+      <span className={styles.micIcon}><Mic size={21} /></span>
+      <span className={styles.micCopy}><strong>{listening ? "Listening…" : "Hold to speak"}</strong><small>{listening ? "Release when you’re done" : "Say your word instead of typing"}</small></span>
     </button>
   );
 
@@ -373,13 +381,16 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   }, [playTone, snapshot?.round?.phase]);
 
   if (!state || !match) return <main className={styles.page}><p role="status">{message || "Joining the word circle…"}</p></main>;
+  if (match.mode === "bomb" && !bomb) {
+    return <main className={styles.page}><p role="status">{message || "Preparing the Hot Potato round…"}</p></main>;
+  }
   if (match.mode === "bomb" && bomb) {
     const fusePct = Math.max(0, Math.min(100, match.liveFuseLeftMs / BOMB.maxFuseMs * 100));
     return (
       <main className={`${styles.page} ${bomb.exploded && !reducedMotion ? styles.shake : ""} ${bombSeconds <= 3 ? styles.vignette : ""}`}>
         <div className={styles.shell}>
           <header className={styles.header}>
-            <Link href="/games/linkup" aria-label="Back to Kiki Links"><ArrowLeft size={18} /></Link>
+            <Link href="/games/linkup/solo" aria-label="Back to the Kiki Links menu"><ArrowLeft size={18} /></Link>
             <div><small>HOT POTATO</small><h1>Pass it on!</h1></div>
             <button type="button" onClick={() => setSound((enabled) => !enabled)} aria-label={sound ? "Mute" : "Unmute"}>{sound ? <Volume2 size={18} /> : <VolumeX size={18} />}</button>
           </header>
@@ -401,10 +412,10 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
                 </div>
                 <p>{holderTurn ? "You have the bomb!" : bomb.holder === match.botActorId ? "Kiki has the bomb" : "Your Buddy has the bomb"}</p>
               </div>
-              <div className={styles.letterBoard}><span>{bomb.start.toUpperCase()}</span><i>…</i><span>{bomb.end?.toUpperCase() ?? "?"}</span></div>
-              {endPickerTurn && <section className={styles.picker}><strong>Pick the end letter for your opponent</strong><div className={styles.letters}>{LETTERS.map((letter) => <button type="button" key={letter} onClick={() => void send("bomb_end", { letter })} disabled={busy}>{letter.toUpperCase()}</button>)}</div><small>Fuse pauses while you pick · {Math.max(0, Math.ceil((BOMB.pickMs - (match.turnStartedAt ? now - Date.parse(match.turnStartedAt) : 0)) / 1000))}s</small></section>}
+              <div className={styles.letterBoard}><span>{displayLetter(bomb.start)}</span><i>…</i><span>{displayLetter(bomb.end)}</span></div>
+              {endPickerTurn && <section className={styles.picker}><strong>Pick the end letter for your opponent</strong><div className={styles.letters}>{(match.availableBombEndLetters ?? []).map((letter) => <button type="button" key={letter} onClick={() => void send("bomb_end", { letter })} disabled={busy}>{letter.toUpperCase()}</button>)}</div>{(match.availableBombEndLetters ?? []).length === 0 && <p role="status">No playable end letters are available for this starting letter.</p>}<small>Fuse pauses while you pick · {Math.max(0, Math.ceil((BOMB.pickMs - (match.turnStartedAt ? now - Date.parse(match.turnStartedAt) : 0)) / 1000))}s</small></section>}
               {holderTurn && bomb.end && <form className={styles.answer} onSubmit={(event) => { event.preventDefault(); void send("answer", { text: word }); setWord(""); }}>
-                <label htmlFor="bomb-answer">Make a word from {bomb.start.toUpperCase()} to {bomb.end.toUpperCase()}</label>
+                <label htmlFor="bomb-answer">Make a word from {displayLetter(bomb.start)} to {displayLetter(bomb.end)}</label>
                 <input id="bomb-answer" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} maxLength={32} />
                 {speechButton}
                 {!speechSupported && <small>Voice input is unavailable in this browser.</small>}
@@ -424,7 +435,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     <main className={styles.page}>
       <div className={styles.shell}>
         <header className={styles.header}>
-          <Link href="/games/linkup" aria-label="Back to Kiki Links"><ArrowLeft size={18} /></Link>
+          <Link href="/games/linkup/solo" aria-label="Back to the Kiki Links menu"><ArrowLeft size={18} /></Link>
           <div><small>KIKI LINKS · {match.mode.toUpperCase()}</small><h1>{isFinal ? "Lovely game!" : `Round ${round?.roundNo ?? 1}`}</h1></div>
           <button type="button" onClick={() => setHelpOpen(true)} aria-label="How to play"><Heart size={18} /></button>
         </header>
@@ -436,8 +447,8 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
           <section className={styles.picker}>
             <h2>{myPickLocked ? `Your ${myRole.toLowerCase()} pick: ${myPickedLetter?.toUpperCase()}` : round.availableLetters.length ? `Choose the ${myRole.toLowerCase()} letter` : "Waiting for the other picker"}</h2>
             <div className={styles.pickSummary}>
-              <span>START <b>{(round.picks.carryStart ?? round.picks[pickRoles?.startPicker ?? ""])?.toUpperCase() ?? "—"}</b></span>
-              <span>END <b>{round.picks[pickRoles?.endPicker ?? ""]?.toUpperCase() ?? "—"}</b></span>
+              <span>START <b>{displayLetter(round.picks.carryStart ?? round.picks[pickRoles?.startPicker ?? ""])}</b></span>
+              <span>END <b>{displayLetter(round.picks[pickRoles?.endPicker ?? ""])}</b></span>
             </div>
             {myRole && !myPickLocked && round.availableLetters.length > 0 && (
               <div className={styles.letters}>{LETTERS.map((letter) => (
@@ -459,17 +470,17 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
           <section className={`${styles.reveal} ${currentSpec.mode === "wildcard" ? styles.reel : ""}`} aria-live="polite">
             {round.suddenDeath && <p className={styles.banner}>Sudden death!</p>}
             {round.chainBroken && <p className={styles.banner}>Chain broken!</p>}
-            <div className={styles.letterBoard}><span>{currentSpec.start.toUpperCase()}</span><i>…</i><span>{currentSpec.end.toUpperCase()}</span></div>
-            {currentSpec.mines.length > 0 && <p className={styles.mines}>💣 {currentSpec.mines.map((mine) => mine.toUpperCase()).join(" · ")}</p>}
+            <div className={styles.letterBoard}><span>{displayLetter(currentSpec.start)}</span><i>…</i><span>{displayLetter(currentSpec.end)}</span></div>
+            {currentSpec.mines.length > 0 && <p className={styles.mines}>💣 {currentSpec.mines.map(displayLetter).join(" · ")}</p>}
             {currentSpec.rerolled && <p className={styles.banner}>Too tough! Kiki swapped a letter.</p>}
           </section>
         )}
         {round?.phase === "answer" && currentSpec && (
           <section className={styles.answerPhase}>
-            <div className={styles.letterBoard}><span>{currentSpec.start.toUpperCase()}</span><i>…</i><span>{currentSpec.end.toUpperCase()}</span></div>
+            <div className={styles.letterBoard}><span>{displayLetter(currentSpec.start)}</span><i>…</i><span>{displayLetter(currentSpec.end)}</span></div>
             {wildcardBanner(currentSpec) && <p className={styles.banner}><Sparkles size={15} />{wildcardBanner(currentSpec)}</p>}
-            {currentSpec.mines.map((mine) => <span key={mine} className={styles.mineChip}>💣 {mine.toUpperCase()}</span>)}
-            {match.mode === "chain" && <div className={styles.chain}><Link2 size={16} /> Chain {round.roundNo} / 10 <span>{history.map((item) => item.toUpperCase()).join(" → ")}</span></div>}
+            {currentSpec.mines.map((mine) => <span key={mine} className={styles.mineChip}>💣 {displayLetter(mine)}</span>)}
+            {match.mode === "chain" && <div className={styles.chain}><Link2 size={16} /> Chain {round.roundNo} / 10 <span>{history.map(displayLetter).join(" → ")}</span></div>}
             <form className={styles.answer} onSubmit={(event) => { event.preventDefault(); void send("answer", { text: word }); setWord(""); }}>
               <label htmlFor="linkup-word">Type a word</label>
               <input id="linkup-word" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} maxLength={32} />
@@ -491,7 +502,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
               const actorId = result.userId ?? match.botActorId ?? "kiki";
               const playerName = actorId === userId ? "You" : actorId === (match.botActorId ?? "kiki") ? "Kiki" : "Buddy";
               return <p key={`${actorId}-${resultIndex}`}>
-                <strong>{playerName}</strong> · {result.valid ? result.word : result.reason === "mine" ? `Hit a mine: ${result.word.toUpperCase()}` : result.reason}
+                <strong>{playerName}</strong> · {result.valid ? result.word : result.reason === "mine" ? `Hit a mine: ${displayLetter(result.word)}` : result.reason}
                 <span className={styles.roundPoints}>{result.valid ? ` +${result.points} points` : " +0 points"}</span>
               </p>;
             })}

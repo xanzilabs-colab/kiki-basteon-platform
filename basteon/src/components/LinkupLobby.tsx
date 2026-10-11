@@ -225,9 +225,12 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
         )}
 
         {solo && !matchId && (
-          <button className={styles.primary} type="button" onClick={() => void startBotMatch()} disabled={busy}>
-            {busy ? "Starting…" : `Play ${chosen.name} with Kiki`}
-          </button>
+          <>
+            <button className={styles.primary} type="button" onClick={() => void startBotMatch()} disabled={busy}>
+              {busy ? "Starting…" : `Play ${chosen.name} with Kiki`}
+            </button>
+            <Link className={styles.secondary} href="/games/linkup">Find a Buddy</Link>
+          </>
         )}
 
         {matchId && (

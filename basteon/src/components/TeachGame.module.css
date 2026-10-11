@@ -1,6 +1,6 @@
-.page { min-height: 100vh; padding: 20px; background: radial-gradient(circle at 10% 0, #f7eaf2 0, transparent 34%), #f7f7f2; color: #30283a; }
+.page { min-height: 100vh; overflow-x: clip; padding: 20px; background: radial-gradient(circle at 10% 0, #f7eaf2 0, transparent 34%), #f7f7f2; color: #30283a; }
 .shell { width: min(760px, 100%); margin: 0 auto; }
-.header { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 13px; min-height: 68px; padding: 10px 0; background: #f7f7f2ed; backdrop-filter: blur(12px); }
+.header { position: sticky; top: 0; z-index: 4; display: flex; box-sizing: border-box; width: 100vw; align-items: center; gap: 13px; min-height: 68px; margin-left: calc(50% - 50vw); padding: 10px max(24px, calc((100vw - 760px) / 2 + 24px)); border-bottom: 1px solid #e7dfea; background: #f7f7f2ed; box-shadow: 0 8px 20px #30283a0a; backdrop-filter: blur(12px); }
 .header > a { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 15px; background: white; color: #59406b; }
 .header small, .roundHeading small { color: #876b94; font-size: .72rem; font-weight: 850; letter-spacing: .12em; }
 .header h1 { margin: 2px 0 0; font-size: clamp(1.25rem, 4vw, 1.8rem); line-height: 1.1; }

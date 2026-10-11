@@ -75,6 +75,29 @@ const toEpoch = (value: string | null | undefined) => {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+function requireDatabaseSuccess(operation: string, error: unknown) {
+  if (error) {
+    console.error(`linkup ${operation} failed`, error);
+    throw new Error(operation);
+  }
+}
+function isBombState(value: unknown): value is BombState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const state = value as Partial<BombState>;
+  return typeof state.holder === "string"
+    && typeof state.passer === "string"
+    && typeof state.start === "string"
+    && /^[a-z]$/.test(state.start)
+    && (state.end === null || typeof state.end === "string" && /^[a-z]$/.test(state.end))
+    && Array.isArray(state.used)
+    && state.used.every((word) => typeof word === "string")
+    && typeof state.fuseLeftMs === "number"
+    && typeof state.turn === "number"
+    && typeof state.exploded === "boolean"
+    && (state.loser === null || typeof state.loser === "string")
+    && Boolean(state.words && typeof state.words === "object")
+    && Boolean(state.longest && typeof state.longest === "object");
+}
 
 async function authenticatedUser() {
   const session = await createClient();
@@ -148,10 +171,11 @@ async function makeRound(match: Match, roundNo: number, carry?: string | null, s
 
 async function initializeMatch(match: Match) {
   if (match.mode === "bomb") {
-    if (match.bomb_state?.holder) return;
+    if (isBombState(match.bomb_state)) return;
+    if (match.turn_no !== 0 || match.status !== "active") throw new Error("bomb_state_unavailable");
     const opponent = match.vs_bot ? match.bot_actor_id ?? "kiki" : match.player2_id!;
     const state = bombInit(match.player1_id, opponent, "s");
-    await admin().from("linkup_matches").update({
+    const { error } = await admin().from("linkup_matches").update({
       status: "active",
       holder_id: state.holder,
       passer_id: state.passer,
@@ -162,7 +186,8 @@ async function initializeMatch(match: Match) {
       fuse_left_ms: state.fuseLeftMs,
       bomb_state: state,
       round_no: 1,
-    }).eq("id", match.id).eq("status", "active").is("bomb_state->>holder", null);
+    }).eq("id", match.id).eq("status", "active").eq("turn_no", 0).is("holder_id", null);
+    requireDatabaseSuccess("bomb_initialization", error);
     return;
   }
   if (await currentRound(match.id)) return;
@@ -230,7 +255,8 @@ async function getSnapshot(match: Match, uid: string) {
     ownAnswer = rows.find((answer) => answer.actor_id === uid) ?? null;
     if (round.phase === "result" || round.phase === "finished") visibleAnswers = rows;
   }
-  const safeBombState = match.mode === "bomb" && match.bomb_state && typeof match.bomb_state === "object" ? match.bomb_state : null;
+  const safeBombState = match.mode === "bomb" && isBombState(match.bomb_state) ? match.bomb_state : null;
+  if (match.mode === "bomb" && !safeBombState) throw new Error("bomb_state_unavailable");
   const liveFuseLeftMs = match.mode === "bomb" && safeBombState?.end && match.turn_started_at
     ? Math.max(0, match.fuse_left_ms - Math.max(0, Date.now() - toEpoch(match.turn_started_at)))
     : match.fuse_left_ms;
@@ -267,6 +293,9 @@ async function getSnapshot(match: Match, uid: string) {
       bombEnd: match.bomb_end,
       turnStartedAt: match.turn_started_at,
       bombState: match.mode === "bomb" ? safeBombState : null,
+      availableBombEndLetters: safeBombState && safeBombState.passer === uid && !safeBombState.end
+        ? LETTERS.filter((letter) => pairHasWords(safeBombState.start, letter, new Set(safeBombState.used)))
+        : [],
       usedWords: match.mode === "bomb" && safeBombState ? safeBombState.used : undefined,
     },
     round: publicRound(match, uid, round, ownAnswer, visibleAnswers),
@@ -371,7 +400,7 @@ async function autoPickRound(match: Match, round: Round) {
     phase_started_at: new Date().toISOString(),
     deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
   }).eq("id", round.id).eq("phase", "pick").lte("deadline_at", new Date().toISOString());
-  if (error) throw new Error("pick_timeout_advance_failed");
+  requireDatabaseSuccess("pick_timeout_advance", error);
 }
 
 async function markBombRoomFinished(match: Match) {
@@ -402,7 +431,8 @@ async function advanceRound(match: Match, round: Round) {
       const rng = mulberry32(match.seed + round.round_no * 7919 + 17);
       updates.bot_answer = botAnswer(index, spec, new Set(match.used_words), match.bot_difficulty ?? "medium", rng, new Set());
     }
-    await db.from("linkup_rounds").update(updates).eq("id", round.id).eq("phase", "reveal");
+    const { error } = await db.from("linkup_rounds").update(updates).eq("id", round.id).eq("phase", "reveal");
+    requireDatabaseSuccess("reveal_advance", error);
     return;
   }
   if (round.phase === "answer") {
@@ -436,19 +466,25 @@ async function advanceRound(match: Match, round: Round) {
 async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schema>) {
   const db = admin();
   let state = match.bomb_state;
-  if (!state?.holder) {
+  if (!isBombState(state)) {
     await initializeMatch(match);
     const refreshed = await loadMatch(match.id, uid);
     if (!refreshed) throw new Error("match_missing");
     state = refreshed.bomb_state;
   }
+  if (!isBombState(state)) throw new Error("bomb_state_unavailable");
   if (state.exploded) return;
   if (action.action === "bomb_end") {
-    if (uid !== state.passer || !action.letter) throw new Error("not_picker");
-    state = bombSetEnd(state, action.letter.toLowerCase());
-    await db.from("linkup_matches").update({
+    const letter = action.letter?.toLowerCase();
+    if (uid !== state.passer || !letter) throw new Error("not_picker");
+    if (!pairHasWords(state.start, letter, new Set(state.used))) throw new Error("letter_has_no_words");
+    state = bombSetEnd(state, letter);
+    const { data: claimed, error } = await db.from("linkup_matches").update({
       bomb_state: state, bomb_end: state.end, turn_started_at: new Date().toISOString(),
-    }).eq("id", match.id).eq("turn_no", match.turn_no);
+    }).eq("id", match.id).eq("turn_no", match.turn_no).eq("passer_id", uid)
+      .is("bomb_end", null).eq("status", "active").select("id").maybeSingle();
+    requireDatabaseSuccess("bomb_end_pick", error);
+    if (!claimed) throw new Error("bomb_turn_already_resolved");
     return;
   }
   if (action.action === "answer") {
@@ -471,25 +507,34 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
     }).eq("id", match.id).eq("turn_no", match.turn_no).eq("holder_id", uid).eq("status", "active").select("id").maybeSingle();
     if (updateError) throw new Error("bomb_turn_update_failed");
     if (!claimed) throw new Error("bomb_turn_already_resolved");
-    await db.from("linkup_turns").insert({
+    const { error: historyError } = await db.from("linkup_turns").insert({
       match_id: match.id, turn_no: match.turn_no,
       holder_id: match.holder_id === match.bot_actor_id ? null : match.holder_id,
       actor_id: match.bomb_state.holder,
       start: spec.start, end: spec.end, word: verdict.word, valid: verdict.valid,
       reason: verdict.reason, used_ms: usedMs, fuse_after_ms: state.fuseLeftMs, resolved: true,
     });
+    requireDatabaseSuccess("bomb_turn_history", historyError);
     if (state.exploded) await markBombRoomFinished(match);
     return;
   }
   if (action.action === "advance") {
     const elapsed = Math.max(0, Date.now() - Date.parse(match.turn_started_at ?? new Date().toISOString()));
     if (!state.end) {
-      if (elapsed < BOMB.pickMs) return;
-      const end = botLetter("end", mulberry32(match.seed + state.turn * 31));
+      const botIsPicking = match.vs_bot && state.passer === match.bot_actor_id;
+      if (!botIsPicking && elapsed < BOMB.pickMs) return;
+      const availableEnds = LETTERS.filter((letter) => pairHasWords(state.start, letter, new Set(state.used)));
+      if (availableEnds.length === 0) throw new Error("bomb_no_playable_end_letters");
+      const rng = mulberry32(match.seed + state.turn * 31);
+      const botPick = botIsPicking ? botLetter("end", rng) : null;
+      const end = botPick && availableEnds.includes(botPick)
+        ? botPick
+        : availableEnds[Math.floor(rng() * availableEnds.length)];
       state = bombSetEnd(state, end);
-      await db.from("linkup_matches").update({
+      const { error } = await db.from("linkup_matches").update({
         bomb_state: state, bomb_end: end, turn_started_at: new Date().toISOString(),
-      }).eq("id", match.id).eq("turn_no", match.turn_no).eq("bomb_state->>turn", String(state.turn));
+      }).eq("id", match.id).eq("turn_no", match.turn_no).is("bomb_end", null).eq("status", "active");
+      requireDatabaseSuccess("bomb_end_auto_pick", error);
       return;
     }
     if (elapsed >= match.fuse_left_ms) {
@@ -503,15 +548,25 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
       return;
     }
     if (match.vs_bot && state.holder === match.bot_actor_id && state.end) {
-      const spec = bombSpec(state);
       const rng = mulberry32(match.seed + state.turn * 23);
+      const spec = buildSpec({
+        round: state.turn,
+        mode: "classic",
+        start: state.start,
+        end: state.end,
+        preserveStart: true,
+        preserveEnd: true,
+        idx: index,
+        used: new Set(state.used),
+        rng,
+      });
       const answer = botAnswer(index, spec, new Set(state.used), match.bot_difficulty ?? "medium", rng);
       if (elapsed >= answer.delayMs) {
         const verdict = answer.word ? validateAnswer(answer.word, spec, words, new Set(state.used)) : { valid: false, word: "", reason: "timeout" as const };
         const usedMs = Math.max(answer.delayMs, elapsed);
         const resolution = bombResolve(state, verdict, usedMs);
         const nextState = resolution.state;
-        const { data: claimed } = await db.from("linkup_matches").update({
+        const { data: claimed, error: updateError } = await db.from("linkup_matches").update({
           bomb_state: nextState,
           fuse_left_ms: nextState.fuseLeftMs,
           turn_no: match.turn_no + 1,
@@ -524,7 +579,9 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
           finished_at: nextState.exploded ? new Date().toISOString() : null,
         }).eq("id", match.id).eq("bomb_state->>holder", match.bot_actor_id!).eq("turn_no", match.turn_no)
           .eq("status", "active").select("id").maybeSingle();
-        if (claimed) await db.from("linkup_turns").upsert({
+        requireDatabaseSuccess("bomb_bot_answer", updateError);
+        if (claimed) {
+          const { error: historyError } = await db.from("linkup_turns").upsert({
           match_id: match.id,
           turn_no: match.turn_no,
           holder_id: null,
@@ -537,7 +594,9 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
           used_ms: usedMs,
           fuse_after_ms: nextState.fuseLeftMs,
           resolved: true,
-        }, { onConflict: "match_id,turn_no" });
+          }, { onConflict: "match_id,turn_no" });
+          requireDatabaseSuccess("bomb_bot_history", historyError);
+        }
         if (claimed && nextState.exploded) await markBombRoomFinished(match);
       }
     }
@@ -554,12 +613,16 @@ export async function GET(request: Request) {
     let match = await loadMatch(parsed.data, user.id);
     if (!match) return fail("match_not_found", 404);
     await initializeMatch(match);
-    match = (await loadMatch(parsed.data, user.id))!;
+    const initializedMatch = await loadMatch(parsed.data, user.id);
+    if (!initializedMatch) return fail("match_not_found", 404);
+    match = initializedMatch;
     if (match.mode === "bomb" && match.status === "finished") await markBombRoomFinished(match);
     if (match.mode !== "bomb") {
       const round = await currentRound(match.id);
       if (round) await advanceRound(match, round);
-      match = (await loadMatch(parsed.data, user.id))!;
+      const advancedMatch = await loadMatch(parsed.data, user.id);
+      if (!advancedMatch) return fail("match_not_found", 404);
+      match = advancedMatch;
     }
     return NextResponse.json(await getSnapshot(match, user.id));
   } catch (error) {
@@ -582,7 +645,17 @@ export async function POST(request: Request) {
       return NextResponse.json(await getSnapshot(match, user.id));
     }
     if (match.mode === "bomb") {
-      await actOnBomb(match, user.id, action);
+      try {
+        await actOnBomb(match, user.id, action);
+      } catch (error) {
+        if (error instanceof Error && error.message === "bomb_turn_already_resolved") {
+          return fail("bomb_turn_already_resolved", 409);
+        }
+        if (error instanceof Error && error.message === "letter_has_no_words") {
+          return fail("letter_has_no_words", 409);
+        }
+        throw error;
+      }
     } else {
       let round = await currentRound(match.id);
       if (round?.phase === "pick" && round.deadline_at && Date.parse(round.deadline_at) <= Date.now()) {
@@ -614,22 +687,25 @@ export async function POST(request: Request) {
             picks[roles.endPicker] = roles.endPicker === match.player1_id ? action.letter.toLowerCase() : botLetter("end", rng);
           }
           const built = buildPickedSpec(match, round, picks);
-          await admin().from("linkup_rounds").update({
+          const { error } = await admin().from("linkup_rounds").update({
             picks: built.picks, spec: built.spec, phase: "reveal",
             phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
           }).eq("id", round.id).eq("phase", "pick");
+          requireDatabaseSuccess("bot_pick_save", error);
         } else {
           const pickerKey = chainCarries ? roles.endPicker : user.id;
           picks[pickerKey] = action.letter.toLowerCase();
           const required = chainCarries ? [roles.endPicker] : [roles.startPicker, roles.endPicker];
           if (required.every((picker) => typeof picks[picker] === "string")) {
             const built = buildPickedSpec(match, round, picks);
-            await admin().from("linkup_rounds").update({
+            const { error } = await admin().from("linkup_rounds").update({
               picks: built.picks, spec: built.spec, phase: "reveal",
               phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
             }).eq("id", round.id).eq("phase", "pick");
+            requireDatabaseSuccess("pick_reveal_save", error);
           } else {
-            await admin().from("linkup_rounds").update({ picks }).eq("id", round.id).eq("phase", "pick");
+            const { error } = await admin().from("linkup_rounds").update({ picks }).eq("id", round.id).eq("phase", "pick");
+            requireDatabaseSuccess("pick_save", error);
           }
         }
       } else if (action.action === "answer" && round?.phase === "answer") {
@@ -640,16 +716,18 @@ export async function POST(request: Request) {
           const submitted = action.alternatives?.length ? action.alternatives : [action.text ?? ""];
           const verdict = submitted.map((candidate) => validateAnswer(candidate, round!.spec!, words, new Set(match!.used_words))).find((candidate) => candidate.valid)
             ?? validateAnswer(submitted[0] ?? "", round.spec!, words, new Set(match.used_words));
-          await admin().from("linkup_answers").insert({
+          const { error: answerInsertError } = await admin().from("linkup_answers").insert({
             round_id: round.id, actor_id: user.id, user_id: user.id, raw_text: action.text ?? "",
             alternatives: action.alternatives ?? [], word: verdict.word, valid: verdict.valid,
             reason: verdict.reason,
             answer_ms: elapsed,
             points: 0,
           });
-          await admin().from("linkup_rounds").update({
+          requireDatabaseSuccess("answer_save", answerInsertError);
+          const { error: lockError } = await admin().from("linkup_rounds").update({
             locked_user_ids: Array.from(new Set([...round.locked_user_ids, user.id])),
           }).eq("id", round.id).eq("phase", "answer");
+          requireDatabaseSuccess("answer_lock", lockError);
         }
       }
       round = await currentRound(match.id);

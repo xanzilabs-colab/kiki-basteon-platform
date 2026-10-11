@@ -48,6 +48,20 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
   const [reportReason, setReportReason] = useState("uncomfortable");
   const [reporting, setReporting] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
+  const roundKeyRef = useRef("");
+
+  const applySnapshot = useCallback((next: Snapshot) => {
+    const roundKey = `${next.session?.id ?? ""}:${next.session?.roundNo ?? ""}:${next.round?.phase ?? ""}`;
+    const hasSavedChoices = next.round?.ownEmotion !== null && next.round?.ownEmotion !== undefined
+      || next.round?.ownResponse !== null && next.round?.ownResponse !== undefined;
+    if (roundKeyRef.current !== roundKey || hasSavedChoices) {
+      setEmotion(next.round?.ownEmotion ?? null);
+      setResponse(next.round?.ownResponse ?? null);
+    }
+    roundKeyRef.current = roundKey;
+    sessionIdRef.current = next.session?.id ?? null;
+    setSnapshot(next);
+  }, []);
 
   const request = useCallback(async (action: string, body?: unknown) => {
     const stateQuery = roomId
@@ -84,11 +98,8 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
 
   const refresh = useCallback(async () => {
     const next = await request("state") as Snapshot;
-    sessionIdRef.current = next.session?.id ?? null;
-    setSnapshot(next);
-    setEmotion(next.round?.ownEmotion ?? null);
-    setResponse(next.round?.ownResponse ?? null);
-  }, [request]);
+    applySnapshot(next);
+  }, [applySnapshot, request]);
 
   useEffect(() => {
     let active = true;
@@ -96,10 +107,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
       try {
         const next = await request("state") as Snapshot;
         if (active) {
-          sessionIdRef.current = next.session?.id ?? null;
-          setSnapshot(next);
-          setEmotion(next.round?.ownEmotion ?? null);
-          setResponse(next.round?.ownResponse ?? null);
+          applySnapshot(next);
           setError("");
         }
       } catch (cause) {
@@ -112,7 +120,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
       active = false;
       window.clearInterval(poll);
     };
-  }, [request]);
+  }, [applySnapshot, request]);
 
   async function saveAgeBand(ageBand: "teen" | "adult") {
     setBusy(true);
@@ -132,10 +140,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
     setError("");
     try {
       const next = await request("start", roomId ? { mode: "pair", roomId } : { mode: "bot" }) as Snapshot;
-      sessionIdRef.current = next.session?.id ?? null;
-      setSnapshot(next);
-      setEmotion(next.round?.ownEmotion ?? null);
-      setResponse(next.round?.ownResponse ?? null);
+      applySnapshot(next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The game could not start.");
     } finally {
@@ -149,8 +154,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
     setError("");
     try {
       const next = await request("answer", { sessionId: snapshot.session.id, emotion, response }) as Snapshot;
-      sessionIdRef.current = next.session?.id ?? null;
-      setSnapshot(next);
+      applySnapshot(next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your choices could not be saved.");
       await refresh();
@@ -165,10 +169,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
     setError("");
     try {
       const next = await request("next", { sessionId: snapshot.session.id }) as Snapshot;
-      sessionIdRef.current = next.session?.id ?? null;
-      setSnapshot(next);
-      setEmotion(next.round?.ownEmotion ?? null);
-      setResponse(next.round?.ownResponse ?? null);
+      applySnapshot(next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The next round could not start.");
     } finally {
