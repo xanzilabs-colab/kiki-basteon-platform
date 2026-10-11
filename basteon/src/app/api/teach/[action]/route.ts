@@ -37,6 +37,7 @@ const reportSchema = sessionSchema.extend({
   target: z.enum(["tip", "partner"]),
   reason: z.string().trim().max(240).optional(),
 });
+const TEACH_PHASE_DURATION_MS = 5 * 60_000;
 const toolboxSchema = z.object({
   cardId: sessionIdSchema,
   operation: z.enum(["save", "remove"]),
@@ -169,7 +170,7 @@ async function startSession(userId: string, input: z.infer<typeof startSchema>) 
       id,
       mode: "bot",
       age_band: member.age_band,
-      category: seed.topic_id,
+      category: input.category ?? null,
       status: "active",
       p1: userId,
       p1_alias: identity.alias,
@@ -240,7 +241,7 @@ async function stateFor(userId: string, sessionId: string) {
     if (finishError) throw new Error("teach_round_finish_failed");
     round = { ...round, phase: "done" };
   }
-  const durationMs = round.phase === "write" ? 90_000 : round.phase === "read" ? 90_000 : 0;
+  const durationMs = round.phase === "write" || round.phase === "read" ? TEACH_PHASE_DURATION_MS : 0;
   const deadlineAt = new Date(Date.parse(round.phase_started_at) + durationMs).toISOString();
   const now = Date.now();
   if (durationMs && now >= Date.parse(deadlineAt)) {
@@ -430,7 +431,7 @@ export async function POST(request: Request, context: Context) {
       if (!session || session.status !== "active") return fail("session_unavailable", 409);
       const round = await ensureRound(session);
       if (round.phase !== "write") return fail("write_phase_closed", 409);
-      if (Date.now() - Date.parse(round.phase_started_at) > 90_000) return fail("write_phase_closed", 409);
+      if (Date.now() - Date.parse(round.phase_started_at) > TEACH_PHASE_DURATION_MS) return fail("write_phase_closed", 409);
       const isP1 = session.p1 === user.id;
       if ((isP1 ? round.card_p1 : round.card_p2) || (session.mode === "bot" && !isP1)) return fail("card_already_submitted", 409);
       const topic = await admin().from("teach_topics").select("id,verified_only,teen_ok").eq("id", round.topic_id).single();
@@ -508,7 +509,7 @@ export async function POST(request: Request, context: Context) {
       const session = await getSession(parsed.data.sessionId, user.id);
       if (!session || session.status !== "active") return fail("session_unavailable", 409);
       const round = await ensureRound(session);
-      if (round.phase !== "read" || Date.now() - Date.parse(round.phase_started_at) > 90_000) {
+      if (round.phase !== "read" || Date.now() - Date.parse(round.phase_started_at) > TEACH_PHASE_DURATION_MS) {
         return fail("read_phase_closed", 409);
       }
       const isP1 = session.p1 === user.id;

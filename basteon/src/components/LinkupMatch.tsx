@@ -216,8 +216,14 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
 
   const refresh = useCallback(async () => {
     const response = await fetch(`/api/linkup?matchId=${encodeURIComponent(matchId)}`, { cache: "no-store" });
-    if (!response.ok) throw new Error("Could not sync the match.");
-    const next = await response.json() as Snapshot;
+    const body = await response.json().catch(() => null) as { error?: unknown } | null;
+    if (!response.ok) {
+      const reason = typeof body?.error === "string" ? body.error : `HTTP ${response.status}`;
+      throw new Error(`Match sync failed: ${reason}`);
+    }
+    if (!body) throw new Error("Match sync returned an empty response.");
+    const next = body as Snapshot;
+    setMessage("");
     setSnapshot(next);
     setNow(Date.parse(next.serverNow || new Date().toISOString()));
   }, [matchId]);
@@ -228,9 +234,9 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     void db.auth.getUser().then(({ data }) => { if (active && data.user) setUserId(data.user.id); });
     const timer = window.setInterval(() => {
       setNow(Date.now());
-      void refresh().catch(() => setMessage("Reconnecting…"));
+      void refresh().catch((error) => setMessage(error instanceof Error ? `Reconnecting… ${error.message}` : "Reconnecting…"));
     }, 850);
-    void refresh().catch(() => setMessage("Reconnecting…"));
+    void refresh().catch((error) => setMessage(error instanceof Error ? `Reconnecting… ${error.message}` : "Reconnecting…"));
     return () => { active = false; window.clearInterval(timer); };
   }, [refresh]);
 

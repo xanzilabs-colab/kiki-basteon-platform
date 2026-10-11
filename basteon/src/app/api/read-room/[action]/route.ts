@@ -20,8 +20,8 @@ const startSchema = z.object({
 const profileSchema = z.object({ ageBand: z.enum(["teen", "adult"]) });
 const answerSchema = z.object({
   sessionId: uuidSchema,
-  emotion: z.number().int().min(0).max(3),
-  response: z.number().int().min(0).max(3),
+  emotion: z.number().int().min(0).max(4),
+  response: z.number().int().min(0).max(4),
 });
 const sessionSchema = z.object({ sessionId: uuidSchema });
 const reportSchema = sessionSchema.extend({
@@ -103,8 +103,8 @@ async function state(session: ReadRoomSession, userId: string) {
       phase: round.phase,
       prompt: scenario.prompt,
       contentNote: scenario.contentNote,
-      emotionOptions: EMOTIONS,
-      responseOptions: RESPONSES,
+      emotionOptions: scenario.emotionOptions ?? EMOTIONS,
+      responseOptions: scenario.responseOptions ?? RESPONSES,
       ownEmotion,
       ownResponse,
       partnerEmotion,

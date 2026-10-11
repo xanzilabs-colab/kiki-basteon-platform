@@ -19,7 +19,7 @@ import {
   wildcardBanner,
 } from "./engine";
 import type { RoundSpec } from "./engine";
-import { botAnswer } from "./bot";
+import { botAnswer, buildBotRoundPick } from "./bot";
 
 const WORDS = [
   "smart", "shout", "sprout", "start", "sunset", "seat", "salt", "sight", "sit", "set",
@@ -47,6 +47,80 @@ describe("mode rules", () => {
   it("normalizes accents, punctuation, casing, and later words", () => {
     expect(normalizeWord("  Smárt! now ")).toBe("smart");
     expect(normalizeWord("")).toBe("");
+  });
+
+  describe("Kiki letter picks", () => {
+    it.each(["classic", "minefield", "chain", "wildcard"] as const)(
+      "keeps the player's exact start-letter choice in %s",
+      (mode) => {
+        const result = buildBotRoundPick({
+          round: 1,
+          mode,
+          playerId: "player",
+          botId: "kiki",
+          letter: "s",
+          idx,
+          used: new Set(),
+          rng: mulberry32(17),
+        });
+
+        expect(result?.picks.player).toBe("s");
+        expect(result?.spec.start).toBe("s");
+      },
+    );
+
+    it.each(["classic", "minefield", "chain", "wildcard"] as const)(
+      "keeps the player's exact end-letter choice in even-round %s",
+      (mode) => {
+        const result = buildBotRoundPick({
+          round: 2,
+          mode,
+          playerId: "player",
+          botId: "kiki",
+          letter: "t",
+          idx,
+          used: new Set(),
+          rng: mulberry32(31),
+        });
+
+        expect(result?.picks.player).toBe("t");
+        expect(result?.spec.end).toBe("t");
+      },
+    );
+
+    it("keeps the selected end letter when a chain carries its start", () => {
+      const result = buildBotRoundPick({
+        round: 2,
+        mode: "chain",
+        playerId: "player",
+        botId: "kiki",
+        carryStart: "s",
+        letter: "t",
+        idx,
+        used: new Set(),
+        rng: mulberry32(47),
+      });
+
+      expect(result?.picks.carryStart).toBe("s");
+      expect(result?.picks.player).toBe("t");
+      expect(result?.spec).toMatchObject({ start: "s", end: "t" });
+    });
+
+    it("does not accept a player pick when Kiki owns the chain end-picker role", () => {
+      const result = buildBotRoundPick({
+        round: 3,
+        mode: "chain",
+        playerId: "player",
+        botId: "kiki",
+        carryStart: "s",
+        letter: "t",
+        idx,
+        used: new Set(),
+        rng: mulberry32(59),
+      });
+
+      expect(result).toBeNull();
+    });
   });
 
   it("rejects a word containing a mine letter", () => {

@@ -8,7 +8,7 @@ import {
   solutions, validateAnswer,
 } from "@/lib/games/linkup/engine";
 import type { BombState, Mode, RoundSpec, Verdict } from "@/lib/games/linkup/engine";
-import { botAnswer, botLetter } from "@/lib/games/linkup/bot";
+import { botAnswer, botLetter, buildBotRoundPick } from "@/lib/games/linkup/bot";
 import type { Difficulty } from "@/lib/games/linkup/bot";
 import { LINKUP_WORDS } from "@/lib/games/linkup/words";
 
@@ -24,7 +24,7 @@ const schema = z.object({
 
 const words = LINKUP_WORDS;
 const index = buildIndex(words);
-const PICK_WINDOW_MS = 3000;
+const PICK_WINDOW_MS = 10_000;
 const REVEAL_WINDOW_MS = 1400;
 const ANSWER_WINDOW_MS = 10000;
 const RESULT_WINDOW_MS = 2400;
@@ -207,6 +207,7 @@ function availablePickLetters(match: Match, round: Round, uid: string) {
     ? "end"
     : roles.startPicker === uid ? "start" : roles.endPicker === uid ? "end" : null;
   if (!playerRole || (match.vs_bot && uid !== match.player1_id)) return [];
+  if (match.vs_bot && chainCarries && roles.endPicker !== uid) return [];
   if (!match.vs_bot) {
     const expectedPicker = chainCarries
       ? roles.endPicker
@@ -675,24 +676,26 @@ export async function POST(request: Request) {
           if (user.id !== expectedPicker) throw new Error("not_picker");
         }
         if (match.vs_bot && user.id !== match.player1_id) throw new Error("not_picker");
-        const picks = { ...round.picks, [user.id]: action.letter.toLowerCase() };
-        const rng = mulberry32(match.seed + round.round_no * 13);
         if (match.vs_bot) {
-          const botRole = roles.startPicker === botId ? "start" : "end";
-          if (!chainCarries) picks[botId] = botLetter(botRole, rng);
-          const humanRole = roles.startPicker === match.player1_id ? roles.startPicker : roles.endPicker;
-          picks[humanRole] = action.letter.toLowerCase();
-          if (chainCarries) {
-            delete picks[roles.startPicker];
-            picks[roles.endPicker] = roles.endPicker === match.player1_id ? action.letter.toLowerCase() : botLetter("end", rng);
-          }
-          const built = buildPickedSpec(match, round, picks);
+          const built = buildBotRoundPick({
+            round: round.round_no,
+            mode: match.mode,
+            playerId: match.player1_id,
+            botId,
+            carryStart: round.picks.carryStart,
+            letter: action.letter,
+            idx: index,
+            used: new Set(match.used_words),
+            rng: mulberry32(match.seed + round.round_no * 13),
+          });
+          if (!built) return fail("not_picker", 403);
           const { error } = await admin().from("linkup_rounds").update({
             picks: built.picks, spec: built.spec, phase: "reveal",
             phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
           }).eq("id", round.id).eq("phase", "pick");
           requireDatabaseSuccess("bot_pick_save", error);
         } else {
+          const picks = { ...round.picks, [user.id]: action.letter.toLowerCase() };
           const pickerKey = chainCarries ? roles.endPicker : user.id;
           picks[pickerKey] = action.letter.toLowerCase();
           const required = chainCarries ? [roles.endPicker] : [roles.startPicker, roles.endPicker];

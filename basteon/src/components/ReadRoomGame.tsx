@@ -49,17 +49,30 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
   const [reporting, setReporting] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
   const roundKeyRef = useRef("");
+  const snapshotRef = useRef<Snapshot | null>(null);
 
-  const applySnapshot = useCallback((next: Snapshot) => {
+  const applySnapshot = useCallback((next: Snapshot, resetSelections = false) => {
+    const current = snapshotRef.current;
+    if (!resetSelections && current?.session?.status === "active") {
+      if (!next.session || next.session.id !== current.session.id) return;
+      if (next.session.roundNo < current.session.roundNo) return;
+      if (next.session.roundNo === current.session.roundNo) {
+        const phaseOrder = { answer: 0, reveal: 1, done: 2 };
+        const currentPhase = current.round?.phase;
+        const nextPhase = next.round?.phase;
+        if (currentPhase && nextPhase && phaseOrder[nextPhase] < phaseOrder[currentPhase]) return;
+      }
+    }
     const roundKey = `${next.session?.id ?? ""}:${next.session?.roundNo ?? ""}:${next.round?.phase ?? ""}`;
     const hasSavedChoices = next.round?.ownEmotion !== null && next.round?.ownEmotion !== undefined
       || next.round?.ownResponse !== null && next.round?.ownResponse !== undefined;
-    if (roundKeyRef.current !== roundKey || hasSavedChoices) {
+    if (resetSelections || roundKeyRef.current !== roundKey || hasSavedChoices) {
       setEmotion(next.round?.ownEmotion ?? null);
       setResponse(next.round?.ownResponse ?? null);
     }
     roundKeyRef.current = roundKey;
     sessionIdRef.current = next.session?.id ?? null;
+    snapshotRef.current = next;
     setSnapshot(next);
   }, []);
 
@@ -140,7 +153,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
     setError("");
     try {
       const next = await request("start", roomId ? { mode: "pair", roomId } : { mode: "bot" }) as Snapshot;
-      applySnapshot(next);
+      applySnapshot(next, true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The game could not start.");
     } finally {
@@ -154,7 +167,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
     setError("");
     try {
       const next = await request("answer", { sessionId: snapshot.session.id, emotion, response }) as Snapshot;
-      applySnapshot(next);
+      applySnapshot(next, true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your choices could not be saved.");
       await refresh();
@@ -169,7 +182,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
     setError("");
     try {
       const next = await request("next", { sessionId: snapshot.session.id }) as Snapshot;
-      applySnapshot(next);
+      applySnapshot(next, true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The next round could not start.");
     } finally {

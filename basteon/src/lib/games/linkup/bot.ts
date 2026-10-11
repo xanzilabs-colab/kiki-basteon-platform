@@ -1,5 +1,5 @@
-import { CONFIG, LETTERS, solutions } from "./engine";
-import type { RoundSpec, Rng, WordIndex } from "./engine";
+import { CONFIG, LETTERS, buildSpec, rolesForRound, solutions } from "./engine";
+import type { Mode, RoundSpec, Rng, WordIndex } from "./engine";
 
 export type Difficulty = "easy" | "medium" | "hard";
 
@@ -26,6 +26,56 @@ export function botLetter(role: "start" | "end", rng: Rng): string {
 }
 
 export const autoPickLetter = botLetter;
+
+export function buildBotRoundPick(args: {
+  round: number;
+  mode: Mode;
+  playerId: string;
+  botId: string;
+  carryStart?: string;
+  letter: string;
+  idx: WordIndex;
+  used: Set<string>;
+  rng: Rng;
+}): { spec: RoundSpec; picks: Record<string, string> } | null {
+  const roles = rolesForRound(args.round, args.playerId, args.botId);
+  const chainCarries = args.mode === "chain" && args.round > 1 && Boolean(args.carryStart);
+  const humanPicker = chainCarries
+    ? roles.endPicker
+    : roles.startPicker === args.playerId ? roles.startPicker : roles.endPicker;
+  if (humanPicker !== args.playerId) return null;
+
+  const picks: Record<string, string> = {};
+  if (chainCarries && args.carryStart) picks.carryStart = args.carryStart;
+  if (!chainCarries) {
+    const botPicker = humanPicker === roles.startPicker ? roles.endPicker : roles.startPicker;
+    const botRole = botPicker === roles.startPicker ? "start" : "end";
+    picks[botPicker] = botLetter(botRole, args.rng);
+  }
+  picks[humanPicker] = args.letter.toLowerCase();
+
+  const spec = buildSpec({
+    round: args.round,
+    mode: args.mode,
+    start: chainCarries ? args.carryStart! : picks[roles.startPicker],
+    end: picks[roles.endPicker] ?? botLetter("end", args.rng),
+    preserveStart: chainCarries || humanPicker === roles.startPicker,
+    preserveEnd: humanPicker === roles.endPicker,
+    idx: args.idx,
+    used: args.used,
+    rng: args.rng,
+  });
+
+  return {
+    spec,
+    picks: {
+      ...picks,
+      ...(chainCarries ? { carryStart: args.carryStart! } : {}),
+      start: spec.start,
+      end: spec.end,
+    },
+  };
+}
 
 export interface BotAnswer {
   word: string | null;
