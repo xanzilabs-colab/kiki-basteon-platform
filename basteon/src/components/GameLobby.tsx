@@ -23,7 +23,7 @@ type OutgoingInvite = { id: string; buddy: string; expiresAt: string | null };
 type ActiveRoom = {
   id: string;
   game: "morabaraba" | "linkup";
-  status: "waiting" | "ready_check" | "playing" | "paused";
+  status: "waiting" | "ready_check" | "playing" | "paused" | "post_game";
   invite_status: "pending" | "accepted" | "declined" | "expired";
   host_id: string;
   guest_id: string | null;
@@ -53,7 +53,6 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   positionRef.current = position;
 
   useEffect(() => {
-    if (!position) return;
     let ignore = false;
     let userIdPromise: Promise<string> | null = null;
     let loadingNearby = false;
@@ -83,18 +82,21 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
 
     async function loadNearbyBuddies() {
       const currentPosition = positionRef.current;
-      if (!currentPosition || loadingNearby) return;
+      if (loadingNearby) return;
       const currentUserId = await getUserId();
       if (!currentUserId) return;
       loadingNearby = true;
 
       try {
-        const [{ data, error }, { data: invites }, { data: rooms, error: roomsError }] = await Promise.all([
-          db.rpc("game_nearby", {
+        const nearbyRequest = currentPosition
+          ? db.rpc("game_nearby", {
             p_lat: currentPosition.lat,
             p_lng: currentPosition.lng,
             p_radius_km: 3,
-          }),
+          })
+          : Promise.resolve({ data: [] as Array<{ user_id: string; lat: number; lng: number }>, error: null });
+        const [{ data, error }, { data: invites }, { data: rooms, error: roomsError }] = await Promise.all([
+          nearbyRequest,
           db.from("game_rooms")
             .select("id,game,host_id,invite_expires_at")
             .eq("guest_id", currentUserId)
@@ -108,33 +110,35 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             .select("id,game,status,invite_status,host_id,guest_id,invite_expires_at")
             .eq("game", game)
             .or(`host_id.eq.${currentUserId},guest_id.eq.${currentUserId}`)
-            .in("status", ["waiting", "ready_check", "playing", "paused"] )
+            .in("status", ["waiting", "ready_check", "playing", "paused", "post_game"])
             .order("updated_at", { ascending: false })
             .limit(8),
         ]);
 
         const rows = (!error && data ? data : []) as Array<{ user_id: string; lat: number; lng: number }>;
-        const nextBuddies = rows
-          .filter((row) => row.user_id !== currentUserId)
-          .map((row, index) => {
-            const latDelta = row.lat - currentPosition.lat;
-            const lngDelta = row.lng - currentPosition.lng;
-            const distanceKm = Math.hypot(latDelta * 111, lngDelta * 111);
-            const angleDeg = ((Math.atan2(latDelta, lngDelta) * 180) / Math.PI + 360 + 90) % 360;
+        const nextBuddies = currentPosition
+          ? rows
+            .filter((row) => row.user_id !== currentUserId)
+            .map((row, index) => {
+              const latDelta = row.lat - currentPosition.lat;
+              const lngDelta = row.lng - currentPosition.lng;
+              const distanceKm = Math.hypot(latDelta * 111, lngDelta * 111);
+              const angleDeg = ((Math.atan2(latDelta, lngDelta) * 180) / Math.PI + 360 + 90) % 360;
 
-            return {
-              userId: row.user_id,
-              avatar: buddyEmojis[index % buddyEmojis.length],
-              label: `Buddy ${index + 1}`,
-              lat: row.lat,
-              lng: row.lng,
-              distanceKm,
-              angleDeg,
-              radialPct: 0.2 + (index % 5) * 0.12,
-            } satisfies NearbyBuddy;
-          })
-          .filter((buddy) => buddy.distanceKm <= 3)
-          .slice(0, 6);
+              return {
+                userId: row.user_id,
+                avatar: buddyEmojis[index % buddyEmojis.length],
+                label: `Buddy ${index + 1}`,
+                lat: row.lat,
+                lng: row.lng,
+                distanceKm,
+                angleDeg,
+                radialPct: 0.2 + (index % 5) * 0.12,
+              } satisfies NearbyBuddy;
+            })
+            .filter((buddy) => buddy.distanceKm <= 3)
+            .slice(0, 6)
+          : [];
 
         const pendingInvites = (invites ?? []) as IncomingInvite[];
         const openRooms = (!roomsError && rooms ? rooms : []) as ActiveRoom[];
@@ -188,7 +192,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
     const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,game,status,invite_status,guest_id,invite_expires_at")
       .or(`host_id.eq.${user.id},guest_id.eq.${user.id}`)
       .eq("game", game)
-      .in("status", ["waiting", "ready_check", "playing", "paused"])
+      .in("status", ["waiting", "ready_check", "playing", "paused", "post_game"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -308,6 +312,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
 
   function roomStatusLabel(room: ActiveRoom) {
     if (room.invite_status === "pending") return "Invite pending";
+    if (room.status === "post_game") return "Finished · rematch available";
     if (room.status === "playing") return "Playing";
     if (room.status === "paused") return "Paused";
     if (room.status === "ready_check") return "Ready check";
@@ -404,8 +409,8 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             <span>Play solo against Kiki AI</span>
           </Link>
           {activeRooms.length > 0 && (
-            <section className={styles.gardenOpenRooms} aria-label={`Your active ${game === "linkup" ? "Kiki Links" : "Morabaraba"} rooms`}>
-              <h3>My active rooms</h3>
+            <section className={styles.gardenOpenRooms} aria-label={`Your ${game === "linkup" ? "Kiki Links" : "Morabaraba"} rooms`}>
+              <h3>My rooms</h3>
               <ul>
                 {activeRooms.map((room) => {
                   return (
@@ -465,6 +470,3 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
     </main>
   );
 }
-
-
-
