@@ -22,6 +22,7 @@ type IncomingInvite = { id: string; host_id: string; invite_expires_at: string |
 type OutgoingInvite = { id: string; buddy: string; expiresAt: string | null };
 type ActiveRoom = {
   id: string;
+  game: "morabaraba" | "linkup";
   status: "waiting" | "ready_check" | "playing" | "paused";
   invite_status: "pending" | "accepted" | "declined" | "expired";
   host_id: string;
@@ -31,8 +32,11 @@ type ActiveRoom = {
 
 const buddyEmojis = ["🐰", "🦊", "🐼", "🐻", "🐝", "🌼", "🦋", "🐧", "🌙", "🌿"];
 
-export function GameLobby() {
+type GameType = "morabaraba" | "linkup";
+
+export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   const router = useRouter();
+  const roomPath = (roomId: string) => game === "linkup" ? `/games/linkup/room/${roomId}` : `/games/play/${roomId}`;
   const { position, error: locationError } = useGeolocation();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -92,15 +96,17 @@ export function GameLobby() {
             p_radius_km: 3,
           }),
           db.from("game_rooms")
-            .select("id,host_id,invite_expires_at")
+            .select("id,game,host_id,invite_expires_at")
             .eq("guest_id", currentUserId)
+            .eq("game", game)
             .eq("status", "ready_check")
             .eq("invite_status", "pending")
             .gt("invite_expires_at", new Date().toISOString())
             .order("created_at", { ascending: false })
             .limit(1),
           db.from("game_rooms")
-            .select("id,status,invite_status,host_id,guest_id,invite_expires_at")
+            .select("id,game,status,invite_status,host_id,guest_id,invite_expires_at")
+            .eq("game", game)
             .or(`host_id.eq.${currentUserId},guest_id.eq.${currentUserId}`)
             .in("status", ["waiting", "ready_check", "playing", "paused"] )
             .order("updated_at", { ascending: false })
@@ -160,7 +166,7 @@ export function GameLobby() {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       void db.rpc("game_clear_presence");
     };
-  }, [Boolean(position), router]);
+  }, [Boolean(position), game, router]);
 
   async function createRoom(selectedBuddy?: NearbyBuddy) {
     setBusy(true);
@@ -179,8 +185,9 @@ export function GameLobby() {
       return;
     }
 
-    const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,status,invite_status,guest_id,invite_expires_at")
+    const { data: existingRoom, error: roomLookupError } = await db.from("game_rooms").select("id,game,status,invite_status,guest_id,invite_expires_at")
       .or(`host_id.eq.${user.id},guest_id.eq.${user.id}`)
+      .eq("game", game)
       .in("status", ["waiting", "ready_check", "playing", "paused"])
       .order("created_at", { ascending: false })
       .limit(1)
@@ -209,7 +216,7 @@ export function GameLobby() {
         setBusy(false);
         return;
       }
-      router.push(`/games/play/${existingRoom.id}`);
+      router.push(roomPath(existingRoom.id));
       setBusy(false);
       return;
     }
@@ -226,7 +233,10 @@ export function GameLobby() {
       }
     }
 
-    const { data, error } = await db.rpc("game_create_room", { p_guest_id: selectedBuddy?.userId ?? null });
+    const { data, error } = await db.rpc("game_create_room", {
+      p_guest_id: selectedBuddy?.userId ?? null,
+      p_game: game,
+    });
     if (error) {
       setMessage(
         error.message.includes("room_already_open") || error.message.includes("duplicate key")
@@ -264,7 +274,7 @@ export function GameLobby() {
       if (!active || error || !data) return;
       if (data.invite_status === "accepted" && data.guest_id && data.status !== "ended") {
         setOutgoingInvite(null);
-        router.push(`/games/play/${outgoingInvite!.id}`);
+        router.push(roomPath(outgoingInvite!.id));
       } else if (data.invite_status === "declined" || data.invite_status === "expired" || data.status === "ended") {
         setOutgoingInvite(null);
         setMessage(`${outgoingInvite!.buddy} couldn't join this time. You can invite another Buddy or create an open room.`);
@@ -276,7 +286,7 @@ export function GameLobby() {
     void checkInvite();
     const timer = window.setInterval(() => { void checkInvite(); }, 2_000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [outgoingInvite, router]);
+  }, [outgoingInvite, router, game]);
 
 
   async function leaveOpenRoom(roomId: string) {
@@ -320,7 +330,7 @@ export function GameLobby() {
     }
     const room = data as { invite_status: string };
     setIncomingInvite(null);
-    if (accept && room.invite_status === "accepted") router.push(`/games/play/${incomingInvite.id}`);
+    if (accept && room.invite_status === "accepted") router.push(roomPath(incomingInvite.id));
     else setMessage(room.invite_status === "expired" ? "This invite expired before you could accept it." : "Invite declined.");
   }
 
@@ -330,7 +340,7 @@ export function GameLobby() {
         <header className={styles.gardenHeader}>
           <Link href="/games" className={styles.gardenIconButton} aria-label="Back to games"><ArrowLeft size={19} /></Link>
           <div className={styles.gardenHeading}>
-            <h1>Morabaraba Garden</h1>
+            <h1>{game === "linkup" ? "Kiki Links Garden" : "Morabaraba Garden"}</h1>
             <span><i />{locationError ? "Location access needed" : position ? "Broad location rings active" : "Finding your garden…"}</span>
           </div>
           <button type="button" className={styles.gardenIconButton} aria-label="Location privacy information" onClick={() => setPrivacyOpen(true)}><LockKeyhole size={18} /></button>
@@ -364,7 +374,7 @@ export function GameLobby() {
                   disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)}
                   onClick={() => setSelected(buddy)}
                   style={{ left: `${left}%`, top: `${top}%` }}
-                  aria-label={`Invite ${buddy.label}, approximately ${buddy.distanceKm.toFixed(1)} kilometres away to play Morabaraba`}
+                  aria-label={`Invite ${buddy.label}, approximately ${buddy.distanceKm.toFixed(1)} kilometres away to play ${game === "linkup" ? "Kiki Links" : "Morabaraba"}`}
                 >
                   <span className={styles.gardenBuddyMark}>{buddy.avatar}</span>
                   <span className={styles.gardenBuddyLabel}><strong>{buddy.label}</strong><small>{buddy.distanceKm.toFixed(1)} km</small></span>
@@ -389,12 +399,12 @@ export function GameLobby() {
         </section>
 
         <footer className={styles.gardenFooter}>
-          <Link href="/games/play/solo" className={styles.createGardenRoom}>
+          <Link href={game === "linkup" ? "/games/linkup/solo" : "/games/play/solo"} className={styles.createGardenRoom}>
             <Flower2 size={19} />
             <span>Play solo against Kiki AI</span>
           </Link>
           {activeRooms.length > 0 && (
-            <section className={styles.gardenOpenRooms} aria-label="Your active Morabaraba rooms">
+            <section className={styles.gardenOpenRooms} aria-label={`Your active ${game === "linkup" ? "Kiki Links" : "Morabaraba"} rooms`}>
               <h3>My active rooms</h3>
               <ul>
                 {activeRooms.map((room) => {
@@ -405,7 +415,7 @@ export function GameLobby() {
                         <small>{roomStatusLabel(room)} · {room.status.replace("_", " ")}</small>
                       </div>
                       <span className={styles.gardenOpenRoomActions}>
-                        <button type="button" onClick={() => router.push(`/games/play/${room.id}`)}>Open</button>
+                        <button type="button" onClick={() => router.push(roomPath(room.id))}>Open</button>
                         <button type="button" onClick={() => void leaveOpenRoom(room.id)} disabled={leavingRoomId === room.id}>
                           {leavingRoomId === room.id ? "Leaving…" : "Leave"}
                         </button>
@@ -418,7 +428,7 @@ export function GameLobby() {
           )}
           <button type="button" className={styles.createGardenRoom} onClick={() => void createRoom(selected ?? undefined)} disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)}>
             {selected ? <UsersRound size={19} /> : <Plus size={20} />}
-            <span>{busy ? "Sending invite…" : outgoingInvite ? `Waiting for ${outgoingInvite.buddy}…` : selected ? `Invite ${selected.label}` : "Create a Morabaraba Room"}</span>
+            <span>{busy ? "Sending invite…" : outgoingInvite ? `Waiting for ${outgoingInvite.buddy}…` : selected ? `Invite ${selected.label}` : `Create a ${game === "linkup" ? "Kiki Links" : "Morabaraba"} Room`}</span>
           </button>
           {outgoingInvite && <p className={styles.gardenInviteWaiting} role="status">Invite sent. The room opens for both of you when {outgoingInvite.buddy} accepts.</p>}
           <p className={styles.gardenPrivacyNote}><LockKeyhole size={13} /> Only broad distance rings are shown here.</p>
@@ -429,7 +439,7 @@ export function GameLobby() {
           <div className={styles.gardenInviteBackdrop} role="presentation">
             <section className={styles.gardenInviteDialog} role="dialog" aria-modal="true" aria-labelledby="garden-invite-title">
               <span className={styles.gardenInviteIcon}><Flower2 size={26} /></span>
-              <p>Morabaraba invitation</p>
+              <p>{game === "linkup" ? "Kiki Links invitation" : "Morabaraba invitation"}</p>
               <h2 id="garden-invite-title">A nearby Buddy wants to play.</h2>
               <small>Accept to join their private room. You can decline without sharing your exact location.</small>
               <div className={styles.gardenInviteActions}>
@@ -455,7 +465,6 @@ export function GameLobby() {
     </main>
   );
 }
-
 
 
 

@@ -19,6 +19,8 @@ const filters: { id: Category; label: string }[] = [
 
 const games = [
   { href: "/games/play/solo", title: "Play Kiki AI", description: "Solo Morabaraba with easy, medium, or hard AI", category: "buddy" as const, icon: Gamepad2, action: "Solo" },
+  { href: "/games/linkup", title: "Kiki Links with a Buddy", description: "Find a nearby Buddy on the radar, invite them, and race to make words", category: "buddy" as const, icon: Gamepad2, action: "Invite" },
+  { href: "/games/linkup/solo", title: "Kiki Links with Kiki", description: "Challenge Kiki AI with a mode and difficulty you choose", category: "buddy" as const, icon: Gamepad2, action: "Play" },
   { href: "/games/calm/five-things", title: "Five Things", description: "Notice what is around you", category: "grounding" as const, icon: Flower2, action: "Start" },
   { href: "/games/calm/boats", title: "Worry Boats", description: "Name a worry and send it off", category: "release" as const, icon: Sailboat, action: "Launch" },
   { href: "/games/play", title: "Play with a Buddy", description: "A quick, light two-player game", category: "buddy" as const, icon: Gamepad2, action: "Play" },

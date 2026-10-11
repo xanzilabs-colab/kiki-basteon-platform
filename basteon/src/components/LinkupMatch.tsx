@@ -1,0 +1,278 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Bomb, Flame, Heart, Link2, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { BOMB, rolesForRound, wildcardBanner } from "@/lib/games/linkup/engine";
+import type { Mode, RoundSpec } from "@/lib/games/linkup/engine";
+import styles from "./LinkupMatch.module.css";
+
+type Snapshot = {
+  match: {
+    id: string;
+    mode: Mode;
+    vsBot: boolean;
+    difficulty: string | null;
+    player1Id: string;
+    player2Id: string | null;
+    botActorId: string | null;
+    status: string;
+    roundNo: number;
+    scores: Record<string, number>;
+    fuseLeftMs: number;
+    liveFuseLeftMs: number;
+    turnStartedAt: string | null;
+    holderId: string | null;
+    passerId: string | null;
+    bombStart: string | null;
+    bombEnd: string | null;
+    bombState: {
+      holder: string; passer: string; start: string; end: string | null;
+      fuseLeftMs: number; used: string[]; words: Record<string, number>;
+      longest: Record<string, string>; exploded: boolean; loser: string | null; turn: number;
+    } | null;
+  };
+  round: null | {
+    id: string;
+    roundNo: number;
+    spec: RoundSpec | null;
+    phase: string;
+    deadlineAt: string | null;
+    picks: Record<string, string>;
+    lockedUserIds: string[];
+    chainBroken: boolean;
+    suddenDeath: boolean;
+    ownAnswer: { valid: boolean; word: string; reason: string } | null;
+    answers: { user_id: string | null; actor_id: string; word: string; valid: boolean; reason: string; answer_ms: number | null; points: number }[];
+    results: { userId: string | null; points: number; stolen: number; valid: boolean; reason: string; streakAfter: number }[] | null;
+  };
+};
+
+const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
+
+export function LinkupMatch({ matchId }: { matchId: string }) {
+  const router = useRouter();
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [userId, setUserId] = useState("");
+  const [word, setWord] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [sound, setSound] = useState(true);
+  const [history, setHistory] = useState<string[]>([]);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const lastTickRef = useRef(0);
+
+  const refresh = useCallback(async () => {
+    const response = await fetch(`/api/linkup?matchId=${encodeURIComponent(matchId)}`, { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not sync the match.");
+    const next = await response.json() as Snapshot;
+    setSnapshot(next);
+  }, [matchId]);
+
+  useEffect(() => {
+    let active = true;
+    const db = createClient();
+    void db.auth.getUser().then(({ data }) => { if (active && data.user) setUserId(data.user.id); });
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+      void refresh().catch(() => setMessage("Reconnecting…"));
+    }, 850);
+    void refresh().catch(() => setMessage("Reconnecting…"));
+    return () => { active = false; window.clearInterval(timer); };
+  }, [refresh]);
+
+  const send = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
+    if (busy) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/linkup", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ matchId, action, ...extra }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Action could not be completed.");
+      setSnapshot(result as Snapshot);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Action could not be completed.");
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, matchId]);
+
+  useEffect(() => {
+    if (!snapshot || snapshot.match.mode !== "bomb" || snapshot.match.status === "finished") return;
+    void send("advance");
+  }, [now]);
+
+  useEffect(() => {
+    const spec = snapshot?.round?.spec;
+    if (snapshot?.round?.phase === "result" && spec?.mode === "chain") {
+      const answer = snapshot.round.answers
+        .filter((item) => item.valid && item.answer_ms !== null)
+        .sort((a, b) => (a.answer_ms ?? Infinity) - (b.answer_ms ?? Infinity))[0];
+      if (answer?.word) setHistory((current) => [...current.slice(-9), answer.word]);
+    }
+  }, [snapshot?.round?.id, snapshot?.round?.phase]);
+
+  const state = snapshot;
+  const match = state?.match;
+  const round = state?.round;
+  const bomb = match?.bombState;
+  const isBot = match?.vsBot;
+  const opponent = isBot ? match?.botActorId ?? "kiki" : match?.player2Id ?? "";
+  const myScore = match ? match.scores[userId] ?? 0 : 0;
+  const otherScore = match ? match.scores[opponent] ?? 0 : 0;
+  const currentSpec = round?.spec;
+  const mineWarning = Boolean(word && currentSpec?.mines.some((mine) => word.toLowerCase().includes(mine)));
+  const countdown = round?.deadlineAt ? Math.max(0, Math.ceil((Date.parse(round.deadlineAt) - now) / 1000)) : 0;
+  const reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const holderTurn = Boolean(bomb && bomb.holder === userId);
+  const endPickerTurn = Boolean(bomb && bomb.passer === userId && !bomb.end);
+  const bombSeconds = match?.liveFuseLeftMs ? Math.max(0, Math.ceil(match.liveFuseLeftMs / 1000)) : 0;
+  const myRole = useMemo(() => {
+    if (!round || !match) return "";
+    const roles = rolesForRound(round.roundNo, match.player1Id, match.player2Id ?? match.botActorId ?? "kiki");
+    if (match.mode === "chain" && round.roundNo > 1 && round.picks.carryStart) return roles.endPicker === userId ? "END" : "";
+    return roles.startPicker === userId ? "START" : roles.endPicker === userId ? "END" : "";
+  }, [match, round, userId]);
+
+  useEffect(() => {
+    const current = match?.mode === "bomb" ? match.liveFuseLeftMs : 0;
+    if (current <= 0 || current >= 10000) return;
+    const seconds = Math.ceil(current / 1000);
+    if (seconds === lastTickRef.current) return;
+    lastTickRef.current = seconds;
+    if (!reducedMotion && navigator.vibrate) navigator.vibrate(seconds <= 3 ? [45, 30, 45] : seconds <= 5 ? 45 : 25);
+    if (!sound) return;
+    const AudioContextConstructor = window.AudioContext;
+    if (!AudioContextConstructor) return;
+    try {
+      const audio = new AudioContextConstructor();
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = seconds <= 5 ? 850 : 520;
+      gain.gain.value = seconds <= 5 ? 0.065 : 0.035;
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+      oscillator.start();
+      oscillator.stop(audio.currentTime + 0.055);
+      oscillator.onended = () => { void audio.close(); };
+    } catch {
+      setMessage("Ticking sound is unavailable in this browser.");
+    }
+  }, [match?.liveFuseLeftMs, match?.mode, now, reducedMotion, sound]);
+
+  if (!state || !match) return <main className={styles.page}><p role="status">{message || "Joining the word circle…"}</p></main>;
+  if (match.mode === "bomb" && bomb) {
+    const fusePct = Math.max(0, Math.min(100, match.liveFuseLeftMs / BOMB.maxFuseMs * 100));
+    return (
+      <main className={`${styles.page} ${bomb.exploded && !reducedMotion ? styles.shake : ""} ${bombSeconds <= 3 ? styles.vignette : ""}`}>
+        <div className={styles.shell}>
+          <header className={styles.header}>
+            <Link href="/games/linkup" aria-label="Back to Kiki Links"><ArrowLeft size={18} /></Link>
+            <div><small>HOT POTATO</small><h1>Pass it on!</h1></div>
+            <button type="button" onClick={() => setSound((enabled) => !enabled)} aria-label={sound ? "Mute" : "Unmute"}>{sound ? <Volume2 size={18} /> : <VolumeX size={18} />}</button>
+          </header>
+          <div className={styles.scoreRow}><span>You <b>{myScore}</b></span><span>{isBot ? "Kiki" : "Buddy"} <b>{otherScore}</b></span></div>
+          {bomb.exploded ? (
+            <section className={styles.boom}>
+              <div className={styles.bombIcon}><Bomb size={62} /></div>
+              <p>BOOM!</p><h2>{bomb.loser === userId ? "You were holding it!" : `${bomb.loser === match.botActorId ? "Kiki" : "Your Buddy"} was holding it`}</h2>
+              <p>{bomb.used.length} words · longest: {Object.values(bomb.longest).filter(Boolean).sort((a, b) => b.length - a.length)[0] || "—"}</p>
+              <button type="button" onClick={() => router.push(isBot ? "/games/linkup/solo" : "/games/linkup")}>Play again</button>
+              <button type="button" className={styles.secondary} onClick={() => router.push("/games/linkup")}>Back to the radar</button>
+            </section>
+          ) : (
+            <>
+              <div className={`${styles.bombStage} ${bombSeconds < 10 ? styles.urgent : ""}`}>
+                <div className={styles.bombIcon}><Bomb size={70} /><span className={styles.spark} /></div>
+                <strong>{bombSeconds}s</strong>
+                <div className={styles.fuseTrack} role="progressbar" aria-label="Bomb fuse" aria-valuenow={match.liveFuseLeftMs} aria-valuemin={0} aria-valuemax={BOMB.maxFuseMs}>
+                  <span style={{ width: `${fusePct}%` }} />
+                </div>
+                <p>{holderTurn ? "You have the bomb!" : bomb.holder === match.botActorId ? "Kiki has the bomb" : "Your Buddy has the bomb"}</p>
+              </div>
+              <div className={styles.letterBoard}><span>{bomb.start.toUpperCase()}</span><i>…</i><span>{bomb.end?.toUpperCase() ?? "?"}</span></div>
+              {endPickerTurn && <section className={styles.picker}><strong>Pick the end letter for your opponent</strong><div className={styles.letters}>{LETTERS.map((letter) => <button type="button" key={letter} onClick={() => void send("bomb_end", { letter })} disabled={busy}>{letter.toUpperCase()}</button>)}</div><small>Fuse pauses while you pick · {Math.max(0, Math.ceil((BOMB.pickMs - (match.turnStartedAt ? now - Date.parse(match.turnStartedAt) : 0)) / 1000))}s</small></section>}
+              {holderTurn && bomb.end && <form className={styles.answer} onSubmit={(event) => { event.preventDefault(); void send("answer", { text: word }); setWord(""); }}>
+                <label htmlFor="bomb-answer">Make a word from {bomb.start.toUpperCase()} to {bomb.end.toUpperCase()}</label>
+                <input id="bomb-answer" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} maxLength={32} />
+                <button disabled={busy || !word.trim()}>Pass it!</button>
+              </form>}
+              <p className={styles.wordsUsed}>Words played: {bomb.used.length} · {bomb.used.slice(-4).join(" · ")}</p>
+            </>
+          )}
+          {message && <p role="status" className={styles.message}>{message}</p>}
+        </div>
+      </main>
+    );
+  }
+
+  const isFinal = match.status === "finished" || round?.phase === "finished";
+  return (
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <header className={styles.header}>
+          <Link href="/games/linkup" aria-label="Back to Kiki Links"><ArrowLeft size={18} /></Link>
+          <div><small>KIKI LINKS · {match.mode.toUpperCase()}</small><h1>{isFinal ? "Lovely game!" : `Round ${round?.roundNo ?? 1}`}</h1></div>
+          <button type="button" onClick={() => setHelpOpen(true)} aria-label="How to play"><Heart size={18} /></button>
+        </header>
+        <div className={styles.scoreRow}><span>You <b>{myScore}</b></span><span>{isBot ? "Kiki" : "Buddy"} <b>{otherScore}</b></span></div>
+        {!isFinal && round && (
+          <div className={styles.dots} aria-label={`Round ${round.roundNo} of ten`}>{Array.from({ length: 10 }, (_, index) => <i key={index} className={index + 1 < round.roundNo ? styles.done : index + 1 === round.roundNo ? styles.active : ""} />)}</div>
+        )}
+        {round?.phase === "pick" && (
+          <section className={styles.picker}>
+            <h2>{myRole ? `Choose the ${myRole.toLowerCase()} letter` : "Your Buddy is picking a letter"}</h2>
+            {myRole && <div className={styles.letters}>{LETTERS.map((letter) => <button type="button" key={letter} onClick={() => void send("pick", { letter })} disabled={busy}>{letter.toUpperCase()}</button>)}</div>}
+            {round.picks.carryStart && <p>Chain starts with {round.picks.carryStart.toUpperCase()}</p>}
+            <small>Auto-picks in {countdown}s</small>
+          </section>
+        )}
+        {round?.phase === "reveal" && currentSpec && (
+          <section className={`${styles.reveal} ${currentSpec.mode === "wildcard" ? styles.reel : ""}`} aria-live="polite">
+            {round.suddenDeath && <p className={styles.banner}>Sudden death!</p>}
+            {round.chainBroken && <p className={styles.banner}>Chain broken!</p>}
+            <div className={styles.letterBoard}><span>{currentSpec.start.toUpperCase()}</span><i>…</i><span>{currentSpec.end.toUpperCase()}</span></div>
+            {currentSpec.mines.length > 0 && <p className={styles.mines}>💣 {currentSpec.mines.map((mine) => mine.toUpperCase()).join(" · ")}</p>}
+            {currentSpec.rerolled && <p className={styles.banner}>Too tough! Kiki swapped a letter.</p>}
+          </section>
+        )}
+        {round?.phase === "answer" && currentSpec && (
+          <section className={styles.answerPhase}>
+            <div className={styles.letterBoard}><span>{currentSpec.start.toUpperCase()}</span><i>…</i><span>{currentSpec.end.toUpperCase()}</span></div>
+            {wildcardBanner(currentSpec) && <p className={styles.banner}><Sparkles size={15} />{wildcardBanner(currentSpec)}</p>}
+            {currentSpec.mines.map((mine) => <span key={mine} className={styles.mineChip}>💣 {mine.toUpperCase()}</span>)}
+            {match.mode === "chain" && <div className={styles.chain}><Link2 size={16} /> Chain {round.roundNo} / 10 <span>{history.map((item) => item.toUpperCase()).join(" → ")}</span></div>}
+            <form className={styles.answer} onSubmit={(event) => { event.preventDefault(); void send("answer", { text: word }); setWord(""); }}>
+              <label htmlFor="linkup-word">Type a word</label>
+              <input id="linkup-word" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} maxLength={32} />
+              {mineWarning && <small className={styles.warning}>Careful — that word contains a mine letter.</small>}
+              <button disabled={busy || !word.trim() || Boolean(round.ownAnswer)}>{round.ownAnswer ? "Locked in ✓" : "Lock answer"}</button>
+              {isBot && !round.answers.some((answer) => answer.actor_id === match.botActorId) && <p className={styles.message}>Kiki is thinking…</p>}
+              {!round.ownAnswer && round.lockedUserIds.includes(userId) && <p className={styles.message}>Answer locked in ✓</p>}
+              {round.lockedUserIds.some((player) => player !== userId) && <p className={styles.message}>{isBot ? "Kiki has locked in" : "Your Buddy has locked in"}</p>}
+            </form>
+            <p className={styles.timer}>Time left: {countdown}s</p>
+          </section>
+        )}
+        {round?.phase === "result" && (
+          <section className={styles.result}>
+            <h2>Round results</h2>
+            {round.answers.map((answer) => <p key={answer.actor_id}><strong>{answer.actor_id === userId ? "You" : answer.actor_id === "kiki" ? "Kiki" : "Buddy"}</strong> · {answer.valid ? answer.word : answer.reason === "mine" ? `Hit a mine: ${answer.word.toUpperCase()}` : answer.reason}</p>)}
+            {round.results?.some((result) => result.stolen > 0) && <p className={styles.banner}>Points flying across the table!</p>}
+          </section>
+        )}
+        {isFinal && <section className={styles.result}><h2>{myScore === otherScore ? "A tie!" : myScore > otherScore ? "You win!" : `${isBot ? "Kiki" : "Your Buddy"} wins!`}</h2><p>Final score: {myScore} · {otherScore}</p><p>{round?.answers.filter((answer) => answer.valid).length ?? 0} valid words · mode: {match.mode}</p><button type="button" onClick={() => router.push(isBot ? "/games/linkup/solo" : "/games/linkup")}>Play again</button><Link href="/games/linkup">Back to the radar</Link></section>}
+        {message && <p role="status" className={styles.message}>{message}</p>}
+        {helpOpen && <div className={styles.help}><button type="button" onClick={() => setHelpOpen(false)}>Close</button><p>Choose a letter, then race to type a word that starts and ends with the revealed letters. Minefield words must avoid the displayed mine letters.</p></div>}
+      </div>
+    </main>
+  );
+}
