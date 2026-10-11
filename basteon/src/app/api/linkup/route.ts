@@ -24,6 +24,10 @@ const schema = z.object({
 
 const words = LINKUP_WORDS;
 const index = buildIndex(words);
+const PICK_WINDOW_MS = 3000;
+const REVEAL_WINDOW_MS = 1400;
+const ANSWER_WINDOW_MS = 10000;
+const RESULT_WINDOW_MS = 2400;
 type Match = {
   id: string;
   room_id: string | null;
@@ -130,7 +134,7 @@ async function makeRound(match: Match, roundNo: number, carry?: string | null, s
     spec,
     phase: "pick",
     phase_started_at: new Date().toISOString(),
-    deadline_at: addMs(4000),
+    deadline_at: addMs(PICK_WINDOW_MS),
     picks,
     chain_broken: broken,
     sudden_death: suddenDeath,
@@ -231,6 +235,7 @@ async function getSnapshot(match: Match, uid: string) {
     ? Math.max(0, match.fuse_left_ms - Math.max(0, Date.now() - toEpoch(match.turn_started_at)))
     : match.fuse_left_ms;
   return {
+    serverNow: new Date().toISOString(),
     match: {
       id: match.id,
       mode: match.mode,
@@ -283,7 +288,7 @@ async function resolveRound(match: Match, round: Round) {
   const { data: claimed, error: claimError } = await db.from("linkup_rounds").update({
     phase: finalRound ? "finished" : "result",
     phase_started_at: new Date().toISOString(),
-    deadline_at: finalRound ? null : addMs(2400),
+    deadline_at: finalRound ? null : addMs(RESULT_WINDOW_MS),
     results: results.map((result) => ({ ...result, userId: result.userId === botId ? null : result.userId })),
   }).eq("id", round.id).eq("phase", "answer").select("id").maybeSingle();
   if (claimError) throw new Error("round_resolve_failed");
@@ -347,7 +352,7 @@ async function advanceRound(match: Match, round: Round) {
     const updates: Record<string, unknown> = {
       phase: "answer",
       phase_started_at: new Date().toISOString(),
-      deadline_at: addMs(5400),
+      deadline_at: addMs(ANSWER_WINDOW_MS),
     };
     if (match.vs_bot) {
       const rng = mulberry32(match.seed + round.round_no * 7919 + 17);
@@ -555,7 +560,7 @@ export async function POST(request: Request) {
           const built = buildPickedSpec(match, round, picks);
           await admin().from("linkup_rounds").update({
             picks: built.picks, spec: built.spec, phase: "reveal",
-            phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? 2600 : 1400),
+            phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
           }).eq("id", round.id).eq("phase", "pick");
         } else {
           const pickerKey = chainCarries ? roles.endPicker : user.id;
@@ -565,7 +570,7 @@ export async function POST(request: Request) {
             const built = buildPickedSpec(match, round, picks);
             await admin().from("linkup_rounds").update({
               picks: built.picks, spec: built.spec, phase: "reveal",
-              phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? 2600 : 1400),
+              phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
             }).eq("id", round.id).eq("phase", "pick");
           } else {
             await admin().from("linkup_rounds").update({ picks }).eq("id", round.id).eq("phase", "pick");
@@ -575,7 +580,7 @@ export async function POST(request: Request) {
         const existing = await admin().from("linkup_answers").select("id").eq("round_id", round.id).eq("actor_id", user.id).maybeSingle();
         if (!existing.data) {
           const elapsed = Math.max(0, Date.now() - Date.parse(round.phase_started_at));
-          if (elapsed > 5400) return fail("answer_late", 409);
+          if (elapsed > ANSWER_WINDOW_MS) return fail("answer_late", 409);
           const submitted = action.alternatives?.length ? action.alternatives : [action.text ?? ""];
           const verdict = submitted.map((candidate) => validateAnswer(candidate, round!.spec!, words, new Set(match!.used_words))).find((candidate) => candidate.valid)
             ?? validateAnswer(submitted[0] ?? "", round.spec!, words, new Set(match.used_words));
@@ -611,7 +616,7 @@ export async function POST(request: Request) {
           const built = buildPickedSpec(match, round, picks);
           await admin().from("linkup_rounds").update({
             picks: built.picks, spec: built.spec, phase: "reveal",
-            phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? 2600 : 1400),
+            phase_started_at: new Date().toISOString(), deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
           }).eq("id", round.id).eq("phase", "pick");
         }
       }

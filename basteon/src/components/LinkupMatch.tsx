@@ -10,6 +10,7 @@ import type { Mode, RoundSpec } from "@/lib/games/linkup/engine";
 import styles from "./LinkupMatch.module.css";
 
 type Snapshot = {
+  serverNow: string;
   match: {
     id: string;
     mode: Mode;
@@ -65,12 +66,38 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const [history, setHistory] = useState<string[]>([]);
   const [helpOpen, setHelpOpen] = useState(false);
   const lastTickRef = useRef(0);
+  const lastPhaseRef = useRef<string | null>(null);
+  const audioRef = useRef<AudioContext | null>(null);
+
+  const playTone = useCallback((frequency: number, duration = 0.08, type: OscillatorType = "sine", gainValue = 0.04) => {
+    if (!sound || typeof window === "undefined") return;
+    try {
+      const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtor) return;
+      const audioContext = audioRef.current ?? new AudioCtor();
+      audioRef.current = audioContext;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(gainValue, audioContext.currentTime + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + duration + 0.02);
+    } catch {
+      // Silent fallback when audio is unavailable.
+    }
+  }, [sound]);
 
   const refresh = useCallback(async () => {
     const response = await fetch(`/api/linkup?matchId=${encodeURIComponent(matchId)}`, { cache: "no-store" });
     if (!response.ok) throw new Error("Could not sync the match.");
     const next = await response.json() as Snapshot;
     setSnapshot(next);
+    setNow(Date.parse(next.serverNow || new Date().toISOString()));
   }, [matchId]);
 
   useEffect(() => {
@@ -98,12 +125,15 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Action could not be completed.");
       setSnapshot(result as Snapshot);
+      setNow(Date.parse((result as Snapshot).serverNow || new Date().toISOString()));
+      if (action === "pick") playTone(520, 0.08, "triangle", 0.03);
+      if (action === "answer") playTone(820, 0.09, "sine", 0.04);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Action could not be completed.");
     } finally {
       setBusy(false);
     }
-  }, [busy, matchId]);
+  }, [busy, matchId, playTone]);
 
   useEffect(() => {
     if (!snapshot || snapshot.match.mode !== "bomb" || snapshot.match.status === "finished") return;
@@ -130,7 +160,8 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const otherScore = match ? match.scores[opponent] ?? 0 : 0;
   const currentSpec = round?.spec;
   const mineWarning = Boolean(word && currentSpec?.mines.some((mine) => word.toLowerCase().includes(mine)));
-  const countdown = round?.deadlineAt ? Math.max(0, Math.ceil((Date.parse(round.deadlineAt) - now) / 1000)) : 0;
+  const serverNow = snapshot?.serverNow ? Date.parse(snapshot.serverNow) : now;
+  const countdown = round?.deadlineAt ? Math.max(0, Math.ceil((Date.parse(round.deadlineAt) - serverNow) / 1000)) : 0;
   const reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const holderTurn = Boolean(bomb && bomb.holder === userId);
   const endPickerTurn = Boolean(bomb && bomb.passer === userId && !bomb.end);
@@ -163,24 +194,17 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     lastTickRef.current = seconds;
     if (!reducedMotion && navigator.vibrate) navigator.vibrate(seconds <= 3 ? [45, 30, 45] : seconds <= 5 ? 45 : 25);
     if (!sound) return;
-    const AudioContextConstructor = window.AudioContext;
-    if (!AudioContextConstructor) return;
-    try {
-      const audio = new AudioContextConstructor();
-      const oscillator = audio.createOscillator();
-      const gain = audio.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.value = seconds <= 5 ? 850 : 520;
-      gain.gain.value = seconds <= 5 ? 0.065 : 0.035;
-      oscillator.connect(gain);
-      gain.connect(audio.destination);
-      oscillator.start();
-      oscillator.stop(audio.currentTime + 0.055);
-      oscillator.onended = () => { void audio.close(); };
-    } catch {
-      setMessage("Ticking sound is unavailable in this browser.");
-    }
-  }, [match?.liveFuseLeftMs, match?.mode, now, reducedMotion, sound]);
+    playTone(seconds <= 5 ? 850 : 520, 0.06, "sine", seconds <= 5 ? 0.05 : 0.03);
+  }, [match?.liveFuseLeftMs, match?.mode, now, playTone, reducedMotion, sound]);
+
+  useEffect(() => {
+    const currentPhase = snapshot?.round?.phase ?? null;
+    if (!currentPhase || currentPhase === lastPhaseRef.current) return;
+    lastPhaseRef.current = currentPhase;
+    if (currentPhase === "reveal") playTone(620, 0.12, "triangle", 0.045);
+    if (currentPhase === "answer") playTone(820, 0.09, "sine", 0.04);
+    if (currentPhase === "result") playTone(460, 0.14, "sine", 0.05);
+  }, [playTone, snapshot?.round?.phase]);
 
   if (!state || !match) return <main className={styles.page}><p role="status">{message || "Joining the word circle…"}</p></main>;
   if (match.mode === "bomb" && bomb) {
