@@ -3,9 +3,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  BOMB, bombInit, bombResolve, bombSetEnd, bombSpec, buildIndex, buildSpec,
+  BOMB, LETTERS, bombInit, bombResolve, bombSetEnd, bombSpec, buildIndex, buildSpec,
   chainCarry, matchWinner, mulberry32, rolesForRound, scoreRound, applyRound,
-  validateAnswer,
+  solutions, validateAnswer,
 } from "@/lib/games/linkup/engine";
 import type { BombState, Mode, RoundSpec, Verdict } from "@/lib/games/linkup/engine";
 import { botAnswer, botLetter } from "@/lib/games/linkup/bot";
@@ -22,7 +22,7 @@ const schema = z.object({
   alternatives: z.array(z.string().max(80)).max(5).optional(),
 });
 
-const words = new Set(LINKUP_WORDS.trim().toLowerCase().split(/\s+/));
+const words = LINKUP_WORDS;
 const index = buildIndex(words);
 type Match = {
   id: string;
@@ -165,7 +165,36 @@ async function initializeMatch(match: Match) {
   await makeRound(match, 1);
 }
 
-function publicRound(round: Round | null, ownAnswer: unknown, otherAnswers: unknown[]) {
+function pairHasWords(start: string, end: string, used: Set<string>) {
+  return (index.get(start + end) ?? []).some((word) => !used.has(word));
+}
+
+function availablePickLetters(match: Match, round: Round, uid: string) {
+  if (round.phase !== "pick") return [];
+  const botId = match.bot_actor_id ?? "kiki";
+  const roles = rolesForRound(round.round_no, match.player1_id, match.player2_id ?? botId);
+  const chainCarries = match.mode === "chain" && round.round_no > 1 && Boolean(round.picks.carryStart);
+  const playerRole = chainCarries
+    ? "end"
+    : roles.startPicker === uid ? "start" : roles.endPicker === uid ? "end" : null;
+  if (!playerRole || (match.vs_bot && uid !== match.player1_id)) return [];
+  if (!match.vs_bot) {
+    const expectedPicker = chainCarries
+      ? roles.endPicker
+      : round.picks[roles.startPicker] ? roles.endPicker : roles.startPicker;
+    if (uid !== expectedPicker) return [];
+  }
+
+  const used = new Set(match.used_words);
+  if (playerRole === "start") {
+    return LETTERS.filter((start) => LETTERS.some((end) => pairHasWords(start, end, used)));
+  }
+  const start = chainCarries ? round.picks.carryStart : round.picks[roles.startPicker];
+  if (start) return LETTERS.filter((end) => pairHasWords(start, end, used));
+  return LETTERS.filter((end) => LETTERS.some((candidateStart) => pairHasWords(candidateStart, end, used)));
+}
+
+function publicRound(match: Match, uid: string, round: Round | null, ownAnswer: unknown, otherAnswers: unknown[]) {
   if (!round) return null;
   const resolved = round.phase === "result" || round.phase === "finished";
   return {
@@ -174,9 +203,8 @@ function publicRound(round: Round | null, ownAnswer: unknown, otherAnswers: unkn
     spec: round.phase === "pick" ? null : round.spec,
     phase: round.phase,
     deadlineAt: round.deadline_at,
-    picks: round.phase === "pick"
-      ? Object.fromEntries(Object.entries(round.picks).filter(([key]) => key === "carryStart"))
-      : round.picks,
+    picks: round.picks,
+    availableLetters: availablePickLetters(match, round, uid),
     lockedUserIds: round.locked_user_ids,
     chainBroken: round.chain_broken,
     suddenDeath: round.sudden_death,
@@ -192,7 +220,8 @@ async function getSnapshot(match: Match, uid: string) {
   let ownAnswer: unknown = null;
   let visibleAnswers: unknown[] = [];
   if (round) {
-    const { data: answers } = await db.from("linkup_answers").select("actor_id,user_id,word,valid,reason,answer_ms,points").eq("round_id", round.id);
+    const { data: answers, error } = await db.from("linkup_answers").select("actor_id,user_id,word,valid,reason,answer_ms,points").eq("round_id", round.id);
+    if (error) throw new Error("answer_snapshot_failed");
     const rows = answers ?? [];
     ownAnswer = rows.find((answer) => answer.actor_id === uid) ?? null;
     if (round.phase === "result" || round.phase === "finished") visibleAnswers = rows;
@@ -223,7 +252,7 @@ async function getSnapshot(match: Match, uid: string) {
       bombState: match.mode === "bomb" ? safeBombState : null,
       usedWords: match.mode === "bomb" && safeBombState ? safeBombState.used : undefined,
     },
-    round: publicRound(round, ownAnswer, visibleAnswers),
+    round: publicRound(match, uid, round, ownAnswer, visibleAnswers),
   };
 }
 
@@ -251,7 +280,6 @@ async function resolveRound(match: Match, round: Round) {
   const roundWinner = round.round_no >= 10 ? matchWinner(scores) : null;
   const finalRound = round.round_no >= 11 || (round.round_no >= 10 && roundWinner !== null);
   const winner = finalRound ? matchWinner(scores) : null;
-  const savedResults = { answers: mapped.map((answer) => ({ word: answer.verdict.word, valid: answer.verdict.valid, answerMs: answer.answerMs })), scores, winner };
   const { data: claimed, error: claimError } = await db.from("linkup_rounds").update({
     phase: finalRound ? "finished" : "result",
     phase_started_at: new Date().toISOString(),
@@ -260,13 +288,21 @@ async function resolveRound(match: Match, round: Round) {
   }).eq("id", round.id).eq("phase", "answer").select("id").maybeSingle();
   if (claimError) throw new Error("round_resolve_failed");
   if (!claimed) return;
-  await db.from("linkup_matches").update({
+  for (const result of results) {
+    const actorId = result.userId === botId ? match.bot_actor_id ?? "kiki" : result.userId;
+    const { error } = await db.from("linkup_answers").update({ points: result.points }).eq("round_id", round.id).eq("actor_id", actorId);
+    if (error) throw new Error("answer_score_save_failed");
+  }
+  const { error: scoreError } = await db.from("linkup_matches").update({
     scores, streaks, used_words: usedWords, round_no: round.round_no,
     status: finalRound ? "finished" : "active",
     finished_at: finalRound ? new Date().toISOString() : null,
   }).eq("id", match.id);
-  if (match.room_id) await db.from("game_rooms").update({ status: finalRound ? "post_game" : "playing", round_no: round.round_no }).eq("id", match.room_id);
-  void savedResults;
+  if (scoreError) throw new Error("match_score_save_failed");
+  if (match.room_id) {
+    const { error: roomError } = await db.from("game_rooms").update({ status: finalRound ? "post_game" : "playing", round_no: round.round_no }).eq("id", match.room_id);
+    if (roomError) throw new Error("room_round_save_failed");
+  }
 }
 
 function buildPickedSpec(match: Match, round: Round, picked: Record<string, string>) {
@@ -277,8 +313,29 @@ function buildPickedSpec(match: Match, round: Round, picked: Record<string, stri
   const chainCarries = match.mode === "chain" && round.round_no > 1 && carriedStart;
   const start = chainCarries ? carriedStart : picked[roles.startPicker] ?? botLetter("start", rng);
   const end = picked[roles.endPicker] ?? botLetter("end", rng);
-  const spec = buildSpec({ round: round.round_no, mode: match.mode, start, end, idx: index, used: new Set(match.used_words), rng });
-  return { spec, picks: { start: spec.start, end: spec.end } };
+  const humanRole = match.vs_bot
+    ? roles.startPicker === match.player1_id ? "start" : "end"
+    : null;
+  const spec = buildSpec({
+    round: round.round_no,
+    mode: match.mode,
+    start,
+    end,
+    preserveStart: Boolean(chainCarries) || !match.vs_bot || humanRole === "start",
+    preserveEnd: !match.vs_bot || humanRole === "end",
+    idx: index,
+    used: new Set(match.used_words),
+    rng,
+  });
+  return {
+    spec,
+    picks: {
+      ...picked,
+      ...(chainCarries ? { carryStart: carriedStart } : {}),
+      start: spec.start,
+      end: spec.end,
+    },
+  };
 }
 
 async function advanceRound(match: Match, round: Round) {
@@ -305,13 +362,15 @@ async function advanceRound(match: Match, round: Round) {
       const verdict = bot.word
         ? validateAnswer(bot.word, round.spec!, words, new Set(match.used_words))
         : { valid: false, word: "", reason: "timeout" as const };
-      await db.from("linkup_answers").upsert({
+      const { error: answerError } = await db.from("linkup_answers").upsert({
         round_id: round.id, actor_id: match.bot_actor_id ?? "kiki", user_id: null, raw_text: bot.word ?? "", alternatives: [],
         word: verdict.word, valid: verdict.valid, reason: verdict.reason,
         answer_ms: bot.delayMs, points: 0,
       }, { onConflict: "round_id,actor_id" });
+      if (answerError) throw new Error("bot_answer_save_failed");
     }
-    const { data: answers } = await db.from("linkup_answers").select("user_id").eq("round_id", round.id);
+    const { data: answers, error: answerLookupError } = await db.from("linkup_answers").select("user_id").eq("round_id", round.id);
+    if (answerLookupError) throw new Error("answer_count_failed");
     if ((answers?.length ?? 0) >= 2 || (round.deadline_at !== null && Date.now() >= Date.parse(round.deadline_at))) {
       await resolveRound(match, round);
     }
@@ -470,10 +529,13 @@ export async function POST(request: Request) {
     } else {
       let round = await currentRound(match.id);
       if (action.action === "pick" && round?.phase === "pick" && action.letter) {
-        if (round.picks[user.id]) return fail("pick_already_locked", 409);
         const botId = match.bot_actor_id ?? "kiki";
         const roles = rolesForRound(round.round_no, match.player1_id, match.player2_id ?? botId);
         const chainCarries = match.mode === "chain" && round.round_no > 1 && Boolean(round.picks.carryStart);
+        const selectionKey = chainCarries ? roles.endPicker : user.id;
+        if (round.picks[selectionKey]) return fail("pick_already_locked", 409);
+        const allowedLetters = availablePickLetters(match, round, user.id);
+        if (!allowedLetters.includes(action.letter.toLowerCase())) return fail("letter_has_no_words", 409);
         if (!match.vs_bot) {
           const expectedPicker = chainCarries ? roles.endPicker : round.picks[roles.startPicker] ? roles.endPicker : roles.startPicker;
           if (user.id !== expectedPicker) throw new Error("not_picker");

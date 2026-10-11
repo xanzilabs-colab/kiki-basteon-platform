@@ -41,12 +41,13 @@ type Snapshot = {
     phase: string;
     deadlineAt: string | null;
     picks: Record<string, string>;
+    availableLetters: string[];
     lockedUserIds: string[];
     chainBroken: boolean;
     suddenDeath: boolean;
     ownAnswer: { valid: boolean; word: string; reason: string } | null;
     answers: { user_id: string | null; actor_id: string; word: string; valid: boolean; reason: string; answer_ms: number | null; points: number }[];
-    results: { userId: string | null; points: number; stolen: number; valid: boolean; reason: string; streakAfter: number }[] | null;
+    results: { userId: string | null; word: string; points: number; stolen: number; valid: boolean; reason: string; streakAfter: number }[] | null;
   };
 };
 
@@ -140,6 +141,19 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     if (match.mode === "chain" && round.roundNo > 1 && round.picks.carryStart) return roles.endPicker === userId ? "END" : "";
     return roles.startPicker === userId ? "START" : roles.endPicker === userId ? "END" : "";
   }, [match, round, userId]);
+  const pickRoles = useMemo(() => {
+    if (!round || !match) return null;
+    return rolesForRound(round.roundNo, match.player1Id, match.player2Id ?? match.botActorId ?? "kiki");
+  }, [match, round]);
+  const myPickLocked = Boolean(round && userId && (
+    round.picks[userId] ||
+    (match?.mode === "chain" && round.roundNo > 1 && round.picks[pickRoles?.endPicker ?? ""])
+  ));
+  const myPickedLetter = round && pickRoles
+    ? match?.mode === "chain" && round.roundNo > 1
+      ? round.picks[pickRoles.endPicker]
+      : myRole === "START" ? round.picks[pickRoles.startPicker] : round.picks[pickRoles.endPicker]
+    : undefined;
 
   useEffect(() => {
     const current = match?.mode === "bomb" ? match.liveFuseLeftMs : 0;
@@ -229,9 +243,24 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
         )}
         {round?.phase === "pick" && (
           <section className={styles.picker}>
-            <h2>{myRole ? `Choose the ${myRole.toLowerCase()} letter` : "Your Buddy is picking a letter"}</h2>
-            {myRole && <div className={styles.letters}>{LETTERS.map((letter) => <button type="button" key={letter} onClick={() => void send("pick", { letter })} disabled={busy}>{letter.toUpperCase()}</button>)}</div>}
-            {round.picks.carryStart && <p>Chain starts with {round.picks.carryStart.toUpperCase()}</p>}
+            <h2>{myPickLocked ? `Your ${myRole.toLowerCase()} pick: ${myPickedLetter?.toUpperCase()}` : round.availableLetters.length ? `Choose the ${myRole.toLowerCase()} letter` : "Waiting for the other picker"}</h2>
+            <div className={styles.pickSummary}>
+              <span>START <b>{(round.picks.carryStart ?? round.picks[pickRoles?.startPicker ?? ""])?.toUpperCase() ?? "—"}</b></span>
+              <span>END <b>{round.picks[pickRoles?.endPicker ?? ""]?.toUpperCase() ?? "—"}</b></span>
+            </div>
+            {myRole && !myPickLocked && round.availableLetters.length > 0 && (
+              <div className={styles.letters}>{LETTERS.map((letter) => (
+                <button
+                  type="button"
+                  key={letter}
+                  className={letter === myPickedLetter ? styles.selectedLetter : ""}
+                  onClick={() => void send("pick", { letter })}
+                  disabled={busy || !round.availableLetters.includes(letter)}
+                  aria-pressed={letter === myPickedLetter}
+                >{letter.toUpperCase()}</button>
+              ))}</div>
+            )}
+            {myPickLocked && <p className={styles.pickConfirmed}>Letter locked in. Waiting for the other pick…</p>}
             <small>Auto-picks in {countdown}s</small>
           </section>
         )}
@@ -265,7 +294,14 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
         {round?.phase === "result" && (
           <section className={styles.result}>
             <h2>Round results</h2>
-            {round.answers.map((answer) => <p key={answer.actor_id}><strong>{answer.actor_id === userId ? "You" : answer.actor_id === "kiki" ? "Kiki" : "Buddy"}</strong> · {answer.valid ? answer.word : answer.reason === "mine" ? `Hit a mine: ${answer.word.toUpperCase()}` : answer.reason}</p>)}
+            {round.results?.map((result, resultIndex) => {
+              const actorId = result.userId ?? match.botActorId ?? "kiki";
+              const playerName = actorId === userId ? "You" : actorId === (match.botActorId ?? "kiki") ? "Kiki" : "Buddy";
+              return <p key={`${actorId}-${resultIndex}`}>
+                <strong>{playerName}</strong> · {result.valid ? result.word : result.reason === "mine" ? `Hit a mine: ${result.word.toUpperCase()}` : result.reason}
+                <span className={styles.roundPoints}>{result.valid ? ` +${result.points} points` : " +0 points"}</span>
+              </p>;
+            })}
             {round.results?.some((result) => result.stolen > 0) && <p className={styles.banner}>Points flying across the table!</p>}
           </section>
         )}

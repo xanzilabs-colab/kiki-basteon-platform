@@ -133,6 +133,36 @@ describe("round setup helpers", () => {
     expect(result.start).toBe("s");
   });
 
+  it("keeps a player's chosen start while finding a playable end", () => {
+    const result = buildSpec({
+      round: 1,
+      mode: "classic",
+      start: "s",
+      end: "x",
+      preserveStart: true,
+      idx,
+      used: new Set(),
+      rng: mulberry32(10),
+    });
+    expect(result.start).toBe("s");
+    expect(solutions(idx, result, new Set(), 1).length).toBeGreaterThan(0);
+  });
+
+  it("keeps a player's chosen end while finding a playable start", () => {
+    const result = buildSpec({
+      round: 1,
+      mode: "classic",
+      start: "q",
+      end: "t",
+      preserveEnd: true,
+      idx,
+      used: new Set(),
+      rng: mulberry32(10),
+    });
+    expect(result.end).toBe("t");
+    expect(solutions(idx, result, new Set(), 1).length).toBeGreaterThan(0);
+  });
+
   it("picks an end-letter alternative before rerolling the start", () => {
     const result = buildSpec({ round: 1, mode: "classic", start: "s", end: "x", idx, used: new Set(), rng: mulberry32(10) });
     expect(result.rerolled).toBe(true);

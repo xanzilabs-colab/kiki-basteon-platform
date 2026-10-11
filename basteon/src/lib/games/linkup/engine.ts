@@ -112,6 +112,8 @@ export interface BuildSpecArgs {
   mode: Mode;
   start: string;
   end: string;
+  preserveStart?: boolean;
+  preserveEnd?: boolean;
   idx: WordIndex;
   used: Set<string>;
   rng: Rng;
@@ -136,10 +138,15 @@ export function buildSpec(a: BuildSpecArgs): RoundSpec {
 
   let spec = mk(a.start, a.end, false);
   if (!enough(spec)) {
-    const ends = LETTERS.filter((l) => enough(mk(a.start, l, true)));
-    if (ends.length) {
-      spec = mk(a.start, ends[Math.floor(a.rng() * ends.length)], true);
-    } else {
+    const meetsMinimum = (candidate: RoundSpec) => enough(candidate);
+    const hasAnySolution = (candidate: RoundSpec) => solutions(a.idx, candidate, a.used, 1).length > 0;
+    const candidates: RoundSpec[] = [];
+
+    if (a.preserveStart && !a.preserveEnd) {
+      for (const end of LETTERS) candidates.push(mk(a.start, end, true));
+    } else if (a.preserveEnd && !a.preserveStart) {
+      for (const start of LETTERS) candidates.push(mk(start, a.end, true));
+    } else if (!a.preserveStart && !a.preserveEnd) {
       const pairs: [string, string][] = [];
       for (const s of LETTERS) {
         for (const e of LETTERS) if (enough(mk(s, e, true))) pairs.push([s, e]);
@@ -147,6 +154,14 @@ export function buildSpec(a: BuildSpecArgs): RoundSpec {
       if (pairs.length) {
         const p = pairs[Math.floor(a.rng() * pairs.length)];
         spec = mk(p[0], p[1], true);
+      }
+    }
+
+    if (candidates.length) {
+      const validCandidates = candidates.filter(meetsMinimum);
+      const fallbackCandidates = validCandidates.length ? validCandidates : candidates.filter(hasAnySolution);
+      if (fallbackCandidates.length) {
+        spec = fallbackCandidates[Math.floor(a.rng() * fallbackCandidates.length)];
       }
     }
   }

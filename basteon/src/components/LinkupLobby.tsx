@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Bomb, BookOpen, Check, Flame, Link2, Sparkles, Trees } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -38,6 +38,25 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
   const [helpOpen, setHelpOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const redirectingRef = useRef(false);
+
+  const openRoomMatch = useCallback(async () => {
+    if (!roomId || redirectingRef.current) return;
+    const { data, error: matchError } = await createClient()
+      .from("linkup_matches")
+      .select("id")
+      .eq("room_id", roomId)
+      .maybeSingle();
+    if (matchError) {
+      setError("The match is ready, but its game room could not be opened. Please retry.");
+      return;
+    }
+    if (!data) {
+      return;
+    }
+    redirectingRef.current = true;
+    router.replace(`/games/linkup/match/${data.id}`);
+  }, [roomId, router]);
 
   const loadRoom = useCallback(async () => {
     if (!roomId) return;
@@ -54,14 +73,16 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
       setRoom(nextRoom);
       const liveMode = nextRoom.state?.linkupMode;
       if (typeof liveMode === "string" && MODES.some((item) => item.id === liveMode)) setMode(liveMode as Mode);
+      if (nextRoom.status === "playing") await openRoomMatch();
     }
-  }, [roomId]);
+  }, [openRoomMatch, roomId]);
 
   useEffect(() => {
     if (!roomId) return;
     let active = true;
     const db = createClient();
     void loadRoom();
+    const poll = window.setInterval(() => void loadRoom(), 1500);
     const channel = db.channel(`linkup-lobby-${roomId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_rooms", filter: `id=eq.${roomId}` }, ({ new: next }) => {
         if (active) {
@@ -69,14 +90,16 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
           setRoom(nextRoom);
           const liveMode = nextRoom.state?.linkupMode;
           if (typeof liveMode === "string" && MODES.some((item) => item.id === liveMode)) setMode(liveMode as Mode);
+          if (nextRoom.status === "playing") void openRoomMatch();
         }
       })
       .subscribe();
     return () => {
       active = false;
+      window.clearInterval(poll);
       void db.removeChannel(channel);
     };
-  }, [loadRoom, roomId]);
+  }, [loadRoom, openRoomMatch, roomId]);
 
   useEffect(() => {
     let active = true;
@@ -139,7 +162,10 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
     });
     setBusy(false);
     if (readyError) setError(readyError.message === "waiting_for_buddy" ? "Waiting for your Buddy to join the room." : "Ready status could not be saved.");
-    else if (data) router.push(`/games/linkup/match/${data as string}`);
+    else if (data) {
+      redirectingRef.current = true;
+      router.replace(`/games/linkup/match/${data as string}`);
+    }
     await loadRoom();
   }
 
