@@ -5,9 +5,7 @@ alter table public.game_rooms
   add constraint game_rooms_game_check
   check (game in ('morabaraba', 'linkup'));
 
-drop function if exists public.game_create_room(uuid);
-
-create function public.game_create_room(
+create or replace function public.game_create_room(
   p_guest_id uuid default null,
   p_game text default 'morabaraba'
 )
