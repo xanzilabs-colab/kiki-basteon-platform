@@ -66,6 +66,11 @@ type Round = {
 const admin = () => createAdminClient();
 const fail = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const addMs = (ms: number) => new Date(Date.now() + ms).toISOString();
+const toEpoch = (value: string | null | undefined) => {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 async function authenticatedUser() {
   const session = await createClient();
@@ -192,8 +197,9 @@ async function getSnapshot(match: Match, uid: string) {
     ownAnswer = rows.find((answer) => answer.actor_id === uid) ?? null;
     if (round.phase === "result" || round.phase === "finished") visibleAnswers = rows;
   }
-  const liveFuseLeftMs = match.mode === "bomb" && match.bomb_state?.end && match.turn_started_at
-    ? Math.max(0, match.fuse_left_ms - Math.max(0, Date.now() - Date.parse(match.turn_started_at)))
+  const safeBombState = match.mode === "bomb" && match.bomb_state && typeof match.bomb_state === "object" ? match.bomb_state : null;
+  const liveFuseLeftMs = match.mode === "bomb" && safeBombState?.end && match.turn_started_at
+    ? Math.max(0, match.fuse_left_ms - Math.max(0, Date.now() - toEpoch(match.turn_started_at)))
     : match.fuse_left_ms;
   return {
     match: {
@@ -214,8 +220,8 @@ async function getSnapshot(match: Match, uid: string) {
       bombStart: match.bomb_start,
       bombEnd: match.bomb_end,
       turnStartedAt: match.turn_started_at,
-      bombState: match.mode === "bomb" ? match.bomb_state : null,
-      usedWords: match.mode === "bomb" ? match.bomb_state.used : undefined,
+      bombState: match.mode === "bomb" ? safeBombState : null,
+      usedWords: match.mode === "bomb" && safeBombState ? safeBombState.used : undefined,
     },
     round: publicRound(round, ownAnswer, visibleAnswers),
   };
@@ -277,9 +283,10 @@ function buildPickedSpec(match: Match, round: Round, picked: Record<string, stri
 
 async function advanceRound(match: Match, round: Round) {
   const db = admin();
+  if (!round.spec) return;
   if (round.phase === "reveal") {
     if (!round.deadline_at || Date.parse(round.deadline_at) > Date.now()) return;
-    const spec = round.spec!;
+    const spec = round.spec;
     const updates: Record<string, unknown> = {
       phase: "answer",
       phase_started_at: new Date().toISOString(),
@@ -442,7 +449,8 @@ export async function GET(request: Request) {
       match = (await loadMatch(parsed.data, user.id))!;
     }
     return NextResponse.json(await getSnapshot(match, user.id));
-  } catch {
+  } catch (error) {
+    console.error("linkup get snapshot failed", error);
     return fail("match_state_unavailable", 500);
   }
 }
@@ -551,7 +559,8 @@ export async function POST(request: Request) {
     const latest = await loadMatch(action.matchId, user.id);
     if (!latest) return fail("match_not_found", 404);
     return NextResponse.json(await getSnapshot(latest, user.id));
-  } catch {
+  } catch (error) {
+    console.error("linkup action failed", error);
     return fail("action_failed", 500);
   }
 }
