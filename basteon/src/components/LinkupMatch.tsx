@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { BOMB, rolesForRound, wildcardBanner } from "@/lib/games/linkup/engine";
 import type { Mode, RoundSpec } from "@/lib/games/linkup/engine";
 import { formatLinkupError, formatLinkupMode, formatLinkupReason } from "@/lib/games/linkup/presentation";
+import { pickTimeRemainingMs } from "@/lib/games/linkup/pickTiming";
 import { dismissGameError, showGameError } from "@/lib/gameFeedback";
 import styles from "./LinkupMatch.module.css";
 
@@ -271,7 +272,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setNow(Date.now());
+      setNow((current) => current + 1000);
       if (!busyRef.current) void refresh().catch(reportSyncFailure);
     }, 1000);
     void refresh().catch(reportSyncFailure);
@@ -350,8 +351,10 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     : false;
   const currentSpec = round?.spec;
   const mineWarning = Boolean(word && currentSpec?.mines.some((mine) => word.toLowerCase().includes(mine)));
-  const serverNow = snapshot?.serverNow ? Date.parse(snapshot.serverNow) : now;
-  const countdown = round?.deadlineAt ? Math.max(0, Math.ceil((Date.parse(round.deadlineAt) - serverNow) / 1000)) : 0;
+  const countdown = round?.deadlineAt ? Math.max(0, Math.ceil((Date.parse(round.deadlineAt) - now) / 1000)) : 0;
+  const pickFinalizeCountdown = round?.deadlineAt
+    ? Math.max(0, Math.ceil(pickTimeRemainingMs(round.deadlineAt, now) / 1000))
+    : 0;
   const reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const holderTurn = Boolean(bomb && bomb.holder === userId);
   const endPickerTurn = Boolean(bomb && bomb.passer === userId && !bomb.end);
@@ -376,6 +379,10 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       : myRole === "START" ? round.picks[pickRoles.startPicker] : round.picks[pickRoles.endPicker]
     : undefined;
   const shownPickedLetter = localPickedLetter ?? myPickedLetter;
+
+  useEffect(() => {
+    if (round?.phase !== "pick" || myPickedLetter) setLocalPickedLetter(null);
+  }, [round?.id, round?.phase, myPickedLetter]);
 
   useEffect(() => {
     if (!match || match.mode !== "bomb" || match.status === "finished" || !bomb) return;
@@ -534,19 +541,19 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
                   key={letter}
                   className={letter === shownPickedLetter ? styles.selectedLetter : ""}
                   onClick={() => {
+                    if (localPickedLetter || busyRef.current) return;
                     setLocalPickedLetter(letter);
-                    void send("pick", { letter }).then((saved) => {
+                    void send("pick", { letter, pickedAt: now }).then((saved) => {
                       if (!saved) setLocalPickedLetter(null);
-                      else setLocalPickedLetter(null);
                     });
                   }}
-                  disabled={busy || !round.availableLetters.includes(letter)}
+                  disabled={busy || countdown <= 0 || Boolean(localPickedLetter) || !round.availableLetters.includes(letter)}
                   aria-pressed={letter === shownPickedLetter}
                 >{letter.toUpperCase()}{letter === shownPickedLetter && <Check size={15} aria-label="Selected" />}</button>
               ))}</div>
             )}
             {myPickLocked && <p className={styles.pickConfirmed}>Letter locked in. Waiting for the other pick…</p>}
-            <small>Auto-picks in {countdown}s</small>
+            <small>{countdown > 0 ? `Auto-picks in ${countdown}s` : pickFinalizeCountdown > 0 ? `Finishing any pick already in progress · auto-pick in ${pickFinalizeCountdown}s` : "Saving the automatic pick…"}</small>
           </section>
         )}
         {round?.phase === "reveal" && currentSpec && (

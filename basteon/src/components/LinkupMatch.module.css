@@ -61,7 +61,9 @@
 .timer { margin-bottom: 0; color: #765d80; font-size: .86rem; text-align: center; }
 .message { color: #724d83; text-align: center; }
 .result { margin-top: 24px; }
-.result p { padding: 10px; border-radius: 13px; background: #f8f3fa; }
+.result:not(.finalResult) { display: grid; gap: 12px; }
+.result p { margin: 0; padding: 12px; border-radius: 13px; background: #f8f3fa; line-height: 1.45; }
+.result:not(.finalResult) h2 { margin: 0 0 4px; }
 .finalResult { display: grid; gap: 0; margin-top: 26px; padding: 23px; border-color: #dacbe4; background: linear-gradient(150deg, #fff, #faf5fd); }
 .finalEyebrow { margin: 0 0 6px !important; padding: 0 !important; background: transparent !important; color: #80688c; font-size: .7rem; font-weight: 900; letter-spacing: .11em; }
 .finalResult h2 { margin: 0; color: #39234a; font-size: 1.55rem; }

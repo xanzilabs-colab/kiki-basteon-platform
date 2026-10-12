@@ -10,6 +10,7 @@ import {
 import type { BombState, Mode, RoundSpec, Verdict } from "@/lib/games/linkup/engine";
 import { botAnswer, botLetter, buildBotRoundPick } from "@/lib/games/linkup/bot";
 import type { Difficulty } from "@/lib/games/linkup/bot";
+import { isPickDeadlineExpired, isPickSubmissionOnTime, PICK_REQUEST_GRACE_MS } from "@/lib/games/linkup/pickTiming";
 import { LINKUP_WORDS } from "@/lib/games/linkup/words";
 
 export const runtime = "nodejs";
@@ -18,6 +19,7 @@ const schema = z.object({
   matchId: z.string().uuid(),
   action: z.enum(["start", "pick", "answer", "advance", "bomb_end"]),
   letter: z.string().length(1).regex(/^[a-z]$/i).optional(),
+  pickedAt: z.number().finite().optional(),
   text: z.string().max(80).optional(),
   alternatives: z.array(z.string().max(80)).max(5).optional(),
 });
@@ -392,7 +394,7 @@ function buildPickedSpec(match: Match, round: Round, picked: Record<string, stri
 }
 
 async function autoPickRound(match: Match, round: Round) {
-  if (round.phase !== "pick" || !round.deadline_at || Date.parse(round.deadline_at) > Date.now()) return;
+  if (round.phase !== "pick" || !isPickDeadlineExpired(round.deadline_at)) return;
   const roles = rolesForRound(round.round_no, match.player1_id, match.player2_id ?? match.bot_actor_id ?? "kiki");
   const rng = mulberry32(match.seed + round.round_no * 17);
   const chainCarries = match.mode === "chain" && round.round_no > 1 && Boolean(round.picks.carryStart);
@@ -416,7 +418,10 @@ async function autoPickRound(match: Match, round: Round) {
     phase: "reveal",
     phase_started_at: new Date().toISOString(),
     deadline_at: addMs(built.spec.mode === "wildcard" ? REVEAL_WINDOW_MS + 1200 : REVEAL_WINDOW_MS),
-  }).eq("id", round.id).eq("phase", "pick").lte("deadline_at", new Date().toISOString());
+  }).eq("id", round.id).eq("phase", "pick").lte(
+    "deadline_at",
+    new Date(Date.now() - PICK_REQUEST_GRACE_MS).toISOString(),
+  );
   requireDatabaseSuccess("pick_timeout_advance", error);
 }
 
@@ -679,11 +684,14 @@ export async function POST(request: Request) {
       }
     } else {
       let round = await currentRound(match.id);
-      if (round?.phase === "pick" && round.deadline_at && Date.parse(round.deadline_at) <= Date.now()) {
+      if (round?.phase === "pick" && isPickDeadlineExpired(round.deadline_at)) {
         await autoPickRound(match, round);
         round = await currentRound(match.id);
       }
       if (action.action === "pick" && round?.phase === "pick" && action.letter) {
+        if (!isPickSubmissionOnTime(round.phase_started_at, round.deadline_at, action.pickedAt ?? Date.now())) {
+          return fail("pick_late", 409);
+        }
         const botId = match.bot_actor_id ?? "kiki";
         const roles = rolesForRound(round.round_no, match.player1_id, match.player2_id ?? botId);
         const chainCarries = match.mode === "chain" && round.round_no > 1 && Boolean(round.picks.carryStart);
