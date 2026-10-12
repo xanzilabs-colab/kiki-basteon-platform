@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Bomb, Check, Flame, Heart, Link2, Mic, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bomb, Check, Dices, Flame, Heart, Link2, Mic, BookOpen, Volume2, VolumeX } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BOMB, rolesForRound, wildcardBanner } from "@/lib/games/linkup/engine";
 import type { Mode, RoundSpec } from "@/lib/games/linkup/engine";
@@ -576,7 +576,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
         {round?.phase === "answer" && currentSpec && (
           <section className={styles.answerPhase}>
             <div className={styles.letterBoard}><span>{displayLetter(currentSpec.start)}</span><i>…</i><span>{displayLetter(currentSpec.end)}</span></div>
-            {wildcardBanner(currentSpec) && <p className={styles.banner}><Sparkles size={15} />{wildcardBanner(currentSpec)}</p>}
+            {wildcardBanner(currentSpec) && <p className={styles.banner}><Dices size={15} />{wildcardBanner(currentSpec)}</p>}
             {currentSpec.mines.map((mine) => <span key={mine} className={styles.mineChip}>💣 {displayLetter(mine)}</span>)}
             {match.mode === "chain" && <div className={styles.chain}><Link2 size={16} /> Chain {round.roundNo} / 10 <span>{history.map(displayLetter).join(" → ")}</span></div>}
             <form className={styles.answer} onSubmit={async (event) => {
@@ -620,7 +620,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
               <div><span>{isBot ? "Kiki" : "Buddy"}</span><strong>{otherScore}</strong></div>
             </div>
             <div className={styles.finalStats}>
-              <Sparkles size={17} aria-hidden="true" />
+              <BookOpen size={17} aria-hidden="true" />
               <p><strong>{match.usedWords?.length ?? 0}</strong> valid {match.usedWords?.length === 1 ? "word" : "words"} played</p>
             </div>
             <button className={styles.finalAction} type="button" onClick={() => void requestRematch()} disabled={busy || Boolean(rematchRequested)}>

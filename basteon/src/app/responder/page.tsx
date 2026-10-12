@@ -40,10 +40,13 @@ export default function ResponderPage() {
   const [profile, setProfile] = useState<ProfileContact | null>(null);
   const [operatorName, setOperatorName] = useState("");
   const [organisationName, setOrganisationName] = useState("");
+  const [organisationLogo, setOrganisationLogo] = useState<string | null>(null);
   const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [movingOnly, setMovingOnly] = useState(false);
   const [selfAvailability, setSelfAvailability] = useState("off_duty");
+  const [availabilityError, setAvailabilityError] = useState("");
+  const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const [supportContacts, setSupportContacts] = useState<Array<any>>([]);
   const emergencyTypes = useEmergencyTypes();
 
@@ -59,10 +62,12 @@ export default function ResponderPage() {
         const body = await response.json();
         if (body?.blocked?.isBlocked) {
           setOrganisationName(body?.organisation?.name ?? "");
+          setOrganisationLogo(body?.organisation?.logo_url ?? null);
           setOrganisationId("");
           return;
         }
         setOrganisationName(body?.organisation?.name ?? "");
+        setOrganisationLogo(body?.organisation?.logo_url ?? null);
         setOrganisationId(body?.organisation?.id ?? "");
         setCanDispatch(["owner", "admin", "manager", "dispatcher"].includes(body?.memberships?.[0]?.role ?? ""));
         setSupportContacts([...(body?.supportContacts?.organisation ?? []), ...(body?.supportContacts?.global ?? [])]);
@@ -71,6 +76,31 @@ export default function ResponderPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!organisationId) return;
+    const client = createClient();
+    let active = true;
+    let channel: ReturnType<typeof client.channel> | null = null;
+    void client.auth.getUser().then(({ data: { user } }) => {
+      if (!active || !user) return;
+      channel = client.channel(`responder-availability-${user.id}`)
+        .on("postgres_changes", {
+          event: "*",
+          schema: "public",
+          table: "responder_presence",
+          filter: `user_id=eq.${user.id}`,
+        }, (payload) => {
+          const next = (payload.new as { availability?: unknown }).availability;
+          if (active && typeof next === "string") setSelfAvailability(next);
+        })
+        .subscribe();
+    });
+    return () => {
+      active = false;
+      if (channel) void client.removeChannel(channel);
+    };
+  }, [organisationId]);
 
   useEffect(() => {
     const selectFromNotification = (alertId: string) => {
@@ -94,13 +124,22 @@ export default function ResponderPage() {
 
   async function updateSelfAvailability(next: string) {
     if (!organisationId) return;
-    const response = await fetch("/api/organisation/responders/availability", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organisationId, availability: next, ...(position ? { lastLat: position.lat, lastLng: position.lng } : {}) }),
-    });
-    if (!response.ok) return;
-    setSelfAvailability(next);
+    setAvailabilityBusy(true);
+    setAvailabilityError("");
+    try {
+      const response = await fetch("/api/organisation/responders/availability", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organisationId, availability: next }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Availability could not be saved.");
+      setSelfAvailability(body.availability);
+    } catch (failure) {
+      setAvailabilityError(failure instanceof Error ? failure.message : "Availability could not be saved.");
+    } finally {
+      setAvailabilityBusy(false);
+    }
   }
 
   const active = useMemo(
@@ -158,7 +197,9 @@ export default function ResponderPage() {
         <div className={`absolute z-[1100] left-3 right-3 ${organisationId ? "top-3" : "top-16"} md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]`}>
           <div className="panel px-3 py-2 text-[12px] flex flex-wrap items-center gap-2">
             <span className="status status-blue">Responder Console</span>
-            {organisationName && <span className="muted">Organisation: {organisationName}</span>}
+            {organisationName && <span className="inline-flex items-center gap-2 muted">{organisationLogo
+              ? <img src={organisationLogo} alt="" className="h-7 w-7 rounded-lg bg-white object-contain" />
+              : null}Organisation: {organisationName}</span>}
             {operatorName && <span className="muted">Operator: {operatorName}</span>}
             <div className="ml-auto inline-flex gap-1 rounded border border-[var(--line)] bg-[var(--surface-2)] p-1">
               <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "alerts"} onClick={() => setResponderView("alerts")}>Alerts</button>
@@ -295,9 +336,11 @@ export default function ResponderPage() {
               <p className="muted text-xs mb-2">Your availability</p>
               <div className="flex flex-wrap gap-2">
                 {["available", "busy", "off_duty", "unavailable"].map((value) => (
-                  <button key={value} className="btn" disabled={!organisationId || selfAvailability === value} onClick={() => void updateSelfAvailability(value)}>{value}</button>
+                  <button key={value} className="btn" disabled={!organisationId || availabilityBusy || selfAvailability === value} onClick={() => void updateSelfAvailability(value)}>{value}</button>
                 ))}
               </div>
+              {availabilityError && <p className="mt-2 text-xs text-[var(--crit)]" role="alert">{availabilityError}</p>}
+              <p className="muted mt-2 text-xs" role="status">Current status: <b>{selfAvailability.replaceAll("_", " ")}</b></p>
             </div>
             <div className="tbl-wrap">
               <table className="tbl">

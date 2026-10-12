@@ -46,7 +46,7 @@ export function TravelTogetherPanel() {
   const [avatars, setAvatars] = useState<Avatar[]>([]); const [bubbles, setBubbles] = useState<BubbleMarker[]>([]); const [message, setMessage] = useState(""); const [consent, setConsent] = useState(false); const [pending, setPending] = useState<FacePurpose | null>(null);
   const [selected, setSelected] = useState<Avatar | null>(null);
   const [alias, setAlias] = useState("");
-  const [ownAvatar, setOwnAvatar] = useState("⭐");
+  const [ownAvatar, setOwnAvatar] = useState("🧭");
   const [nearbyLoaded, setNearbyLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -67,7 +67,7 @@ export function TravelTogetherPanel() {
         setActive(true);
         setVisible(Boolean(trip.visible));
         setAlias(trip.alias ?? "");
-        setOwnAvatar(trip.avatar ?? "⭐");
+        setOwnAvatar(trip.avatar ?? "🧭");
       }).catch(() => setMessage("Your Travel Together trip could not be loaded. Please refresh."));
   }, []);
 
@@ -101,7 +101,7 @@ export function TravelTogetherPanel() {
     const response = await fetch("/api/buddies/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: position, destination, route: routeData.routes[0].points, mode, leaveFrom: new Date().toISOString(), maxWaitMinutes: 30, maxWalkM: 800, groupSize: 3, audience: "all_verified" }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return setMessage(data.error === "not_verified" ? "Travel Together requires verified enrolment." : tripErrorMessage[data.error] ?? "Trip could not be created.");
-    hiddenBubbleIds.current.clear(); setBubbles([]); setActive(true); setPlanningNewTrip(false); setAlias(data.alias); setOwnAvatar(data.avatar ?? "⭐"); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
+    hiddenBubbleIds.current.clear(); setBubbles([]); setActive(true); setPlanningNewTrip(false); setAlias(data.alias); setOwnAvatar(data.avatar ?? "🧭"); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
     } catch { setMessage("Your Travel Together trip could not be created. Check your connection and try again."); }
     finally { setBusy(false); }
   }

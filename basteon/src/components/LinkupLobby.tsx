@@ -3,19 +3,25 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bomb, BookOpen, Check, Flame, Link2, Sparkles, Trees } from "lucide-react";
+import { ArrowLeft, Bomb, BookOpen, Check, CheckCircle2, Dices, Flame, Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Difficulty } from "@/lib/games/linkup/bot";
 import type { Mode } from "@/lib/games/linkup/engine";
 import styles from "./LinkupLobby.module.css";
 
-const MODES: { id: Mode; name: string; icon: typeof Link2; rule: string; length: string; steps: [string, string, string] }[] = [
+const MODES: { id: Mode; name: string; icon: typeof Link2; rule: string; length: string; badge?: string; steps: [string, string, string] }[] = [
   { id: "classic", name: "Classic", icon: Link2, rule: "Race to make a word between two letters.", length: "10 rounds · ~3 min", steps: ["Pick the start and end letters.", "Find a word that fits both.", "Score points for speed and streaks."] },
-  { id: "minefield", name: "Minefield", icon: Bomb, rule: "Avoid the two hidden mine letters.", length: "10 rounds · ~3 min", steps: ["Reveal the two mine letters.", "Watch the hint while you type.", "A mine in your word means no points."] },
+  { id: "minefield", name: "Minefield", icon: Bomb, rule: "Avoid the two hidden mine letters.", length: "10 rounds · ~3 min", badge: "POPULAR", steps: ["Reveal the two mine letters.", "Watch the hint while you type.", "A mine in your word means no points."] },
   { id: "chain", name: "Chain", icon: Link2, rule: "Each valid word starts the next round.", length: "10 rounds · ~3 min", steps: ["Round one starts like Classic.", "The fastest valid word carries its last letter.", "No valid word? The chain breaks and resets."] },
-  { id: "wildcard", name: "Wildcard", icon: Sparkles, rule: "A surprise modifier changes every round.", length: "10 rounds · ~3 min", steps: ["Watch the reel land on a modifier.", "Follow the rule shown above the board.", "Steal points by answering in under a second."] },
-  { id: "bomb", name: "Hot Potato", icon: Flame, rule: "Pass the bomb before its shared fuse runs out.", length: "Until it explodes · ~1 min", steps: ["The holder answers between the letters.", "Correct words pass the bomb and add time.", "Wrong words cost time; let it hit zero and you lose."] },
+  { id: "wildcard", name: "Wildcard", icon: Dices, rule: "A surprise modifier changes every round.", length: "10 rounds · ~3 min", steps: ["Watch the reel land on a modifier.", "Follow the rule shown above the board.", "Steal points by answering in under a second."] },
+  { id: "bomb", name: "Hot Potato", icon: Flame, rule: "Pass the bomb before its shared fuse runs out.", length: "Until it explodes · ~1 min", badge: "NEW", steps: ["The holder answers between the letters.", "Correct words pass the bomb and add time.", "Wrong words cost time; let it hit zero and you lose."] },
 ];
+
+const DIFFICULTY_NOTES: Record<Difficulty, string> = {
+  easy: "Kiki is relaxed and misses easy words.",
+  medium: "A fair match. Kiki plays solid words.",
+  hard: "Kiki plays long, high-scoring words fast.",
+};
 
 type Room = {
   id: string;
@@ -182,64 +188,82 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
           <button type="button" onClick={() => setHelpOpen(true)} aria-label="How to play"><BookOpen size={19} /></button>
         </header>
 
-        <p className={styles.intro}>{solo ? "Choose a way to play, then challenge Kiki." : "Pick the rules for your room. Your Buddy sees the mode live."}</p>
+        <div className={styles.scroll}>
+          <p className={styles.intro}>
+            {solo
+              ? "Pick a mode, then challenge Kiki."
+              : isHost ? "Choose the rules. Your Buddy sees your pick live." : "The host is choosing. The mode updates here live."}
+          </p>
 
-        <section className={styles.modeGrid} aria-label="Choose a game mode">
-          {MODES.map(({ id, name, icon: Icon, rule, length }) => (
-            <button
-              key={id}
-              type="button"
-              className={`${styles.modeCard} ${mode === id ? styles.selected : ""}`}
-              onClick={() => void saveMode(id)}
-              disabled={Boolean(room && (!isHost || room.host_ready || room.guest_ready))}
-              aria-pressed={mode === id}
-            >
-              <span className={styles.modeIcon}><Icon size={20} /></span>
-              <span className={styles.modeTitle}>{name}</span>
-              <span className={styles.modeRule}>{rule}</span>
-              <span className={styles.modeLength}>{length}</span>
-              {mode === id && <Check className={styles.check} size={16} />}
-            </button>
-          ))}
-        </section>
-
-        {solo && (
-          <fieldset className={styles.difficulty}>
-            <legend>Kiki's difficulty</legend>
-            {(["easy", "medium", "hard"] as const).map((level) => (
-              <button key={level} type="button" aria-pressed={difficulty === level} onClick={() => setDifficulty(level)}>
-                {level[0].toUpperCase() + level.slice(1)}
+          <section className={styles.modeGrid} aria-label="Choose a game mode">
+            {MODES.map(({ id, name, icon: Icon, rule, length, badge }) => (
+              <button
+                key={id}
+                type="button"
+                className={`${styles.modeCard} ${mode === id ? styles.selected : ""}`}
+                onClick={() => void saveMode(id)}
+                disabled={Boolean(room && (!isHost || room.host_ready || room.guest_ready))}
+                aria-pressed={mode === id}
+              >
+                <span className={styles.modeIcon}><Icon size={21} strokeWidth={1.9} /></span>
+                <span className={styles.modeCopy}>
+                  <span className={styles.modeHeading}>
+                    <span className={styles.modeTitle}>{name}</span>
+                    {badge && <span className={styles.badge}>{badge}</span>}
+                  </span>
+                  <span className={styles.modeRule}>{rule}</span>
+                  <span className={styles.modeLength}>{length}</span>
+                </span>
+                <span className={styles.radio} aria-hidden="true">{mode === id && <Check size={13} strokeWidth={3} />}</span>
               </button>
             ))}
-          </fieldset>
-        )}
+          </section>
 
-        {roomId && room && (
-          <section className={styles.readyPanel}>
-            <h2>{room.guest_id ? "Both players are here" : "Waiting for your Buddy"}</h2>
-            <p>{room.host_ready ? "Host is ready" : "Host is choosing the mode"} · {room.guest_ready ? "Buddy is ready" : "Buddy is choosing the mode"}</p>
-            <button type="button" onClick={() => void setReady(!myReady)} disabled={busy || !room.guest_id}>
+          {solo && (
+            <fieldset className={styles.difficulty}>
+              <legend>Kiki&apos;s difficulty</legend>
+              <div className={styles.difficultyOptions}>
+                {(["easy", "medium", "hard"] as const).map((level) => (
+                  <button key={level} type="button" aria-pressed={difficulty === level} onClick={() => setDifficulty(level)}>
+                    {level[0].toUpperCase() + level.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <p className={styles.difficultyNote}>{DIFFICULTY_NOTES[difficulty]}</p>
+            </fieldset>
+          )}
+
+          {roomId && room && (
+            <section className={styles.readyPanel} aria-live="polite">
+              <h2>{room.guest_id ? "Both players are here" : "Waiting for your Buddy"}</h2>
+              <p>{room.host_ready ? "Host is ready" : "Host is choosing the mode"} · {room.guest_ready ? "Buddy is ready" : "Buddy is choosing the mode"}</p>
+            </section>
+          )}
+
+          {matchId && (
+            <div className={styles.status} role="status">
+              <CheckCircle2 size={20} />
+              <div><strong>Match created</strong><p>Preparing your first round…</p></div>
+            </div>
+          )}
+          {error && <p className={styles.error} role="alert">{error}</p>}
+        </div>
+
+        <div className={styles.footer}>
+          {solo && !matchId && (
+            <>
+              <button className={styles.primary} type="button" onClick={() => void startBotMatch()} disabled={busy}>
+                {busy ? "Starting…" : `Play ${chosen.name} with Kiki`}
+              </button>
+              <Link className={styles.secondary} href="/games/linkup">Find a Buddy instead</Link>
+            </>
+          )}
+          {roomId && room && (
+            <button className={styles.primary} type="button" onClick={() => void setReady(!myReady)} disabled={busy || !room.guest_id}>
               {busy ? "Saving…" : myReady ? "Not ready" : "Ready"}
             </button>
-          </section>
-        )}
-
-        {solo && !matchId && (
-          <>
-            <button className={styles.primary} type="button" onClick={() => void startBotMatch()} disabled={busy}>
-              {busy ? "Starting…" : `Play ${chosen.name} with Kiki`}
-            </button>
-            <Link className={styles.secondary} href="/games/linkup">Find a Buddy</Link>
-          </>
-        )}
-
-        {matchId && (
-          <div className={styles.status} role="status">
-            <Sparkles size={20} />
-            <div><strong>Match created</strong><p>Preparing your first round…</p></div>
-          </div>
-        )}
-        {error && <p className={styles.error} role="alert">{error}</p>}
+          )}
+        </div>
 
         {helpOpen && (
           <div className={styles.backdrop} onClick={() => setHelpOpen(false)}>
@@ -256,7 +280,6 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
           </div>
         )}
       </div>
-      <Trees className={styles.decoration} aria-hidden="true" />
     </main>
   );
 }

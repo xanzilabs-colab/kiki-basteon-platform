@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ArrowLeft, Check, Clock3, HeartPulse, MapPin, Navigation, RefreshCw, Siren } from "lucide-react";
+import { ArrowLeft, Check, Clock3, HeartPulse, RefreshCw, ShieldCheck, Siren } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SosType } from "@/lib/sos/sosGesture";
 import { estimateResponseRoute, formatResponseEta } from "@/lib/sos/responseRoute";
@@ -236,123 +236,142 @@ export function SosResponseScreen({
     }
   }
 
-  return (
-    <main className="fixed inset-0 z-[2000] flex flex-col overflow-y-auto bg-[#f4f7f5] text-[#172421]" role="dialog" aria-modal="true" aria-label="Live emergency response">
-      <header className="flex items-center justify-between gap-3 border-b border-[#dce5e0] bg-white px-4 py-3 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${type === "medical" ? "bg-[#e6f4f2] text-[#087f70]" : "bg-[#fff0ee] text-[#d74242]"}`}>
-            {type === "medical" ? <HeartPulse size={22} /> : <Siren size={22} />}
-          </span>
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-bold sm:text-lg">{falseAlarm ? "Alert cancelled" : closed ? "Alert closed" : "Help is finding its way to you"}</h1>
-            <p className="text-xs text-[#64736e]">{type === "medical" ? "Medical emergency" : "Kiki emergency alert"} · Ref {alertId.slice(0, 8).toUpperCase()}</p>
-          </div>
-        </div>
-        <button className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#dce5e0] px-3 text-sm font-semibold hover:bg-[#f4f7f5]" onClick={onClose} title={closed ? undefined : "Close this view. Your alert stays active."}>
-          <ArrowLeft size={16} /><span>{closed ? "Back" : "Close"}</span>
-        </button>
-      </header>
+  const progressStep = closed ? 3 : onScene ? 2 : onTheWay ? 1 : accepted ? 1 : 0;
+  const currentStatus = falseAlarm
+    ? "Alert cancelled"
+    : closed
+      ? "Alert closed"
+      : onScene
+        ? "Responder is with you"
+        : onTheWay
+          ? "Help is on the way"
+          : "Finding a responder";
+  const progressSteps = [
+    { title: "Alert sent", detail: data?.alert.triggeredAt ? new Date(data.alert.triggeredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Your location is live" },
+    { title: "Responder accepted", detail: nearest?.name ?? (accepted ? `${accepted} responder${accepted === 1 ? "" : "s"} responding` : "") },
+    { title: "Arrived at your location", detail: onScene ? "A responder is with you" : "" },
+    { title: "Alert closed", detail: falseAlarm ? "Cancelled as a false alarm" : "" },
+  ];
 
-      <div className="mx-auto grid w-full max-w-[1500px] flex-1 gap-4 p-3 sm:p-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="flex min-h-[360px] flex-col overflow-hidden rounded-3xl border border-[#dce5e0] bg-white shadow-sm lg:min-h-[calc(100vh-120px)]">
-          <div className="flex items-center justify-between gap-2 border-b border-[#e7eeea] px-4 py-3">
-            <div className="flex items-center gap-2 text-sm font-bold"><MapPin size={17} className="text-[#0f766e]" />Your live response map</div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f5ee] px-2.5 py-1 text-[11px] font-bold text-[#217346]"><span className="h-2 w-2 animate-pulse rounded-full bg-[#2ea66b]" />LIVE</span>
+  return (
+    <main className="fixed inset-0 z-[2000] flex items-center justify-center overflow-hidden bg-[#d9cde8] text-[#2a1536]" role="dialog" aria-modal="true" aria-label="Live emergency response">
+      <div className="flex h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden bg-[#f3eefb] shadow-2xl sm:rounded-[32px]">
+        <header className={`flex shrink-0 items-center gap-3 px-[18px] pb-3 pt-[max(24px,env(safe-area-inset-top))] ${falseAlarm ? "text-[#522868]" : closed ? "text-[#522868]" : ""}`}>
+          <span className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[15px] ${falseAlarm || closed ? "bg-[#e9dcf0] text-[#522868]" : onTheWay || onScene ? "bg-[#e6f3f0] text-[#12766a]" : "bg-[#fdeaee] text-[#d9435f]"}`}>
+            {closed ? <Check size={23} /> : type === "medical" ? <HeartPulse size={23} /> : <Siren size={23} />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[20px] font-extrabold leading-tight tracking-[-.02em]">{currentStatus}</h1>
+            <p className="mt-0.5 truncate text-xs text-[#6e5a7c]">{type === "medical" ? "Medical emergency" : "Kiki emergency alert"} · Ref {alertId.slice(0, 8).toUpperCase()}</p>
           </div>
-          <div className="relative min-h-[320px] flex-1">
-            <ResponseMap caller={caller} responders={mapResponders} />
+          <button className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[#e6dcf0] bg-white px-3 text-xs font-semibold hover:bg-[#e9dcf0]" onClick={onClose} title={closed ? undefined : "Close this view. Your alert stays active."}>
+            <ArrowLeft size={15} /><span>{closed ? "Back" : "Close"}</span>
+          </button>
+        </header>
+
+        <div className="flex-1 space-y-3 overflow-y-auto px-[14px] pb-4">
+          <section className="relative h-[250px] shrink-0 overflow-hidden rounded-[22px] border border-[#e6dcf0] bg-white">
+            <div className="absolute left-2.5 top-2.5 z-[500] inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#12766a] shadow-sm">
+              <span className={`h-[7px] w-[7px] rounded-full ${closed ? "bg-[#b9a9c7]" : "animate-pulse bg-[#12766a]"}`} />{closed ? "ENDED" : "LIVE"}
+            </div>
+            <div className="h-full w-full"><ResponseMap caller={caller} responders={mapResponders} /></div>
             {(!caller || accepted === 0) && !closed && (
-              <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl bg-white/95 px-4 py-3 text-sm font-semibold shadow-md">
+              <div className="pointer-events-none absolute bottom-2.5 left-2.5 right-2.5 rounded-2xl bg-white/95 px-3.5 py-2.5 text-xs font-semibold shadow-md">
                 {!caller ? "Waiting for a fresh location from your device." : "Your alert is reaching nearby responders. Their updates will appear here."}
               </div>
             )}
-            {caller && accepted > 0 && <p className="absolute bottom-3 left-3 right-3 rounded-xl bg-white/95 px-3 py-2 text-[11px] text-[#52665e] shadow-sm">
-              Solid paths follow routed streets. If street routing is unavailable, the map won&apos;t draw a straight line through buildings; ETA is then estimated from distance without live traffic.
-            </p>}
-          </div>
-        </section>
+            {nearest && <div className="absolute bottom-2.5 left-2.5 right-2.5 z-[500] flex items-center justify-between rounded-2xl bg-white px-3.5 py-2.5 shadow-md">
+              <div><small className="block text-[10px] text-[#6e5a7c]">{nearest.route!.roadRoute ? "Road distance" : "Approx. distance"}</small><b className="text-lg">{nearest.route!.roadRoute ? "" : "~"}{formatDistance(nearest.route!.distanceM)}</b></div>
+              <div className="text-right"><small className="block text-[10px] text-[#6e5a7c]">Estimated arrival</small><b className="inline-flex items-center gap-1 text-lg"><Clock3 size={15} />{formatResponseEta(nearest.route, nearest.status)}</b></div>
+            </div>}
+          </section>
 
-        <aside className="flex flex-col gap-4">
-          <section className="rounded-3xl border border-[#dce5e0] bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              {closed ? <Check size={19} className="text-[#217346]" /> : <Navigation size={19} className="text-[#0f766e]" />}
-              <h2 className="font-bold">{falseAlarm ? "Responders have been notified" : closed ? "Response complete" : accepted ? `${accepted} responder${accepted === 1 ? "" : "s"} responding` : "Alert sent to responders"}</h2>
-            </div>
-            <p className="text-sm leading-6 text-[#64736e]">
+          <section className="rounded-[22px] border border-[#e6dcf0] bg-white p-4">
+            <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#6e5a7c]">Status</p>
+            <p className="mt-2 text-sm leading-5">
               {falseAlarm
-                ? "Your false-alarm update is recorded and the responder dashboards have been updated."
+                ? "Your false-alarm update is recorded and responders have been notified."
                 : closed
-                  ? "This alert is no longer active."
+                  ? "This alert is no longer active. Your location is no longer shared."
                   : onScene
-                    ? "A responder is with you. Their location will stay visible here until the incident is closed."
+                    ? "A responder is with you. Their location stays visible here until the incident is closed."
                     : onTheWay
-                    ? "A responder is on the way. Stay somewhere safe if you can; your response map updates as they move."
-                    : accepted
-                      ? "A responder has acknowledged your alert. Their movement will appear here when their live location updates."
-                      : "Kiki is sharing your alert with the appropriate responders. We’ll show their progress here as soon as someone accepts."}
+                      ? "A responder is on the way. Stay somewhere safe if you can; their progress updates here."
+                      : accepted
+                        ? "A responder has acknowledged your alert. Their movement will appear here as they travel."
+                        : "We’re alerting responders near you. You’ll see their updates here when one accepts."}
             </p>
-            {loadError && <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800" role="status"><RefreshCw size={14} />{loadError}</p>}
-            {trackingError && <p className="mt-2 text-xs text-amber-800" role="status">{trackingError}</p>}
-            {loading && !data && <p className="mt-3 text-xs text-[#64736e]">Connecting to your responders…</p>}
+            {loadError && <p className="mt-3 flex items-center gap-2 rounded-xl bg-[#fdeaee] px-3 py-2 text-xs text-[#7d3341]" role="status"><RefreshCw size={14} />{loadError}</p>}
+            {trackingError && <p className="mt-2 text-xs text-[#7d3341]" role="status">{trackingError}</p>}
+            {loading && !data && <p className="mt-2 text-xs text-[#6e5a7c]">Connecting to your responders…</p>}
+            <ol className="mt-3 list-none p-0">
+              {progressSteps.map((step, index) => (
+                <li key={step.title} className={`relative flex gap-3 pb-3 text-[13px] last:pb-0 ${index <= progressStep ? "text-[#2a1536]" : "text-[#8c7b98]"}`}>
+                  {index < progressSteps.length - 1 && <span className={`absolute bottom-0 left-[8px] top-[18px] w-0.5 ${index < progressStep ? "bg-[#12766a]" : "bg-[#e6dcf0]"}`} />}
+                  <span className={`z-10 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-2 ${index < progressStep ? "border-[#12766a] bg-[#12766a] text-white" : index === progressStep ? "border-[#12766a] bg-white" : "border-[#e6dcf0] bg-white"}`}>{index < progressStep && <Check size={11} />}</span>
+                  <span className={index === progressStep ? "font-semibold" : ""}>{step.title}{step.detail && index <= progressStep && <small className="mt-0.5 block text-xs font-normal text-[#6e5a7c]">{step.detail}</small>}</span>
+                </li>
+              ))}
+            </ol>
           </section>
 
           {nearest ? (
-            <section className="rounded-3xl border border-[#cfe4da] bg-[#edf7f2] p-5">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[.12em] text-[#3c6e59]">Nearest responder · {nearest.status === "on_scene" ? "arrived" : "en route"}</p>
-              <h2 className="text-lg font-bold">{nearest.name}</h2>
-              <p className="text-xs text-[#52665e]">{[nearest.role, nearest.organisation].filter(Boolean).join(" · ") || "Kiki responder"}</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">{nearest.route!.roadRoute ? "Road distance" : "Approx. road distance"}</p><p className="mt-1 font-bold">{nearest.route!.roadRoute ? "" : "~"}{formatDistance(nearest.route!.distanceM)}</p></div>
-                <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">Estimated arrival</p><p className="mt-1 inline-flex items-center gap-1 font-bold"><Clock3 size={14} />{formatResponseEta(nearest.route, nearest.status)}</p></div>
+            <section className="rounded-[22px] border border-[#c9e5db] bg-[#e6f3f0] p-4">
+              <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#12766a]">{nearest.status === "on_scene" ? "Responder arrived" : "Nearest responder"}</p>
+              <div className="mt-2 flex items-center gap-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#12766a] text-sm font-bold text-white">{nearest.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}</span>
+                <div className="min-w-0 flex-1"><h2 className="text-[16px] font-bold">{nearest.name}</h2><p className="text-xs text-[#6e5a7c]">{[nearest.role, nearest.organisation].filter(Boolean).join(" · ") || "Kiki responder"}</p></div>
               </div>
-              <p className="mt-2 text-[10px] leading-4 text-[#687972]">{nearest.route!.roadRoute ? "ETA uses the road-routing provider; live traffic data may not be available." : "Distance and ETA are estimates from location only; road routing and live traffic are unavailable."}</p>
+              <p className="mt-3 text-[11px] leading-4 text-[#6e5a7c]">{nearest.route!.roadRoute ? "ETA uses road routing; live traffic data may not be available." : "Distance and ETA are estimates; road routing and live traffic are unavailable."}</p>
             </section>
           ) : !closed && (
-            <section className="rounded-3xl border border-[#e7eeea] bg-white p-5 text-sm leading-6 text-[#64736e]">
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-[.12em] text-[#71817b]">Nearest responder</p>
-              {accepted ? "Responders have acknowledged your alert, but none has confirmed they are travelling yet." : "Waiting for a responder to acknowledge your alert."}
+            <section className="rounded-[22px] border border-[#e6dcf0] bg-white p-4">
+              <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#6e5a7c]">Responders</p>
+              <p className="mt-2 text-sm leading-5 text-[#6e5a7c]">{accepted ? "Responders acknowledged your alert, but no one has confirmed they are travelling yet." : "Waiting for a responder to acknowledge your alert."}</p>
             </section>
           )}
 
-          <section className="rounded-3xl border border-[#dce5e0] bg-white p-5 shadow-sm">
-            <h2 className="mb-3 font-bold">Responders</h2>
-            {mapResponders.length ? (
+          {mapResponders.length > 0 && (
+            <section className="rounded-[22px] border border-[#e6dcf0] bg-white p-4">
+              <h2 className="mb-3 font-bold">Response team</h2>
               <ul className="space-y-3">
                 {mapResponders.map((responder) => (
                   <li key={responder.id} className="flex items-start gap-3">
-                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#0f766e]" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold">{responder.name}</p>
-                      <p className="text-xs text-[#64736e]">{[responder.role, responder.organisation].filter(Boolean).join(" · ")}</p>
-                      <p className="text-xs text-[#64736e]">{statusCopy[responder.status] ?? responder.status.replaceAll("_", " ")}</p>
-                    </div>
-                    {responder.route && responder.status !== "acknowledged" ? <span className="text-right text-xs font-semibold">{responder.route.roadRoute ? "" : "~"}{formatDistance(responder.route.distanceM)}<br /><span className="text-[#64736e]">{formatResponseEta(responder.route, responder.status)}</span></span> : <span className="text-right text-xs text-[#64736e]">{responder.status === "acknowledged" ? "Not travelling yet" : responder.location ? "Updating route…" : "Location unavailable"}</span>}
+                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#12766a]" />
+                    <div className="min-w-0 flex-1"><p className="font-semibold">{responder.name}</p><p className="text-xs text-[#6e5a7c]">{[responder.role, responder.organisation].filter(Boolean).join(" · ")}</p><p className="text-xs text-[#6e5a7c]">{statusCopy[responder.status] ?? responder.status.replaceAll("_", " ")}</p></div>
+                    {responder.route && responder.status !== "acknowledged" ? <span className="text-right text-xs font-semibold">{responder.route.roadRoute ? "" : "~"}{formatDistance(responder.route.distanceM)}<br /><span className="text-[#6e5a7c]">{formatResponseEta(responder.route, responder.status)}</span></span> : <span className="text-right text-xs text-[#6e5a7c]">{responder.status === "acknowledged" ? "Not travelling yet" : responder.location ? "Updating route…" : "Location unavailable"}</span>}
                   </li>
                 ))}
               </ul>
-            ) : <p className="text-sm leading-6 text-[#64736e]">Waiting for a responder to accept. You’ll see their status and location here.</p>}
-          </section>
-
-          {!closed ? (
-            <section className="rounded-3xl border border-[#f2d2d0] bg-white p-5 shadow-sm">
-              <h2 className="font-bold text-[#9d2828]">Was this a false alarm?</h2>
-              <p className="mt-1 text-xs leading-5 text-[#64736e]">Cancel only if you no longer need emergency help. Responders will be notified immediately.</p>
-              <button className="mt-3 w-full rounded-xl bg-[#b83232] px-4 py-3 text-sm font-bold text-white hover:bg-[#982b2b] disabled:opacity-60" disabled={cancelBusy} onClick={() => void cancelAlert()}>
-                {cancelBusy ? "Notifying responders…" : "Cancel alert · false alarm"}
-              </button>
             </section>
-          ) : (
-            <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 py-3 text-sm font-bold text-white" onClick={onClose}><Check size={17} />Done</button>
           )}
 
-          {!closed && (
-            <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dce5e0] bg-white px-4 py-3 text-xs font-semibold text-[#596a64] hover:bg-[#f4f7f5] disabled:opacity-60" disabled={changingType} onClick={onChangeType}>
-              {changingType ? <RefreshCw size={15} className="animate-spin" /> : type === "sos" ? <HeartPulse size={15} /> : <Siren size={15} />}
+          {closed && (
+            <section className="rounded-[22px] border border-[#e6dcf0] bg-white p-4">
+              <p className="flex items-center gap-2 text-[16px] font-bold text-[#12766a]"><Check size={19} />{falseAlarm ? "Alert cancelled" : "Response complete"}</p>
+              <p className="mt-1 text-sm text-[#6e5a7c]">This alert is no longer active.</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-[14px] bg-[#f3eefb] p-3"><span className="text-[10px] font-bold uppercase text-[#6e5a7c]">Responders</span><b className="mt-1 block text-lg">{accepted}</b></div>
+                <div className="rounded-[14px] bg-[#f3eefb] p-3"><span className="text-[10px] font-bold uppercase text-[#6e5a7c]">Closed</span><b className="mt-1 block text-lg">{data?.alert.updatedAt ? new Date(data.alert.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</b></div>
+              </div>
+            </section>
+          )}
+
+          {!closed && <div className="flex items-start gap-2 rounded-[22px] border border-[#e6dcf0] bg-white p-4 text-[13px] leading-5 text-[#6e5a7c]"><ShieldCheck size={19} className="mt-0.5 shrink-0 text-[#12766a]" /><span>Your location is shared only with responders on this alert, and stops when it closes.</span></div>}
+        </div>
+
+        <footer className="flex shrink-0 flex-col gap-2 bg-gradient-to-b from-transparent via-[#f3eefb] to-[#f3eefb] px-[14px] pb-[max(14px,env(safe-area-inset-bottom))] pt-3">
+          {closed ? <button className="flex h-[54px] items-center justify-center gap-2 rounded-[17px] bg-[#522868] text-base font-bold text-white" onClick={onClose}><Check size={19} />Done</button> : <>
+            <button className="flex h-[54px] items-center justify-center gap-2 rounded-[17px] bg-[#522868] text-base font-bold text-white disabled:opacity-60" disabled={changingType} onClick={onChangeType}>
+              {changingType ? <RefreshCw size={16} className="animate-spin" /> : type === "sos" ? <HeartPulse size={17} /> : <Siren size={17} />}
               {changingType ? "Updating alert…" : type === "sos" ? "Update to a medical emergency" : "Change alert type"}
             </button>
-          )}
-          {typeChangeError && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800" role="alert">{typeChangeError}</p>}
-        </aside>
+            <button className="flex h-10 items-center justify-center gap-2 rounded-[17px] text-sm font-semibold text-[#d9435f] disabled:opacity-60" disabled={cancelBusy} onClick={() => void cancelAlert()}>
+              <Siren size={15} />{cancelBusy ? "Notifying responders…" : "Cancel · false alarm"}
+            </button>
+          </>}
+          {typeChangeError && <p className="rounded-xl bg-[#fdeaee] px-3 py-2 text-xs text-[#7d3341]" role="alert">{typeChangeError}</p>}
+        </footer>
       </div>
     </main>
   );

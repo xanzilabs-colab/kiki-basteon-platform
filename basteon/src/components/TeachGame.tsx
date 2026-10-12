@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, DoorOpen, Heart, Library, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, Bot, Check, DoorOpen, Heart, Library, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { showGameError } from "@/lib/gameFeedback";
 import styles from "./TeachGame.module.css";
@@ -523,7 +523,7 @@ export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roo
               <div className={styles.choiceRow}>
                 {mode === "pair"
                   ? <button type="button" disabled={busy || !roomId} onClick={() => void start("pair")}><Heart size={17} /> Start with this Buddy</button>
-                  : <button type="button" disabled={busy} onClick={() => void start("bot")}><Sparkles size={17} /> Play with Kiki</button>}
+                  : <button type="button" disabled={busy} onClick={() => void start("bot")}><Bot size={17} /> Play with Kiki</button>}
               </div>
               {mode === "pair" && <p className={styles.privacy}>Your invitation was accepted in the Buddy radar. Your exact location is never shown in the game.</p>}
               <p className={styles.disclaimer}>Community tips are not professional advice. Don't include names or personal details in your card.</p>
@@ -604,7 +604,7 @@ export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roo
               </form>}
               {round.phase === "read" && round.myRating && <div className={styles.waiting}><h3>Response saved</h3><p>Your quick check was {round.quizCorrect ? "right" : "not quite"}; thanks for being thoughtful.</p></div>}
               {(round.phase === "done" || round.phase === "read" && Boolean(round.ratingOnYourTip)) && <div className={styles.feedback}>
-                {round.ratingOnYourTip && <p><Sparkles size={18} /> {round.ratingOnYourTip === "helpful" ? "Your tip helped someone!" : "Your tip was received."} <span>{ratingLabels.find((item) => item.value === round.ratingOnYourTip)?.label}</span></p>}
+                {round.ratingOnYourTip && <p><Check size={18} /> {round.ratingOnYourTip === "helpful" ? "Your tip helped someone!" : "Your tip was received."} <span>{ratingLabels.find((item) => item.value === round.ratingOnYourTip)?.label}</span></p>}
                 {round.phase === "done" && <button type="button" disabled={busy} onClick={() => void nextRound()}>{round.roundNo >= 3 ? "See my progress" : "Next round"}</button>}
               </div>}
             </>}

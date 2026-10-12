@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), getUser: vi.fn(), profile: vi.fn(), enabled: vi.fn(), admin: vi.fn(), engine: vi.fn() }));
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), getUser: vi.fn(), profile: vi.fn(), enabled: vi.fn(), admin: vi.fn(), engine: vi.fn(), geocodeAddress: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth: { getUser: mocks.getUser }, rpc: mocks.rpc, from: () => ({ select: () => ({ eq: () => ({ single: mocks.profile }) }) }) }) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
+vi.mock("@/lib/geocoding", () => ({ geocodeAddress: mocks.geocodeAddress }));
 vi.mock("@/lib/buddies/server/runtime", () => ({ requireBuddiesEnabled: mocks.enabled }));
 vi.mock("../server", () => ({ runMeetingEngine: mocks.engine }));
 
@@ -22,6 +23,7 @@ beforeEach(() => {
   mocks.rpc.mockResolvedValue({ data: [], error: null });
   mocks.admin.mockReturnValue({ service: true });
   mocks.engine.mockResolvedValue({ status: "ok", round: 1, count: 3 });
+  mocks.geocodeAddress.mockResolvedValue({ lat: -26, lng: 28, displayName: "Johannesburg" });
 });
 
 describe("authenticated Buddy place routes", () => {
@@ -48,7 +50,15 @@ describe("authenticated Buddy place routes", () => {
     expect(mocks.admin).not.toHaveBeenCalled();
   });
   it("uses the authenticated RPC for suggestions and votes", async () => {
-    expect((await spotsPost(request("/api/buddies/safe-places", { name: "Cafe", category: "cafe_restaurant", lat: -26, lng: 28 }))).status).toBe(201);
+    expect((await spotsPost(request("/api/buddies/safe-places", { name: "Cafe", category: "cafe_restaurant", address: "1 Main Street, Johannesburg" }))).status).toBe(201);
+    expect(mocks.geocodeAddress).toHaveBeenCalledWith("1 Main Street, Johannesburg");
+    expect(mocks.rpc).toHaveBeenCalledWith("suggest_safe_place", {
+      p_name: "Cafe",
+      p_category: "cafe_restaurant",
+      p_lat: -26,
+      p_lng: 28,
+      p_address: "1 Main Street, Johannesburg",
+    });
     expect((await optionsPost(request("/api/buddies/bubble/options", { action: "vote", round: 1, candidateId: bubbleId }), context)).status).toBe(200);
     expect(mocks.rpc).toHaveBeenCalledWith("vote_bubble_spot", { p_bubble_id: bubbleId, p_round: 1, p_candidate_id: bubbleId });
     expect(mocks.admin).not.toHaveBeenCalled();

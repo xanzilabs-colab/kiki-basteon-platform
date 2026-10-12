@@ -1,4 +1,5 @@
 import { placeSchema, searchSchema } from "@/lib/buddies/meeting/schemas";
+import { geocodeAddress } from "@/lib/geocoding";
 import { meetingBody, meetingError, meetingJson, meetingRpc, meetingSession } from "../_meeting";
 
 export async function GET(request: Request) {
@@ -17,7 +18,8 @@ export async function POST(request: Request) {
     const { client } = await meetingSession(request);
     const body = await meetingBody(request, placeSchema);
     if (!body) return meetingJson({ error: "invalid_place" }, 400);
-    const id = await meetingRpc(client, "suggest_safe_place", { p_name: body.name, p_category: body.category, p_lat: body.lat, p_lng: body.lng, p_address: body.address ?? null });
+    const location = await geocodeAddress(body.address);
+    const id = await meetingRpc(client, "suggest_safe_place", { p_name: body.name, p_category: body.category, p_lat: location.lat, p_lng: location.lng, p_address: body.address });
     return meetingJson({ id, status: "pending" }, 201);
   } catch (error) { return meetingError(error); }
 }

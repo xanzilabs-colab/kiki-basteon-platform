@@ -7,7 +7,7 @@ const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-
 const schema = z.object({ start: point, destination: point, route: z.array(point).min(2).max(5_000), mode: z.enum(["walk", "taxi", "ehail", "bus", "train"]), leaveFrom: z.string().datetime(), maxWaitMinutes: z.number().int().min(5).max(120), maxWalkM: z.number().int().min(50).max(5000), groupSize: z.number().int().min(2).max(4), audience: z.enum(["all_verified", "contacts_only"]) });
 const adjectives = ["Amber", "Bright", "Calm", "Cedar", "Kind", "Quiet", "Swift", "Willow"];
 const nouns = ["Comet", "Clover", "Dawn", "Harbor", "Lily", "Meadow", "River", "Sky"];
-const avatars = ["🌻", "🌿", "🌸", "🪻", "🍀", "🌙", "🫧", "⭐"];
+const avatars = ["🌻", "🌿", "🌸", "🪻", "🍀", "🌙", "🫧", "🧭"];
 const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)];
 
 export async function GET() {

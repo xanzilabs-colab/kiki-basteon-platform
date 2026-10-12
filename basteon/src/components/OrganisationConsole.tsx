@@ -18,6 +18,7 @@ import {
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { membershipTypeOptionsForOrganisation, roleHintForMembershipType } from "@/lib/organisationCategories";
 import { useAppDialog } from "@/components/AppDialogProvider";
+import { createClient } from "@/lib/supabase/client";
 
 type MeResponse = {
   userId?: string;
@@ -176,6 +177,8 @@ export function OrganisationConsole() {
   const [editMemberUnit, setEditMemberUnit] = useState("");
   const [editMemberStatus, setEditMemberStatus] = useState("active");
   const [editMemberAvailability, setEditMemberAvailability] = useState("off_duty");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [generatedCredentials, setGeneratedCredentials] = useState<{ email: string; password: string; fullName: string } | null>(null);
   const [generatedCredentialPdfUrl, setGeneratedCredentialPdfUrl] = useState("");
   const [coverageTypeCode, setCoverageTypeCode] = useState("general");
@@ -219,6 +222,7 @@ export function OrganisationConsole() {
   const [rosterImportSource, setRosterImportSource] = useState<"csv" | "pasted">("pasted");
   const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   const [dashboardUnlocked, setDashboardUnlocked] = useState(false);
+  const organisationId = state?.organisation?.id ?? "";
   const emergencyTypes = useEmergencyTypes();
   const membershipTypeOptions = useMemo(
     () => membershipTypeOptionsForOrganisation(state?.organisation ?? {}),
@@ -246,6 +250,52 @@ export function OrganisationConsole() {
 
   useEffect(() => { void refresh(); }, []);
   useEffect(() => {
+    if (!organisationId) return;
+    const client = createClient();
+    const channel = client.channel(`organisation-presence-${organisationId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "responder_presence",
+        filter: `organisation_id=eq.${organisationId}`,
+      }, (payload) => {
+        const changed = (payload.eventType === "DELETE" ? payload.old : payload.new) as {
+          user_id?: string;
+          availability?: string;
+          branch_id?: string | null;
+          unit_id?: string | null;
+          last_seen_at?: string;
+        };
+        if (!changed.user_id) return;
+        setState((current) => {
+          if (!current) return current;
+          const existing = current.responderPresence.find((row: any) => row.user_id === changed.user_id);
+          if (payload.eventType === "DELETE") {
+            return { ...current, responderPresence: current.responderPresence.filter((row: any) => row.user_id !== changed.user_id) };
+          }
+          if (!existing) {
+            const member = current.members.find((row: any) => row.user_id === changed.user_id);
+            return {
+              ...current,
+              responderPresence: [...current.responderPresence, {
+                ...changed,
+                profiles: member?.profiles ?? { full_name: null, phone: null, email: null },
+              }],
+            };
+          }
+          return {
+            ...current,
+            responderPresence: current.responderPresence.map((row: any) => row.user_id === changed.user_id
+              ? { ...row, ...changed }
+              : row),
+          };
+        });
+      })
+      .subscribe();
+    return () => { void client.removeChannel(channel); };
+  }, [organisationId]);
+  useEffect(() => { setLogoUrl(state?.organisation?.logo_url ?? ""); }, [state?.organisation?.logo_url]);
+  useEffect(() => {
     if (!state?.settings) return;
     setAllowEmailDomain(Boolean(state.settings.allow_email_domain));
     setAllowWorkId(Boolean(state.settings.allow_work_id));
@@ -259,7 +309,6 @@ export function OrganisationConsole() {
     setRosterMembershipType((current) => membershipTypeOptions.some((option) => option.value === current) ? current : (membershipTypeOptions[0]?.value ?? "member"));
   }, [membershipTypeOptions]);
 
-  const organisationId = state?.organisation?.id ?? "";
   const dashboardUnlockStorageKey = organisationId ? `org-dashboard-unlocked:${organisationId}` : "";
   const branchOptions = state?.branches ?? [];
   const units = state?.units ?? [];
@@ -610,6 +659,53 @@ export function OrganisationConsole() {
     await refresh();
   }
 
+  async function saveOrganisationLogo(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/organisation/logo", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organisationId, logoUrl: logoUrl.trim() || null }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Could not save organisation logo.");
+      setState((current) => current ? { ...current, organisation: { ...current.organisation, logo_url: body.logoUrl } } : current);
+      setLogoUrl(body.logoUrl ?? "");
+      setMessage("Organisation logo saved.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save organisation logo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadOrganisationLogo() {
+    if (!organisationId || !logoFile) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const form = new FormData();
+      form.set("organisationId", organisationId);
+      form.set("file", logoFile);
+      const response = await fetch("/api/organisation/logo", { method: "POST", body: form });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Could not upload organisation logo.");
+      setState((current) => current ? { ...current, organisation: { ...current.organisation, logo_url: body.logoUrl } } : current);
+      setLogoUrl(body.logoUrl ?? "");
+      setLogoFile(null);
+      setMessage("Organisation logo uploaded.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not upload organisation logo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function regeneratePassword(userId: string) {
     if (!organisationId) return;
     setBusy(true);
@@ -947,7 +1043,9 @@ export function OrganisationConsole() {
     <div className="org-console w-full">
       <header className="org-console-header">
         <div className="org-console-heading">
-          <div className="org-console-mark">{String(state.organisation.name ?? "O").trim().charAt(0).toUpperCase()}</div>
+          <div className="org-console-mark">{state.organisation.logo_url
+            ? <img src={state.organisation.logo_url} alt="" className="h-full w-full rounded-[inherit] object-contain" />
+            : String(state.organisation.name ?? "O").trim().charAt(0).toUpperCase()}</div>
           <div>
             <div className="org-console-title-row">
               <h1 className="page-title"><span className="org-console-hash">#</span>{state.organisation.name}</h1>
@@ -958,7 +1056,9 @@ export function OrganisationConsole() {
         </div>
         <div className="org-console-header-actions">
           <button className="btn" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />Refresh</button>
-          <div className="org-console-avatar">{String(state.organisation.name ?? "TH").trim().slice(0, 2).toUpperCase()}</div>
+          <div className="org-console-avatar">{state.organisation.logo_url
+            ? <img src={state.organisation.logo_url} alt={`${state.organisation.name} logo`} className="h-full w-full rounded-[inherit] object-contain" />
+            : String(state.organisation.name ?? "TH").trim().slice(0, 2).toUpperCase()}</div>
         </div>
       </header>
       <div className={`org-console-content space-y-6 ${blockedNow ? "org-console-locked" : ""}`}>
@@ -1213,6 +1313,28 @@ export function OrganisationConsole() {
 
       {(showSettingsPanel || inOnboardingMode) && (
       <section className="panel p-6 space-y-4">
+        <div className="space-y-3 border-b border-[var(--line)] pb-4">
+          <div>
+            <h2 className="org-tab-title">Organisation logo</h2>
+            <p className="muted mt-1 text-xs">Set a public image link or upload a logo. It appears in the responder console.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {state.organisation.logo_url
+              ? <img src={state.organisation.logo_url} alt={`${state.organisation.name} logo`} className="h-14 w-14 rounded-xl border border-[var(--line)] bg-white object-contain p-1" />
+              : <div className="grid h-14 w-14 place-items-center rounded-xl border border-[var(--line)] text-lg font-bold">{String(state.organisation.name ?? "O").trim().charAt(0).toUpperCase()}</div>}
+            <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={(event) => void saveOrganisationLogo(event)}>
+              <label className="field min-w-[220px] flex-1">Logo image URL
+                <input type="url" value={logoUrl} maxLength={2048} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://example.org/logo.png" />
+              </label>
+              <button className="btn self-end" disabled={busy}>Save link</button>
+            </form>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Choose organisation logo image" onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)} />
+            <button type="button" className="btn" disabled={busy || !logoFile} onClick={() => void uploadOrganisationLogo()}>Upload selected logo</button>
+            <span className="muted text-xs">PNG, JPEG or WebP · max 2 MB</span>
+          </div>
+        </div>
         <div>
           <h2 className="org-tab-title">Linking Configuration</h2>
           <p className="muted mt-1 text-xs">Choose which identifier types people can use and whether eligible requests need approval.</p>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, BedDouble, Car, ChevronRight, Compass, CookingPot, Ear, Eye, Flower2, GraduationCap, Hand, HeartHandshake,
-  Library, Send, ShieldX, Sofa, Sparkles, Trees, Wind, X,
+  Library, Send, ShieldX, Sofa, Trees, Wind, X,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ComponentType, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { askAi, type KikiInterpretResponse } from "@/lib/stoep/ai";
@@ -291,7 +291,7 @@ export function StoepGame() {
               <span className={g.hubGo}><ChevronRight size={16} /></span>
             </button>
             <button className={`${g.hubCard} ${g.hubCardGold}`} onClick={() => { setLevel(0); setMode("clues"); }}>
-              <span className={g.hubOrb}><Sparkles size={30} /></span>
+              <span className={g.hubOrb}><Eye size={30} /></span>
               <strong>Be my eyes</strong>
               <small>You hint</small>
               <span className={g.hubGo}><ChevronRight size={16} /></span>

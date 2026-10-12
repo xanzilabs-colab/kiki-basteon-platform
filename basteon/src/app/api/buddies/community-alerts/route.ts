@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { alertSchema, coordinates } from "@/lib/buddies/meeting/schemas";
+import { geocodeAddress } from "@/lib/geocoding";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { coarsen, intelExpiry, sanitizeSummary, type IntelKind } from "@/lib/communityIntel";
 import { meetingBody, meetingError, meetingJson, meetingRpc, meetingSession } from "../_meeting";
@@ -46,9 +47,10 @@ export async function POST(request: Request) {
     const { client } = await meetingSession(request);
     const body = await meetingBody(request, alertSchema);
     if (!body) return meetingJson({ error: "invalid_alert" }, 400);
-    const id = await meetingRpc(client, "report_community_alert_detail", { p_kind: body.kind, p_lat: body.lat, p_lng: body.lng, p_location_label: body.locationLabel, p_detail: body.detail });
+    const location = await geocodeAddress(body.address);
+    const id = await meetingRpc(client, "report_community_alert_detail", { p_kind: body.kind, p_lat: location.lat, p_lng: location.lng, p_location_label: body.address, p_detail: body.detail });
     await recordIntel(String(id)).catch((error) => console.error("Community intel record failed", error));
-    return meetingJson({ id }, 201);
+    return meetingJson({ id, lat: location.lat, lng: location.lng }, 201);
   } catch (error) { return meetingError(error); }
 }
 

@@ -5,6 +5,7 @@ const errors: Record<string, string> = {
   stale_round: "The options changed. Refresh and choose again.", membership_changed: "Bubble membership changed. Generate new options.",
   invalid_candidate: "That spot is no longer available. Choose another option.", rate_limited: "Please wait a moment before trying again.",
   waiting_for_locations: "Every Buddy needs to share a current meeting location.", BUDDIES_UNAVAILABLE: "Buddies is unavailable right now.",
+  address_not_found: "We couldn’t find that address. Check it and try again.", geocoding_unavailable: "Address lookup is temporarily unavailable. Please try again.",
 };
 
 export async function meetingFetch<T>(url: string, body?: object, signal?: AbortSignal, method?: "POST" | "DELETE"): Promise<T> {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Bell, Bird, CloudRain, Coffee, Droplets, Ear, Eye, Feather, Flower2, Footprints, Gem, Hand,
-  HeartHandshake, Lamp, Leaf, MoonStar, Music2, ShieldX, Sparkles, Sprout, SunMedium, TreePine, Waves, Wind, X,
+  HeartHandshake, Lamp, Leaf, MoonStar, Music2, ShieldX, Sprout, SunMedium, TreePine, Waves, Wind, X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import styles from "./stoep.module.css";
@@ -260,7 +260,7 @@ export function StoepGame() {
 
             {route === "real" ? (
               <button type="button" className={styles.orb} disabled={busy} onClick={(event) => collect(event.currentTarget)}>
-                <span className={styles.ring} /><span className={styles.ring} /><Sparkles size={26} /><strong>I noticed one</strong>
+                <span className={styles.ring} /><span className={styles.ring} /><Eye size={26} /><strong>I noticed one</strong>
               </button>
             ) : (
               <div className={styles.tiles}>
@@ -290,7 +290,7 @@ export function StoepGame() {
             </svg>
             {STARS.map(([x, y], index) => (
               <button type="button" key={index} className={`${styles.star} ${lit(index) ? styles.lit : ""}`} style={{ left: `${x}%`, top: `${y}%`, "--d": `${(index % 5) * 0.4}s` } as CSSProperties} aria-label={lit(index) ? `Star ${index + 1} lit` : `Light star ${index + 1}`} onClick={() => light(index)}>
-                {lit(index) ? <MoonStar size={18} /> : <Sparkles size={18} />}
+                {lit(index) ? <MoonStar size={18} /> : <Eye size={18} />}
               </button>
             ))}
           </div>

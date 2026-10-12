@@ -11,7 +11,7 @@ const schema = z.object({
   unitId: z.string().uuid().optional().nullable(),
   lastLat: z.number().min(-90).max(90).optional().nullable(),
   lastLng: z.number().min(-180).max(180).optional().nullable(),
-});
+}).refine((value) => (value.lastLat == null) === (value.lastLng == null));
 
 export async function GET(request: Request) {
   const organisationId = new URL(request.url).searchParams.get("organisationId");
@@ -45,22 +45,45 @@ export async function PATCH(request: Request) {
   if (!privileged && targetUserId !== actorId) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const db = createAdminClient();
-  const branchId = payload.data.branchId ?? ownMembership.branch_id ?? null;
+  let targetMembership = ownMembership;
+  if (targetUserId !== actorId) {
+    const { data, error } = await db.from("organisation_memberships")
+      .select("organisation_id,branch_id")
+      .eq("organisation_id", payload.data.organisationId)
+      .eq("user_id", targetUserId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!data) return NextResponse.json({ error: "responder_not_found" }, { status: 404 });
+    targetMembership = data;
+  }
   const { data: existing, error: existingError } = await db.from("responder_presence")
-    .select("last_lat,last_lng,unit_id")
+    .select("organisation_id,branch_id,unit_id")
     .eq("user_id", targetUserId)
     .maybeSingle();
   if (existingError) return NextResponse.json({ error: existingError.message }, { status: 400 });
-  const { data, error } = await db.from("responder_presence").upsert({
-    user_id: targetUserId,
+  const branchId = payload.data.branchId ?? targetMembership.branch_id
+    ?? (existing?.organisation_id === payload.data.organisationId ? existing.branch_id : null);
+  if (!branchId) return NextResponse.json({ error: "responder_branch_required" }, { status: 409 });
+
+  const changes = {
+    availability: payload.data.availability,
     organisation_id: payload.data.organisationId,
     branch_id: branchId,
-    unit_id: payload.data.unitId !== undefined ? payload.data.unitId : existing?.unit_id ?? null,
-    availability: payload.data.availability,
-    last_lat: payload.data.lastLat !== undefined ? payload.data.lastLat : existing?.last_lat ?? null,
-    last_lng: payload.data.lastLng !== undefined ? payload.data.lastLng : existing?.last_lng ?? null,
+    ...(payload.data.unitId !== undefined ? { unit_id: payload.data.unitId } : {}),
     last_seen_at: new Date().toISOString(),
-  }, { onConflict: "user_id" }).select("*").single();
+    ...(payload.data.lastLat != null && payload.data.lastLng != null
+      ? { last_lat: payload.data.lastLat, last_lng: payload.data.lastLng, last_location_at: new Date().toISOString() }
+      : {}),
+  };
+  const query = existing
+    ? db.from("responder_presence").update(changes).eq("user_id", targetUserId)
+    : db.from("responder_presence").insert({
+      user_id: targetUserId,
+      ...changes,
+      unit_id: payload.data.unitId ?? null,
+    });
+  const { data, error } = await query.select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
 }

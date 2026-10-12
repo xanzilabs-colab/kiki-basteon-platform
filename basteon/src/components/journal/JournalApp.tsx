@@ -77,7 +77,7 @@ function ListView({ entries, onList, onSelect, onLeave }: { entries: DecryptedEn
     <div className={`${styles.gpanel} ${styles.gpanelList}`}><button className={styles.violetBtn} onClick={onLeave}><Plus size={22}/>Leave something here</button></div>
   </section>;
 }
-function Symbol({ symbol }: { symbol: JournalSymbol }) { return <span aria-hidden="true">{{ flower: "✿", stone: "●", star: "★", butterfly: "♢", key: "⌘", lantern: "◉", cloud: "☁" }[symbol]}</span>; }
+function Symbol({ symbol }: { symbol: JournalSymbol }) { return <span aria-hidden="true">{{ flower: "✿", stone: "●", star: "♥", butterfly: "♢", key: "⌘", lantern: "◉", cloud: "☁" }[symbol]}</span>; }
 function formatDuration(milliseconds: number) {
   const seconds = Math.floor(milliseconds / 1000);
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;

@@ -10,6 +10,10 @@ const resolveSql = readFileSync(
   fileURLToPath(new URL("../../supabase/migrations/20261111000400_responder_can_resolve_attended_alert.sql", import.meta.url)),
   "utf8",
 );
+const syncAndLogoSql = readFileSync(
+  fileURLToPath(new URL("../../supabase/migrations/20261112000000_responder_sync_and_org_logos.sql", import.meta.url)),
+  "utf8",
+);
 
 describe("responder migrations", () => {
   it("keeps GPS freshness separate from on-duty heartbeats", () => {
@@ -25,5 +29,11 @@ describe("responder migrations", () => {
     expect(resolveSql).toContain("m.role in ('responder', 'dispatcher')");
     expect(resolveSql).toContain("update public.alerts set status = 'resolved'");
     expect(resolveSql).toContain("to service_role");
+  });
+
+  it("publishes canonical responder availability and configures public organisation logos", () => {
+    expect(syncAndLogoSql).toContain("tablename = 'responder_presence'");
+    expect(syncAndLogoSql).toContain("alter publication supabase_realtime add table public.responder_presence");
+    expect(syncAndLogoSql).toContain("values ('organisation-logos', 'organisation-logos', true");
   });
 });

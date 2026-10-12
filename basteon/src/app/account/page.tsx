@@ -94,6 +94,10 @@ export default function AccountPage() {
       );
     };
     refreshNearbyRef.current = refresh;
+    const presenceClient = createClient();
+    const presenceChannel = presenceClient.channel("account-nearby-responder-presence")
+      .on("postgres_changes", { event: "*", schema: "public", table: "responder_presence" }, () => refresh())
+      .subscribe();
     const refreshSos = () => {
       void fetch("/api/account/sos/active", { cache: "no-store" })
         .then((response) => response.ok ? response.json() : null)
@@ -114,6 +118,7 @@ export default function AccountPage() {
       window.clearInterval(sosTimer);
       window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", refreshOnFocus);
+      void presenceClient.removeChannel(presenceChannel);
     };
   }, [allowed, eligibility]);
 

@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { adminActionSchema, alertSchema, feedbackSchema, lookForSchema, placeSchema, spotActionSchema } from "../schemas";
 
 describe("meeting input validation", () => {
-  it("rejects invalid coordinates, categories and oversized names", () => {
-    expect(placeSchema.safeParse({ name: "Cafe", category: "cafe_restaurant", lat: -26, lng: 28 }).success).toBe(true);
-    for (const fields of [{ lat: 91 }, { lng: Infinity }, { category: "private_home" }, { name: "x".repeat(201) }, { userId: "spoof" }]) {
-      expect(placeSchema.safeParse({ name: "Cafe", category: "cafe_restaurant", lat: -26, lng: 28, ...fields }).success).toBe(false);
+  it("accepts an address-only spot suggestion and rejects client-supplied coordinates", () => {
+    expect(placeSchema.safeParse({ name: "Cafe", category: "cafe_restaurant", address: "12 Main Road, Johannesburg" }).success).toBe(true);
+    for (const fields of [{ category: "private_home" }, { name: "x".repeat(201) }, { userId: "spoof" }, { lat: -26, lng: 28 }]) {
+      expect(placeSchema.safeParse({ name: "Cafe", category: "cafe_restaurant", address: "12 Main Road, Johannesburg", ...fields }).success).toBe(false);
     }
   });
   it("requires current-round identities for votes and feedback", () => {
@@ -17,9 +17,10 @@ describe("meeting input validation", () => {
     expect(lookForSchema.safeParse({ topColor: null, carryingBag: null }).success).toBe(true);
     expect(lookForSchema.safeParse({ topColor: "address", carryingBag: true }).success).toBe(false);
   });
-  it("restricts community alerts and admin review inputs", () => {
-    expect(alertSchema.safeParse({ kind: "harassment", lat: -26, lng: 28 }).success).toBe(true);
-    expect(alertSchema.safeParse({ kind: "harassment", lat: -26, lng: 28, reporterId: "other" }).success).toBe(false);
+  it("requires an address for community alerts and rejects client-supplied coordinates", () => {
+    expect(alertSchema.safeParse({ kind: "harassment", address: "12 Main Road, Johannesburg", detail: "Street harassment" }).success).toBe(true);
+    expect(alertSchema.safeParse({ kind: "harassment", lat: -26, lng: 28, locationLabel: "somewhere", detail: "Street harassment" }).success).toBe(false);
+    expect(alertSchema.safeParse({ kind: "harassment", address: "12 Main Road, Johannesburg", detail: "Street harassment", reporterId: "other" }).success).toBe(false);
     expect(adminActionSchema.safeParse({ action: "review", id: "bad", quality: 6, status: "approved", active: true, open24h: true }).success).toBe(false);
   });
 });

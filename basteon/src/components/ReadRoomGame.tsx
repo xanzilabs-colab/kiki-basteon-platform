@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Flag, Heart, Lightbulb, LoaderCircle, Sparkles, UsersRound } from "lucide-react";
+import { ArrowLeft, Check, Flag, Heart, Lightbulb, LoaderCircle, BookOpen, UsersRound } from "lucide-react";
 import { showGameError } from "@/lib/gameFeedback";
 import styles from "./ReadRoomGame.module.css";
 
@@ -274,7 +274,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
 
         {snapshot && !session && snapshot.ageBand && (
           <section className={styles.panel}>
-            <span className={styles.eyebrow}><Sparkles size={15} /> Three rounds · no right answers</span>
+            <span className={styles.eyebrow}><BookOpen size={15} /> Three rounds · no right answers</span>
             <h2>{roomId ? "Take a moment to read the room." : "How might someone feel?"}</h2>
             <p>Read a fictional everyday moment, choose a feeling that could fit, then pick a kind next step. Compare your perspectives—different answers are welcome.</p>
             {roomId ? snapshot.canStart
@@ -291,7 +291,7 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
 
         {session?.status === "finished" && (
           <section className={`${styles.panel} ${styles.finished}`}>
-            <span className={styles.celebration}><Sparkles size={30} /></span>
+            <span className={styles.celebration}><Heart size={30} /></span>
             <p className={styles.eyebrow}>THREE ROUNDS COMPLETE</p>
             <h2>Thanks for looking from another angle.</h2>
             <p>There’s no score and no single right way to read a moment. Listening with curiosity is the win.</p>

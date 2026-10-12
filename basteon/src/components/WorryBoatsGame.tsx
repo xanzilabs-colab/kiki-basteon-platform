@@ -1243,7 +1243,7 @@ export function WorryBoatsGame({ fullScreen = false }: { fullScreen?: boolean })
               ⛵ <b>{afloat}</b>
             </span>
             <span>
-              ✦ <b>{stars}</b>
+              ✓ <b>{stars}</b>
             </span>
           </div>
           <button
