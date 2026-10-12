@@ -22,12 +22,16 @@ export async function requireOrganisationAccess(minRoles: OrganisationRole[] = [
   const userId = await currentUserId();
   if (!userId) return { userId: null, memberships: [] as any[] };
   const db = createAdminClient();
-  const { data } = await db
+  const { data, error } = await db
     .from("organisation_memberships")
     .select("id,organisation_id,branch_id,role,membership_type,status,organisations(id,name,slug,organisation_type,status)")
     .eq("user_id", userId)
     .eq("status", "active")
     .in("role", minRoles);
+  if (error) {
+    console.error("organisation access membership lookup failed", error);
+    throw new Error("Could not verify organisation membership.");
+  }
   return { userId, memberships: data ?? [] };
 }
 

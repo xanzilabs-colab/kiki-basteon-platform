@@ -1,5 +1,6 @@
 "use client";
 
+import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import {
   BAND_PIN_PBKDF2_ITERS,
   BASTEON_CTRL_UUID,
@@ -55,6 +56,24 @@ const PIN_STATUS_TEXT: Record<string, string> = {
 };
 
 const PIN_STATUS_TIMEOUT_MS = 10_000;
+
+type NativeBasteonBlePlugin = {
+  connectBand(options: { showAll: boolean }): Promise<{
+    connectionId: string;
+    name: string;
+    info: string;
+    pinSupported: boolean;
+  }>;
+  readBandValue(options: { connectionId: string; characteristic: "info" | "nonce" }): Promise<{ value: string }>;
+  writeBandValue(options: { connectionId: string; characteristic: "token" | "ctrl"; value: string }): Promise<void>;
+  disconnectBand(options: { connectionId: string }): Promise<void>;
+  addListener(
+    eventName: "bandStatus",
+    listener: (event: { id: string; value: string }) => void,
+  ): Promise<PluginListenerHandle>;
+};
+
+const NativeBasteonBle = registerPlugin<NativeBasteonBlePlugin>("BasteonBle");
 
 export type ConnectOptions = {
   /** Show every nearby Bluetooth device in Chrome's chooser instead of only Kiki bands. */
@@ -139,6 +158,13 @@ function friendlyError(error: unknown, stage: Stage): string {
 }
 
 export async function connectBasteonDevice(opts: ConnectOptions = {}): Promise<BasteonBleDevice> {
+  if (Capacitor.isNativePlatform()) {
+    if (!Capacitor.isPluginAvailable("BasteonBle")) {
+      throw new Error("Update the Kiki app to enable native band linking.");
+    }
+    return connectNativeBasteonDevice(opts);
+  }
+
   const bluetooth = typeof navigator === "undefined"
     ? undefined
     : (navigator as Navigator & { bluetooth?: BluetoothApi }).bluetooth;
@@ -261,4 +287,119 @@ export async function connectBasteonDevice(opts: ConnectOptions = {}): Promise<B
     if (device?.gatt?.connected) device.gatt.disconnect();
     throw new Error(friendlyError(error, stage));
   }
+}
+
+async function connectNativeBasteonDevice(opts: ConnectOptions): Promise<BasteonBleDevice> {
+  const connected = await NativeBasteonBle.connectBand({ showAll: opts.showAll ?? false });
+  let statusHandle: PluginListenerHandle | null = null;
+  const listeners = new Set<(value: string) => void>();
+  try {
+    const details = parseBandInfo(connected.info);
+    statusHandle = await NativeBasteonBle.addListener("bandStatus", (event) => {
+      if (event.id === connected.connectionId) {
+        for (const listener of listeners) listener(event.value);
+      }
+    });
+
+    const session: BasteonBleDevice = {
+      id: details.id,
+      name: connected.name || "Kiki band",
+      info: details,
+      pinSupported: connected.pinSupported,
+      readInfo: async () => {
+        const { value } = await NativeBasteonBle.readBandValue({
+          connectionId: connected.connectionId,
+          characteristic: "info",
+        });
+        const next = parseBandInfo(value);
+        session.info = next;
+        return next;
+      },
+      writeToken: async (value) => {
+        await NativeBasteonBle.writeBandValue({
+          connectionId: connected.connectionId,
+          characteristic: "token",
+          value,
+        });
+      },
+      unlock: async (pin) => {
+        const current = await session.readInfo();
+        if (!current.locked) return;
+        if (!connected.pinSupported) throw new BandPinError("unsupported", "Update the band firmware to use PIN lock.");
+        if (current.wait > 0) throw new BandPinError("locked_out", PIN_STATUS_TEXT.locked_out);
+        const { value: challenge } = await NativeBasteonBle.readBandValue({
+          connectionId: connected.connectionId,
+          characteristic: "nonce",
+        });
+        const verifier = await deriveBandVerifier(pin, current.salt!, current.iters!);
+        await nativeCommand(
+          connected.connectionId,
+          listeners,
+          unlockCommand(await bandUnlockProof(verifier, challenge.trim())),
+          "unlocked",
+        );
+      },
+      setPin: async (pin, saltHex) => {
+        if (!connected.pinSupported) throw new BandPinError("unsupported", "Update the band firmware to use PIN lock.");
+        const salt = saltHex ?? randomSaltHex();
+        const verifier = await deriveBandVerifier(pin, salt, session.info.iters ?? BAND_PIN_PBKDF2_ITERS);
+        await nativeCommand(
+          connected.connectionId,
+          listeners,
+          setPinCommand(salt, verifier),
+          "pin_set",
+        );
+        await session.readInfo().catch(() => undefined);
+      },
+      clearPin: async () => {
+        if (!connected.pinSupported) throw new BandPinError("unsupported", "Update the band firmware to use PIN lock.");
+        await nativeCommand(connected.connectionId, listeners, CLEAR_PIN_COMMAND, "pin_cleared");
+        await session.readInfo().catch(() => undefined);
+      },
+      onStatus: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      disconnect: () => {
+        listeners.clear();
+        void statusHandle?.remove();
+        statusHandle = null;
+        void NativeBasteonBle.disconnectBand({ connectionId: connected.connectionId });
+      },
+    };
+    return session;
+  } catch (error) {
+    await statusHandle?.remove();
+    await NativeBasteonBle.disconnectBand({ connectionId: connected.connectionId });
+    throw error;
+  }
+}
+
+function nativeCommand(
+  connectionId: string,
+  listeners: Set<(value: string) => void>,
+  value: string,
+  success: string,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const listener = (reply: string) => {
+      if (reply !== success && !reply.startsWith("failed:")) return;
+      clearTimeout(timer);
+      listeners.delete(listener);
+      if (reply === success) return resolve();
+      const reason = reply.slice(7);
+      reject(new BandPinError(reason, PIN_STATUS_TEXT[reason] ?? `The band refused: ${reason.replaceAll("_", " ")}.`));
+    };
+    timer = setTimeout(() => {
+      listeners.delete(listener);
+      reject(new BandPinError("timeout", "The band didn't answer. Keep it close and in link mode."));
+    }, PIN_STATUS_TIMEOUT_MS);
+    listeners.add(listener);
+    void NativeBasteonBle.writeBandValue({ connectionId, characteristic: "ctrl", value }).catch((error: unknown) => {
+      clearTimeout(timer);
+      listeners.delete(listener);
+      reject(error);
+    });
+  });
 }

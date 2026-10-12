@@ -22,6 +22,7 @@ const rosterEntryId = "00000000-0000-0000-0000-000000000003";
 function setup(
   linkStatus: "active" | "link_ended",
   historyHandler: (call: FakeCall) => { data?: unknown; error?: unknown } = () => ({}),
+  reconciliationError = false,
 ) {
   const rosterLink = {
     id: "00000000-0000-0000-0000-000000000004",
@@ -43,7 +44,11 @@ function setup(
     },
   };
   const db = fakeSupabase((call: FakeCall) => {
-    if (call.table === "organisation_user_links" && call.action === "select") return { data: [rosterLink] };
+    if (call.table === "organisation_user_links" && call.action === "select") {
+      return reconciliationError
+        ? { data: null, error: { message: "roster source temporarily unavailable" } }
+        : { data: [rosterLink] };
+    }
     if (call.table === "organisation_memberships" && call.action === "select") {
       const isReconcileRead = call.filters.some(([op, column]) => op === "eq" && column === "user_id");
       return isReconcileRead
@@ -99,6 +104,17 @@ describe("GET /api/organisation/me roster membership reconciliation", () => {
       && call.action === "insert"
       && (call.payload as { action?: string }).action === "link_restored_from_active_roster",
     )).toBe(true);
+  });
+
+  it("serves an existing active membership when roster reconciliation fails", async () => {
+    setup("active", () => ({}), true);
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.organisation.id).toBe(organisationId);
+    expect(body.rosterSyncWarning).toBe(true);
   });
 
   it("returns responder assignment metrics and audit events", async () => {

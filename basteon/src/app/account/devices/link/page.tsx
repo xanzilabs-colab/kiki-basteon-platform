@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Capacitor } from "@capacitor/core";
 import { Bluetooth, CheckCircle2, ChevronLeft, Link2, Lock, Search, ShieldCheck, Timer } from "lucide-react";
 import { connectBasteonDevice, type BasteonBleDevice } from "@/lib/ble/basteon";
 import { pinErrorMessage, pinProblem } from "@/lib/devicePin";
@@ -66,7 +67,8 @@ export default function LinkDevicePage() {
 
   useEffect(() => {
     mountedRef.current = true;
-    setSupported("bluetooth" in navigator);
+    const nativeBleAvailable = Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("BasteonBle");
+    setSupported(nativeBleAvailable || (!Capacitor.isNativePlatform() && "bluetooth" in navigator));
     return () => {
       mountedRef.current = false;
       cleanup.current?.();
@@ -244,8 +246,9 @@ export default function LinkDevicePage() {
           <span className="kiki-link-icon"><Bluetooth size={24} /></span>
           <h2>Bluetooth unavailable</h2>
           <p>
-            Use Chrome on an Android phone, or Chrome/Edge on a computer. iPhone, Safari and
-            Firefox aren&apos;t supported yet.
+            {Capacitor.isNativePlatform()
+              ? "Update Kiki to the latest Android app before linking a band."
+              : "Use Chrome on an Android phone, or Chrome/Edge on a computer. iPhone, Safari and Firefox aren’t supported yet."}
           </p>
         </section>
         <Link className="btn" href="/account/devices">Back to devices</Link>

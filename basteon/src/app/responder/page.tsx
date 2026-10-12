@@ -32,6 +32,10 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
 export default function ResponderPage() {
   const [responderView, setResponderView] = useState<"alerts" | "overview" | "settings">("alerts");
   const [organisationId, setOrganisationId] = useState("");
+  const [organisationLoading, setOrganisationLoading] = useState(true);
+  const [organisationLoadError, setOrganisationLoadError] = useState("");
+  const [organisationLoadAttempt, setOrganisationLoadAttempt] = useState(0);
+  const [organisationBlocked, setOrganisationBlocked] = useState(false);
   const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts();
   const { position, error } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -51,15 +55,29 @@ export default function ResponderPage() {
   const emergencyTypes = useEmergencyTypes();
 
   useEffect(() => {
+    let active = true;
     void (async () => {
-      const client = createClient();
-      const { data: { user } } = await client.auth.getUser();
-      if (!user) return;
-      const { data: profileRow } = await client.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
-      setOperatorName(profileRow?.full_name ?? user.email ?? "Responder");
-      const response = await fetch("/api/organisation/me", { cache: "no-store" });
-      if (response.ok) {
-        const body = await response.json();
+      setOrganisationLoading(true);
+      setOrganisationLoadError("");
+      try {
+        const client = createClient();
+        const { data: { user } } = await client.auth.getUser();
+        if (!user) throw new Error("Your session could not be verified.");
+        const { data: profileRow } = await client.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+        if (active) setOperatorName(profileRow?.full_name ?? user.email ?? "Responder");
+        const response = await fetch("/api/organisation/me", { cache: "no-store" });
+        if (response.status === 403) {
+          if (active) {
+            setOrganisationId("");
+            setOrganisationName("");
+            setOrganisationBlocked(false);
+          }
+          return;
+        }
+        const body = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(body?.error ?? "Organisation details could not be loaded.");
+        if (!active) return;
+        setOrganisationBlocked(Boolean(body?.blocked?.isBlocked));
         if (body?.blocked?.isBlocked) {
           setOrganisationName(body?.organisation?.name ?? "");
           setOrganisationLogo(body?.organisation?.logo_url ?? null);
@@ -73,9 +91,15 @@ export default function ResponderPage() {
         setSupportContacts([...(body?.supportContacts?.organisation ?? []), ...(body?.supportContacts?.global ?? [])]);
         const ownPresence = (body?.responderPresence ?? []).find((row: any) => row.user_id === user.id);
         if (ownPresence?.availability) setSelfAvailability(ownPresence.availability);
+      } catch (failure) {
+        console.error("Responder organisation load failed", failure);
+        if (active) setOrganisationLoadError("Organisation details couldn’t be loaded. Check your connection and retry.");
+      } finally {
+        if (active) setOrganisationLoading(false);
       }
     })();
-  }, []);
+    return () => { active = false; };
+  }, [organisationLoadAttempt]);
 
   useEffect(() => {
     if (!organisationId) return;
@@ -189,9 +213,13 @@ export default function ResponderPage() {
 
       <main className="relative min-h-0 min-w-0">
         <ResponderLocationPublisher position={position} organisationId={organisationId} />
-        {!organisationId && (
+        {!organisationId && !organisationLoading && (
           <div className="absolute z-[1200] left-3 right-3 top-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)] panel border-l-4 border-[var(--warn)] px-3 py-2 text-[12px] text-[var(--warn)]">
-            This responder account is not linked to an active organisation. Alert and telemetry access is hidden until linked.
+            {organisationLoadError
+              ? <span role="alert">{organisationLoadError} <button className="underline font-semibold" onClick={() => setOrganisationLoadAttempt((attempt) => attempt + 1)}>Retry</button></span>
+              : organisationBlocked
+                ? "Your organisation is currently suspended. Alert and telemetry access is hidden."
+                : "This responder account is not linked to an active organisation. Alert and telemetry access is hidden until linked."}
           </div>
         )}
         <div className={`absolute z-[1100] left-3 right-3 ${organisationId ? "top-3" : "top-16"} md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]`}>

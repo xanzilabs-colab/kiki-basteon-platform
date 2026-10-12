@@ -23,10 +23,12 @@ export async function GET() {
   if (memberships.length === 0) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const organisationId = memberships[0].organisation_id as string;
   const db = createAdminClient();
+  let rosterSyncWarning = false;
   try {
     await reconcileRosterMemberships(db, { organisationId });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not reconcile organisation roster memberships." }, { status: 500 });
+    rosterSyncWarning = true;
+    console.error("organisation roster reconciliation failed; serving active membership", error);
   }
   const [{ data: organisation }, { data: branches }, { data: members, error: membersError }, { data: settings }, { data: domains }, { data: coverage }, { data: onboarding }, { data: units }, { data: presence }, { data: policy }, { data: globalSupport }, { data: organisationSupport }, { data: authUsers, error: authUsersError }] = await Promise.all([
     db.from("organisations").select("*").eq("id", organisationId).single(),
@@ -230,6 +232,7 @@ export async function GET() {
     responderHistory: recentAssignments,
     responderPerformance,
     alertAuditTrail: auditTrail,
+    rosterSyncWarning,
   });
 }
 
