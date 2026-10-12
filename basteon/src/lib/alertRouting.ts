@@ -46,6 +46,13 @@ export type CandidateResponder = {
   last_seen_at: string | null;
 };
 
+export function ownerAlertLinks(rosterLinks: RoutingLink[], membershipLinks: RoutingLink[]) {
+  const activeRosterLinks = rosterLinks.filter((link) => link.status === "active" && Boolean(link.roster_entry_id));
+  return activeRosterLinks.length
+    ? activeRosterLinks
+    : membershipLinks.filter((link) => link.status === "active");
+}
+
 function toRadians(value: number) {
   return (value * Math.PI) / 180;
 }
@@ -189,14 +196,16 @@ export async function routeAlertAndNotify(alertId: string) {
   const db = createAdminClient();
   const { data: alert, error: alertError } = await db
     .from("alerts")
-    .select("id,device_id,type_code,lat,lng,devices!inner(user_id)")
+    .select("id,device_id,type_code,lat,lng,devices!inner(user_id,device_name)")
     .eq("id", alertId)
     .single();
   if (alertError || !alert) throw new Error(alertError?.message ?? "Alert not found.");
 
-  const ownerId = (alert.devices as { user_id?: string | null } | null)?.user_id ?? null;
+  const linkedDevice = alert.devices as { user_id?: string | null; device_name?: string | null } | null;
+  const ownerId = linkedDevice?.user_id ?? null;
+  const deviceName = linkedDevice?.device_name?.trim() || alert.device_id;
   const typeCode = alert.type_code === "sos" ? "general" : (alert.type_code ?? "general");
-  const [{ data: typeRow }, { data: links }, { data: partnerOrgs }, { data: partnerBranches }, { data: partnerCoverage }] = await Promise.all([
+  const [{ data: typeRow }, { data: links }, { data: partnerOrgs }, { data: partnerBranches }, { data: partnerCoverage }, { data: ownerProfile }] = await Promise.all([
     db.from("emergency_types").select("code,life_threat").eq("code", typeCode).maybeSingle(),
     ownerId
       ? db.from("organisation_user_links").select("organisation_id,branch_id,status,roster_entry_id").eq("user_id", ownerId).eq("status", "active")
@@ -208,9 +217,22 @@ export async function routeAlertAndNotify(alertId: string) {
       .or(`blocked_until.is.null,blocked_until.lte.${new Date().toISOString()}`),
     db.from("organisation_branches").select("id,organisation_id,name,lat,lng,geofence_geojson,is_hq,active"),
     db.from("organisation_emergency_coverage").select("organisation_id,branch_id,emergency_type_code,priority,active").eq("active", true).eq("emergency_type_code", typeCode),
+    ownerId
+      ? db.from("profiles").select("full_name").eq("id", ownerId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
-  const rosterLinkedRows = (links ?? []).filter((item) => Boolean(item.roster_entry_id));
-  const rawLinkedOrgIds = [...new Set(rosterLinkedRows.map((item) => item.organisation_id))];
+  const rosterLinkedRows = (links ?? []).filter((item) => Boolean(item.roster_entry_id)) as RoutingLink[];
+  let membershipLinks: RoutingLink[] = [];
+  if (ownerId && !rosterLinkedRows.length) {
+    const { data, error } = await db.from("organisation_memberships")
+      .select("organisation_id,branch_id,status")
+      .eq("user_id", ownerId)
+      .eq("status", "active");
+    if (error) throw new Error(error.message);
+    membershipLinks = (data ?? []) as RoutingLink[];
+  }
+  const ownerLinks = ownerAlertLinks(rosterLinkedRows, membershipLinks);
+  const rawLinkedOrgIds = [...new Set(ownerLinks.map((item) => item.organisation_id))];
   const { data: activeLinkedOrgs } = rawLinkedOrgIds.length
     ? await db.from("organisations")
       .select("id,is_partner")
@@ -220,7 +242,7 @@ export async function routeAlertAndNotify(alertId: string) {
       .or(`blocked_until.is.null,blocked_until.lte.${new Date().toISOString()}`)
     : { data: [] as Array<{ id: string; is_partner: boolean }> };
   const activeLinkedOrgIds = new Set((activeLinkedOrgs ?? []).map((row) => row.id));
-  const filteredLinks = rosterLinkedRows.filter((link) => activeLinkedOrgIds.has(link.organisation_id));
+  const filteredLinks = ownerLinks.filter((link) => activeLinkedOrgIds.has(link.organisation_id));
   const linkedOrgIds = [...new Set(filteredLinks.map((item) => item.organisation_id))];
   const [{ data: linkedBranches }, { data: linkedCoverage }] = linkedOrgIds.length
     ? await Promise.all([
@@ -322,7 +344,8 @@ export async function routeAlertAndNotify(alertId: string) {
   }
 
   const title = typeCode === "medical" ? "Medical alert" : "General alert";
-  const body = "An emergency alert needs your attention.";
+  const ownerName = ownerProfile?.full_name?.trim();
+  const body = `${deviceName}${ownerName ? ` — ${ownerName}` : ""} needs assistance.`;
   const notifications = [...recipientIds].map((userId) => ({
     user_id: userId,
     type: "system",

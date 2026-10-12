@@ -6,19 +6,21 @@ import { playAlertSound, unlockAlertSound } from "@/lib/alertSound";
 import { createClient } from "@/lib/supabase/client";
 import { enablePushNotifications } from "@/lib/usePushNotifications";
 import { isExpiredAuthError, redirectToSignIn, refreshExpiredSession } from "@/lib/authSession";
+import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 import type { Alert, AlertEvent, Device } from "@/lib/types";
 
 const alertQuery = "*, assignee:profiles!alerts_assigned_to_fkey(full_name)";
-type RealtimeAlertOptions = { scopeOrganisationIds?: string[] };
 
 function announceAlert(alert: Alert) {
 	const medical = alert.type_code === "medical";
 	const title = medical ? "Medical alert" : "General alert";
-	toast(title.toUpperCase(), { description: `${alert.device?.device_name ?? alert.device_id} needs assistance.` });
+	const ownerName = alertOwnerName(alert);
+	const description = `${alertDeviceLabel(alert)}${ownerName ? ` — ${ownerName}` : ""} needs assistance.`;
+	toast(title.toUpperCase(), { description });
 	if (localStorage.getItem("basteon-sound") !== "off") playAlertSound();
 	if (document.hidden && Notification.permission === "granted") {
 		new Notification(title, {
-			body: `${alert.device?.device_name ?? alert.device_id} needs assistance.`,
+			body: description,
 			tag: `basteon-alert-${alert.id}`,
 		});
 	}
@@ -28,7 +30,7 @@ function announceAlert(alert: Alert) {
 	window.setTimeout(() => { document.title = previousTitle; }, 5000);
 }
 
-export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
+export function useRealtimeAlerts() {
 	const [alerts, setAlerts] = useState<Alert[]>([]);
 	const [events, setEvents] = useState<AlertEvent[]>([]);
 	const [connection, setConnection] = useState("connecting");
@@ -41,13 +43,6 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 	useEffect(() => {
 		const supabase = createClient();
 		let active = true;
-		const scopedIds = options?.scopeOrganisationIds ?? null;
-		const hasScope = Array.isArray(scopedIds);
-		const allowed = new Set(scopedIds ?? []);
-		const canAccessAlert = (alert: Alert) => {
-			if (!hasScope) return true;
-			return Boolean(alert.primary_organisation_id && allowed.has(alert.primary_organisation_id));
-		};
 		let retrySync: (() => void) | null = null;
 		let authRecovery: Promise<void> | null = null;
 		let signingOut = false;
@@ -74,20 +69,6 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 			return true;
 		};
 
-		const addOrUpdateAlert = (alert: Alert, notify: boolean) => {
-			if (!canAccessAlert(alert)) {
-				knownAlertIds.current.delete(alert.id);
-				knownAlerts.current.delete(alert.id);
-				setAlerts((current) => current.filter((item) => item.id !== alert.id));
-				return;
-			}
-			const isNew = !knownAlertIds.current.has(alert.id);
-			knownAlertIds.current.add(alert.id);
-			knownAlerts.current.set(alert.id, alert);
-			setAlerts((current) => [alert, ...current.filter((item) => item.id !== alert.id)]);
-			if (notify && isNew) announceAlert(alert);
-		};
-
 		const announceTypeChange = (alert: Alert) => {
 			const label = alert.type_code === "medical" ? "Medical" : "General";
 			toast(`Alert updated to ${label}`, { description: `${alert.device?.device_name ?? alert.device_id} incident type changed.` });
@@ -106,8 +87,7 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 			}
 
 			const rawAlerts = (data ?? []) as Alert[];
-			const scopedAlerts = rawAlerts.filter(canAccessAlert);
-			const deviceIds = [...new Set(scopedAlerts.map((alert) => alert.device_id))];
+			const deviceIds = [...new Set(rawAlerts.map((alert) => alert.device_id))];
 			const { data: devices, error: deviceError } = deviceIds.length
 				? await supabase.from("devices").select("device_id,device_name,user_id").in("device_id", deviceIds)
 				: { data: [] as Device[], error: null };
@@ -136,7 +116,7 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 				return { ...owner, avatar_url: data?.signedUrl ?? null };
 			}));
 			const ownerById = new Map(ownersWithAvatars.map((owner) => [owner.id, owner]));
-			const nextAlerts = scopedAlerts.map((alert) => {
+			const nextAlerts = rawAlerts.map((alert) => {
 				const device = deviceById.get(alert.device_id);
 				return { ...alert, device: device ? { ...device, owner: device.user_id ? ownerById.get(device.user_id) ?? null : null } : null };
 			});
@@ -168,9 +148,7 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 
 		const channel = supabase
 			.channel("ops-alerts")
-			.on("postgres_changes", { event: "INSERT", schema: "public", table: "alerts" }, async (payload) => {
-				const changed = payload.new as Alert;
-				addOrUpdateAlert(changed, true);
+			.on("postgres_changes", { event: "INSERT", schema: "public", table: "alerts" }, () => {
 				void syncAlerts();
 			})
 			.on("postgres_changes", { event: "UPDATE", schema: "public", table: "alerts" }, (payload) => {
@@ -178,12 +156,6 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 				if (!changed.id) return;
 				const previous = knownAlerts.current.get(changed.id);
 				const updated = { ...previous, ...changed } as Alert;
-				if (!canAccessAlert(updated)) {
-					knownAlerts.current.delete(changed.id);
-					knownAlertIds.current.delete(changed.id);
-					setAlerts((current) => current.filter((alert) => alert.id !== changed.id));
-					return;
-				}
 				const typeChanged = previous && changed.type_source === "upgrade" && changed.type_code !== previous.type_code;
 				knownAlerts.current.set(changed.id, updated);
 				if (typeChanged) announceTypeChange(updated);
@@ -207,7 +179,7 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 			window.removeEventListener("keydown", unlock);
 			void supabase.removeChannel(channel);
 		};
-	}, [options?.scopeOrganisationIds]);
+	}, []);
 
 	const refresh = async () => {
 		const supabase = createClient();
@@ -224,11 +196,7 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 		}
 		if (result.error) { setError(result.error.message); return; }
 		setError("");
-		const scopedIds = options?.scopeOrganisationIds ?? null;
-		const hasScope = Array.isArray(scopedIds);
-		const allowed = new Set(scopedIds ?? []);
-		const next = ((result.data ?? []) as Alert[]).filter((alert) => !hasScope || Boolean(alert.primary_organisation_id && allowed.has(alert.primary_organisation_id)));
-		setAlerts(next);
+		setAlerts((result.data ?? []) as Alert[]);
 	};
 
 	return { alerts, setAlerts, events, setEvents, connection, error, refresh };

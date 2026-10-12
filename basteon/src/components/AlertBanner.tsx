@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import type { Alert } from "@/lib/types";
+import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 
 function elapsed(from: string, now: number) {
   const s = Math.max(0, Math.floor((now - +new Date(from)) / 1000));
@@ -41,7 +42,9 @@ export function AlertBanner({
       </span>
       <span className="w-px h-4 bg-[var(--st-new-ink)]" />
       <span className="text-[12px] truncate">
-        {oldest.device?.device_name ?? oldest.device_id}
+        {alertOwnerName(oldest)
+          ? `${alertDeviceLabel(oldest)} · ${alertOwnerName(oldest)}`
+          : alertDeviceLabel(oldest)}
       </span>
       <span className="data text-[12px] font-bold whitespace-nowrap">
         {now ? elapsed(oldest.triggered_at, now) : "--"}

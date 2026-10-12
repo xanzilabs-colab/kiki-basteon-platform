@@ -14,6 +14,7 @@ import { AlertTimeline } from "./AlertTimeline";
 import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
 import { createClient } from "@/lib/supabase/client";
 import { headingToCompass, movementLabel } from "@/lib/motion";
+import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 
 export function AlertDetailPanel({
   alert,
@@ -83,7 +84,7 @@ export function AlertDetailPanel({
       : "text-[var(--crit)]";
   const currentAlert = alert;
   const isClosed = alert.status === "resolved" || alert.status === "false_alarm";
-  const deviceOwnerLabel = alert.device?.owner?.full_name
+  const deviceOwnerLabel = alertOwnerName(alert)
     ?? (alert.device?.user_id ? "Owner profile unavailable" : "Device not linked to an account");
   const branchAvailability = availability.filter((item) => item.branch_id === (currentAlert.primary_branch_id ?? null));
   const bestAvailable = branchAvailability.find((item) => item.availability === "available") ?? branchAvailability[0] ?? null;
@@ -128,7 +129,7 @@ export function AlertDetailPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="section">
-        <div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--surface-3)] font-bold"><CachedProfileImage src={alert.device?.owner?.avatar_url} alt="" className="h-full w-full object-cover" fallback={alert.device?.owner?.full_name?.slice(0, 1) ?? "?"} /></span><div><h2 className="text-[15px] font-semibold tracking-[-.005em]">{alert.device?.device_name ?? alert.device_id}</h2><p className="muted text-[12px] mt-0.5">{deviceOwnerLabel}</p></div></div>
+        <div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--surface-3)] font-bold"><CachedProfileImage src={alert.device?.owner?.avatar_url} alt="" className="h-full w-full object-cover" fallback={alertOwnerName(alert)?.slice(0, 1) ?? "?"} /></span><div><h2 className="text-[15px] font-semibold tracking-[-.005em]">{alertDeviceLabel(alert)}</h2><p className="muted text-[12px] mt-0.5">{deviceOwnerLabel}</p></div></div>
 
         {alert.device?.owner?.phone && (
           <a

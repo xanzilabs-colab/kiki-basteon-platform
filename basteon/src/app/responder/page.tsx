@@ -32,9 +32,7 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
 export default function ResponderPage() {
   const [responderView, setResponderView] = useState<"alerts" | "overview" | "settings">("alerts");
   const [organisationId, setOrganisationId] = useState("");
-  const [alertScopeOrganisationIds, setAlertScopeOrganisationIds] = useState<string[]>([]);
-  const scopedOrganisationIds = useMemo(() => alertScopeOrganisationIds, [alertScopeOrganisationIds]);
-  const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts({ scopeOrganisationIds: scopedOrganisationIds });
+  const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts();
   const { position, error } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailCleared, setDetailCleared] = useState(false);
@@ -62,20 +60,10 @@ export default function ResponderPage() {
         if (body?.blocked?.isBlocked) {
           setOrganisationName(body?.organisation?.name ?? "");
           setOrganisationId("");
-          setAlertScopeOrganisationIds([]);
           return;
         }
         setOrganisationName(body?.organisation?.name ?? "");
         setOrganisationId(body?.organisation?.id ?? "");
-        const membershipOrganisationIds: string[] = Array.isArray(body?.memberships)
-          ? body.memberships
-            .filter((membership: any) => membership.status === "active")
-            .map((membership: any) => membership.organisation_id)
-            .filter((id: unknown): id is string => typeof id === "string")
-          : [];
-        setAlertScopeOrganisationIds([...new Set<string>(membershipOrganisationIds.length
-          ? membershipOrganisationIds
-          : body?.organisation?.id ? [body.organisation.id] : [])]);
         setCanDispatch(["owner", "admin", "manager", "dispatcher"].includes(body?.memberships?.[0]?.role ?? ""));
         setSupportContacts([...(body?.supportContacts?.organisation ?? []), ...(body?.supportContacts?.global ?? [])]);
         const ownPresence = (body?.responderPresence ?? []).find((row: any) => row.user_id === user.id);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { haversineMeters, pickDispatchRecipients, planAlertTargets, pointInPolygonGeoJson, type CandidateResponder, type RoutingBranch, type RoutingCoverage, type RoutingLink } from "@/lib/alertRouting";
+import { haversineMeters, ownerAlertLinks, pickDispatchRecipients, planAlertTargets, pointInPolygonGeoJson, type CandidateResponder, type RoutingBranch, type RoutingCoverage, type RoutingLink } from "@/lib/alertRouting";
 
 const poly = {
   type: "Polygon",
@@ -274,6 +274,22 @@ describe("dispatch recipient selection", () => {
       { user_id: "u3", branch_id: "b2", role: "responder", availability: "available", last_seen_at: "2026-01-03T00:00:00Z" },
     ] satisfies CandidateResponder[], ["b1"]);
     expect(recipients.map((recipient) => recipient.user_id)).toEqual(["u2", "u1"]);
+  });
+
+  describe("alert owner organisation links", () => {
+    it("uses active roster links when available", () => {
+      const rosterLinks: RoutingLink[] = [{ organisation_id: "roster-org", branch_id: "roster-branch", status: "active", roster_entry_id: "entry-1" }];
+      const memberships: RoutingLink[] = [{ organisation_id: "member-org", branch_id: null, status: "active" }];
+      expect(ownerAlertLinks(rosterLinks, memberships)).toEqual(rosterLinks);
+    });
+
+    it("falls back to active organisation memberships when there is no roster link", () => {
+      const memberships: RoutingLink[] = [
+        { organisation_id: "member-org", branch_id: "member-branch", status: "active" },
+        { organisation_id: "inactive-org", branch_id: null, status: "inactive" },
+      ];
+      expect(ownerAlertLinks([], memberships)).toEqual([memberships[0]]);
+    });
   });
 
   it("prefers available responder in branch", () => {

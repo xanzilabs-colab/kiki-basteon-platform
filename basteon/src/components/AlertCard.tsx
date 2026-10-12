@@ -8,6 +8,7 @@ import { StatusBadge } from "./StatusBadge";
 import { LocationSourceBadge } from "./LocationSourceBadge";
 import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
 import { isMovingAlert, movementLabel } from "@/lib/motion";
+import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 
 export function AlertCard({
   alert,
@@ -48,9 +49,9 @@ export function AlertCard({
           {formatDistanceToNow(new Date(alert.triggered_at), { addSuffix: true })}
         </span>
       </div>
-      <p className="row-title truncate">{alert.device?.device_name ?? alert.device_id}</p>
+      <p className="row-title truncate">{alertDeviceLabel(alert)}</p>
       <div className="row-meta">
-        <span className="truncate">{alert.device?.owner?.full_name ?? "Unassigned"}</span>
+        <span className="truncate">{alertOwnerName(alert) ?? "Unassigned"}</span>
         {km != null && <span className="data whitespace-nowrap">{formatDistance(km)}</span>}
         <span className="data">{alert.battery == null ? "—" : `${alert.battery}%`}</span>
       </div>

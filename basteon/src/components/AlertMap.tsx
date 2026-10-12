@@ -7,6 +7,7 @@ import type { Position } from "@/lib/geo";
 import { hasLocation } from "@/lib/geo";
 import { deadReckon, headingToCompass, isMovingAlert } from "@/lib/motion";
 import { locationHealth } from "@/lib/locationTracking";
+import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 
 const icon = (color: string, selected: boolean) =>
   L.divIcon({
@@ -96,9 +97,17 @@ export default function AlertMap({
     const layers = L.layerGroup().addTo(map);
 
     for (const alert of alerts.filter(hasLocation)) {
+      const popup = document.createElement("div");
+      const deviceLabel = document.createElement("strong");
+      deviceLabel.textContent = alertDeviceLabel(alert);
+      popup.append(deviceLabel);
+      const ownerName = alertOwnerName(alert);
+      if (ownerName) {
+        popup.append(document.createElement("br"), document.createTextNode(ownerName));
+      }
       const marker = L.marker([alert.lat!, alert.lng!], {
         icon: icon(alert.status === "new" ? "#ff4d5a" : "#28d5c0", selected?.id === alert.id),
-      }).bindPopup(alert.device?.device_name ?? alert.device_id);
+      }).bindPopup(popup);
       marker.on("click", () => onSelect?.(alert));
       layers.addLayer(marker);
     }
