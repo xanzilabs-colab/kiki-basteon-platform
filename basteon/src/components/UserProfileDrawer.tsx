@@ -2,6 +2,7 @@
 
 import { Mail, MapPin, Phone, ShieldAlert, UserRound, X } from "lucide-react";
 import type { ProfileContact } from "@/lib/types";
+import { CachedProfileImage } from "@/components/CachedProfileImage";
 
 export function UserProfileDrawer({
   profile,
@@ -42,7 +43,7 @@ export function UserProfileDrawer({
           <section className="section">
             <div className="flex items-center gap-3">
               <span className="inline-grid h-9 w-9 overflow-hidden place-items-center rounded-[4px] bg-[var(--surface-3)] text-[var(--text)]">
-                {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : <UserRound size={18} />}
+                <CachedProfileImage src={profile.avatar_url} alt="" className="h-full w-full object-cover" fallback={<UserRound size={18} />} />
               </span>
               <div>
                 <h2 className="text-[15px] font-semibold">

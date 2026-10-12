@@ -55,6 +55,19 @@ describe("nearby responders", () => {
       now,
     })).toBe(2);
   });
+  it("keeps a responder on duty while rejecting a GPS fix that has gone stale", () => {
+    const responder = presence("walking", {
+      last_seen_at: "2026-01-01T11:59:00Z",
+      last_location_at: "2026-01-01T11:30:00Z",
+    });
+    expect(countAvailableResponders({
+      organisationIds: ["o1"],
+      presence: [responder],
+      memberships: [member("walking")],
+      now,
+    })).toBe(1);
+    expect(run([responder], [member("walking")])).toHaveLength(0);
+  });
   it("prefers linked organisations and falls back to partners", () => {
     const orgs = [{ id: "o1", is_partner: false, status: "active" }, { id: "p1", is_partner: true, status: "active" }, { id: "p2", is_partner: true, status: "suspended" }];
     expect(selectDiscoveryOrganisations(["o1"], orgs, now).organisations.map((o) => o.id)).toEqual(["o1"]);

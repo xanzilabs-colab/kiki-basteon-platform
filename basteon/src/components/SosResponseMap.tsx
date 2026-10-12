@@ -61,10 +61,10 @@ export default function SosResponseMap({
       )}
       {responders.map((responder, index) => (
         <Fragment key={responder.id}>
-          {responder.route && responder.route.points.length > 1 && (
+          {responder.route?.roadRoute && responder.route.points.length > 1 && (
             <Polyline
               positions={responder.route.points.map((point) => [point.lat, point.lng])}
-              pathOptions={{ color: ["#0f766e", "#2563eb", "#7c3aed", "#d97706"][index % 4], weight: 4, opacity: 0.8, dashArray: responder.route.roadRoute ? undefined : "7 7" }}
+              pathOptions={{ color: ["#0f766e", "#2563eb", "#7c3aed", "#d97706"][index % 4], weight: 4, opacity: 0.8 }}
             />
           )}
           {responder.location && (

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import L from "leaflet";
 import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { useCachedProfileImage } from "@/components/CachedProfileImage";
 
 type Point = { lat: number; lng: number };
 type Props = {
@@ -82,6 +83,7 @@ const avatarIcon = (url: string | null | undefined, initial: string) => L.divIco
 
 export default function TripMap({ points, position, recenter = 0, stops = [], drawn = [], avatarUrl, initial = "Y", onMapClick, drawing = false, onDraw }: Props) {
   const center: [number, number] = points.length ? [points[0].lat, points[0].lng] : [-26.2041, 28.0473];
+  const cachedAvatarUrl = useCachedProfileImage(avatarUrl);
   return (
     <MapContainer center={center} zoom={13} scrollWheelZoom={false} zoomControl={false} className="hamba-map">
       <TileLayer url={process.env.NEXT_PUBLIC_MAP_TILE_URL ?? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"} attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION ?? "© OpenStreetMap contributors"} />
@@ -93,7 +95,7 @@ export default function TripMap({ points, position, recenter = 0, stops = [], dr
       {points[0] && <CircleMarker center={[points[0].lat, points[0].lng]} radius={7} pathOptions={{ color: "#54256f", fillColor: "#54256f", fillOpacity: 1 }} />}
       {points.at(-1) && <CircleMarker center={[points.at(-1)!.lat, points.at(-1)!.lng]} radius={8} pathOptions={{ color: "#d94362", fillColor: "#d94362", fillOpacity: 1 }} />}
       {stops.map((stop, index) => <Marker key={`${stop.lat}-${stop.lng}-${index}`} position={[stop.lat, stop.lng]} icon={stopIcon(index + 1)} />)}
-      {position && <Marker position={[position.lat, position.lng]} icon={avatarIcon(avatarUrl, initial)} zIndexOffset={1000} />}
+      {position && <Marker position={[position.lat, position.lng]} icon={avatarIcon(cachedAvatarUrl, initial)} zIndexOffset={1000} />}
     </MapContainer>
   );
 }

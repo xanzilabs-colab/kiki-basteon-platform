@@ -5,22 +5,21 @@
 @tailwind utilities;
 
 [data-sonner-toast].stoep-game-toast {
-  border: 1px solid #f0c8c8 !important;
-  border-left: 4px solid #c74d59 !important;
-  border-radius: 18px !important;
-  background: linear-gradient(135deg, #fffafa, #fff1f0) !important;
+  border: 1px solid #eadde9 !important;
+  border-radius: 16px !important;
+  background: #fff !important;
   color: #432a32 !important;
-  box-shadow: 0 16px 44px #432a3226 !important;
+  box-shadow: 0 12px 36px #432a3226 !important;
 }
 
 [data-sonner-toast].stoep-game-toast [data-title] {
-  color: #4d2934 !important;
+  color: #432a32 !important;
   font-size: 0.95rem !important;
   font-weight: 800 !important;
 }
 
 [data-sonner-toast].stoep-game-toast [data-description] {
-  color: #745660 !important;
+  color: #705b6c !important;
   font-size: 0.88rem !important;
   line-height: 1.45 !important;
 }

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
+import { CachedProfileImage } from "@/components/CachedProfileImage";
 
 type AccountProfile = { full_name: string | null; avatar_path: string | null; dark_theme: boolean | null };
 
@@ -23,7 +24,7 @@ export default function ProfilePage() {
   return <div className="kiki-profile-hub">
     <header><span>MY ACCOUNT</span><h1>User Profile</h1></header>
     <section className="kiki-profile-card">
-      <Link className="kiki-profile-identity" href="/account/profile/info">{avatarUrl ? <img src={avatarUrl} alt="Your profile" /> : <span>{name.charAt(0).toUpperCase()}</span>}<div><h2>{name}</h2><p>{email}</p><b>Premium Safety Subscriber</b></div><ChevronRight size={18} /></Link>
+      <Link className="kiki-profile-identity" href="/account/profile/info"><CachedProfileImage src={avatarUrl} alt="Your profile" fallback={<span>{name.charAt(0).toUpperCase()}</span>} /><div><h2>{name}</h2><p>{email}</p><b>Premium Safety Subscriber</b></div><ChevronRight size={18} /></Link>
       <nav className="kiki-profile-menu" aria-label="Account settings">
         <Link href="/account/profile/medical"><span><FileText size={17} />Medical ID &amp; Emergency Info</span><ChevronRight size={17} /></Link>
         <Link href="/account/organisations"><span><Building2 size={17} />My Organisations</span><ChevronRight size={17} /></Link>

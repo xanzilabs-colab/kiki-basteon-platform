@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { ArrowLeft, Check, Clock3, HeartPulse, MapPin, Navigation, RefreshCw, Siren } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SosType } from "@/lib/sos/sosGesture";
+import { estimateResponseRoute, formatResponseEta } from "@/lib/sos/responseRoute";
 import type { MapPoint, MapResponder, ResponseRoute } from "./SosResponseMap";
 
 const ResponseMap = dynamic(() => import("./SosResponseMap"), {
@@ -38,21 +39,8 @@ function formatDistance(meters: number) {
   return meters < 1_000 ? `${Math.round(meters)} m` : `${(meters / 1_000).toFixed(1)} km`;
 }
 
-function formatEta(route: ResponseRoute | undefined, responderStatus?: string) {
-  if (responderStatus === "on_scene") return "On scene";
-  if (!route || !route.roadRoute || route.durationS == null) return "ETA unavailable";
-  const minutes = Math.max(1, Math.round(route.durationS / 60));
-  return `~${minutes} min`;
-}
-
 function directEstimate(origin: MapPoint, destination: MapPoint): ResponseRoute {
-  const distanceM = Math.round(distanceMeters(origin, destination));
-  return {
-    points: [origin, destination],
-    distanceM,
-    durationS: Math.max(60, Math.round(distanceM / (30_000 / 3_600))),
-    roadRoute: false,
-  };
+  return estimateResponseRoute(origin, destination);
 }
 
 async function responderLocationUpdate(alertId: string): Promise<string | null> {
@@ -272,6 +260,9 @@ export function SosResponseScreen({
                 {!caller ? "Waiting for a fresh location from your device." : "Your alert is reaching nearby responders. Their updates will appear here."}
               </div>
             )}
+            {caller && accepted > 0 && <p className="absolute bottom-3 left-3 right-3 rounded-xl bg-white/95 px-3 py-2 text-[11px] text-[#52665e] shadow-sm">
+              Solid paths follow routed streets. If street routing is unavailable, the map won&apos;t draw a straight line through buildings; ETA is then estimated from distance without live traffic.
+            </p>}
           </div>
         </section>
 
@@ -305,10 +296,10 @@ export function SosResponseScreen({
               <h2 className="text-lg font-bold">{nearest.name}</h2>
               <p className="text-xs text-[#52665e]">{[nearest.role, nearest.organisation].filter(Boolean).join(" · ") || "Kiki responder"}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">Distance</p><p className="mt-1 font-bold">{formatDistance(nearest.route!.distanceM)}</p></div>
-                <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">Estimated arrival</p><p className="mt-1 inline-flex items-center gap-1 font-bold"><Clock3 size={14} />{formatEta(nearest.route, nearest.status)}</p></div>
+                <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">{nearest.route!.roadRoute ? "Road distance" : "Approx. road distance"}</p><p className="mt-1 font-bold">{nearest.route!.roadRoute ? "" : "~"}{formatDistance(nearest.route!.distanceM)}</p></div>
+                <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-semibold uppercase text-[#71817b]">Estimated arrival</p><p className="mt-1 inline-flex items-center gap-1 font-bold"><Clock3 size={14} />{formatResponseEta(nearest.route, nearest.status)}</p></div>
               </div>
-              {!nearest.route!.roadRoute && <p className="mt-2 text-[10px] leading-4 text-[#687972]">Straight-line distance only. Road routing is unavailable, so no arrival time is shown.</p>}
+              <p className="mt-2 text-[10px] leading-4 text-[#687972]">{nearest.route!.roadRoute ? "ETA uses the road-routing provider; live traffic data may not be available." : "Distance and ETA are estimates from location only; road routing and live traffic are unavailable."}</p>
             </section>
           ) : !closed && (
             <section className="rounded-3xl border border-[#e7eeea] bg-white p-5 text-sm leading-6 text-[#64736e]">
@@ -329,7 +320,7 @@ export function SosResponseScreen({
                       <p className="text-xs text-[#64736e]">{[responder.role, responder.organisation].filter(Boolean).join(" · ")}</p>
                       <p className="text-xs text-[#64736e]">{statusCopy[responder.status] ?? responder.status.replaceAll("_", " ")}</p>
                     </div>
-                    {responder.route && responder.status !== "acknowledged" ? <span className="text-right text-xs font-semibold">{formatDistance(responder.route.distanceM)}<br /><span className="text-[#64736e]">{formatEta(responder.route, responder.status)}</span></span> : <span className="text-right text-xs text-[#64736e]">{responder.status === "acknowledged" ? "Not travelling yet" : responder.location ? "Updating route…" : "Location unavailable"}</span>}
+                    {responder.route && responder.status !== "acknowledged" ? <span className="text-right text-xs font-semibold">{responder.route.roadRoute ? "" : "~"}{formatDistance(responder.route.distanceM)}<br /><span className="text-[#64736e]">{formatResponseEta(responder.route, responder.status)}</span></span> : <span className="text-right text-xs text-[#64736e]">{responder.status === "acknowledged" ? "Not travelling yet" : responder.location ? "Updating route…" : "Location unavailable"}</span>}
                   </li>
                 ))}
               </ul>

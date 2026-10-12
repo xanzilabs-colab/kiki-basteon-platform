@@ -104,6 +104,9 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
         room_not_ready: "Wait for your Buddy to accept the invitation first.",
         host_starts_game: "The room host will start the game in a moment.",
         age_band_locked: "Your age group cannot be changed during an active game.",
+        invalid_scenario: "The next moment could not be prepared. Please try again.",
+        reveal_closed: "This moment has already moved on. Refreshing the latest round.",
+        session_unavailable: "This game has ended or is no longer available.",
         action_unavailable: action === "start"
           ? "We couldn't start the game just now. Your setup is saved—please try again."
           : "We couldn't update the game just now. Please try again in a moment.",
@@ -184,13 +187,27 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
 
   async function nextRound() {
     if (!snapshot?.session) return;
+    const currentRoundNo = snapshot.session.roundNo;
     setBusy(true);
     setError("");
     try {
       const next = await request("next", { sessionId: snapshot.session.id }) as Snapshot;
       applySnapshot(next, true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The next round could not start.");
+      const message = cause instanceof Error ? cause.message : "The next round could not start.";
+      try {
+        const latest = await request("state") as Snapshot;
+        applySnapshot(latest);
+        if (latest.session && (latest.session.roundNo > currentRoundNo || latest.session.status === "finished")) {
+          setError("");
+          return;
+        }
+      } catch (refreshCause) {
+        const refreshMessage = refreshCause instanceof Error ? refreshCause.message : "The latest round could not be refreshed.";
+        setError(`${message} ${refreshMessage}`);
+        return;
+      }
+      setError(message);
     } finally {
       setBusy(false);
     }

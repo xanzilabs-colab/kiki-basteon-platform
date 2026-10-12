@@ -129,10 +129,19 @@ export async function getProgress(userId: string) {
 
 export async function ensureRound(session: Record<string, any>, roundNo = session.round_no || 1) {
   const db = admin();
+  const advanceSessionRound = async () => {
+    if (Number(session.round_no) >= roundNo) return;
+    const { error } = await db.from("teach_sessions").update({ round_no: roundNo })
+      .eq("id", session.id).lt("round_no", roundNo);
+    if (error) throw new Error("teach_session_update_failed");
+  };
   const { data: existing, error: existingError } = await db.from("teach_rounds")
     .select("*").eq("session_id", session.id).eq("round_no", roundNo).maybeSingle();
   if (existingError) throw new Error("teach_round_lookup_failed");
-  if (existing) return existing;
+  if (existing) {
+    await advanceSessionRound();
+    return existing;
+  }
 
   const authorIds = [session.p1, session.p2].filter((id): id is string => Boolean(id));
   const { data: verificationRows, error: verifiedError } = await db.from("teach_verified_authors")
@@ -173,11 +182,11 @@ export async function ensureRound(session: Record<string, any>, roundNo = sessio
       const { data: raced, error: raceError } = await db.from("teach_rounds")
         .select("*").eq("session_id", session.id).eq("round_no", roundNo).single();
       if (raceError) throw new Error("teach_round_lookup_failed");
+      await advanceSessionRound();
       return raced;
     }
     throw new Error("teach_round_create_failed");
   }
-  const { error: sessionUpdateError } = await db.from("teach_sessions").update({ round_no: roundNo }).eq("id", session.id);
-  if (sessionUpdateError) throw new Error("teach_session_update_failed");
+  await advanceSessionRound();
   return created;
 }

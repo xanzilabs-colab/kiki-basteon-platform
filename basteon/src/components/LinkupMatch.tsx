@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bomb, Flame, Heart, Link2, Mic, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bomb, Check, Flame, Heart, Link2, Mic, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BOMB, rolesForRound, wildcardBanner } from "@/lib/games/linkup/engine";
 import type { Mode, RoundSpec } from "@/lib/games/linkup/engine";
+import { formatLinkupError, formatLinkupMode, formatLinkupReason } from "@/lib/games/linkup/presentation";
 import { dismissGameError, showGameError } from "@/lib/gameFeedback";
 import styles from "./LinkupMatch.module.css";
 
@@ -18,6 +19,7 @@ type Snapshot = {
     mode: Mode;
     vsBot: boolean;
     difficulty: string | null;
+    usedWords?: string[];
     player1Id: string;
     player2Id: string | null;
     botActorId: string | null;
@@ -86,6 +88,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const [listening, setListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [localPickedLetter, setLocalPickedLetter] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const lastTickRef = useRef(0);
   const lastPhaseRef = useRef<string | null>(null);
@@ -250,10 +253,9 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
             build_snapshot: "The game is running, but its latest view could not be loaded. We are retrying.",
           };
           const explanation = descriptions[operation] ?? "Your match is still saved. We are retrying the connection.";
-          const reason = typeof body?.reason === "string" ? body.reason : "";
-          throw new Error(reason ? `${explanation} (${reason})` : explanation);
+          throw new Error(explanation);
         }
-        throw new Error("We couldn't refresh your match. Keep this page open and try again shortly.");
+        throw new Error(formatLinkupError(reason));
       }
       if (!body) throw new Error("Match sync returned an empty response.");
       const next = body as Snapshot;
@@ -279,6 +281,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   useEffect(() => {
     setWord("");
     setHistory([]);
+    setLocalPickedLetter(null);
   }, [matchId]);
 
   const send = useCallback(async (action: string, extra: Record<string, unknown> = {}): Promise<boolean> => {
@@ -294,16 +297,10 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
         body: JSON.stringify({ matchId, action, ...extra }),
       });
       const result = await response.json();
-      if (!response.ok) {
-        const message = result.error === "bomb_turn_already_resolved"
-          ? "That bomb turn has already been handled. Syncing the latest turn now."
-          : result.error === "answer_late"
-            ? "That answer arrived after the timer ended."
-            : typeof result.reason === "string"
-              ? `That move could not be saved (${result.reason}). Your word is still here; please try again.`
-              : "That move could not be saved. Your word is still here; please try again.";
-        throw new Error(message);
-      }
+      if (!response.ok) throw new Error(formatLinkupError(
+        typeof result.error === "string" ? result.error : undefined,
+        typeof result.reason === "string" ? result.reason : undefined,
+      ));
       setSnapshot(result as Snapshot);
       setUserId((result as Snapshot).match.viewerId);
       setNow(Date.parse((result as Snapshot).serverNow || new Date().toISOString()));
@@ -378,6 +375,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       ? round.picks[pickRoles.endPicker]
       : myRole === "START" ? round.picks[pickRoles.startPicker] : round.picks[pickRoles.endPicker]
     : undefined;
+  const shownPickedLetter = localPickedLetter ?? myPickedLetter;
 
   useEffect(() => {
     if (!match || match.mode !== "bomb" || match.status === "finished" || !bomb) return;
@@ -514,30 +512,37 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       <div className={styles.shell}>
         <header className={styles.header}>
           <Link href="/games/linkup/solo" aria-label="Back to the Kiki Links menu"><ArrowLeft size={18} /></Link>
-          <div><small>KIKI LINKS · {match.mode.toUpperCase()}</small><h1>{isFinal ? "Lovely game!" : `Round ${round?.roundNo ?? 1}`}</h1></div>
+          <div><small>KIKI LINKS · {formatLinkupMode(match.mode).toUpperCase()}</small><h1>{isFinal ? "Lovely game!" : `Round ${round?.roundNo ?? 1}`}</h1></div>
           <button type="button" onClick={() => setHelpOpen(true)} aria-label="How to play"><Heart size={18} /></button>
         </header>
-        <div className={styles.scoreRow}><span>You <b>{myScore}</b></span><span>{isBot ? "Kiki" : "Buddy"} <b>{otherScore}</b></span></div>
+        {!isFinal && <div className={styles.scoreRow}><span>You <b>{myScore}</b></span><span>{isBot ? "Kiki" : "Buddy"} <b>{otherScore}</b></span></div>}
         {!isFinal && round && (
           <div className={styles.dots} aria-label={`Round ${round.roundNo} of ten`}>{Array.from({ length: 10 }, (_, index) => <i key={index} className={index + 1 < round.roundNo ? styles.done : index + 1 === round.roundNo ? styles.active : ""} />)}</div>
         )}
         {round?.phase === "pick" && (
           <section className={styles.picker}>
-            <h2>{myPickLocked ? `Your ${myRole.toLowerCase()} pick: ${myPickedLetter?.toUpperCase()}` : round.availableLetters.length ? `Choose the ${myRole.toLowerCase()} letter` : "Waiting for the other picker"}</h2>
+            <h2>{myPickLocked ? `Your ${myRole.toLowerCase()} pick: ${myPickedLetter?.toUpperCase()}` : localPickedLetter ? `Saving your ${myRole.toLowerCase()} pick…` : round.availableLetters.length ? `Choose the ${myRole.toLowerCase()} letter` : "Waiting for the other picker"}</h2>
             <div className={styles.pickSummary}>
               <span>START <b>{displayLetter(round.picks.carryStart ?? round.picks[pickRoles?.startPicker ?? ""])}</b></span>
               <span>END <b>{displayLetter(round.picks[pickRoles?.endPicker ?? ""])}</b></span>
             </div>
+            {localPickedLetter && <p role="status" className={styles.pickConfirmed}>You selected {displayLetter(localPickedLetter)} · saving your pick</p>}
             {myRole && !myPickLocked && round.availableLetters.length > 0 && (
               <div className={styles.letters}>{LETTERS.map((letter) => (
                 <button
                   type="button"
                   key={letter}
-                  className={letter === myPickedLetter ? styles.selectedLetter : ""}
-                  onClick={() => void send("pick", { letter })}
+                  className={letter === shownPickedLetter ? styles.selectedLetter : ""}
+                  onClick={() => {
+                    setLocalPickedLetter(letter);
+                    void send("pick", { letter }).then((saved) => {
+                      if (!saved) setLocalPickedLetter(null);
+                      else setLocalPickedLetter(null);
+                    });
+                  }}
                   disabled={busy || !round.availableLetters.includes(letter)}
-                  aria-pressed={letter === myPickedLetter}
-                >{letter.toUpperCase()}</button>
+                  aria-pressed={letter === shownPickedLetter}
+                >{letter.toUpperCase()}{letter === shownPickedLetter && <Check size={15} aria-label="Selected" />}</button>
               ))}</div>
             )}
             {myPickLocked && <p className={styles.pickConfirmed}>Letter locked in. Waiting for the other pick…</p>}
@@ -583,14 +588,33 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
               const actorId = result.userId ?? match.botActorId ?? "kiki";
               const playerName = actorId === userId ? "You" : actorId === (match.botActorId ?? "kiki") ? "Kiki" : "Buddy";
               return <p key={`${actorId}-${resultIndex}`}>
-                <strong>{playerName}</strong> · {result.valid ? result.word : result.reason === "mine" ? `Hit a mine: ${displayLetter(result.word)}` : result.reason}
+                <strong>{playerName}</strong> · {result.valid ? result.word : result.reason === "mine" ? `Hit a mine: ${displayLetter(currentSpec?.mines.find((mine) => result.word.includes(mine)))}` : formatLinkupReason(result.reason)}
                 <span className={styles.roundPoints}>{result.valid ? ` +${result.points} points` : " +0 points"}</span>
               </p>;
             })}
             {round.results?.some((result) => result.stolen > 0) && <p className={styles.banner}>Points flying across the table!</p>}
           </section>
         )}
-        {isFinal && <section className={styles.result}><h2>{myScore === otherScore ? "A tie!" : myScore > otherScore ? "You win!" : `${isBot ? "Kiki" : "Your Buddy"} wins!`}</h2><p>Final score: {myScore} · {otherScore}</p><p>{round?.answers.filter((answer) => answer.valid).length ?? 0} valid words · mode: {match.mode}</p><button type="button" onClick={() => void requestRematch()} disabled={busy || Boolean(rematchRequested)}>{busy ? "Starting…" : !isBot && rematchRequested ? "Waiting for Buddy…" : "Play another round"}</button></section>}
+        {isFinal && (
+          <section className={`${styles.result} ${styles.finalResult}`} aria-labelledby="linkup-final-title">
+            <p className={styles.finalEyebrow}>MATCH COMPLETE · {formatLinkupMode(match.mode)}</p>
+            <h2 id="linkup-final-title">{myScore === otherScore ? "A tie!" : myScore > otherScore ? "You win!" : `${isBot ? "Kiki" : "Your Buddy"} wins!`}</h2>
+            <div className={styles.finalScore} aria-label="Final score">
+              <div><span>You</span><strong>{myScore}</strong></div>
+              <i aria-hidden="true">–</i>
+              <div><span>{isBot ? "Kiki" : "Buddy"}</span><strong>{otherScore}</strong></div>
+            </div>
+            <div className={styles.finalStats}>
+              <Sparkles size={17} aria-hidden="true" />
+              <p><strong>{match.usedWords?.length ?? 0}</strong> valid {match.usedWords?.length === 1 ? "word" : "words"} played</p>
+            </div>
+            <button className={styles.finalAction} type="button" onClick={() => void requestRematch()} disabled={busy || Boolean(rematchRequested)}>
+              <span>{busy ? "Starting…" : !isBot && rematchRequested ? "Waiting for Buddy…" : "Play another round"}</span>
+              {!rematchRequested && <ArrowRight size={18} aria-hidden="true" />}
+            </button>
+            {!isBot && rematchRequested && <p className={styles.rematchHint}>Your Buddy will need to accept before the next game starts.</p>}
+          </section>
+        )}
         {message && <p role="status" className={styles.message}>{message}</p>}
         {helpOpen && <div className={styles.help}><button type="button" onClick={() => setHelpOpen(false)}>Close</button><p>Choose a letter, then race to type a word that starts and ends with the revealed letters. Minefield words must avoid the displayed mine letters.</p></div>}
       </div>

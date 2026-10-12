@@ -903,6 +903,38 @@
   letter-spacing: -.9px;
   line-height: 1.08;
 }
+.kiki-overview-alert {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  margin: 0 0 16px;
+  border: 1px solid #f3c6ca;
+  border-radius: 22px;
+  background: linear-gradient(115deg, #fff 0%, #fff3f3 100%);
+  padding: 14px 16px;
+  color: #521b28;
+  text-align: left;
+  box-shadow: 0 12px 28px -22px rgba(137, 27, 48, .55);
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.kiki-overview-alert:hover { transform: translateY(-1px); box-shadow: 0 16px 32px -22px rgba(137, 27, 48, .7); }
+.kiki-overview-alert:focus-visible { outline: 3px solid #b83249; outline-offset: 3px; }
+.kiki-overview-alert-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 16px;
+  background: #b83249;
+  color: white;
+}
+.kiki-overview-alert-copy { display: grid; min-width: 0; gap: 3px; }
+.kiki-overview-alert-copy strong { font-size: 15px; font-weight: 750; }
+.kiki-overview-alert-copy span { color: #795661; font-size: 12px; line-height: 1.4; }
+.kiki-overview-alert-action { display: inline-flex; align-items: center; gap: 3px; color: #962c40; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .kiki-overview-hero {
   position: relative;
   display: block;
@@ -914,7 +946,7 @@
   color: #fff;
   padding: 22px 22px 20px;
 }
-.kiki-overview-hero-row { display: flex; align-items: center; gap: 20px; }
+.kiki-overview-hero-row { display: block; }
 .kiki-overview-ring {
   position: relative;
   width: 104px;
@@ -1027,8 +1059,6 @@
 @media (max-width: 400px) {
   .kiki-overview { padding-right: 16px; padding-left: 16px; }
   .kiki-overview-hero { padding: 18px 16px; }
-  .kiki-overview-hero-row { gap: 14px; }
-  .kiki-overview-ring { width: 88px; height: 88px; flex-basis: 88px; }
   .kiki-overview-hero-copy h2 { font-size: 22px; }
   .kiki-overview-hero-copy p { font-size: 13px; }
   .kiki-overview-status-row { gap: 9px; padding-right: 11px; padding-left: 12px; }
@@ -1038,6 +1068,11 @@
   .kiki-overview-status-copy > span { font-size: 12px; }
 }
 @media (max-width: 767px) { .kiki-overview { width: calc(100% + 40px); margin-right: -20px; margin-left: -20px; } }
+@media (max-width: 560px) {
+  .kiki-overview-alert { grid-template-columns: 42px minmax(0, 1fr); gap: 10px; padding: 12px; }
+  .kiki-overview-alert-icon { width: 42px; height: 42px; border-radius: 14px; }
+  .kiki-overview-alert-action { grid-column: 2; margin-top: -2px; }
+}
 @media (prefers-reduced-motion: reduce) { .kiki-overview * { animation: none!important; transition: none!important; } }
 /* Trips: six travel modes, route tools, stop pins, avatar marker, tighter horizontal padding */
 .hamba-mode { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }

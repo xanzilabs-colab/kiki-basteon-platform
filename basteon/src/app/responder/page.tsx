@@ -35,6 +35,7 @@ export default function ResponderPage() {
   const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts({ scopeOrganisationIds: scopedOrganisationIds });
   const { position, error } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailCleared, setDetailCleared] = useState(false);
   const [tab, setTab] = useState<"active" | "all">("active");
   const [profile, setProfile] = useState<ProfileContact | null>(null);
   const [operatorName, setOperatorName] = useState("");
@@ -94,8 +95,13 @@ export default function ResponderPage() {
     [active],
   );
 
-  const selected =
-    alerts.find((a) => a.id === selectedId) ?? unacked[0] ?? active[0] ?? null;
+  const selectAlert = (alert: Alert) => {
+    setSelectedId(alert.id);
+    setDetailCleared(false);
+  };
+  const selected = detailCleared
+    ? null
+    : alerts.find((a) => a.id === selectedId) ?? unacked[0] ?? active[0] ?? null;
 
   const trail = useAlertTrail(selected?.id ?? null);
 
@@ -158,7 +164,7 @@ export default function ResponderPage() {
             selected={selected}
             me={position}
             trail={trail}
-            onSelect={(a) => setSelectedId(a.id)}
+            onSelect={selectAlert}
           />
         </div>
 
@@ -166,7 +172,7 @@ export default function ResponderPage() {
           <AlertBanner
             count={unacked.length}
             oldest={unacked[0] ?? null}
-            onJump={(a: Alert) => setSelectedId(a.id)}
+            onJump={selectAlert}
           />
         )}
 
@@ -214,7 +220,7 @@ export default function ResponderPage() {
               alerts={displayed}
               selected={selected?.id ?? null}
               me={position}
-              onSelect={(a: Alert) => setSelectedId(a.id)}
+              onSelect={selectAlert}
             />
           </div>
 
@@ -243,6 +249,7 @@ export default function ResponderPage() {
             organisationId={organisationId}
             canDispatch={canDispatch}
             onViewProfile={(alert) => setProfile(alert.device?.owner ?? null)}
+            onClear={() => { setSelectedId(null); setDetailCleared(true); }}
           />
         </aside>}
 

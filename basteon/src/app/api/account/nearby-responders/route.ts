@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   }, { headers: { "Cache-Control": "no-store" } });
 
   const [{ data: presence, error: presenceError }, { data: responderMemberships, error: responderMembershipError }] = await Promise.all([
-    db.from("responder_presence").select("user_id,organisation_id,availability,last_lat,last_lng,last_seen_at").in("organisation_id", orgIds).eq("availability", "available"),
+    db.from("responder_presence").select("user_id,organisation_id,availability,last_lat,last_lng,last_seen_at,last_location_at").in("organisation_id", orgIds).eq("availability", "available"),
     db.from("organisation_memberships").select("user_id,organisation_id,role,status").in("organisation_id", orgIds).eq("status", "active").in("role", [...RESPONDER_ROLES]),
   ]);
   if (presenceError || responderMembershipError) {

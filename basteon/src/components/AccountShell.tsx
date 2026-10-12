@@ -7,6 +7,7 @@ import { BookOpen, Gamepad2, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCa
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
+import { CachedProfileImage } from "@/components/CachedProfileImage";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SafetyIntelWatcher } from "@/components/SafetyIntelWatcher";
 import { primeRingtone, startRingtone } from "@/lib/ringtone";
@@ -308,7 +309,7 @@ export function AccountShell({ name, children }: { name: string; children: React
       <div inert={sosOpen} className="min-w-0 pb-[76px] md:min-h-0 md:overflow-y-auto md:pb-0">
         <header className="appbar account-mobile-appbar px-4">
           <Link className="account-user-summary" href="/account/profile" title="Open profile">
-            <span className="account-user-avatar">{avatarUrl ? <img src={avatarUrl} alt={`${name}'s profile`} /> : name.charAt(0).toUpperCase()}<i /></span>
+            <span className="account-user-avatar"><CachedProfileImage src={avatarUrl} alt={`${name}'s profile`} fallback={name.charAt(0).toUpperCase()} /><i /></span>
             <span className="account-user-copy">
               <span className="account-user-name">{name}</span>
               <span className="account-user-protected"><i />Protection is active</span>

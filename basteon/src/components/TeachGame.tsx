@@ -466,7 +466,11 @@ export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roo
           <button type="button" onClick={() => void loadLibrary("", true)} disabled={busy}><BookOpen size={16} /> My toolbox</button>
         </div>
 
-        {error && <p className={styles.error} role="alert">{error}</p>}
+        {error && <div className={styles.error} role="alert"><span>{error}</span>{session && <button type="button" disabled={busy} onClick={() => {
+          void loadState(session.id)
+            .then(() => setError(""))
+            .catch((cause) => setError(cause instanceof Error ? cause.message : "The session could not be refreshed."));
+        }}>Refresh session</button>}</div>}
         {notice && <aside className={styles.notice} role="status"><ShieldAlert size={18} />{notice}{supportUrl && <Link href={supportUrl}>Open your Guardian Circle</Link>}<button type="button" onClick={() => { setNotice(""); setSupportUrl(""); if (notice.includes("professional")) setError(""); }}>Dismiss</button></aside>}
 
         {roomClosed && !session ? (

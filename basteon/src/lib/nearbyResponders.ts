@@ -11,6 +11,7 @@ export type PresenceRow = {
   last_lat: number | null;
   last_lng: number | null;
   last_seen_at: string | null;
+  last_location_at?: string | null;
 };
 export type MembershipRow = { user_id: string; organisation_id: string; role: string; status?: string | null };
 export type OrgRow = { id: string; name?: string | null; is_partner?: boolean; status?: string | null; blocked_until?: string | null };
@@ -71,7 +72,8 @@ export function filterNearbyResponders(input: {
     const lat = row.last_lat == null ? NaN : Number(row.last_lat);
     const lng = row.last_lng == null ? NaN : Number(row.last_lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
-    const seen = row.last_seen_at ? new Date(row.last_seen_at).getTime() : NaN;
+    const locationSeen = row.last_location_at ?? row.last_seen_at;
+    const seen = locationSeen ? new Date(locationSeen).getTime() : NaN;
     if (!Number.isFinite(seen) || now - seen > PRESENCE_MAX_AGE_MS) continue;
     const km = distanceKm(input.origin.lat, input.origin.lng, lat, lng);
     if (km > radius) continue;

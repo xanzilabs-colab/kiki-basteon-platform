@@ -7,6 +7,7 @@ import { sendPushNotificationsToUser } from "@/lib/push";
 const schema = z.object({
   alertId: z.string().uuid(),
   note: z.string().trim().max(500).optional(),
+  source: z.enum(["operations", "responder"]).default("operations"),
 });
 
 export async function POST(request: Request) {
@@ -15,14 +16,19 @@ export async function POST(request: Request) {
   const input = schema.safeParse(await request.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: input.error.flatten() }, { status: 400 });
 
-  const { memberships } = await requireOrganisationAccess(["owner", "admin", "manager", "dispatcher"]);
-  if (!memberships.length) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const db = createAdminClient();
-  const { data: result, error: resolveError } = await db.rpc("resolve_alert_for_operations", {
-    p_alert_id: input.data.alertId,
-    p_actor_id: actorId,
-    p_note: input.data.note ?? null,
-  });
+  if (input.data.source === "operations") {
+    const { memberships } = await requireOrganisationAccess(["owner", "admin", "manager", "dispatcher"]);
+    if (!memberships.length) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  const { data: result, error: resolveError } = await db.rpc(
+    input.data.source === "responder" ? "resolve_alert_for_responder" : "resolve_alert_for_operations",
+    {
+      p_alert_id: input.data.alertId,
+      p_actor_id: actorId,
+      p_note: input.data.note ?? null,
+    },
+  );
   if (resolveError) {
     const message = resolveError.message.includes("not_found") ? "not_found"
       : resolveError.message.includes("closed_alert") ? "closed_alert"

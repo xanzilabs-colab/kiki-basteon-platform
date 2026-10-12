@@ -68,20 +68,32 @@ export function AlertResponseActions({ alertId }: { alertId: string }) {
   const onSceneCount = assignments.filter((assignment) => assignment.status === "on_scene").length;
   const activeCount = assignments.filter((assignment) => ["acknowledged", "en_route", "on_scene"].includes(assignment.status)).length;
 
-  async function act(action: "accept" | "en_route" | "on_scene" | "withdraw") {
+  async function act(action: "accept" | "en_route" | "on_scene" | "withdraw" | "resolved") {
+    if (action === "resolved" && !window.confirm("Mark this incident resolved? Other responders will be notified.")) return;
     setBusy(true);
     try {
-      const response = await fetch("/api/alerts/respond", {
+      const isResolve = action === "resolved";
+      const response = await fetch(isResolve ? "/api/alerts/close" : "/api/alerts/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ alertId, action }),
+        body: JSON.stringify(isResolve
+          ? { alertId, source: "responder" }
+          : { alertId, action }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        toast.error(result.error === "closed_alert" ? "This alert is already closed." : "Could not update your response.");
+        toast.error(result.error === "closed_alert"
+          ? "This alert is already closed."
+          : result.error === "forbidden"
+            ? "Only a responder who has arrived can resolve this incident."
+            : "Could not update your response.");
         return;
       }
-      toast.success(action === "withdraw" ? "You have stopped responding." : "Your response status has been shared.");
+      toast.success(isResolve
+        ? "Incident resolved. Other responders have been notified."
+        : action === "withdraw"
+          ? "You have stopped responding."
+          : "Your response status has been shared.");
       await loadAssignments();
     } catch {
       toast.error("Could not reach the response service. Try again.");
@@ -116,6 +128,7 @@ export function AlertResponseActions({ alertId }: { alertId: string }) {
           {myAssignment.status === "assigned" && <button className="btn btn-danger" disabled={busy} onClick={() => void act("accept")}>Acknowledge</button>}
           {myAssignment.status === "acknowledged" && <button className="btn btn-danger" disabled={busy} onClick={() => void act("en_route")}>I&apos;m on my way</button>}
           {myAssignment.status === "en_route" && <button className="btn btn-danger" disabled={busy} onClick={() => void act("on_scene")}>I&apos;ve arrived</button>}
+          {myAssignment.status === "on_scene" && <button className="btn btn-primary" disabled={busy} onClick={() => void act("resolved")}>Resolve incident</button>}
           <button className="btn" disabled={busy} onClick={() => void act("withdraw")}>Stop responding</button>
         </div>
       )}

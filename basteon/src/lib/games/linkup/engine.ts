@@ -1,7 +1,7 @@
 export const CONFIG = {
   rounds: 10,
   countdownMs: 3000,
-  pickMs: 4000,
+  pickMs: 5000,
   revealMs: 1400,
   answerMs: 5000,
   graceMs: 400,

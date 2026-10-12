@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   ChevronRight,
-  MapPin,
   Navigation,
   Radio,
   Route,
@@ -140,31 +139,39 @@ export default function AccountPage() {
   const deviceCount = readiness?.deviceCount ?? 0;
   const connectedDeviceCount = readiness?.connectedDeviceCount ?? 0;
   const responderCount = readiness?.responderCount ?? 0;
-  const progress = readiness
-    ? Math.round(([deviceCount > 0, responderCount > 0, Boolean(activeTrip)].filter(Boolean).length / 3) * 100)
-    : 0;
-  const ringOffset = 289 - (289 * progress) / 100;
   const hasSafetySetup = deviceCount > 0 && responderCount > 0;
+  const responderStatusCopy = !nearby
+    ? "Checking responders…"
+    : nearby.count == null
+      ? `${nearby.availableCount} on duty · enable location to check nearby responders`
+      : `${nearby.count} available within ${nearby.radiusKm} km`;
+  const responderStatusLabel = !nearby
+    ? "Checking"
+    : nearby.count == null
+      ? nearby.availableCount ? "On duty" : "None on duty"
+      : nearby.count ? "Nearby" : "None nearby";
 
   return <div className="kiki-overview">
     <h1 className="kiki-overview-title">You’re protected.</h1>
 
-    {activeSos && <button type="button" className="kiki-overview-cta" style={{ background: "#d9264e", width: "100%", marginBottom: 14, height: "auto", padding: "14px 18px", flexDirection: "column", alignItems: "flex-start", gap: 2 }} onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Siren size={20} aria-hidden="true" />Active {activeSos.type === "medical" ? "medical alert" : "SOS"} · tap to view live response</span>
-      <small style={{ opacity: .9, fontWeight: 600 }}>{activeSos.onScene ? "Responder has arrived" : activeSos.enRoute ? `${activeSos.enRoute} responder${activeSos.enRoute === 1 ? "" : "s"} en route` : activeSos.acknowledged ? `${activeSos.acknowledged} responder${activeSos.acknowledged === 1 ? "" : "s"} acknowledged · not yet en route` : "Alert sent · waiting for a responder"}</small>
+    {activeSos && <button
+      type="button"
+      className="kiki-overview-alert"
+      onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}
+      aria-label={`Open active ${activeSos.type === "medical" ? "medical alert" : "SOS"}`}
+    >
+      <span className="kiki-overview-alert-icon"><Siren size={21} aria-hidden="true" /></span>
+      <span className="kiki-overview-alert-copy">
+        <strong>Active {activeSos.type === "medical" ? "medical alert" : "SOS"}</strong>
+        <span>{activeSos.onScene ? "A responder has arrived" : activeSos.enRoute ? `${activeSos.enRoute} responder${activeSos.enRoute === 1 ? "" : "s"} en route` : activeSos.acknowledged ? `${activeSos.acknowledged} responder${activeSos.acknowledged === 1 ? "" : "s"} acknowledged · not yet en route` : "Alert sent · waiting for a responder"}</span>
+      </span>
+      <span className="kiki-overview-alert-action">View live response <ChevronRight size={16} /></span>
     </button>}
 
     <section className="kiki-overview-hero" aria-label="Safety readiness">
       <div className="kiki-overview-hero-row">
-        <div className="kiki-overview-ring" role="img" aria-label={`${progress}% ready`}>
-          <svg viewBox="0 0 104 104" aria-hidden="true">
-            <circle className="ring-track" cx="52" cy="52" r="46" />
-            <circle className="ring-progress" cx="52" cy="52" r="46" style={{ strokeDasharray: 289, strokeDashoffset: ringOffset }} />
-          </svg>
-          <strong>{readinessError ? "—" : progress}<small>{readinessError ? "" : "%"}</small></strong>
-        </div>
         <div className="kiki-overview-hero-copy">
-          <h2>{activeTrip ? "Trip protection active" : hasSafetySetup ? "System ready" : "Setup in progress"}</h2>
+          <h2>{activeTrip ? "Trip protection active" : hasSafetySetup ? "Systems ready" : "Setup in progress"}</h2>
           <p>
             {readinessError
               ? "Safety readiness is temporarily unavailable. You can still plan a safe trip."
@@ -193,8 +200,8 @@ export default function AccountPage() {
         </Link>
         <button type="button" className="kiki-overview-status-row" style={{ width: "100%", textAlign: "left" }} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
           <span className="kiki-overview-tile-icon"><ShieldCheck size={22} /></span>
-          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearbyError ? "Responder availability unavailable" : !nearby ? "Checking responders…" : `${nearby.availableCount} ${nearby.availableCount === 1 ? "responder" : "responders"} available`}</span></span>
-          <span className={`kiki-overview-state${nearby?.availableCount ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : !nearby ? "Checking" : nearby.availableCount ? "Available" : "None available"}</span>
+          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearbyError ? "Responder availability unavailable" : responderStatusCopy}</span></span>
+          <span className={`kiki-overview-state${nearby?.availableCount ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : responderStatusLabel}</span>
           <ChevronRight className="kiki-overview-chevron" size={17} />
         </button>
 
@@ -222,8 +229,8 @@ export default function AccountPage() {
           {nearby?.scope === "linked" ? "From your linked organisation" : "From official partner organisations"} · {nearby?.availableCount ?? 0} currently on duty
         </p>
         {nearbyError ? <p>Nearby responders could not be loaded. Try again shortly.</p>
-          : nearby?.count == null ? <p>{nearby?.availableCount ? `${nearby.availableCount} responder${nearby.availableCount === 1 ? " is" : "s are"} available with your organisation. Allow location access to see which responders are nearby.` : "No responders are currently marked available with your organisation."}</p>
           : !nearby ? <p>Loading…</p>
+          : nearby.count == null ? <p>{nearby.availableCount ? `${nearby.availableCount} responder${nearby.availableCount === 1 ? " is" : "s are"} available with your organisation. Allow location access to see which responders are nearby.` : "No responders are currently marked available with your organisation."}</p>
           : nearby.count === 0 ? <p>{nearby.availableCount ? `${nearby.availableCount} responder${nearby.availableCount === 1 ? " is" : "s are"} on duty, but none shared a recent location within ${nearby.radiusKm} km.` : `No responders are currently available within ${nearby.radiusKm} km.`}{nearby.scope === "partners" ? " Only official partner organisations are searched because you aren’t linked to an organisation." : ""}</p>
           : <ul style={{ display: "grid", gap: 10 }}>{nearby.responders.map((item) => <li key={item.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #f1edf5", paddingBottom: 8 }}>
             <span><b>{item.name}</b><br /><small className="muted">{item.role} · {item.organisation}</small></span>

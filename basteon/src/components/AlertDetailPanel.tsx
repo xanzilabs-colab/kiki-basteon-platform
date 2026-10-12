@@ -1,8 +1,9 @@
 "use client";
 
-import { Copy, ExternalLink, Phone, UserRound } from "lucide-react";
+import { Copy, ExternalLink, Phone, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { CachedProfileImage } from "@/components/CachedProfileImage";
 import type { Alert, AlertEvent } from "@/lib/types";
 import { locationAgeMs, locationHealth } from "@/lib/locationTracking";
 import { StatusBadge } from "./StatusBadge";
@@ -22,6 +23,7 @@ export function AlertDetailPanel({
   organisationId,
   canDispatch,
   onViewProfile,
+  onClear,
 }: {
   alert: Alert | null;
   events: AlertEvent[];
@@ -30,6 +32,7 @@ export function AlertDetailPanel({
   organisationId?: string;
   canDispatch?: boolean;
   onViewProfile?(alert: Alert): void;
+  onClear(): void;
 }) {
   const [now, setNow] = useState(Date.now());
   const [assignBusy, setAssignBusy] = useState(false);
@@ -112,6 +115,9 @@ export function AlertDetailPanel({
         <StatusBadge status={alert.status} />
         <AlertTypeBadge typeCode={alert.type_code} size="header" />
         <span className="data text-[11px] muted">#{alert.ctr}</span>
+        <button type="button" className="btn ml-auto inline-flex h-7 items-center gap-1 px-2 text-[11px]" onClick={onClear} aria-label="Clear incident details">
+          <X size={13} />Clear
+        </button>
       </div>
 
       {alert.type_source === "upgrade" && alert.type_updated_at && <div className="mx-4 mt-3 border-l-4 border-[#087f70] bg-[#087f70]/15 px-3 py-2 text-[12px] font-semibold text-[#70e1d0]">Updated to {alert.type_code === "medical" ? "Medical" : "General"} at {new Date(alert.type_updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
@@ -119,7 +125,7 @@ export function AlertDetailPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="section">
-        <div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--surface-3)] font-bold">{alert.device?.owner?.avatar_url ? <img src={alert.device.owner.avatar_url} alt="" className="h-full w-full object-cover" /> : (alert.device?.owner?.full_name?.slice(0, 1) ?? "?")}</span><div><h2 className="text-[15px] font-semibold tracking-[-.005em]">{alert.device?.device_name ?? alert.device_id}</h2><p className="muted text-[12px] mt-0.5">{alert.device?.owner?.full_name ?? "No owner assigned"}</p></div></div>
+        <div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--surface-3)] font-bold"><CachedProfileImage src={alert.device?.owner?.avatar_url} alt="" className="h-full w-full object-cover" fallback={alert.device?.owner?.full_name?.slice(0, 1) ?? "?"} /></span><div><h2 className="text-[15px] font-semibold tracking-[-.005em]">{alert.device?.device_name ?? alert.device_id}</h2><p className="muted text-[12px] mt-0.5">{alert.device?.owner?.full_name ?? "No owner assigned"}</p></div></div>
 
         {alert.device?.owner?.phone && (
           <a

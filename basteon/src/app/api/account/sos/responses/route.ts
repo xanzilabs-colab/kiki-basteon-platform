@@ -57,7 +57,7 @@ export async function GET(request: Request) {
   const responderIds = [...new Set((assignments ?? []).map((row) => row.responder_user_id).filter((id): id is string => Boolean(id)))];
   const [{ data: presence, error: presenceError }, { data: profiles, error: profilesError }] = responderIds.length
     ? await Promise.all([
-        db.from("responder_presence").select("user_id,organisation_id,last_lat,last_lng,last_seen_at").in("user_id", responderIds),
+        db.from("responder_presence").select("user_id,organisation_id,last_lat,last_lng,last_seen_at,last_location_at").in("user_id", responderIds),
         db.from("profiles").select("id,full_name").in("id", responderIds),
       ])
     : [{ data: [], error: null }, { data: [], error: null }];
@@ -79,7 +79,9 @@ export async function GET(request: Request) {
   const nameByUser = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
   const responders = (assignments ?? []).map((assignment) => {
     const latest = presenceByUser.get(assignment.responder_user_id);
-    const seenAt = latest?.last_seen_at ? new Date(latest.last_seen_at).getTime() : 0;
+    const seenAt = latest?.last_location_at
+      ? new Date(latest.last_location_at).getTime()
+      : latest?.last_seen_at ? new Date(latest.last_seen_at).getTime() : 0;
     const locationIsFresh = now - seenAt <= LIVE_POSITION_MAX_AGE_MS
       && latest?.last_lat != null
       && latest?.last_lng != null;

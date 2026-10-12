@@ -45,11 +45,13 @@ export async function GET(request: Request) {
 
   const { data: presence, error: presenceError } = await db
     .from("responder_presence")
-    .select("last_lat,last_lng,last_seen_at")
+    .select("last_lat,last_lng,last_location_at,last_seen_at")
     .eq("user_id", assignment.responder_user_id)
     .maybeSingle();
   if (presenceError) return NextResponse.json({ error: presenceError.message }, { status: 500 });
-  const seenAt = presence?.last_seen_at ? new Date(presence.last_seen_at).getTime() : 0;
+  const seenAt = presence?.last_location_at
+    ? new Date(presence.last_location_at).getTime()
+    : presence?.last_seen_at ? new Date(presence.last_seen_at).getTime() : 0;
   if (!presence || Date.now() - seenAt > LIVE_POSITION_MAX_AGE_MS || presence.last_lat == null || presence.last_lng == null) {
     return NextResponse.json({ error: "responder_location_stale" }, { status: 409 });
   }

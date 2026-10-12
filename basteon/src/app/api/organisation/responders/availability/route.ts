@@ -46,17 +46,21 @@ export async function PATCH(request: Request) {
 
   const db = createAdminClient();
   const branchId = payload.data.branchId ?? ownMembership.branch_id ?? null;
+  const { data: existing, error: existingError } = await db.from("responder_presence")
+    .select("last_lat,last_lng,unit_id")
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+  if (existingError) return NextResponse.json({ error: existingError.message }, { status: 400 });
   const { data, error } = await db.from("responder_presence").upsert({
     user_id: targetUserId,
     organisation_id: payload.data.organisationId,
     branch_id: branchId,
-    unit_id: payload.data.unitId ?? null,
+    unit_id: payload.data.unitId !== undefined ? payload.data.unitId : existing?.unit_id ?? null,
     availability: payload.data.availability,
-    last_lat: payload.data.lastLat ?? null,
-    last_lng: payload.data.lastLng ?? null,
+    last_lat: payload.data.lastLat !== undefined ? payload.data.lastLat : existing?.last_lat ?? null,
+    last_lng: payload.data.lastLng !== undefined ? payload.data.lastLng : existing?.last_lng ?? null,
     last_seen_at: new Date().toISOString(),
   }, { onConflict: "user_id" }).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
 }
-

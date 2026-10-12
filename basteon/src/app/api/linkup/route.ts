@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  BOMB, LETTERS, bombInit, bombResolve, bombSetEnd, bombSpec, buildIndex, buildSpec,
+  BOMB, CONFIG, LETTERS, bombInit, bombResolve, bombSetEnd, bombSpec, buildIndex, buildSpec,
   chainCarry, matchWinner, mulberry32, rolesForRound, scoreRound, applyRound,
   solutions, validateAnswer,
 } from "@/lib/games/linkup/engine";
@@ -24,7 +24,7 @@ const schema = z.object({
 
 const words = LINKUP_WORDS;
 const index = buildIndex(words);
-const PICK_WINDOW_MS = 10_000;
+const PICK_WINDOW_MS = CONFIG.pickMs;
 const REVEAL_WINDOW_MS = 1400;
 const ANSWER_WINDOW_MS = 10000;
 const RESULT_WINDOW_MS = 2400;
@@ -311,7 +311,9 @@ async function getSnapshot(match: Match, uid: string) {
       availableBombEndLetters: safeBombState && safeBombState.passer === uid && !safeBombState.end
         ? LETTERS.filter((letter) => pairHasWords(safeBombState.start, letter, new Set(safeBombState.used)))
         : [],
-      usedWords: match.mode === "bomb" && safeBombState ? safeBombState.used : undefined,
+      usedWords: match.mode === "bomb" && safeBombState
+        ? safeBombState.used
+        : match.status === "finished" ? match.used_words : undefined,
     },
     round: publicRound(match, uid, round, ownAnswer, visibleAnswers),
   };

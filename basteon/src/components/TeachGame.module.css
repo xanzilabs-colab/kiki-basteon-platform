@@ -21,6 +21,7 @@
 .notice { background: #fff4d8; color: #674b17; }
 .notice button { margin-left: auto; border: 0; background: transparent; color: inherit; text-decoration: underline; }
 .error { background: #fde9e9; color: #8b3030; }
+.error > button { flex: 0 0 auto; margin-left: auto; padding: 5px 9px; border: 1px solid #d9a9a9; border-radius: 9px; background: #fff8f8; color: #7c2929; font-size: .8rem; font-weight: 750; }
 .partners { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
 .partners > div { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 13px; border-radius: 16px; background: #f4edf6; }
 .partners span { font-size: 1.4rem; }

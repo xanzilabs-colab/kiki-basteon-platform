@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BOMB,
+  CONFIG,
   bombInit,
   bombResolve,
   bombSetEnd,
@@ -41,6 +42,12 @@ const spec = (overrides: Partial<RoundSpec> = {}): RoundSpec => ({
   pointsMultiplier: 1,
   rerolled: false,
   ...overrides,
+});
+
+describe("linkup timers", () => {
+  it("gives players five seconds to choose their letters", () => {
+    expect(CONFIG.pickMs).toBe(5_000);
+  });
 });
 
 describe("mode rules", () => {
