@@ -57,6 +57,151 @@ export async function GET() {
     const profile = profileById.get(member.user_id);
     return { ...member, profiles: { full_name: profile?.full_name ?? null, phone: profile?.phone ?? null, email: emailByUserId.get(member.user_id) ?? null } };
   });
+
+  let assignmentRows: any[] = [];
+  let recentAssignments: any[] = [];
+  let responderPerformance: any[] = [];
+  let auditTrail: any[] = [];
+
+  const alertAssignments = await db.from("alert_assignments")
+      .select("id,alert_id,organisation_id,branch_id,responder_user_id,status,assigned_at,acknowledged_at,completed_at,profiles(full_name)")
+      .eq("organisation_id", organisationId)
+      .order("assigned_at", { ascending: false })
+      .limit(250);
+  if (alertAssignments.error) {
+    return NextResponse.json({ error: `Could not load responder assignment history: ${alertAssignments.error.message}` }, { status: 500 });
+  }
+  assignmentRows = (alertAssignments.data ?? []) as any[];
+  const alertIds = [...new Set(assignmentRows.map((row) => row.alert_id).filter(Boolean))];
+
+  const alertQueries = alertIds.length
+      ? await Promise.all([
+        db.from("alert_assignment_events")
+          .select("id,alert_id,assignment_id,actor_id,action,from_status,to_status,created_at,profiles(full_name)")
+          .in("alert_id", alertIds)
+          .order("created_at", { ascending: false })
+          .limit(250),
+        db.from("alert_events")
+          .select("id,alert_id,actor_id,from_status,to_status,note,created_at,profiles(full_name)")
+          .in("alert_id", alertIds)
+          .order("created_at", { ascending: false })
+          .limit(250),
+        db.from("alert_routing_events")
+          .select("id,alert_id,stage,details,created_at")
+          .in("alert_id", alertIds)
+          .order("created_at", { ascending: false })
+          .limit(250),
+        db.from("alerts")
+          .select("id,status,triggered_at,assigned_to,primary_organisation_id,primary_branch_id")
+          .in("id", alertIds),
+      ])
+      : [
+        { data: [] },
+        { data: [] },
+        { data: [] },
+        { data: [] },
+      ] as const;
+
+  const [assignmentEvents, alertEvents, routingEvents, alertRowsResult] = alertQueries;
+  const queryError = (alertQueries as Array<{ error?: { message: string } | null }>).find((result) => result.error)?.error;
+  if (queryError) {
+    return NextResponse.json({ error: `Could not load responder audit history: ${queryError.message}` }, { status: 500 });
+  }
+  const alertRowsData = ((alertRowsResult as { data?: any[] } | undefined)?.data ?? []) as any[];
+  const alertById = new Map(alertRowsData.map((row: any) => [row.id, row]));
+  const responderNameByUserId = new Map<string, string | null>();
+  for (const profile of memberProfiles ?? []) {
+    responderNameByUserId.set(profile.id, profile.full_name ?? null);
+  }
+
+  recentAssignments = (assignmentRows ?? []).map((assignment: any) => {
+      const alert = alertById.get(assignment.alert_id);
+      const responderName = assignment.profiles?.full_name ?? responderNameByUserId.get(assignment.responder_user_id) ?? emailByUserId.get(assignment.responder_user_id) ?? null;
+      return {
+        id: assignment.id,
+        alertId: assignment.alert_id,
+        responderUserId: assignment.responder_user_id ?? null,
+        responderName,
+        status: assignment.status,
+        assignedAt: assignment.assigned_at ?? null,
+        acknowledgedAt: assignment.acknowledged_at ?? null,
+        completedAt: assignment.completed_at ?? null,
+        alertStatus: alert?.status ?? null,
+        triggeredAt: alert?.triggered_at ?? null,
+        branchId: assignment.branch_id ?? null,
+        responseSeconds: assignment.acknowledged_at && assignment.assigned_at
+          ? Math.max(0, (new Date(assignment.acknowledged_at).getTime() - new Date(assignment.assigned_at).getTime()) / 1000)
+          : null,
+      };
+    });
+
+    responderPerformance = (() => {
+      const byUser = new Map<string, any>();
+      for (const assignment of assignmentRows) {
+        const userId = assignment.responder_user_id;
+        if (!userId) continue;
+        const record = byUser.get(userId) ?? {
+          userId,
+          name: assignment.profiles?.full_name ?? responderNameByUserId.get(userId) ?? emailByUserId.get(userId) ?? "Unknown responder",
+          totalAssignments: 0,
+          acceptedAssignments: 0,
+          onSceneAssignments: 0,
+          completedAssignments: 0,
+          acknowledgeSeconds: [] as number[],
+          completionSeconds: [] as number[],
+          lastActivity: null as string | null,
+        };
+        record.totalAssignments += 1;
+        if (assignment.acknowledged_at || ["acknowledged", "en_route", "on_scene", "completed"].includes(assignment.status)) record.acceptedAssignments += 1;
+        if (assignment.status === "on_scene") record.onSceneAssignments += 1;
+        if (assignment.status === "completed") record.completedAssignments += 1;
+        if (assignment.assigned_at && assignment.acknowledged_at) {
+          record.acknowledgeSeconds.push(Math.max(0, (new Date(assignment.acknowledged_at).getTime() - new Date(assignment.assigned_at).getTime()) / 1000));
+        }
+        if (assignment.assigned_at && assignment.completed_at) {
+          record.completionSeconds.push(Math.max(0, (new Date(assignment.completed_at).getTime() - new Date(assignment.assigned_at).getTime()) / 1000));
+        }
+        const latest = [assignment.assigned_at, assignment.acknowledged_at, assignment.completed_at].filter(Boolean).sort().at(-1) ?? null;
+        if (latest && (!record.lastActivity || new Date(latest).getTime() > new Date(record.lastActivity).getTime())) {
+          record.lastActivity = latest;
+        }
+        byUser.set(userId, record);
+      }
+
+      return [...byUser.values()].map((record: any) => ({
+        userId: record.userId,
+        name: record.name,
+        totalAssignments: record.totalAssignments,
+        acceptedAssignments: record.acceptedAssignments,
+        onSceneAssignments: record.onSceneAssignments,
+        completedAssignments: record.completedAssignments,
+        avgAcknowledgeSeconds: record.acknowledgeSeconds.length ? Math.round(record.acknowledgeSeconds.reduce((sum: number, value: number) => sum + value, 0) / record.acknowledgeSeconds.length) : null,
+        avgCompletionSeconds: record.completionSeconds.length ? Math.round(record.completionSeconds.reduce((sum: number, value: number) => sum + value, 0) / record.completionSeconds.length) : null,
+        lastActivity: record.lastActivity,
+        successRate: record.totalAssignments ? Math.round((record.completedAssignments / record.totalAssignments) * 100) : 0,
+      })).sort((left: any, right: any) => (right.completedAssignments + right.onSceneAssignments) - (left.completedAssignments + left.onSceneAssignments));
+    })();
+
+    auditTrail = [...((assignmentEvents as any)?.data ?? []), ...((alertEvents as any)?.data ?? []), ...((routingEvents as any)?.data ?? [])]
+      .map((event: any) => {
+        const actorName = event.actor_id && event.profiles?.full_name ? event.profiles.full_name : (event.actor_id ? responderNameByUserId.get(event.actor_id) ?? emailByUserId.get(event.actor_id) ?? null : null);
+        const alert = alertById.get(event.alert_id);
+        return {
+          id: event.id,
+          alertId: event.alert_id,
+          actorId: event.actor_id ?? null,
+          actorName,
+          category: event.action ? "assignment" : event.stage ? "routing" : "alert",
+          action: event.action ?? event.stage ?? "status_update",
+          fromStatus: event.from_status ?? null,
+          toStatus: event.to_status ?? null,
+          createdAt: event.created_at ?? null,
+          note: event.note ?? ((event.details && typeof event.details === "object" && "reason" in event.details) ? String((event.details as any).reason) : null),
+          alertStatus: alert?.status ?? null,
+        };
+      })
+      .sort((left: any, right: any) => new Date(right.createdAt ?? 0).getTime() - new Date(left.createdAt ?? 0).getTime())
+      .slice(0, 60);
   return NextResponse.json({
     userId,
     organisation,
@@ -82,6 +227,9 @@ export async function GET() {
       until: organisation?.blocked_until ?? null,
       reason: organisation?.blocked_reason ?? null,
     },
+    responderHistory: recentAssignments,
+    responderPerformance,
+    alertAuditTrail: auditTrail,
   });
 }
 

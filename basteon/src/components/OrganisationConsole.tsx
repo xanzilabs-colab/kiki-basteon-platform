@@ -31,6 +31,45 @@ type MeResponse = {
   coverage: Array<any>;
   units: Array<any>;
   responderPresence: Array<any>;
+  responderHistory?: Array<{
+    id: string;
+    alertId: string | null;
+    responderUserId: string | null;
+    responderName: string | null;
+    status: string | null;
+    assignedAt: string | null;
+    acknowledgedAt: string | null;
+    completedAt: string | null;
+    alertStatus: string | null;
+    triggeredAt: string | null;
+    branchId: string | null;
+    responseSeconds: number | null;
+  }>;
+  responderPerformance?: Array<{
+    userId: string;
+    name: string;
+    totalAssignments: number;
+    acceptedAssignments: number;
+    onSceneAssignments: number;
+    completedAssignments: number;
+    avgAcknowledgeSeconds: number | null;
+    avgCompletionSeconds: number | null;
+    lastActivity: string | null;
+    successRate: number;
+  }>;
+  alertAuditTrail?: Array<{
+    id: string;
+    alertId: string | null;
+    actorId: string | null;
+    actorName: string | null;
+    category: string;
+    action: string;
+    fromStatus: string | null;
+    toStatus: string | null;
+    createdAt: string | null;
+    note: string | null;
+    alertStatus: string | null;
+  }>;
   dispatchPolicy: { acknowledge_timeout_seconds: number; escalation_timeout_seconds: number; auto_assign_enabled: boolean } | null;
   supportContacts: {
     global: Array<any>;
@@ -74,6 +113,14 @@ type OrganisationLinkRequest = {
   membershipType: string;
   createdAt: string;
 };
+
+function formatResponseDuration(seconds: number | null) {
+  if (seconds == null) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+}
 
 function SettingsSwitch({ checked, onChange, title, description }: {
   checked: boolean;
@@ -1031,6 +1078,10 @@ export function OrganisationConsole() {
     .filter((presence) => presence.last_seen_at)
     .sort((a, b) => +new Date(b.last_seen_at) - +new Date(a.last_seen_at))
     .slice(0, 4);
+  const responderHistory = state?.responderHistory ?? [];
+  const responderPerformance = state?.responderPerformance ?? [];
+  const alertAuditTrail = state?.alertAuditTrail ?? [];
+  const topResponders = [...responderPerformance].sort((a, b) => (b.completedAssignments + b.onSceneAssignments) - (a.completedAssignments + a.onSceneAssignments)).slice(0, 3);
   const roleLabel = String(state?.memberships?.[0]?.role ?? "owner").toLowerCase();
   const orgTypeLabel = String(state?.organisation?.organisation_type ?? "business").toLowerCase();
 
@@ -1179,6 +1230,67 @@ export function OrganisationConsole() {
               <button className="org-console-action" type="button" onClick={() => setActiveTab("members")}><span><Users size={16} className="org-action-icon staff" />Manage Staff</span><ArrowRight size={14} /></button>
               <button className="org-console-action" type="button" onClick={() => setActiveTab("beneficiaries")}><span><Users size={16} className="org-action-icon beneficiaries" />View Beneficiaries</span><ArrowRight size={14} /></button>
               <button className="org-console-action" type="button" onClick={() => setActiveTab("settings")}><span><Settings2 size={16} className="org-action-icon rules" />Linking Rules</span><ArrowRight size={14} /></button>
+            </div>
+          </section>
+
+          <section className="panel p-6 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="org-home-title"><Shield size={14} />Responder history & performance</h3>
+                <p className="muted text-xs mt-1">Recent assignments, audit trail, and response outcomes.</p>
+              </div>
+              <button className="btn" type="button" onClick={() => setActiveTab("responders")}>Open responder roster</button>
+            </div>
+            <div className="org-history-metrics">
+              {topResponders.length > 0 ? topResponders.map((row) => (
+                <div key={row.userId} className="org-history-metric-card">
+                  <div className="org-history-metric-header">
+                    <strong>{row.name}</strong>
+                    <span>{row.successRate}% success</span>
+                  </div>
+                  <p className="muted text-xs">{row.totalAssignments} assignments</p>
+                  <dl className="org-history-metric-stats">
+                    <div><dt>Accepted</dt><dd>{row.acceptedAssignments}</dd></div>
+                    <div><dt>On scene</dt><dd>{row.onSceneAssignments}</dd></div>
+                    <div><dt>Avg ack</dt><dd>{formatResponseDuration(row.avgAcknowledgeSeconds)}</dd></div>
+                    <div><dt>Avg complete</dt><dd>{formatResponseDuration(row.avgCompletionSeconds)}</dd></div>
+                  </dl>
+                </div>
+              )) : (
+                <div className="org-history-empty">No responder activity has been recorded yet.</div>
+              )}
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="org-history-column">
+                <h4 className="org-history-column-title">Recent dispatches</h4>
+                {responderHistory.length > 0 ? responderHistory.slice(0, 5).map((entry) => (
+                  <div key={entry.id} className="org-history-item">
+                    <div>
+                      <strong>{entry.responderName ?? "Unassigned responder"}</strong>
+                      <p className="muted text-[11px]">{entry.alertStatus ?? "Alert"} • {entry.status ?? "pending"}</p>
+                    </div>
+                    <div className="org-history-item-meta">
+                      <span>{entry.assignedAt ? new Date(entry.assignedAt).toLocaleString() : "No time"}</span>
+                      <small>{entry.responseSeconds == null ? "—" : `${Math.round(entry.responseSeconds / 60)} min ack`}</small>
+                    </div>
+                  </div>
+                )) : <p className="muted text-xs">No recent response history for this organisation yet.</p>}
+              </div>
+              <div className="org-history-column">
+                <h4 className="org-history-column-title">Audit trail</h4>
+                {alertAuditTrail.length > 0 ? alertAuditTrail.slice(0, 5).map((entry) => (
+                  <div key={entry.id} className="org-history-item">
+                    <div>
+                      <strong>{entry.action}</strong>
+                      <p className="muted text-[11px]">{entry.actorName ?? "System"} → {entry.alertStatus ?? "unknown"}</p>
+                    </div>
+                    <div className="org-history-item-meta">
+                      <span>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "No time"}</span>
+                      <small>{entry.note ?? entry.category}</small>
+                    </div>
+                  </div>
+                )) : <p className="muted text-xs">No audit activity yet.</p>}
+              </div>
             </div>
           </section>
           <div className="grid gap-4 lg:grid-cols-3">
@@ -2065,6 +2177,93 @@ export function OrganisationConsole() {
         border: 1px solid #2a3147; border-radius: 14px; box-shadow: none; background: #1a1e2b;
       }
       .org-console-surface-block h3 { color: #ffffff; }
+      .org-history-metrics {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+      }
+      @media (min-width: 768px) {
+        .org-history-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      }
+      .org-history-metric-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface-2);
+        padding: 14px;
+      }
+      .org-history-metric-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+      }
+      .org-history-metric-header strong { color: var(--text); }
+      .org-history-metric-header span { color: var(--ok); }
+      .org-history-metric-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        margin: 12px 0 0;
+      }
+      .org-history-metric-stats div {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.02);
+        padding: 8px 6px;
+        text-align: center;
+      }
+      .org-history-metric-stats dt {
+        color: var(--muted);
+        font-size: 10px;
+        margin-bottom: 4px;
+      }
+      .org-history-metric-stats dd {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .org-history-empty {
+        border: 1px dashed var(--line);
+        border-radius: 12px;
+        padding: 16px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .org-history-column {
+        display: grid;
+        gap: 10px;
+      }
+      .org-history-column-title {
+        margin: 0;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .org-history-item {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-2);
+        padding: 12px 13px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .org-history-item strong { display: block; font-size: 12px; }
+      .org-history-item-meta {
+        display: grid;
+        justify-items: end;
+        gap: 4px;
+        text-align: right;
+      }
+      .org-history-item-meta span,
+      .org-history-item-meta small {
+        color: var(--muted);
+        font-size: 10px;
+      }
       .org-console-quick-actions {
         display: grid;
         gap: 10px;
@@ -2216,7 +2415,7 @@ export function OrganisationConsole() {
         border: 1px solid var(--line);
         border-radius: 999px;
         background: #343945;
-        transition: background .18s ease, border-color .18s ease;
+        transition: background .28s cubic-bezier(.22,1,.36,1), border-color .28s cubic-bezier(.22,1,.36,1), box-shadow .28s cubic-bezier(.22,1,.36,1);
       }
       .org-switch span {
         display: block;
@@ -2225,7 +2424,7 @@ export function OrganisationConsole() {
         border-radius: 50%;
         background: #fff;
         box-shadow: 0 1px 3px rgba(0,0,0,.35);
-        transition: transform .18s ease;
+        transition: transform .28s cubic-bezier(.22,1,.36,1);
       }
       .org-switch.is-on { background: #22a06b; border-color: #22a06b; }
       .org-switch.is-on span { transform: translateX(18px); }

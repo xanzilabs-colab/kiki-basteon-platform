@@ -34,9 +34,14 @@ type Room = {
   state: Record<string, unknown>;
 };
 
+type LobbyPalette = "sunset" | "lavender";
+const LOBBY_PALETTE_STORAGE_KEY = "kiki-linkup-palette";
+
 export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: boolean }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("classic");
+  const [palette, setPalette] = useState<LobbyPalette>("sunset");
+  const [paletteLoaded, setPaletteLoaded] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [room, setRoom] = useState<Room | null>(null);
   const [userId, setUserId] = useState("");
@@ -45,6 +50,26 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const redirectingRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const storedPalette = window.localStorage.getItem(LOBBY_PALETTE_STORAGE_KEY);
+      if (storedPalette === "sunset" || storedPalette === "lavender") setPalette(storedPalette);
+    } catch {
+      setError("Theme preference could not be loaded from this device.");
+    } finally {
+      setPaletteLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!paletteLoaded) return;
+    try {
+      window.localStorage.setItem(LOBBY_PALETTE_STORAGE_KEY, palette);
+    } catch {
+      setError("Theme changed for this visit, but could not be saved on this device.");
+    }
+  }, [palette, paletteLoaded]);
 
   const openRoomMatch = useCallback(async () => {
     if (!roomId || redirectingRef.current) return;
@@ -181,11 +206,25 @@ export function LinkupLobby({ roomId, solo = false }: { roomId?: string; solo?: 
 
   return (
     <main className={styles.page}>
-      <div className={styles.shell}>
+      <div className={styles.shell} data-theme={palette}>
         <header className={styles.header}>
           <Link href={solo ? "/games" : "/games/linkup"} aria-label="Back"><ArrowLeft size={18} /></Link>
           <div><small>KIKI LINKS</small><h1>{solo ? "Play with Kiki" : "Choose your mode"}</h1></div>
-          <button type="button" onClick={() => setHelpOpen(true)} aria-label="How to play"><BookOpen size={19} /></button>
+          <div className={styles.headerActions}>
+            <span className={styles.themeLabel}>Theme</span>
+            <button
+              type="button"
+              className={styles.themeToggle}
+              role="switch"
+              aria-checked={palette === "lavender"}
+              aria-label="Soft lavender theme"
+              title={palette === "lavender" ? "Switch to the current theme" : "Switch to the soft lavender theme"}
+              onClick={() => setPalette((current) => current === "lavender" ? "sunset" : "lavender")}
+            >
+              <span />
+            </button>
+            <button type="button" onClick={() => setHelpOpen(true)} aria-label="How to play"><BookOpen size={19} /></button>
+          </div>
         </header>
 
         <div className={styles.scroll}>

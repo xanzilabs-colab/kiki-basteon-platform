@@ -19,7 +19,10 @@ const organisationId = "00000000-0000-0000-0000-000000000001";
 const userId = "00000000-0000-0000-0000-000000000002";
 const rosterEntryId = "00000000-0000-0000-0000-000000000003";
 
-function setup(linkStatus: "active" | "link_ended") {
+function setup(
+  linkStatus: "active" | "link_ended",
+  historyHandler: (call: FakeCall) => { data?: unknown; error?: unknown } = () => ({}),
+) {
   const rosterLink = {
     id: "00000000-0000-0000-0000-000000000004",
     user_id: userId,
@@ -48,7 +51,7 @@ function setup(linkStatus: "active" | "link_ended") {
         : { data: [{ id: "membership-1", user_id: userId, role: "member", membership_type: "member", status: "active", profiles: { full_name: "Member", phone: null } }] };
     }
     if (call.table === "organisations" && call.action === "select") return { data: { id: organisationId, status: "active" } };
-    return {};
+    return historyHandler(call);
   });
   db.listUsers.mockResolvedValue({
     data: { users: [{ id: userId, email: "member@example.org" }] },
@@ -96,5 +99,69 @@ describe("GET /api/organisation/me roster membership reconciliation", () => {
       && call.action === "insert"
       && (call.payload as { action?: string }).action === "link_restored_from_active_roster",
     )).toBe(true);
+  });
+
+  it("returns responder assignment metrics and audit events", async () => {
+    const alertId = "00000000-0000-0000-0000-000000000005";
+    const assignmentId = "00000000-0000-0000-0000-000000000006";
+    const db = setup("active", (call) => {
+      if (call.table === "alert_assignments") {
+        return {
+          data: [{
+            id: assignmentId,
+            alert_id: alertId,
+            responder_user_id: userId,
+            branch_id: null,
+            status: "completed",
+            assigned_at: "2026-10-12T10:00:00.000Z",
+            acknowledged_at: "2026-10-12T10:01:00.000Z",
+            completed_at: "2026-10-12T10:05:00.000Z",
+            profiles: { full_name: "Responder" },
+          }],
+        };
+      }
+      if (call.table === "alert_assignment_events") {
+        return {
+          data: [{
+            id: "event-1",
+            alert_id: alertId,
+            assignment_id: assignmentId,
+            actor_id: userId,
+            action: "completed",
+            from_status: "on_scene",
+            to_status: "completed",
+            created_at: "2026-10-12T10:05:00.000Z",
+            profiles: { full_name: "Responder" },
+          }],
+        };
+      }
+      if (call.table === "alerts") {
+        return { data: [{ id: alertId, status: "resolved", triggered_at: "2026-10-12T09:59:00.000Z" }] };
+      }
+      return { data: [] };
+    });
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.responderHistory[0]).toMatchObject({
+      alertId,
+      responderName: "Responder",
+      responseSeconds: 60,
+    });
+    expect(body.responderPerformance[0]).toMatchObject({
+      totalAssignments: 1,
+      acceptedAssignments: 1,
+      completedAssignments: 1,
+      avgAcknowledgeSeconds: 60,
+      avgCompletionSeconds: 300,
+      successRate: 100,
+    });
+    expect(body.alertAuditTrail[0]).toMatchObject({
+      alertId,
+      action: "completed",
+      actorName: "Responder",
+    });
   });
 });
