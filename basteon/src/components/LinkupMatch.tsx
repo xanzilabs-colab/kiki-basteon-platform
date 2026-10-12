@@ -281,8 +281,8 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     setHistory([]);
   }, [matchId]);
 
-  const send = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
-    if (busyRef.current) return;
+  const send = useCallback(async (action: string, extra: Record<string, unknown> = {}): Promise<boolean> => {
+    if (busyRef.current) return false;
     busyRef.current = true;
     syncSequenceRef.current += 1;
     setBusy(true);
@@ -299,7 +299,9 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
           ? "That bomb turn has already been handled. Syncing the latest turn now."
           : result.error === "answer_late"
             ? "That answer arrived after the timer ended."
-            : "That move could not be saved. Your match is still open; please try again.";
+            : typeof result.reason === "string"
+              ? `That move could not be saved (${result.reason}). Your word is still here; please try again.`
+              : "That move could not be saved. Your word is still here; please try again.";
         throw new Error(message);
       }
       setSnapshot(result as Snapshot);
@@ -309,10 +311,12 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       dismissGameError(syncToastId);
       if (action === "pick") playTone(520, 0.08, "triangle", 0.03);
       if (action === "answer") playTone(820, 0.09, "sine", 0.04);
+      return true;
     } catch (error) {
       const description = error instanceof Error ? error.message : "That move could not be saved. Please try again.";
       setMessage(description);
       showGameError("Move not saved", description);
+      return false;
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -488,7 +492,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
               </div>
               <div className={styles.letterBoard}><span>{displayLetter(bomb.start)}</span><i>…</i><span>{displayLetter(bomb.end)}</span></div>
               {endPickerTurn && <section className={styles.picker}><strong>Pick the end letter for your opponent</strong><div className={styles.letters}>{(match.availableBombEndLetters ?? []).map((letter) => <button type="button" key={letter} onClick={() => void send("bomb_end", { letter })} disabled={busy}>{letter.toUpperCase()}</button>)}</div>{(match.availableBombEndLetters ?? []).length === 0 && <p role="status">No playable end letters are available for this starting letter.</p>}<small>Fuse pauses while you pick · {Math.max(0, Math.ceil((BOMB.pickMs - (match.turnStartedAt ? now - Date.parse(match.turnStartedAt) : 0)) / 1000))}s</small></section>}
-              {holderTurn && bomb.end && <form className={styles.answer} onSubmit={(event) => { event.preventDefault(); void send("answer", { text: word }); setWord(""); }}>
+              {holderTurn && bomb.end && <form className={styles.answer} onSubmit={async (event) => { event.preventDefault(); if (await send("answer", { text: word })) setWord(""); }}>
                 <label htmlFor="bomb-answer">Make a word from {displayLetter(bomb.start)} to {displayLetter(bomb.end)}</label>
                 <input id="bomb-answer" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} maxLength={32} />
                 {speechButton}

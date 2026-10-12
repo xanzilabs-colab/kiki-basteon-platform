@@ -518,25 +518,24 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
     const verdict = validateAnswer(action.text ?? null, spec, words, new Set(state.used));
     const resolution = bombResolve(state, verdict, usedMs);
     state = resolution.state;
-    const { data: claimed, error: updateError } = await db.from("linkup_matches").update({
-      bomb_state: state, fuse_left_ms: state.fuseLeftMs, turn_no: match.turn_no + 1,
-      holder_id: databaseActorId(match, state.holder),
-      passer_id: databaseActorId(match, state.passer),
-      bomb_start: state.start,
-      bomb_end: state.end, turn_started_at: new Date().toISOString(),
-      status: state.exploded ? "finished" : "active",
-      finished_at: state.exploded ? new Date().toISOString() : null,
-    }).eq("id", match.id).eq("turn_no", match.turn_no).eq("holder_id", uid).eq("status", "active").select("id").maybeSingle();
-    if (updateError) throw new Error("bomb_turn_update_failed");
-    if (!claimed) throw new Error("bomb_turn_already_resolved");
-    const { error: historyError } = await db.from("linkup_turns").insert({
-      match_id: match.id, turn_no: match.turn_no,
-      holder_id: databaseActorId(match, match.bomb_state.holder),
-      actor_id: match.bomb_state.holder,
-      start: spec.start, end: spec.end, word: verdict.word, valid: verdict.valid,
-      reason: verdict.reason, used_ms: usedMs, fuse_after_ms: state.fuseLeftMs, resolved: true,
+    const { data: claimed, error: commitError } = await db.rpc("linkup_commit_bomb_turn", {
+      p_match_id: match.id,
+      p_expected_turn: match.turn_no,
+      p_expected_holder: match.bomb_state.holder,
+      p_next_state: state,
+      p_next_holder_id: databaseActorId(match, state.holder),
+      p_next_passer_id: databaseActorId(match, state.passer),
+      p_history_holder_id: databaseActorId(match, match.bomb_state.holder),
+      p_start: spec.start,
+      p_end: spec.end,
+      p_word: verdict.word,
+      p_valid: verdict.valid,
+      p_reason: verdict.reason,
+      p_used_ms: usedMs,
+      p_fuse_after_ms: state.fuseLeftMs,
     });
-    requireDatabaseSuccess("bomb_turn_history", historyError);
+    requireDatabaseSuccess("bomb_turn_commit", commitError);
+    if (!claimed) throw new Error("bomb_turn_already_resolved");
     if (state.exploded) await markBombRoomFinished(match);
     return;
   }
@@ -588,38 +587,26 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
         const usedMs = Math.max(answer.delayMs, elapsed);
         const resolution = bombResolve(state, verdict, usedMs);
         const nextState = resolution.state;
-        const { data: claimed, error: updateError } = await db.from("linkup_matches").update({
-          bomb_state: nextState,
-          fuse_left_ms: nextState.fuseLeftMs,
-          turn_no: match.turn_no + 1,
-          holder_id: databaseActorId(match, nextState.holder),
-          passer_id: databaseActorId(match, nextState.passer),
-          bomb_start: nextState.start,
-          bomb_end: nextState.end,
-          turn_started_at: new Date().toISOString(),
-          status: nextState.exploded ? "finished" : "active",
-          finished_at: nextState.exploded ? new Date().toISOString() : null,
-        }).eq("id", match.id).eq("bomb_state->>holder", botId).eq("turn_no", match.turn_no)
-          .eq("status", "active").select("id").maybeSingle();
-        requireDatabaseSuccess("bomb_bot_answer", updateError);
+        const { data: claimed, error: commitError } = await db.rpc("linkup_commit_bomb_turn", {
+          p_match_id: match.id,
+          p_expected_turn: match.turn_no,
+          p_expected_holder: botId,
+          p_next_state: nextState,
+          p_next_holder_id: databaseActorId(match, nextState.holder),
+          p_next_passer_id: databaseActorId(match, nextState.passer),
+          p_history_holder_id: null,
+          p_start: spec.start,
+          p_end: spec.end,
+          p_word: verdict.word,
+          p_valid: verdict.valid,
+          p_reason: verdict.reason,
+          p_used_ms: usedMs,
+          p_fuse_after_ms: nextState.fuseLeftMs,
+        });
+        requireDatabaseSuccess("bomb_bot_commit", commitError);
         if (claimed) {
-          const { error: historyError } = await db.from("linkup_turns").upsert({
-          match_id: match.id,
-          turn_no: match.turn_no,
-          holder_id: null,
-          actor_id: botId,
-          start: spec.start,
-          end: spec.end,
-          word: verdict.word,
-          valid: verdict.valid,
-          reason: verdict.reason,
-          used_ms: usedMs,
-          fuse_after_ms: nextState.fuseLeftMs,
-          resolved: true,
-          }, { onConflict: "match_id,turn_no" });
-          requireDatabaseSuccess("bomb_bot_history", historyError);
+          if (nextState.exploded) await markBombRoomFinished(match);
         }
-        if (claimed && nextState.exploded) await markBombRoomFinished(match);
       }
     }
   }
@@ -772,6 +759,8 @@ export async function POST(request: Request) {
     return NextResponse.json(await getSnapshot(latest, user.id));
   } catch (error) {
     console.error("linkup action failed", error);
-    return fail("action_failed", 500);
+    const rawReason = error instanceof Error ? error.message : "";
+    const reason = /^[a-z][a-z0-9_:-]{0,80}$/i.test(rawReason) ? rawReason : "unknown";
+    return NextResponse.json({ error: "action_failed", reason }, { status: 500 });
   }
 }
