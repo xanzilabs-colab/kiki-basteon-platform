@@ -559,7 +559,10 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
             {wildcardBanner(currentSpec) && <p className={styles.banner}><Sparkles size={15} />{wildcardBanner(currentSpec)}</p>}
             {currentSpec.mines.map((mine) => <span key={mine} className={styles.mineChip}>💣 {displayLetter(mine)}</span>)}
             {match.mode === "chain" && <div className={styles.chain}><Link2 size={16} /> Chain {round.roundNo} / 10 <span>{history.map(displayLetter).join(" → ")}</span></div>}
-            <form className={styles.answer} onSubmit={(event) => { event.preventDefault(); void send("answer", { text: word }); setWord(""); }}>
+            <form className={styles.answer} onSubmit={async (event) => {
+              event.preventDefault();
+              if (await send("answer", { text: word })) setWord("");
+            }}>
               <label htmlFor="linkup-word">Type a word</label>
               <input id="linkup-word" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} maxLength={32} />
               {speechButton}
