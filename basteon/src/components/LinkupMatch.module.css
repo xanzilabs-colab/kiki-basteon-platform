@@ -89,7 +89,7 @@
 .bombIcon svg { width: 75px; height: 75px; }
 .bombStage > strong { color: #412b50; font-size: 2rem; }
 .fuseTrack { width: min(100%, 420px); height: 16px; overflow: hidden; border-radius: 20px; background: #e1d5e8; }
-.fuseTrack span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8ed9a7, #e6c969 65%, #d7676c); transition: width .3s linear; }
+.fuseTrack span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8ed9a7, #e6c969 65%, #d7676c); transition: width .12s linear; }
 .bombStage > p { margin: 5px 0; color: #553a65; font-weight: 900; }
 .spark { position: absolute; top: 23px; right: 27px; width: 10px; height: 10px; border-radius: 50%; background: #ffe19a; box-shadow: 0 0 18px 7px #ffc44a; animation: spark .75s infinite alternate; }
 .urgent .spark { animation-duration: .3s; }

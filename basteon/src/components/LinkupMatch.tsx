@@ -9,6 +9,7 @@ import { BOMB, rolesForRound, wildcardBanner } from "@/lib/games/linkup/engine";
 import type { Mode, RoundSpec } from "@/lib/games/linkup/engine";
 import { formatLinkupError, formatLinkupMode, formatLinkupReason } from "@/lib/games/linkup/presentation";
 import { pickTimeRemainingMs } from "@/lib/games/linkup/pickTiming";
+import { bombFuseRemainingMs } from "@/lib/games/linkup/bombTiming";
 import { dismissGameError, showGameError } from "@/lib/gameFeedback";
 import styles from "./LinkupMatch.module.css";
 
@@ -93,12 +94,22 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const lastTickRef = useRef(0);
   const lastPhaseRef = useRef<string | null>(null);
+  const serverClockOffsetRef = useRef(0);
   const audioRef = useRef<AudioContext | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const busyRef = useRef(false);
   const syncInFlightRef = useRef(false);
   const syncSequenceRef = useRef(0);
   const syncToastId = `linkup-sync-${matchId}`;
+  const syncServerClock = useCallback((serverNow?: string) => {
+    const serverTime = serverNow ? Date.parse(serverNow) : NaN;
+    if (Number.isFinite(serverTime)) {
+      serverClockOffsetRef.current = serverTime - Date.now();
+      setNow(serverTime);
+    } else {
+      setNow(Date.now() + serverClockOffsetRef.current);
+    }
+  }, []);
 
   const reportSyncFailure = useCallback((failure: unknown) => {
     const description = failure instanceof Error
@@ -251,6 +262,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
           const descriptions: Record<string, string> = {
             initialize_match: "The match is saved, but its opening round could not be prepared. We are retrying.",
             advance_round: "The latest turn is saved, but its next round could not be loaded. We are retrying.",
+            advance_bomb_turn: "The Hot Potato turn could not advance. Your match is saved, and we are retrying.",
             build_snapshot: "The game is running, but its latest view could not be loaded. We are retrying.",
           };
           const explanation = descriptions[operation] ?? "Your match is still saved. We are retrying the connection.";
@@ -264,20 +276,24 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       setMessage("");
       setSnapshot(next);
       setUserId(next.match.viewerId);
-      setNow(Date.parse(next.serverNow || new Date().toISOString()));
+      syncServerClock(next.serverNow);
     } finally {
       syncInFlightRef.current = false;
     }
-  }, [matchId, syncToastId]);
+  }, [matchId, syncServerClock, syncToastId]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNow((current) => current + 1000);
+    const clockTimer = window.setInterval(() => syncServerClock(), 100);
+    const syncTimer = window.setInterval(() => {
       if (!busyRef.current) void refresh().catch(reportSyncFailure);
     }, 1000);
     void refresh().catch(reportSyncFailure);
-    return () => { window.clearInterval(timer); dismissGameError(syncToastId); };
-  }, [refresh, reportSyncFailure, syncToastId]);
+    return () => {
+      window.clearInterval(clockTimer);
+      window.clearInterval(syncTimer);
+      dismissGameError(syncToastId);
+    };
+  }, [refresh, reportSyncFailure, syncServerClock, syncToastId]);
 
   useEffect(() => {
     setWord("");
@@ -304,7 +320,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       ));
       setSnapshot(result as Snapshot);
       setUserId((result as Snapshot).match.viewerId);
-      setNow(Date.parse((result as Snapshot).serverNow || new Date().toISOString()));
+      syncServerClock((result as Snapshot).serverNow);
       syncSequenceRef.current += 1;
       dismissGameError(syncToastId);
       if (action === "pick") playTone(520, 0.08, "triangle", 0.03);
@@ -319,7 +335,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       busyRef.current = false;
       setBusy(false);
     }
-  }, [matchId, playTone, syncToastId]);
+  }, [matchId, playTone, syncServerClock, syncToastId]);
 
   useEffect(() => {
     const spec = snapshot?.round?.spec;
@@ -358,7 +374,10 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const holderTurn = Boolean(bomb && bomb.holder === userId);
   const endPickerTurn = Boolean(bomb && bomb.passer === userId && !bomb.end);
-  const bombSeconds = match?.liveFuseLeftMs ? Math.max(0, Math.ceil(match.liveFuseLeftMs / 1000)) : 0;
+  const liveBombFuseMs = match
+    ? bombFuseRemainingMs(match.fuseLeftMs, bomb?.end ?? null, match.turnStartedAt, now)
+    : 0;
+  const bombSeconds = Math.ceil(liveBombFuseMs / 1000);
   const myRole = useMemo(() => {
     if (!round || !match) return "";
     const roles = rolesForRound(round.roundNo, match.player1Id, match.player2Id ?? match.botActorId ?? "kiki");
@@ -383,17 +402,6 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   useEffect(() => {
     if (round?.phase !== "pick" || myPickedLetter) setLocalPickedLetter(null);
   }, [round?.id, round?.phase, myPickedLetter]);
-
-  useEffect(() => {
-    if (!match || match.mode !== "bomb" || match.status === "finished" || !bomb) return;
-    const botId = match.botActorId ?? "kiki";
-    const turnStartedAt = match.turnStartedAt ? Date.parse(match.turnStartedAt) : now;
-    const elapsed = Math.max(0, now - turnStartedAt);
-    const shouldAdvance = !bomb.end
-      ? bomb.passer === botId || elapsed >= BOMB.pickMs
-      : bomb.holder === botId || elapsed >= match.fuseLeftMs;
-    if (shouldAdvance) void send("advance");
-  }, [bomb, match, now, send]);
 
   async function requestRematch() {
     if (!match || busy) return;
@@ -433,7 +441,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   }
 
   useEffect(() => {
-    const current = match?.mode === "bomb" ? match.liveFuseLeftMs : 0;
+    const current = match?.mode === "bomb" ? liveBombFuseMs : 0;
     if (current <= 0 || current >= 10000) return;
     const seconds = Math.ceil(current / 1000);
     if (seconds === lastTickRef.current) return;
@@ -441,7 +449,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     if (!reducedMotion && navigator.vibrate) navigator.vibrate(seconds <= 3 ? [45, 30, 45] : seconds <= 5 ? 45 : 25);
     if (!sound) return;
     playTone(seconds <= 5 ? 850 : 520, 0.06, "sine", seconds <= 5 ? 0.05 : 0.03);
-  }, [match?.liveFuseLeftMs, match?.mode, now, playTone, reducedMotion, sound]);
+  }, [liveBombFuseMs, match?.mode, playTone, reducedMotion, sound]);
 
   useEffect(() => {
     const currentPhase = snapshot?.round?.phase ?? null;
@@ -468,7 +476,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     return <main className={styles.page}><p role="status">{message || "Preparing the Hot Potato round…"}</p></main>;
   }
   if (match.mode === "bomb" && bomb) {
-    const fusePct = Math.max(0, Math.min(100, match.liveFuseLeftMs / BOMB.maxFuseMs * 100));
+    const fusePct = Math.max(0, Math.min(100, liveBombFuseMs / BOMB.maxFuseMs * 100));
     return (
       <main className={`${styles.page} ${bomb.exploded && !reducedMotion ? styles.shake : ""} ${bombSeconds <= 3 ? styles.vignette : ""}`}>
         <div className={styles.shell}>
@@ -490,7 +498,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
               <div className={`${styles.bombStage} ${bombSeconds < 10 ? styles.urgent : ""}`}>
                 <div className={styles.bombIcon}><Bomb size={70} /><span className={styles.spark} /></div>
                 <strong>{bombSeconds}s</strong>
-                <div className={styles.fuseTrack} role="progressbar" aria-label="Bomb fuse" aria-valuenow={match.liveFuseLeftMs} aria-valuemin={0} aria-valuemax={BOMB.maxFuseMs}>
+                <div className={styles.fuseTrack} role="progressbar" aria-label="Bomb fuse" aria-valuenow={liveBombFuseMs} aria-valuemin={0} aria-valuemax={BOMB.maxFuseMs}>
                   <span style={{ width: `${fusePct}%` }} />
                 </div>
                 <p>{holderTurn ? "You have the bomb!" : bomb.holder === match.botActorId ? "Kiki has the bomb" : "Your Buddy has the bomb"}</p>

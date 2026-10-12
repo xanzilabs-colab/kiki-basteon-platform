@@ -48,9 +48,16 @@ export type CandidateResponder = {
 
 export function ownerAlertLinks(rosterLinks: RoutingLink[], membershipLinks: RoutingLink[]) {
   const activeRosterLinks = rosterLinks.filter((link) => link.status === "active" && Boolean(link.roster_entry_id));
-  return activeRosterLinks.length
-    ? activeRosterLinks
-    : membershipLinks.filter((link) => link.status === "active");
+  const rosterOrganisationIds = new Set(activeRosterLinks.map((link) => link.organisation_id));
+  const seenMembershipLinks = new Set<string>();
+  const additionalMembershipLinks = membershipLinks.filter((link) => {
+    if (link.status !== "active" || rosterOrganisationIds.has(link.organisation_id)) return false;
+    const key = `${link.organisation_id}:${link.branch_id ?? ""}`;
+    if (seenMembershipLinks.has(key)) return false;
+    seenMembershipLinks.add(key);
+    return true;
+  });
+  return [...activeRosterLinks, ...additionalMembershipLinks];
 }
 
 function toRadians(value: number) {
@@ -223,12 +230,15 @@ export async function routeAlertAndNotify(alertId: string) {
   ]);
   const rosterLinkedRows = (links ?? []).filter((item) => Boolean(item.roster_entry_id)) as RoutingLink[];
   let membershipLinks: RoutingLink[] = [];
-  if (ownerId && !rosterLinkedRows.length) {
+  if (ownerId) {
     const { data, error } = await db.from("organisation_memberships")
       .select("organisation_id,branch_id,status")
       .eq("user_id", ownerId)
       .eq("status", "active");
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("alert owner organisation membership lookup failed", error);
+      throw new Error("owner_membership_lookup_failed");
+    }
     membershipLinks = (data ?? []) as RoutingLink[];
   }
   const ownerLinks = ownerAlertLinks(rosterLinkedRows, membershipLinks);

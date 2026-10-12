@@ -277,10 +277,17 @@ describe("dispatch recipient selection", () => {
   });
 
   describe("alert owner organisation links", () => {
-    it("uses active roster links when available", () => {
+    it("prioritizes roster links per organisation and includes other active memberships", () => {
       const rosterLinks: RoutingLink[] = [{ organisation_id: "roster-org", branch_id: "roster-branch", status: "active", roster_entry_id: "entry-1" }];
-      const memberships: RoutingLink[] = [{ organisation_id: "member-org", branch_id: null, status: "active" }];
-      expect(ownerAlertLinks(rosterLinks, memberships)).toEqual(rosterLinks);
+      const memberships: RoutingLink[] = [
+        { organisation_id: "roster-org", branch_id: null, status: "active" },
+        { organisation_id: "member-org", branch_id: null, status: "active" },
+        { organisation_id: "inactive-org", branch_id: null, status: "inactive" },
+      ];
+      expect(ownerAlertLinks(rosterLinks, memberships)).toEqual([
+        ...rosterLinks,
+        memberships[1],
+      ]);
     });
 
     it("falls back to active organisation memberships when there is no roster link", () => {

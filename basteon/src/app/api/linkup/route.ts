@@ -635,6 +635,13 @@ export async function GET(request: Request) {
     if (!initializedMatch) return fail("match_not_found", 404);
     match = initializedMatch;
     if (match.mode === "bomb" && match.status === "finished") await markBombRoomFinished(match);
+    if (match.mode === "bomb" && match.status === "active") {
+      operation = "advance_bomb_turn";
+      await actOnBomb(match, user.id, { matchId: match.id, action: "advance" });
+      const advancedMatch = await loadMatch(parsed.data, user.id);
+      if (!advancedMatch) return fail("match_not_found", 404);
+      match = advancedMatch;
+    }
     if (match.mode !== "bomb") {
       operation = "advance_round";
       const round = await currentRound(match.id);
