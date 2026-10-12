@@ -5,9 +5,9 @@ import { currentUserId, requireOrganisationAccess } from "@/lib/organisation";
 
 const schema = z.object({
   organisationId: z.string().uuid(),
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
-});
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
+}).refine(({ lat, lng }) => (lat == null) === (lng == null));
 
 /** Heartbeat for the responder's own position. Never changes availability and is ignored while off duty. */
 export async function POST(request: Request) {
@@ -20,8 +20,15 @@ export async function POST(request: Request) {
   if (!memberships.some((membership: any) => membership.organisation_id === payload.data.organisationId)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const db = createAdminClient();
+  const update: { last_seen_at: string; last_lat?: number; last_lng?: number } = {
+    last_seen_at: new Date().toISOString(),
+  };
+  if (payload.data.lat != null && payload.data.lng != null) {
+    update.last_lat = payload.data.lat;
+    update.last_lng = payload.data.lng;
+  }
   const { data, error } = await db.from("responder_presence")
-    .update({ last_lat: payload.data.lat, last_lng: payload.data.lng, last_seen_at: new Date().toISOString() })
+    .update(update)
     .eq("user_id", userId)
     .eq("organisation_id", payload.data.organisationId)
     .not("availability", "in", "(off_duty,unavailable)")

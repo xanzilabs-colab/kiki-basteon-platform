@@ -146,6 +146,9 @@
 .safe-alert-card-footer > svg { flex:none; margin-top:1px; color:#94a3b8; }
 .safe-alert-card-footer > span { min-width:0; overflow-wrap:anywhere; }
 .safe-alert-card-footer > i { flex:none; color:#94a3b8; font-style:normal; }
+.safe-alert-delete { display:inline-flex; flex:none; align-items:center; gap:4px; margin-left:auto; border:1px solid #fecaca; border-radius:999px; background:#fff7f7; padding:4px 9px; color:#b42335; font:inherit; font-size:10px; font-weight:750; cursor:pointer; }
+.safe-alert-delete:hover:not(:disabled) { border-color:#fda4af; background:#fff1f2; }
+.safe-alert-delete:disabled { cursor:wait; opacity:.55; }
 .safe-alert-empty { display:flex; align-items:flex-start; gap:9px; border-top:1px solid var(--safe-line); padding:13px 14px; }
 .safe-alert-empty > span { display:grid; width:25px; height:25px; flex:none; place-items:center; border-radius:50%; background:#e6f5ec; color:#236444; }
 .safe-alert-empty p { margin:2px 0 0; color:var(--safe-muted); font-size:11px; line-height:1.4; }

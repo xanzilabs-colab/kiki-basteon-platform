@@ -1,5 +1,11 @@
 .page { min-height: 100dvh; padding: 20px 16px 60px; color: #301c3d; background: radial-gradient(ellipse at 50% 8%, #e8d8f3, transparent 45%), linear-gradient(165deg, #faf5f8, #f1edff); }
 .shell { width: min(100%, 660px); margin: 0 auto; }
+.syncStatus { display:grid; justify-items:center; gap:12px; margin:18vh auto 0; padding:24px; border:1px solid #dfd3e8; border-radius:22px; background:#ffffffed; box-shadow:0 18px 38px #684c7612; text-align:center; }
+.syncStatus h1 { margin:0; color:#39234a; font:700 clamp(1.4rem, 5vw, 1.9rem)/1.1 var(--font-display), Georgia, serif; }
+.syncStatus p { margin:0; color:#684d77; font-size:.92rem; line-height:1.5; }
+.syncStatus button { min-height:46px; padding:0 18px; border:0; border-radius:14px; background:linear-gradient(110deg, #79509a, #a36199); color:white; font-weight:850; }
+.syncStatus button:disabled { cursor:wait; opacity:.6; }
+.syncStatus a { color:#64417c; font-size:.9rem; font-weight:800; text-decoration:underline; text-underline-offset:3px; }
 .header { display: flex; align-items: center; gap: 12px; }
 .header > a, .header > button { display: grid; width: 43px; height: 43px; flex: 0 0 auto; place-items: center; border: 1px solid #d9cbe4; border-radius: 14px; background: #ffffffd9; color: #694581; }
 .header > div { flex: 1; }

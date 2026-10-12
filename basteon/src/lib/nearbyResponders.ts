@@ -82,3 +82,31 @@ export function filterNearbyResponders(input: {
   }
   return [...best.values()].sort((a, b) => a.distanceKm - b.distanceKm);
 }
+
+export function countAvailableResponders(input: {
+  organisationIds: string[];
+  presence: PresenceRow[];
+  memberships: MembershipRow[];
+  excludeUserId?: string;
+  now?: number;
+}) {
+  const now = input.now ?? Date.now();
+  const organisationIds = new Set(input.organisationIds);
+  const eligible = new Set<string>();
+  for (const member of input.memberships) {
+    if (member.status && member.status !== "active") continue;
+    if (!organisationIds.has(member.organisation_id)) continue;
+    if (!(RESPONDER_ROLES as readonly string[]).includes(member.role)) continue;
+    eligible.add(`${member.organisation_id}:${member.user_id}`);
+  }
+
+  const available = new Set<string>();
+  for (const row of input.presence) {
+    if (row.availability !== "available" || row.user_id === input.excludeUserId) continue;
+    if (!organisationIds.has(row.organisation_id) || !eligible.has(`${row.organisation_id}:${row.user_id}`)) continue;
+    const seen = row.last_seen_at ? new Date(row.last_seen_at).getTime() : NaN;
+    if (!Number.isFinite(seen) || now - seen > PRESENCE_MAX_AGE_MS) continue;
+    available.add(row.user_id);
+  }
+  return available.size;
+}

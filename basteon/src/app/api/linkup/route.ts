@@ -81,7 +81,10 @@ const toEpoch = (value: string | null | undefined) => {
 function requireDatabaseSuccess(operation: string, error: unknown) {
   if (error) {
     console.error(`linkup ${operation} failed`, error);
-    throw new Error(operation);
+    const code = error && typeof error === "object" && "code" in error && typeof error.code === "string"
+      ? error.code
+      : "";
+    throw new Error(code ? `${operation}:${code}` : operation);
   }
 }
 function isBombState(value: unknown): value is BombState {
@@ -132,9 +135,12 @@ async function makeRound(match: Match, roundNo: number, carry?: string | null, s
   if (roundNo > 1 && roundMode === "chain" && carry === undefined) {
     const { data: previousRound, error: previousError } = await admin().from("linkup_rounds")
       .select("id").eq("match_id", match.id).eq("round_no", roundNo - 1).maybeSingle();
-    if (previousError) throw new Error("previous_round_lookup_failed");
-    if (previousRound) previousAnswers = await admin().from("linkup_answers")
-      .select("word,valid,answer_ms").eq("round_id", previousRound.id);
+    requireDatabaseSuccess("previous_round_lookup", previousError);
+    if (previousRound) {
+      previousAnswers = await admin().from("linkup_answers")
+        .select("word,valid,answer_ms").eq("round_id", previousRound.id);
+      requireDatabaseSuccess("previous_answers_lookup", previousAnswers.error);
+    }
   }
   const carryLetter = carry ?? (roundMode === "chain" && previousAnswers.data
     ? chainCarry(previousAnswers.data.map((answer) => ({ word: answer.word, valid: answer.valid, answerMs: answer.answer_ms })))
@@ -168,10 +174,10 @@ async function makeRound(match: Match, roundNo: number, carry?: string | null, s
     chain_broken: broken,
     sudden_death: suddenDeath,
   }, { onConflict: "match_id,round_no", ignoreDuplicates: true }).select("*").maybeSingle();
-  if (error) throw new Error("round_create_failed");
+  requireDatabaseSuccess("round_create", error);
   if (data) return data as Round;
   const existing = await admin().from("linkup_rounds").select("*").eq("match_id", match.id).eq("round_no", roundNo).single();
-  if (existing.error) throw new Error("round_lookup_failed");
+  requireDatabaseSuccess("round_lookup", existing.error);
   return existing.data as Round;
 }
 
@@ -281,6 +287,7 @@ async function getSnapshot(match: Match, uid: string) {
     serverNow: new Date().toISOString(),
     match: {
       id: match.id,
+      viewerId: uid,
       mode: match.mode,
       vsBot: match.vs_bot,
       difficulty: match.bot_difficulty,
@@ -646,7 +653,13 @@ export async function GET(request: Request) {
     return NextResponse.json(await getSnapshot(match, user.id));
   } catch (error) {
     console.error("linkup get snapshot failed", { matchId: parsed.data, operation, error });
-    return NextResponse.json({ error: "match_state_unavailable", operation }, { status: 500 });
+    const rawReason = error instanceof Error ? error.message : "";
+    const reason = /^[a-z][a-z0-9_:-]{0,80}$/i.test(rawReason) ? rawReason : "unknown";
+    return NextResponse.json({
+      error: "match_state_unavailable",
+      operation,
+      reason,
+    }, { status: 500 });
   }
 }
 

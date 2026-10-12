@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, ChevronRight, LocateFixed, MapPin, ThumbsUp, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, LocateFixed, MapPin, ThumbsUp, Trash2, X } from "lucide-react";
 import { categoryLabel, currentMeetingLocation, meetingFetch, type CommunityAlert } from "@/lib/buddies/meeting/client";
 
 type Place = { label: string; lat: number; lng: number };
@@ -16,6 +16,17 @@ const reportCategories = [
   { value: "road_hazard", label: "Road hazard" },
 ];
 const titleCase = (value: string) => categoryLabel(value).replace(/\b\w/g, (letter) => letter.toUpperCase());
+function formatReportAge(value: string) {
+  const createdAt = Date.parse(value);
+  if (!Number.isFinite(createdAt)) return "time unavailable";
+  const minutes = Math.max(0, Math.floor((Date.now() - createdAt) / 60_000));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 export function CommunityAlertsPanel({ alerts, busy, onBusyChange, onAlertsChange, onLocationChange, onMessage }: Props) {
   const [kind, setKind] = useState("unsafe_area"); const [detail, setDetail] = useState(""); const [address, setAddress] = useState(""); const [suggestions, setSuggestions] = useState<Place[]>([]); const [location, setLocation] = useState<Place | null>(null); const [reportOpen, setReportOpen] = useState(false); const [category, setCategory] = useState("all");
@@ -25,8 +36,20 @@ export function CommunityAlertsPanel({ alerts, busy, onBusyChange, onAlertsChang
   async function useCurrentLocation() { onBusyChange(true); try { const point = await currentMeetingLocation(); choose({ ...point, label: "Current location" }); onMessage("Location added to your report."); } catch (error) { onMessage(error instanceof Error ? error.message : "Location could not be shared."); } finally { onBusyChange(false); } }
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!location || detail.trim().length < 4) return; onBusyChange(true); try { await meetingFetch("/api/buddies/community-alerts", { kind, lat: location.lat, lng: location.lng, locationLabel: location.label, detail: detail.trim() }); const query = new URLSearchParams({ lat: String(location.lat), lng: String(location.lng) }); const data = await meetingFetch<{ alerts: CommunityAlert[] }>(`/api/buddies/community-alerts?${query}`); onAlertsChange(data.alerts); onMessage("Your community report is now visible to people nearby."); setDetail(""); setReportOpen(false); } catch (error) { onMessage(error instanceof Error ? error.message : "Could not submit that report."); } finally { onBusyChange(false); } }
   async function vote(alert: CommunityAlert) { onBusyChange(true); try { const result = await meetingFetch<{ voted: boolean; upvotes: number }>(`/api/buddies/community-alerts/${alert.id}/vote`, {}); onAlertsChange(alerts.map((item) => item.id === alert.id ? { ...item, voted: result.voted, upvotes: result.upvotes } : item)); } catch (error) { onMessage(error instanceof Error ? error.message : "Could not update your confirmation."); } finally { onBusyChange(false); } }
-  const activeAlerts = alerts.filter((alert) => Date.parse(alert.expires_at) > Date.now());
-  const filteredAlerts = activeAlerts.filter((alert) => category === "all" || alert.kind === category);
+  async function deleteAlert(alert: CommunityAlert) {
+    if (!alert.mine || busy || !window.confirm("Delete your community report? This will remove it for everyone.")) return;
+    onBusyChange(true);
+    try {
+      await meetingFetch("/api/buddies/community-alerts", { id: alert.id }, undefined, "DELETE");
+      onAlertsChange(alerts.filter((item) => item.id !== alert.id));
+      onMessage("Your report was deleted from the community feed.");
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : "Could not delete your report.");
+    } finally {
+      onBusyChange(false);
+    }
+  }
+  const filteredAlerts = alerts.filter((alert) => category === "all" || alert.kind === category);
   const reportCount = `${filteredAlerts.length} ${filteredAlerts.length === 1 ? "Report" : "Reports"}`;
   return <section id="community-alerts" className="buddies-panel buddy-community-panel safe-alerts-panel">
     <div className="safe-alerts-header">
@@ -41,14 +64,16 @@ export function CommunityAlertsPanel({ alerts, busy, onBusyChange, onAlertsChang
       <div className="safe-alert-card-heading">
         <span className="safe-alert-meta">
           <span className="safe-alert-kind"><i /><AlertTriangle size={12} />{titleCase(alert.kind)}</span>
-          <time dateTime={alert.created_at}>{new Date(alert.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
+          <time dateTime={alert.created_at}>Reported {formatReportAge(alert.created_at)}</time>
         </span>
         <button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.upvotes} helpful confirmations`}><ThumbsUp size={14} /><span>{alert.upvotes}</span></button>
       </div>
       <p>{alert.detail ?? "Community report"}</p>
-      <div className="safe-alert-card-footer"><MapPin size={14} /><span>{alert.location_label ?? "Nearby location"}</span><i>·</i><span>Expires {new Date(alert.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
+      <div className="safe-alert-card-footer"><MapPin size={14} /><span>{alert.location_label ?? "Nearby location"}</span>
+        {alert.mine && <button type="button" className="safe-alert-delete" disabled={busy} onClick={() => void deleteAlert(alert)}><Trash2 size={13} />Delete</button>}
+      </div>
     </article>)}</div>
-    {filteredAlerts.length === 0 && <div className="safe-alert-empty"><span><Check size={17} /></span><p>{activeAlerts.length === 0 ? "No active reports nearby. If you notice a concern, share it with the community." : "No reports in this category. Choose another category to see more."}</p></div>}
+    {filteredAlerts.length === 0 && <div className="safe-alert-empty"><span><Check size={17} /></span><p>{alerts.length === 0 ? "No reports nearby. If you notice a concern, share it with the community." : "No reports in this category. Choose another category to see more."}</p></div>}
 
     {typeof document !== "undefined" && reportOpen && createPortal(<div className="safe-report-layer">
       <button className="safe-report-backdrop" type="button" aria-label="Close report form" onClick={() => !busy && setReportOpen(false)} />

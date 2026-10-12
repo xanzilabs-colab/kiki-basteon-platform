@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterNearbyResponders, selectDiscoveryOrganisations } from "./nearbyResponders";
+import { countAvailableResponders, filterNearbyResponders, selectDiscoveryOrganisations } from "./nearbyResponders";
 
 const now = Date.parse("2026-01-01T12:00:00Z");
 const origin = { lat: -26.2, lng: 28.0 };
@@ -32,6 +32,28 @@ describe("nearby responders", () => {
   });
   it("deduplicates responders", () => {
     expect(run([presence("a"), presence("a")], [member("a")])).toHaveLength(1);
+  });
+  it("counts active on-duty responders without requiring location sharing", () => {
+    const onDuty = [
+      presence("located"),
+      presence("no-location", { last_lat: null, last_lng: null }),
+      presence("stale", { last_seen_at: "2026-01-01T10:00:00Z" }),
+      presence("other-org", { organisation_id: "o2" }),
+      presence("inactive", { user_id: "inactive" }),
+    ];
+    const memberships = [
+      member("located"),
+      member("no-location"),
+      member("stale"),
+      member("other-org", { organisation_id: "o2" }),
+      member("inactive", { status: "suspended" }),
+    ];
+    expect(countAvailableResponders({
+      organisationIds: ["o1"],
+      presence: onDuty,
+      memberships,
+      now,
+    })).toBe(2);
   });
   it("prefers linked organisations and falls back to partners", () => {
     const orgs = [{ id: "o1", is_partner: false, status: "active" }, { id: "p1", is_partner: true, status: "active" }, { id: "p2", is_partner: true, status: "suspended" }];

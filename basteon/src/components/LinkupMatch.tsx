@@ -14,6 +14,7 @@ type Snapshot = {
   serverNow: string;
   match: {
     id: string;
+    viewerId: string;
     mode: Mode;
     vsBot: boolean;
     difficulty: string | null;
@@ -91,16 +92,18 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const audioRef = useRef<AudioContext | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const busyRef = useRef(false);
+  const syncInFlightRef = useRef(false);
   const syncSequenceRef = useRef(0);
   const syncToastId = `linkup-sync-${matchId}`;
 
   const reportSyncFailure = useCallback((failure: unknown) => {
-    setMessage("Reconnecting to your match…");
+    const description = failure instanceof Error
+      ? failure.message
+      : "Your match is still saved. We are retrying the connection.";
+    setMessage(description);
     showGameError(
       "Match sync interrupted",
-      failure instanceof Error
-        ? failure.message
-        : "Your match is still on the server. Keep this page open while it reconnects.",
+      description,
       syncToastId,
     );
   }, [syncToastId]);
@@ -230,47 +233,47 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   }, [sound]);
 
   const refresh = useCallback(async () => {
+    if (syncInFlightRef.current) return;
+    syncInFlightRef.current = true;
     const sequence = ++syncSequenceRef.current;
-    let response: Response;
     try {
-      response = await fetch(`/api/linkup?matchId=${encodeURIComponent(matchId)}`, { cache: "no-store" });
-    } catch (error) {
+      const response = await fetch(`/api/linkup?matchId=${encodeURIComponent(matchId)}`, { cache: "no-store" });
+      const body = await response.json().catch(() => null) as { error?: unknown; operation?: unknown; reason?: unknown } | null;
       if (sequence !== syncSequenceRef.current) return;
-      throw error;
-    }
-    const body = await response.json().catch(() => null) as { error?: unknown; operation?: unknown } | null;
-    if (sequence !== syncSequenceRef.current) return;
-    if (!response.ok) {
-      const reason = typeof body?.error === "string" ? body.error : `HTTP ${response.status}`;
-      if (reason === "match_state_unavailable") {
-        const operation = typeof body?.operation === "string" ? body.operation : "";
-        const descriptions: Record<string, string> = {
-          initialize_match: "The match is saved, but its opening state could not be loaded. We are retrying.",
-          advance_round: "The latest turn is still saved. We are retrying the round update.",
-          build_snapshot: "Your round is saved, but its latest view could not be loaded yet.",
-        };
-        throw new Error(descriptions[operation] ?? "Your match is still on the server. Keep this page open while it reconnects.");
+      if (!response.ok) {
+        const reason = typeof body?.error === "string" ? body.error : `HTTP ${response.status}`;
+        if (reason === "match_state_unavailable") {
+          const operation = typeof body?.operation === "string" ? body.operation : "";
+          const descriptions: Record<string, string> = {
+            initialize_match: "The match is saved, but its opening round could not be prepared. We are retrying.",
+            advance_round: "The latest turn is saved, but its next round could not be loaded. We are retrying.",
+            build_snapshot: "The game is running, but its latest view could not be loaded. We are retrying.",
+          };
+          const explanation = descriptions[operation] ?? "Your match is still saved. We are retrying the connection.";
+          const reason = typeof body?.reason === "string" ? body.reason : "";
+          throw new Error(reason ? `${explanation} (${reason})` : explanation);
+        }
+        throw new Error("We couldn't refresh your match. Keep this page open and try again shortly.");
       }
-      throw new Error("We couldn't refresh your match. Keep this page open and try again shortly.");
+      if (!body) throw new Error("Match sync returned an empty response.");
+      const next = body as Snapshot;
+      dismissGameError(syncToastId);
+      setMessage("");
+      setSnapshot(next);
+      setUserId(next.match.viewerId);
+      setNow(Date.parse(next.serverNow || new Date().toISOString()));
+    } finally {
+      syncInFlightRef.current = false;
     }
-    if (!body) throw new Error("Match sync returned an empty response.");
-    const next = body as Snapshot;
-    dismissGameError(syncToastId);
-    setMessage("");
-    setSnapshot(next);
-    setNow(Date.parse(next.serverNow || new Date().toISOString()));
   }, [matchId, syncToastId]);
 
   useEffect(() => {
-    let active = true;
-    const db = createClient();
-    void db.auth.getUser().then(({ data }) => { if (active && data.user) setUserId(data.user.id); });
     const timer = window.setInterval(() => {
       setNow(Date.now());
       if (!busyRef.current) void refresh().catch(reportSyncFailure);
-    }, 850);
+    }, 1000);
     void refresh().catch(reportSyncFailure);
-    return () => { active = false; window.clearInterval(timer); dismissGameError(syncToastId); };
+    return () => { window.clearInterval(timer); dismissGameError(syncToastId); };
   }, [refresh, reportSyncFailure, syncToastId]);
 
   useEffect(() => {
@@ -279,7 +282,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   }, [matchId]);
 
   const send = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
-    if (busy) return;
+    if (busyRef.current) return;
     busyRef.current = true;
     syncSequenceRef.current += 1;
     setBusy(true);
@@ -300,6 +303,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
         throw new Error(message);
       }
       setSnapshot(result as Snapshot);
+      setUserId((result as Snapshot).match.viewerId);
       setNow(Date.parse((result as Snapshot).serverNow || new Date().toISOString()));
       syncSequenceRef.current += 1;
       dismissGameError(syncToastId);
@@ -313,12 +317,7 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       busyRef.current = false;
       setBusy(false);
     }
-  }, [busy, matchId, playTone, syncToastId]);
-
-  useEffect(() => {
-    if (!snapshot || snapshot.match.mode !== "bomb" || snapshot.match.status === "finished") return;
-    void send("advance");
-  }, [now]);
+  }, [matchId, playTone, syncToastId]);
 
   useEffect(() => {
     const spec = snapshot?.round?.spec;
@@ -375,6 +374,17 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
       ? round.picks[pickRoles.endPicker]
       : myRole === "START" ? round.picks[pickRoles.startPicker] : round.picks[pickRoles.endPicker]
     : undefined;
+
+  useEffect(() => {
+    if (!match || match.mode !== "bomb" || match.status === "finished" || !bomb) return;
+    const botId = match.botActorId ?? "kiki";
+    const turnStartedAt = match.turnStartedAt ? Date.parse(match.turnStartedAt) : now;
+    const elapsed = Math.max(0, now - turnStartedAt);
+    const shouldAdvance = !bomb.end
+      ? bomb.passer === botId || elapsed >= BOMB.pickMs
+      : bomb.holder === botId || elapsed >= match.fuseLeftMs;
+    if (shouldAdvance) void send("advance");
+  }, [bomb, match, now, send]);
 
   async function requestRematch() {
     if (!match || busy) return;
@@ -433,7 +443,18 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     if (currentPhase === "result") playTone(460, 0.14, "sine", 0.05);
   }, [playTone, snapshot?.round?.phase]);
 
-  if (!state || !match) return <main className={styles.page}><p role="status">{message || "Joining the word circle…"}</p></main>;
+  if (!state || !match) return (
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <section className={styles.syncStatus} role="status">
+          <h1>{message ? "Match connection interrupted" : "Joining the word circle…"}</h1>
+          {message && <p>{message}</p>}
+          <button type="button" disabled={syncInFlightRef.current} onClick={() => void refresh().catch(reportSyncFailure)}>Retry connection</button>
+          <Link href="/games/linkup/solo">Back to Kiki Links</Link>
+        </section>
+      </div>
+    </main>
+  );
   if (match.mode === "bomb" && !bomb) {
     return <main className={styles.page}><p role="status">{message || "Preparing the Hot Potato round…"}</p></main>;
   }

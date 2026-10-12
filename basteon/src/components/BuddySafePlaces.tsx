@@ -81,7 +81,7 @@ export function BuddySafePlaces() {
     () => places.filter((place) => category === "all" || place.category === category),
     [category, places],
   );
-  const activeAlerts = alerts.filter((alert) => Date.parse(alert.expires_at) > Date.now());
+  const activeAlerts = alerts;
 
   useEffect(() => {
     const controller = new AbortController();

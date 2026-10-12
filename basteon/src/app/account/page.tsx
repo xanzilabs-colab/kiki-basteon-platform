@@ -34,7 +34,7 @@ type ReadinessData = {
 };
 
 type NearbyResponderItem = { id: string; name: string; role: string; organisation: string; distanceKm: number };
-type NearbyData = { count: number | null; scope: "linked" | "partners" | null; radiusKm: number; responders: NearbyResponderItem[] };
+type NearbyData = { count: number | null; availableCount: number; scope: "linked" | "partners" | null; radiusKm: number; responders: NearbyResponderItem[] };
 type ActiveSos = { id: string; type: "sos" | "medical"; status: string; acknowledged: number; enRoute: number; onScene: number };
 const DEVICE_ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -193,8 +193,8 @@ export default function AccountPage() {
         </Link>
         <button type="button" className="kiki-overview-status-row" style={{ width: "100%", textAlign: "left" }} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
           <span className="kiki-overview-tile-icon"><ShieldCheck size={22} /></span>
-          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearby?.count == null ? (nearbyError ? "Nearby responders unavailable" : locationDenied ? "Enable location to see responders" : "Checking nearby responders…") : `${nearby.count} ${nearby.count === 1 ? "responder" : "responders"} nearby`}</span></span>
-          <span className={`kiki-overview-state${nearby?.count ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : nearby?.count == null ? "Unknown" : nearby.count ? "Available" : "None nearby"}</span>
+          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearbyError ? "Responder availability unavailable" : !nearby ? "Checking responders…" : `${nearby.availableCount} ${nearby.availableCount === 1 ? "responder" : "responders"} available`}</span></span>
+          <span className={`kiki-overview-state${nearby?.availableCount ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : !nearby ? "Checking" : nearby.availableCount ? "Available" : "None available"}</span>
           <ChevronRight className="kiki-overview-chevron" size={17} />
         </button>
 
@@ -219,12 +219,12 @@ export default function AccountPage() {
           <button type="button" className="btn" aria-label="Close" onClick={() => setSheetOpen(false)}><X size={16} /></button>
         </div>
         <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-          {nearby?.scope === "linked" ? "From your linked organisation" : "From official partner organisations"} · available and on duty within {nearby?.radiusKm ?? 10} km
+          {nearby?.scope === "linked" ? "From your linked organisation" : "From official partner organisations"} · {nearby?.availableCount ?? 0} currently on duty
         </p>
         {nearbyError ? <p>Nearby responders could not be loaded. Try again shortly.</p>
-          : locationDenied && nearby?.count == null ? <p>Location is off or blocked. Allow location access in your browser to see responders near you.</p>
+          : nearby?.count == null ? <p>{nearby?.availableCount ? `${nearby.availableCount} responder${nearby.availableCount === 1 ? " is" : "s are"} available with your organisation. Allow location access to see which responders are nearby.` : "No responders are currently marked available with your organisation."}</p>
           : !nearby ? <p>Loading…</p>
-          : nearby.count === 0 ? <p>No available responders within {nearby.radiusKm} km right now.{nearby.scope === "partners" ? " Only official partner organisations are searched because you aren’t linked to an organisation." : ""}</p>
+          : nearby.count === 0 ? <p>{nearby.availableCount ? `${nearby.availableCount} responder${nearby.availableCount === 1 ? " is" : "s are"} on duty, but none shared a recent location within ${nearby.radiusKm} km.` : `No responders are currently available within ${nearby.radiusKm} km.`}{nearby.scope === "partners" ? " Only official partner organisations are searched because you aren’t linked to an organisation." : ""}</p>
           : <ul style={{ display: "grid", gap: 10 }}>{nearby.responders.map((item) => <li key={item.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #f1edf5", paddingBottom: 8 }}>
             <span><b>{item.name}</b><br /><small className="muted">{item.role} · {item.organisation}</small></span>
             <span style={{ textAlign: "right", fontSize: 12 }}><b>{item.distanceKm} km</b><br /><small style={{ color: "#258257" }}>Available</small></span>

@@ -23,14 +23,21 @@ export function ResponderLocationPublisher({
     const client = createClient();
     const publish = async () => {
       const current = positionRef.current;
-      if (!active || running || !current) return;
+      if (!active || running) return;
       running = true;
       try {
-        await fetch("/api/organisation/responders/presence", {
+        const heartbeat = await fetch("/api/organisation/responders/presence", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ organisationId, lat: current.lat, lng: current.lng }),
-        }).catch(() => null);
+          body: JSON.stringify(current
+            ? { organisationId, lat: current.lat, lng: current.lng }
+            : { organisationId }),
+        });
+        if (!heartbeat.ok) throw new Error("Responder presence heartbeat failed.");
+        if (!current) {
+          if (active) setError("");
+          return;
+        }
         const { data: { user } } = await client.auth.getUser();
         if (!user) return;
         const { data: assignments, error: assignmentError } = await client
