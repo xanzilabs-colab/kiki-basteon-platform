@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Building2, ChartLine, ExternalLink, ListChecks, MapPin, Radio, RadioTower, Settings2, ShieldCheck, Siren, Users } from "lucide-react";
+import { Bluetooth, BookOpen, Building2, ChartLine, ListChecks, MapPin, Radio, RadioTower, Settings2, ShieldCheck, Siren, Users } from "lucide-react";
 
 const links = [
   { name: "Overview", href: "/admin", Icon: ChartLine },
   { name: "Devices (Fleet)", href: "/admin/devices", Icon: Radio },
+  { name: "Bluetooth triggers", href: "/admin/triggers", Icon: Bluetooth },
   { name: "Users", href: "/admin/users", Icon: Users },
   { name: "Alert Audit Log", href: "/admin/alerts", Icon: ListChecks },
   { name: "Buddies safety", href: "/admin/buddies", Icon: ShieldCheck },

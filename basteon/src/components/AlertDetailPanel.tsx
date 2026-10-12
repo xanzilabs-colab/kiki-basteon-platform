@@ -1,6 +1,7 @@
 "use client";
 
 import { Bluetooth, Copy, ExternalLink, Phone, UserRound, X } from "lucide-react";
+import { describeTriggerPattern } from "@/lib/triggerDisplay";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
@@ -132,8 +133,8 @@ export function AlertDetailPanel({
             {alert.trigger_source === "bt_media" || alert.trigger_source === "bt_ble" ? <Bluetooth size={14} /> : null}
             Triggered by {alert.device_hint ?? (alert.trigger_source === "bt_media" ? "Bluetooth media button" : alert.trigger_source.replaceAll("_", " "))}
           </p>
-          {alert.trigger_pattern && <p className="muted">Button pattern: <span className="data">{alert.trigger_pattern}</span></p>}
-          {alert.duress && <p className="font-semibold text-[var(--crit)]">Discreet duress signal — follow your organisation’s discreet response protocol.</p>}
+          {alert.trigger_pattern && <p className="muted">Button pattern: <span className="data">{describeTriggerPattern(alert.trigger_pattern)}</span></p>}
+          {alert.duress && <p className="font-semibold text-[var(--crit)]">Discreet duress signal — do not phone the user; follow your organisation’s discreet response protocol.</p>}
         </div>
       )}
 

@@ -47,8 +47,10 @@ class KikiTriggerService : Service() {
         const val COUNTDOWN_NOTIFICATION_ID = 402
         private const val COUNTDOWN_CHANNEL = "kiki_trigger_countdown"
         const val ACTION_CANCEL_PENDING = "za.co.xanzi.kiki.CANCEL_PENDING_TRIGGER"
-        private const val PRACTICE_WINDOW_MS = 60_000L
+        private const val PRACTICE_WINDOW_MS = 120_000L
         private const val TAG = "KikiTrigger"
+        private const val MAX_PENDING_DIAGNOSTICS = 20
+        private val diagnosticLock = Any()
 
         @Volatile var running = false
         @Volatile var practice = false
@@ -72,6 +74,56 @@ class KikiTriggerService : Service() {
                 Thread({ service.sendHeartbeat() }, "kiki-trigger-health").apply { isDaemon = true }.start()
             }
         }
+
+        fun recordDiagnostic(context: android.content.Context, pattern: String, origin: String, keys: JSONArray) {
+            synchronized(diagnosticLock) {
+                val prefs = Store.prefs(context)
+                val events = try {
+                    JSONArray(prefs.getString("diagnosticQueue", "[]"))
+                } catch (error: Exception) {
+                    log("diagnostic queue was unreadable (${error.javaClass.simpleName})")
+                    JSONArray()
+                }
+                events.put(
+                    JSONObject()
+                        .put("at", isoTimestamp(System.currentTimeMillis()))
+                        .put("pattern", pattern.take(20))
+                        .put("origin", if (origin == "media_session") "session" else "key")
+                        .put("keys", keys)
+                )
+                while (events.length() > MAX_PENDING_DIAGNOSTICS) events.remove(0)
+                prefs.edit().putString("diagnosticQueue", events.toString()).apply()
+            }
+        }
+
+        fun pendingDiagnostics(context: android.content.Context): JSONArray = synchronized(diagnosticLock) {
+            try {
+                JSONArray(Store.prefs(context).getString("diagnosticQueue", "[]"))
+            } catch (error: Exception) {
+                log("diagnostic queue was unreadable (${error.javaClass.simpleName})")
+                JSONArray()
+            }
+        }
+
+        fun acknowledgeDiagnostics(context: android.content.Context, count: Int) {
+            if (count <= 0) return
+            synchronized(diagnosticLock) {
+                val prefs = Store.prefs(context)
+                val events = try {
+                    JSONArray(prefs.getString("diagnosticQueue", "[]"))
+                } catch (error: Exception) {
+                    log("diagnostic queue was unreadable (${error.javaClass.simpleName})")
+                    return
+                }
+                repeat(minOf(count, events.length())) { events.remove(0) }
+                prefs.edit().putString("diagnosticQueue", events.toString()).apply()
+            }
+        }
+
+        private fun isoTimestamp(timestamp: Long): String =
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+                .apply { timeZone = TimeZone.getTimeZone("UTC") }
+                .format(Date(timestamp))
     }
 
     private lateinit var mediaSession: MediaSessionCompat
@@ -340,6 +392,13 @@ class KikiTriggerService : Service() {
         )
         log("button sequence recognized (${pattern ?: "practice"})")
         if (practice) return
+        recordDiagnostic(
+            this,
+            pattern ?: "unmatched:${sequence}",
+            lastOrigin,
+            keys
+        )
+        sendHealthSync()
 
         val testMode = Store.prefs(this).getBoolean("test", true)
         when (pattern) {
@@ -375,6 +434,7 @@ class KikiTriggerService : Service() {
             log("trigger request completed (HTTP ${result.status})")
             if (result.status !in 200..299) {
                 vibrate(longArrayOf(0, 800))
+                if (result.status == 401) disarmForRevokedToken()
             } else {
                 val pendingId = result.body?.optString("pending_id").orEmpty()
                 if (result.body?.optBoolean("test", false) != true && pendingId.isNotBlank()) {
@@ -406,6 +466,7 @@ class KikiTriggerService : Service() {
         val version = runCatching {
             packageManager.getPackageInfo(packageName, 0).versionName ?: ""
         }.getOrDefault("")
+        val diagnostics = pendingDiagnostics(this)
         val payload = JSONObject()
             .put("armed", running && !practice)
             .put("test", prefs.getBoolean("test", true))
@@ -413,9 +474,26 @@ class KikiTriggerService : Service() {
             .put("sdk", Build.VERSION.SDK_INT)
             .put("model", Build.MODEL.take(40))
             .put("battery_unrestricted", powerManager.isIgnoringBatteryOptimizations(packageName))
+            .put("events", diagnostics)
             .put("devices", DeviceTracker.syncPayload(this))
         val result = post("/api/trigger/heartbeat", payload)
         log("trigger health sync completed (HTTP ${result.status})")
+        if (result.status in 200..299) acknowledgeDiagnostics(this, diagnostics.length())
+        if (result.status == 401) disarmForRevokedToken()
+    }
+
+    private fun disarmForRevokedToken() {
+        Store.prefs(this).edit()
+            .putBoolean("wantArmed", false)
+            .putBoolean("practiceMode", false)
+            .remove("practiceExpiresAt")
+            .remove("token")
+            .remove("tokenId")
+            .apply()
+        practice = false
+        main.removeCallbacks(heartbeat)
+        main.post { stopSelf() }
+        log("trigger token rejected; local trigger disarmed")
     }
 
     private data class TriggerHttpResult(val status: Int, val body: JSONObject?)

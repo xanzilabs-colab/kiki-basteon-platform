@@ -256,6 +256,22 @@ class KikiTriggerPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun renameDevice(call: PluginCall) {
+        val ref = call.getString("ref")
+        val name = call.getString("name")?.trim()
+        if (ref.isNullOrBlank() || name.isNullOrBlank() || name.length > 40) {
+            call.reject("Enter a device name of 1 to 40 characters.")
+            return
+        }
+        if (!DeviceTracker.rename(context, ref, name)) {
+            call.reject("That everyday device could not be found.")
+            return
+        }
+        KikiTriggerService.sendHealthSync()
+        call.resolve()
+    }
+
+    @PluginMethod
     fun markVerified(call: PluginCall) {
         call.getString("ref")?.let { DeviceTracker.markVerified(context, it) }
         KikiTriggerService.sendHealthSync()
@@ -295,10 +311,12 @@ class KikiTriggerPlugin : Plugin() {
     }
 
     companion object {
-        private const val PRACTICE_WINDOW_MS = 60_000L
+        private const val PRACTICE_WINDOW_MS = 120_000L
         private val TOKEN_PATTERN = Regex("^ktk_[0-9a-f]{64}$")
         private val ADDRESS_PATTERN = Regex("^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
-        private val DEVICE_KINDS = setOf("earbuds", "watch", "ring", "car", "speaker", "wired", "other")
+        private val DEVICE_KINDS = setOf(
+            "earbuds", "wired", "car", "speaker", "helmet", "glasses", "ring", "pedal", "keyboard", "watch"
+        )
 
         private fun isoNow(): String =
             java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)

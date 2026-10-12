@@ -196,7 +196,7 @@ object DeviceTracker {
             val item = previous.optJSONObject(index) ?: continue
             if (item.optString("ref") != device.optString("ref")) next.put(item)
         }
-        if (next.length() >= MAX_DEVICES) return false
+        if (next.length() >= MAX_DEVICES && next.length() == previous.length()) return false
         next.put(device)
         save(context, next)
         emit()
@@ -212,6 +212,24 @@ object DeviceTracker {
         }
         save(context, next)
         emit()
+    }
+
+    fun rename(context: Context, ref: String, name: String): Boolean {
+        val devices = registry(context)
+        var renamed = false
+        for (index in 0 until devices.length()) {
+            val item = devices.optJSONObject(index) ?: continue
+            if (item.optString("ref") == ref) {
+                item.put("name", name)
+                renamed = true
+                break
+            }
+        }
+        if (renamed) {
+            save(context, devices)
+            emit()
+        }
+        return renamed
     }
 
     fun markVerified(context: Context, ref: String) {
@@ -253,6 +271,7 @@ object DeviceTracker {
             }
         } else null
         val result = JSONArray()
+        var registryChanged = false
         for (index in 0 until devices.length()) {
             val item = devices.optJSONObject(index) ?: continue
             val address = item.optString("address")
@@ -268,6 +287,14 @@ object DeviceTracker {
                     if (connected.contains(address) || (device != null && isConnected(device))) "connected" else "disconnected"
                 }
             }
+            if (status == "connected" && item.optString("lastStatus") != "connected") {
+                item.put("lastConnectedAt", iso(System.currentTimeMillis()))
+                registryChanged = true
+            }
+            if (item.optString("lastStatus") != status) {
+                item.put("lastStatus", status)
+                registryChanged = true
+            }
             result.put(
                 JSONObject()
                     .put("ref", item.optString("ref"))
@@ -278,8 +305,10 @@ object DeviceTracker {
                     .put("battery", batteryLevel(paired?.get(address)))
                     .put("verifiedAt", item.opt("verifiedAt") ?: JSONObject.NULL)
                     .put("addedAt", item.optString("addedAt"))
+                    .put("lastConnectedAt", item.optString("lastConnectedAt").takeIf { it.isNotBlank() } ?: JSONObject.NULL)
             )
         }
+        if (registryChanged) save(context, devices)
         return result
     }
 

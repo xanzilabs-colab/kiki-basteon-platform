@@ -12,6 +12,12 @@ if (!(triggerScheme in ["https", "http"]) ||
     !triggerHost || configuredTriggerUri.userInfo) {
     throw new GradleException("KIKI_APP_URL must be a valid HTTPS origin (HTTP is for local debug builds only).")
 }
+def requestsReleaseBuild = gradle.startParameter.taskNames.any {
+    it.toLowerCase(java.util.Locale.ROOT).contains("release")
+}
+if (triggerScheme == "http" && requestsReleaseBuild) {
+    throw new GradleException("Release builds require an HTTPS KIKI_APP_URL.")
+}
 def defaultPort = triggerScheme == "https" ? 443 : 80
 def portSuffix = configuredTriggerUri.port == -1 || configuredTriggerUri.port == defaultPort
     ? ""

@@ -10,6 +10,7 @@ import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
 import { isMovingAlert, movementLabel } from "@/lib/motion";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 import { Bluetooth } from "lucide-react";
+import { describeTriggerPattern } from "@/lib/triggerDisplay";
 
 export function AlertCard({
   alert,
@@ -46,13 +47,14 @@ export function AlertCard({
       <div className="flex items-center justify-between gap-2">
         <StatusBadge status={alert.status} />
         <AlertTypeBadge typeCode={alert.type_code} />
-        {alert.trigger_source === "bt_media" && <span className="inline-flex items-center gap-1 text-[10px] text-[var(--info)]"><Bluetooth size={11} />Bluetooth</span>}
+        {(alert.trigger_source === "bt_media" || alert.trigger_source === "bt_ble") && <span className="inline-flex items-center gap-1 text-[10px] text-[var(--info)]"><Bluetooth size={11} />Bluetooth</span>}
         {alert.duress && <span className="text-[10px] font-semibold text-[var(--crit)]">Duress</span>}
         <span className="data text-[11px] muted">
           {formatDistanceToNow(new Date(alert.triggered_at), { addSuffix: true })}
         </span>
       </div>
       <p className="row-title truncate">{alertDeviceLabel(alert)}</p>
+      {alert.trigger_pattern && <p className="truncate text-left text-[10px] text-[var(--muted)]">{describeTriggerPattern(alert.trigger_pattern)}</p>}
       <div className="row-meta">
         <span className="truncate">{alertOwnerName(alert) ?? "Unassigned"}</span>
         {km != null && <span className="data whitespace-nowrap">{formatDistance(km)}</span>}

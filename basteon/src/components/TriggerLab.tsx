@@ -14,6 +14,7 @@ export default function TriggerLab() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const practiceTimeout = useRef<number | null>(null);
+  const practiceActive = useRef(false);
   const mounted = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -43,6 +44,13 @@ export default function TriggerLab() {
     return () => {
       mounted.current = false;
       void subscription.then((handle) => handle.remove());
+      if (practiceTimeout.current !== null) window.clearTimeout(practiceTimeout.current);
+      if (practiceActive.current) {
+        practiceActive.current = false;
+        void KikiTrigger.setPractice({ on: false }).catch((cause) => {
+          console.error("Could not stop native Bluetooth practice mode while closing Trigger Lab.", cause);
+        });
+      }
     };
   }, [refresh]);
 
@@ -51,18 +59,20 @@ export default function TriggerLab() {
     setError("");
     try {
       await KikiTrigger.setPractice({ on });
+      practiceActive.current = on;
       setPractice(on);
       if (practiceTimeout.current !== null) window.clearTimeout(practiceTimeout.current);
       if (on) {
-        setEvents((current) => ["Practice mode started; real alerts are disabled for 60 seconds.", ...current].slice(0, 15));
+        setEvents((current) => ["Practice mode started; real alerts are disabled for 2 minutes.", ...current].slice(0, 15));
         practiceTimeout.current = window.setTimeout(() => {
           practiceTimeout.current = null;
           if (mounted.current) {
             setPractice(false);
             setEvents((current) => ["Practice window ended. The trigger was disarmed; review status before rearming.", ...current].slice(0, 15));
           }
+          practiceActive.current = false;
           void refresh();
-        }, 60_000);
+        }, 120_000);
       }
       await refresh();
     } catch (cause) {

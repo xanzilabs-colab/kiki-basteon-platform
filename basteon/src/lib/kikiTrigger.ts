@@ -1,6 +1,7 @@
 import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+import type { EverydayDeviceKind } from "@/lib/everydayDevices";
+export type { EverydayDeviceKind } from "@/lib/everydayDevices";
 
-export type EverydayDeviceKind = "earbuds" | "watch" | "ring" | "car" | "speaker" | "wired" | "other";
 export type EverydayDeviceStatus =
   | "connected"
   | "disconnected"
@@ -32,6 +33,7 @@ export interface EverydayDevice {
   status: EverydayDeviceStatus;
   verifiedAt: string | null;
   addedAt: string;
+  lastConnectedAt: string | null;
   battery?: number | null;
 }
 
@@ -69,6 +71,7 @@ interface KikiTriggerPlugin {
     btName?: string;
   }): Promise<void>;
   removeDevice(options: { ref: string }): Promise<void>;
+  renameDevice(options: { ref: string; name: string }): Promise<void>;
   markVerified(options: { ref: string }): Promise<void>;
   setNotifyDrop(options: { on: boolean }): Promise<void>;
   openBluetoothSettings(): Promise<void>;

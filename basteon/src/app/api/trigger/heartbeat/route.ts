@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { admin, isInvalidTokenError, noStore, readJson, readToken, sha256 } from "@/lib/triggerRoute";
+import { EVERYDAY_DEVICE_KINDS } from "@/lib/everydayDevices";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ const Diagnostic = z.object({
 
 const Device = z.object({
   ref: z.string().min(8).max(40),
-  kind: z.enum(["earbuds", "wired", "car", "speaker", "watch", "ring", "other"]),
+  kind: z.enum(EVERYDAY_DEVICE_KINDS),
   label: z.string().trim().min(1).max(40),
   status: z.enum(["connected", "disconnected", "untracked", "bluetooth_off", "permission_needed", "unpaired"]),
   battery: z.number().int().min(0).max(100).nullable().optional(),
