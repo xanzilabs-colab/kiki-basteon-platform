@@ -192,10 +192,11 @@ async function startSession(userId: string, input: z.infer<typeof startSchema>) 
   if (existing) return Response.json(await state(existing as ReadRoomSession, userId));
 
   const identity = generatedIdentity(`${userId}:read-room`);
+  const botSessionId = crypto.randomUUID();
   const { data: sessionId, error } = await db.rpc("read_room_start", {
     p_room_id: null,
     p_user: userId,
-    p_session_id: crypto.randomUUID(),
+    p_session_id: botSessionId,
     p_age_band: member.age_band,
     p_p1_alias: identity.alias,
     p_p1_avatar: identity.avatar,
@@ -203,8 +204,31 @@ async function startSession(userId: string, input: z.infer<typeof startSchema>) 
     p_p2_avatar: "🐦",
   });
   if (error) {
-    logDatabaseFailure("bot_start", error);
-    throw new Error("read_room_bot_start_failed");
+    logDatabaseFailure("bot_start_rpc", error);
+    const { data: recovered, error: recoveryLookupError } = await db.from("read_room_sessions")
+      .select("*").eq("id", botSessionId).maybeSingle();
+    if (recoveryLookupError) {
+      logDatabaseFailure("bot_start_recovery_lookup", recoveryLookupError);
+      throw new Error("read_room_bot_start_failed");
+    }
+    if (recovered) return Response.json(await state(recovered as ReadRoomSession, userId));
+    const { data: created, error: recoveryError } = await db.from("read_room_sessions").insert({
+      id: botSessionId,
+      mode: "bot",
+      age_band: member.age_band,
+      status: "active",
+      p1: userId,
+      p2: null,
+      p1_alias: identity.alias,
+      p1_avatar: identity.avatar,
+      p2_alias: "Kiki",
+      p2_avatar: "🐦",
+    }).select("*").single();
+    if (recoveryError) {
+      logDatabaseFailure("bot_start_recovery_insert", recoveryError);
+      throw new Error("read_room_bot_start_failed");
+    }
+    return Response.json(await state(created as ReadRoomSession, userId));
   }
   if (typeof sessionId !== "string") throw new Error("read_room_bot_start_missing_session_id");
   const session = await getSession(sessionId, userId);
