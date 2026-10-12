@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  fileURLToPath(new URL("../../../supabase/migrations/20261110000000_trigger_gateway_bluetooth.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../supabase/migrations/20261111000600_trigger_gateway_bluetooth.sql", import.meta.url)),
   "utf8",
 );
 const integrationSql = readFileSync(
