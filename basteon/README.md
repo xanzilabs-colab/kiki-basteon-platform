@@ -94,6 +94,35 @@ Apply the live-tracking migrations through `supabase/migrations/20261110003000_p
 
 The service role key is used only by server-side route handlers and the Supabase Edge Function. Do not expose it in browser code or commit populated environment files.
 
+## Android Bluetooth Trigger Pilot
+
+The Android app is a Capacitor shell around the deployed Kiki web app. It requires a network connection and does not work offline. The native foreground service listens for Bluetooth media-button events (for example, a headset play/pause or next-track press); Bluetooth pairing alone does not guarantee that a device sends those events. iPhone, BLE GATT trigger buttons, and devices that do not expose media controls are not supported by this pilot.
+
+Before enabling triggers:
+
+1. Apply the trigger migrations in order, including `supabase/migrations/20261110000000_trigger_gateway_bluetooth.sql` and `supabase/migrations/20261112000100_trigger_virtual_endpoints_and_user_cancel.sql`, with `supabase db push` or your controlled SQL deployment process. Do not enable the app before the migrations are deployed.
+2. Configure `CRON_SECRET` in the deployed app environment. The Vercel cron promotes due alerts as a recovery fallback; the gateway also schedules immediate countdown promotion in the request lifecycle.
+3. Deploy the current Next.js app and set `KIKI_APP_URL` to its HTTPS origin when building Android. The wrapper signs into that deployment and uses its existing Supabase session.
+
+Build and install a debug APK from PowerShell on Windows:
+
+```powershell
+Set-Location .\basteon
+$env:KIKI_APP_URL = "https://YOUR_DEPLOYED_KIKI_ORIGIN"
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+npm install
+npm run cap:sync
+npm run android:apk
+& "$env:ANDROID_HOME\platform-tools\adb.exe" install -r ".\android\app\build\outputs\apk\debug\app-debug.apk"
+```
+
+Enable Developer options and USB debugging on the phone, connect it over USB, accept the debugging prompt, and run the install command. The APK is at `android/app/build/outputs/apk/debug/app-debug.apk`. Alternatively, copy that APK to the phone and open it to install; Android may ask you to allow installs from that file manager. For local development, use an HTTPS tunnel or a laptop LAN URL reachable by the phone; HTTP URLs are accepted only by debug builds. Re-run `npm run cap:sync` whenever the web app URL or native plugin dependencies change.
+
+On the phone, sign in to Kiki, open **Profile → Bluetooth Triggers**, leave **Test mode** enabled, grant notifications and optional location, then arm the phone. Pair an everyday device in Android Bluetooth settings, add it under **My devices → Phone-connected devices**, connect it, and run **Practice check**. Verify the control pattern in **Trigger Lab** with other media devices disconnected. The common patterns are five quick presses for SOS, three then two for medical, two-two-two for discreet SOS, and four for cancel. Practice mode is local-only and never sends an alert. Only turn test mode off after the device has passed practice; with test mode off, recognised patterns can alert responders. Keep the Kiki foreground-service notification enabled and exempt Kiki from battery optimisation for more reliable background monitoring.
+
+Bluetooth names and MAC addresses remain encrypted on the phone. The server receives only the user-selected device label, general device type, connection/verification state, and the generic trigger source. The countdown notification includes a server-backed cancel action; the four-press cancel pattern is also available. Web-push cancellation requires an active authenticated Kiki session, while the Android foreground notification can cancel using the phone's trigger token.
+
 ## Buddy Safe Spots And Meetings
 
 The non-audio features require migration `20261024000000_buddy_safe_places_and_meeting.sql`, after all migrations through `20261023000000`. This implementation does not apply migrations automatically.

@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAppDialog } from "@/components/AppDialogProvider";
 import { pinErrorMessage } from "@/lib/devicePin";
 import type { Device } from "@/lib/types";
+import EverydayDevicesCard from "@/components/EverydayDevicesCard";
 import "./devicesPage.css";
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
@@ -226,5 +227,12 @@ export default function DevicesPage() {
       </section>
     )}
 
+    <section className="mt-6 space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold">Phone-connected devices</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">Bluetooth and wired media devices paired to this Android phone.</p>
+      </div>
+      <EverydayDevicesCard />
+    </section>
   </div>;
 }

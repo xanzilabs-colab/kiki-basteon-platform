@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, ExternalLink, Phone, UserRound, X } from "lucide-react";
+import { Bluetooth, Copy, ExternalLink, Phone, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
@@ -126,6 +126,16 @@ export function AlertDetailPanel({
 
       {alert.type_source === "upgrade" && alert.type_updated_at && <div className="mx-4 mt-3 border-l-4 border-[#087f70] bg-[#087f70]/15 px-3 py-2 text-[12px] font-semibold text-[#70e1d0]">Updated to {alert.type_code === "medical" ? "Medical" : "General"} at {new Date(alert.type_updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
       {alert.type_code === "medical" && <p className="mx-4 mt-2 text-[12px] text-[#8ddfd2]">Caller reports a medical emergency.</p>}
+      {alert.trigger_source && (
+        <div className="mx-4 mt-3 space-y-1 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-[12px]">
+          <p className="flex items-center gap-1.5 font-semibold">
+            {alert.trigger_source === "bt_media" || alert.trigger_source === "bt_ble" ? <Bluetooth size={14} /> : null}
+            Triggered by {alert.device_hint ?? (alert.trigger_source === "bt_media" ? "Bluetooth media button" : alert.trigger_source.replaceAll("_", " "))}
+          </p>
+          {alert.trigger_pattern && <p className="muted">Button pattern: <span className="data">{alert.trigger_pattern}</span></p>}
+          {alert.duress && <p className="font-semibold text-[var(--crit)]">Discreet duress signal — follow your organisation’s discreet response protocol.</p>}
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="section">
@@ -162,6 +172,18 @@ export function AlertDetailPanel({
           <span className="muted text-[12px]">Last update</span>
           <span className={`data text-[12px] ${healthColor}`}>{ageSeconds}s ago</span>
         </div>
+        {alert.loc_at && (
+          <div className="kv">
+            <span className="muted text-[12px]">Phone location captured</span>
+            <time className="data text-[12px]" dateTime={alert.loc_at}>{new Date(alert.loc_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
+          </div>
+        )}
+        {alert.accuracy_m != null && (
+          <div className="kv">
+            <span className="muted text-[12px]">Reported GPS accuracy</span>
+            <span className="data text-[12px]">±{Math.round(alert.accuracy_m)} m</span>
+          </div>
+        )}
 
         {coords ? (
           <>

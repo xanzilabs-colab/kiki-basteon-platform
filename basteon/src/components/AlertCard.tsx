@@ -9,6 +9,7 @@ import { LocationSourceBadge } from "./LocationSourceBadge";
 import { AlertTypeBadge } from "./alerts/AlertTypeBadge";
 import { isMovingAlert, movementLabel } from "@/lib/motion";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
+import { Bluetooth } from "lucide-react";
 
 export function AlertCard({
   alert,
@@ -45,6 +46,8 @@ export function AlertCard({
       <div className="flex items-center justify-between gap-2">
         <StatusBadge status={alert.status} />
         <AlertTypeBadge typeCode={alert.type_code} />
+        {alert.trigger_source === "bt_media" && <span className="inline-flex items-center gap-1 text-[10px] text-[var(--info)]"><Bluetooth size={11} />Bluetooth</span>}
+        {alert.duress && <span className="text-[10px] font-semibold text-[var(--crit)]">Duress</span>}
         <span className="data text-[11px] muted">
           {formatDistanceToNow(new Date(alert.triggered_at), { addSuffix: true })}
         </span>

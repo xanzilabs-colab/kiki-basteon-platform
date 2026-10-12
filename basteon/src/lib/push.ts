@@ -10,6 +10,7 @@ type PushPayload = {
   url: string;
   actions?: Array<{ action: string; title: string }>;
   tripId?: string;
+  data?: Record<string, string>;
 };
 
 function configured() {
