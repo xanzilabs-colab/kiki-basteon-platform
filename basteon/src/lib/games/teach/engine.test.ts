@@ -27,6 +27,15 @@ describe("scanText", () => {
     expect(scanText("I want to die").selfHarm).toBe(true);
   });
 
+  it("does not mistake everyday use of 'issue' for legal advice", () => {
+    const input = card({
+      problem: "I had an issue keeping track of small purchases.",
+      tip: "I wrote each purchase down and checked my list at the end of the week.",
+    });
+    expect(scanText(input.problem).risk).not.toContain("legal");
+    expect(validateCard(input, { verified: false })).toEqual({ ok: true });
+  });
+
   it("lets harmless text through", () => {
     expect(scanText("Plan your week on Sunday.")).toEqual({ pii: [], risk: [], selfHarm: false });
   });

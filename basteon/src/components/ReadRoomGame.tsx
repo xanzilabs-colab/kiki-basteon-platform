@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Flag, Heart, Lightbulb, LoaderCircle, Sparkles, UsersRound } from "lucide-react";
+import { showGameError } from "@/lib/gameFeedback";
 import styles from "./ReadRoomGame.module.css";
 
 type Session = {
@@ -103,6 +104,9 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
         room_not_ready: "Wait for your Buddy to accept the invitation first.",
         host_starts_game: "The room host will start the game in a moment.",
         age_band_locked: "Your age group cannot be changed during an active game.",
+        action_unavailable: action === "start"
+          ? "We couldn't start the game just now. Your setup is saved—please try again."
+          : "We couldn't update the game just now. Please try again in a moment.",
       };
       throw new Error(data?.error ? messages[data.error] ?? "That action could not be completed." : "That action could not be completed.");
     }
@@ -155,7 +159,9 @@ export function ReadRoomGame({ roomId }: { roomId?: string }) {
       const next = await request("start", roomId ? { mode: "pair", roomId } : { mode: "bot" }) as Snapshot;
       applySnapshot(next, true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The game could not start.");
+      const message = cause instanceof Error ? cause.message : "The game could not start. Please try again.";
+      setError(message);
+      showGameError("Game didn't start", message);
     } finally {
       setBusy(false);
     }

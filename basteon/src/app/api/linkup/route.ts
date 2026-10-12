@@ -70,6 +70,9 @@ type Round = {
 const admin = () => createAdminClient();
 const fail = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const addMs = (ms: number) => new Date(Date.now() + ms).toISOString();
+const botActorId = (match: Match) => match.bot_actor_id ?? "kiki";
+const databaseActorId = (match: Match, actorId: string) =>
+  match.vs_bot && actorId === botActorId(match) ? null : actorId;
 const toEpoch = (value: string | null | undefined) => {
   if (!value) return 0;
   const parsed = Date.parse(value);
@@ -109,14 +112,17 @@ async function authenticatedUser() {
 async function loadMatch(matchId: string, uid: string) {
   const db = admin();
   const { data, error } = await db.from("linkup_matches").select("*").eq("id", matchId).maybeSingle();
-  if (error) throw new Error("match_lookup_failed");
+  requireDatabaseSuccess("match_lookup", error);
   if (!data || (data.player1_id !== uid && data.player2_id !== uid)) return null;
-  return data as Match;
+  return {
+    ...data,
+    bot_actor_id: data.vs_bot ? data.bot_actor_id ?? "kiki" : data.bot_actor_id,
+  } as Match;
 }
 
 async function currentRound(matchId: string) {
   const { data, error } = await admin().from("linkup_rounds").select("*").eq("match_id", matchId).order("round_no", { ascending: false }).limit(1).maybeSingle();
-  if (error) throw new Error("round_lookup_failed");
+  requireDatabaseSuccess("round_lookup", error);
   return data as Round | null;
 }
 
@@ -173,12 +179,13 @@ async function initializeMatch(match: Match) {
   if (match.mode === "bomb") {
     if (isBombState(match.bomb_state)) return;
     if (match.turn_no !== 0 || match.status !== "active") throw new Error("bomb_state_unavailable");
-    const opponent = match.vs_bot ? match.bot_actor_id ?? "kiki" : match.player2_id!;
+    const opponent = match.vs_bot ? botActorId(match) : match.player2_id!;
     const state = bombInit(match.player1_id, opponent, "s");
     const { error } = await admin().from("linkup_matches").update({
+      bot_actor_id: match.vs_bot ? opponent : match.bot_actor_id,
       status: "active",
-      holder_id: state.holder,
-      passer_id: state.passer,
+      holder_id: databaseActorId(match, state.holder),
+      passer_id: databaseActorId(match, state.passer),
       turn_no: 1,
       turn_started_at: new Date().toISOString(),
       bomb_start: state.start,
@@ -251,7 +258,7 @@ async function getSnapshot(match: Match, uid: string) {
   let visibleAnswers: unknown[] = [];
   if (round) {
     const { data: answers, error } = await db.from("linkup_answers").select("actor_id,user_id,word,valid,reason,answer_ms,points").eq("round_id", round.id);
-    if (error) throw new Error("answer_snapshot_failed");
+    requireDatabaseSuccess("answer_snapshot", error);
     const rows = answers ?? [];
     ownAnswer = rows.find((answer) => answer.actor_id === uid) ?? null;
     if (round.phase === "result" || round.phase === "finished") visibleAnswers = rows;
@@ -267,7 +274,7 @@ async function getSnapshot(match: Match, uid: string) {
       .select("rematch_host,rematch_guest")
       .eq("id", match.room_id)
       .maybeSingle();
-    if (error) throw new Error("rematch_state_lookup_failed");
+    requireDatabaseSuccess("rematch_state_lookup", error);
     rematchRoom = data;
   }
   return {
@@ -338,7 +345,7 @@ async function resolveRound(match: Match, round: Round) {
     p_deadline_at: finalRound ? null : addMs(RESULT_WINDOW_MS),
     p_finished_at: finishedAt,
   });
-  if (commitError) throw new Error("round_resolve_failed");
+  requireDatabaseSuccess("round_resolve", commitError);
   if (!committed) return;
 }
 
@@ -442,12 +449,18 @@ async function advanceRound(match: Match, round: Round) {
       const verdict = bot.word
         ? validateAnswer(bot.word, round.spec!, words, new Set(match.used_words))
         : { valid: false, word: "", reason: "timeout" as const };
-      const { error: answerError } = await db.from("linkup_answers").upsert({
-        round_id: round.id, actor_id: match.bot_actor_id ?? "kiki", user_id: null, raw_text: bot.word ?? "", alternatives: [],
-        word: verdict.word, valid: verdict.valid, reason: verdict.reason,
-        answer_ms: bot.delayMs, points: 0,
-      }, { onConflict: "round_id,actor_id" });
-      if (answerError) throw new Error("bot_answer_save_failed");
+      const actorId = botActorId(match);
+      const { data: existingAnswer, error: lookupError } = await db.from("linkup_answers")
+        .select("id").eq("round_id", round.id).eq("actor_id", actorId).maybeSingle();
+      requireDatabaseSuccess("bot_answer_lookup", lookupError);
+      if (!existingAnswer) {
+        const { error: answerError } = await db.from("linkup_answers").insert({
+          round_id: round.id, actor_id: actorId, user_id: null, raw_text: bot.word ?? "", alternatives: [],
+          word: verdict.word, valid: verdict.valid, reason: verdict.reason,
+          answer_ms: bot.delayMs, points: 0,
+        });
+        if (answerError?.code !== "23505") requireDatabaseSuccess("bot_answer_save", answerError);
+      }
     }
     const { data: answers, error: answerLookupError } = await db.from("linkup_answers").select("user_id").eq("round_id", round.id);
     if (answerLookupError) throw new Error("answer_count_failed");
@@ -466,6 +479,7 @@ async function advanceRound(match: Match, round: Round) {
 
 async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schema>) {
   const db = admin();
+  const botId = botActorId(match);
   let state = match.bomb_state;
   if (!isBombState(state)) {
     await initializeMatch(match);
@@ -499,8 +513,8 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
     state = resolution.state;
     const { data: claimed, error: updateError } = await db.from("linkup_matches").update({
       bomb_state: state, fuse_left_ms: state.fuseLeftMs, turn_no: match.turn_no + 1,
-      holder_id: state.holder === match.bot_actor_id ? null : state.holder,
-      passer_id: state.passer === match.bot_actor_id ? null : state.passer,
+      holder_id: databaseActorId(match, state.holder),
+      passer_id: databaseActorId(match, state.passer),
       bomb_start: state.start,
       bomb_end: state.end, turn_started_at: new Date().toISOString(),
       status: state.exploded ? "finished" : "active",
@@ -510,7 +524,7 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
     if (!claimed) throw new Error("bomb_turn_already_resolved");
     const { error: historyError } = await db.from("linkup_turns").insert({
       match_id: match.id, turn_no: match.turn_no,
-      holder_id: match.holder_id === match.bot_actor_id ? null : match.holder_id,
+      holder_id: databaseActorId(match, match.bomb_state.holder),
       actor_id: match.bomb_state.holder,
       start: spec.start, end: spec.end, word: verdict.word, valid: verdict.valid,
       reason: verdict.reason, used_ms: usedMs, fuse_after_ms: state.fuseLeftMs, resolved: true,
@@ -522,7 +536,7 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
   if (action.action === "advance") {
     const elapsed = Math.max(0, Date.now() - Date.parse(match.turn_started_at ?? new Date().toISOString()));
     if (!state.end) {
-      const botIsPicking = match.vs_bot && state.passer === match.bot_actor_id;
+      const botIsPicking = match.vs_bot && state.passer === botId;
       if (!botIsPicking && elapsed < BOMB.pickMs) return;
       const availableEnds = LETTERS.filter((letter) => pairHasWords(state.start, letter, new Set(state.used)));
       if (availableEnds.length === 0) throw new Error("bomb_no_playable_end_letters");
@@ -541,14 +555,14 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
     if (elapsed >= match.fuse_left_ms) {
       state = { ...state, fuseLeftMs: 0, exploded: true, loser: state.holder };
       const { data: claimed, error } = await db.from("linkup_matches").update({
-        bomb_state: state, fuse_left_ms: 0, status: "finished", holder_id: state.holder === match.bot_actor_id ? null : state.holder,
+        bomb_state: state, fuse_left_ms: 0, status: "finished", holder_id: databaseActorId(match, state.holder),
         finished_at: new Date().toISOString(),
       }).eq("id", match.id).eq("bomb_state->>holder", state.holder).eq("turn_no", match.turn_no).eq("status", "active").select("id").maybeSingle();
       if (error) throw new Error("bomb_explosion_update_failed");
       if (claimed) await markBombRoomFinished(match);
       return;
     }
-    if (match.vs_bot && state.holder === match.bot_actor_id && state.end) {
+    if (match.vs_bot && state.holder === botId && state.end) {
       const rng = mulberry32(match.seed + state.turn * 23);
       const spec = buildSpec({
         round: state.turn,
@@ -571,14 +585,14 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
           bomb_state: nextState,
           fuse_left_ms: nextState.fuseLeftMs,
           turn_no: match.turn_no + 1,
-          holder_id: nextState.holder === match.bot_actor_id ? null : nextState.holder,
-          passer_id: nextState.passer === match.bot_actor_id ? null : nextState.passer,
+          holder_id: databaseActorId(match, nextState.holder),
+          passer_id: databaseActorId(match, nextState.passer),
           bomb_start: nextState.start,
           bomb_end: nextState.end,
           turn_started_at: new Date().toISOString(),
           status: nextState.exploded ? "finished" : "active",
           finished_at: nextState.exploded ? new Date().toISOString() : null,
-        }).eq("id", match.id).eq("bomb_state->>holder", match.bot_actor_id!).eq("turn_no", match.turn_no)
+        }).eq("id", match.id).eq("bomb_state->>holder", botId).eq("turn_no", match.turn_no)
           .eq("status", "active").select("id").maybeSingle();
         requireDatabaseSuccess("bomb_bot_answer", updateError);
         if (claimed) {
@@ -586,7 +600,7 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
           match_id: match.id,
           turn_no: match.turn_no,
           holder_id: null,
-          actor_id: match.bot_actor_id ?? "kiki",
+          actor_id: botId,
           start: spec.start,
           end: spec.end,
           word: verdict.word,
@@ -610,25 +624,29 @@ export async function GET(request: Request) {
   const matchId = new URL(request.url).searchParams.get("matchId");
   const parsed = z.string().uuid().safeParse(matchId);
   if (!parsed.success) return fail("invalid_match_id");
+  let operation = "load_match";
   try {
     let match = await loadMatch(parsed.data, user.id);
     if (!match) return fail("match_not_found", 404);
+    operation = "initialize_match";
     await initializeMatch(match);
     const initializedMatch = await loadMatch(parsed.data, user.id);
     if (!initializedMatch) return fail("match_not_found", 404);
     match = initializedMatch;
     if (match.mode === "bomb" && match.status === "finished") await markBombRoomFinished(match);
     if (match.mode !== "bomb") {
+      operation = "advance_round";
       const round = await currentRound(match.id);
       if (round) await advanceRound(match, round);
       const advancedMatch = await loadMatch(parsed.data, user.id);
       if (!advancedMatch) return fail("match_not_found", 404);
       match = advancedMatch;
     }
+    operation = "build_snapshot";
     return NextResponse.json(await getSnapshot(match, user.id));
   } catch (error) {
-    console.error("linkup get snapshot failed", error);
-    return fail("match_state_unavailable", 500);
+    console.error("linkup get snapshot failed", { matchId: parsed.data, operation, error });
+    return NextResponse.json({ error: "match_state_unavailable", operation }, { status: 500 });
   }
 }
 

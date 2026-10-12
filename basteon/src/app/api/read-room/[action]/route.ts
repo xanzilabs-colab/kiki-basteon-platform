@@ -44,9 +44,28 @@ type ReadRoomSession = {
   rounds_total: number;
 };
 
+function logDatabaseFailure(operation: string, error: {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+} | null) {
+  if (!error) return;
+  console.error("read_room_database_failure", {
+    operation,
+    code: error.code,
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+  });
+}
+
 async function getSession(sessionId: string, userId: string) {
   const { data, error } = await admin().from("read_room_sessions").select("*").eq("id", sessionId).maybeSingle();
-  if (error) throw new Error("read_room_session_lookup_failed");
+  if (error) {
+    logDatabaseFailure("session_lookup", error);
+    throw new Error("read_room_session_lookup_failed");
+  }
   const session = data as ReadRoomSession | null;
   if (!session || (session.p1 !== userId && session.p2 !== userId)) return null;
   return session;
@@ -61,10 +80,16 @@ async function ensureRound(session: ReadRoomSession) {
     round_no: session.round_no,
     scenario_id: scenarioId,
   }, { onConflict: "session_id,round_no", ignoreDuplicates: true });
-  if (insertError) throw new Error("read_room_round_create_failed");
+  if (insertError) {
+    logDatabaseFailure("round_create", insertError);
+    throw new Error("read_room_round_create_failed");
+  }
   const { data, error } = await db.from("read_room_rounds").select("*")
     .eq("session_id", session.id).eq("round_no", session.round_no).single();
-  if (error) throw new Error("read_room_round_lookup_failed");
+  if (error) {
+    logDatabaseFailure("round_lookup", error);
+    throw new Error("read_room_round_lookup_failed");
+  }
   return data;
 }
 
@@ -124,7 +149,10 @@ async function startSession(userId: string, input: z.infer<typeof startSchema>) 
     const { data: room, error: roomError } = await db.from("game_rooms")
       .select("id,game,status,invite_status,host_id,guest_id")
       .eq("id", input.roomId).eq("game", "read_room").maybeSingle();
-    if (roomError) throw new Error("read_room_room_lookup_failed");
+    if (roomError) {
+      logDatabaseFailure("room_lookup", roomError);
+      throw new Error("read_room_room_lookup_failed");
+    }
     if (!room || (room.host_id !== userId && room.guest_id !== userId)) return fail("room_unavailable", 404);
     if (!room.guest_id || room.invite_status !== "accepted" || !["ready_check", "playing"].includes(room.status)) {
       return fail("room_not_ready", 409);
@@ -144,9 +172,11 @@ async function startSession(userId: string, input: z.infer<typeof startSchema>) 
       p_p2_avatar: guestMember.avatar,
     });
     if (error) {
+      logDatabaseFailure("pair_start", error);
       if (error.message.includes("room_unavailable")) return fail("room_unavailable", 404);
       throw new Error("read_room_start_failed");
     }
+    if (typeof sessionId !== "string") throw new Error("read_room_start_missing_session_id");
     const session = await getSession(sessionId, userId);
     if (!session) throw new Error("read_room_session_create_failed");
     return Response.json(await state(session, userId));
@@ -155,7 +185,10 @@ async function startSession(userId: string, input: z.infer<typeof startSchema>) 
   const { data: existing, error: existingError } = await db.from("read_room_sessions").select("*")
     .eq("p1", userId).eq("mode", "bot").eq("status", "active")
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (existingError) throw new Error("read_room_active_session_lookup_failed");
+  if (existingError) {
+    logDatabaseFailure("active_session_lookup", existingError);
+    throw new Error("read_room_active_session_lookup_failed");
+  }
   if (existing) return Response.json(await state(existing as ReadRoomSession, userId));
 
   const identity = generatedIdentity(`${userId}:read-room`);
@@ -169,7 +202,11 @@ async function startSession(userId: string, input: z.infer<typeof startSchema>) 
     p_p2_alias: "Kiki",
     p_p2_avatar: "🐦",
   });
-  if (error) throw new Error("read_room_bot_start_failed");
+  if (error) {
+    logDatabaseFailure("bot_start", error);
+    throw new Error("read_room_bot_start_failed");
+  }
+  if (typeof sessionId !== "string") throw new Error("read_room_bot_start_missing_session_id");
   const session = await getSession(sessionId, userId);
   if (!session) throw new Error("read_room_bot_session_create_failed");
   return Response.json(await state(session, userId));
@@ -335,7 +372,7 @@ export async function POST(request: Request, context: Context) {
     }
     return fail("not_found", 404);
   } catch (error) {
-    console.error("read_room_action_failed", action, error);
-    return fail("action_unavailable", 500);
+    console.error("read_room_action_failed", { action, error });
+    return fail("action_unavailable", 500, { action });
   }
 }

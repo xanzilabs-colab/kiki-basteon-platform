@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, BookOpen, DoorOpen, Heart, Library, ShieldAlert, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { showGameError } from "@/lib/gameFeedback";
 import styles from "./TeachGame.module.css";
 
 type Topic = { id: string; title: string; blurb: string | null; contentNote: string | null };
@@ -60,6 +61,36 @@ const ratingLabels = [
   { value: "try", label: "I'll try it" },
   { value: "not_for_me", label: "Not for me" },
 ] as const;
+const cardFieldHelp: Record<string, string> = {
+  problem: "describe the everyday problem",
+  tip: "write a tip of at least 15 characters",
+  example: "shorten the example",
+  checkQ: "add a quick-check question",
+  checkOptions: "make all three answer choices different and non-empty",
+  checkAnswer: "choose the correct answer",
+};
+
+function cardShapeMessage(fields: unknown) {
+  const labels = Array.isArray(fields)
+    ? [...new Set(fields.filter((field): field is string => typeof field === "string"))]
+    : [];
+  const help = labels.map((field) => cardFieldHelp[field]).filter(Boolean);
+  return help.length
+    ? `Please ${help.join("; ")} before sharing.`
+    : "Please check that every card field is complete and the three answer choices are different.";
+}
+
+function professionalAdviceMessage(categories: unknown) {
+  const labels = Array.isArray(categories) ? categories : [];
+  const guidance: Record<string, string> = {
+    medical: "This reads like medical guidance. Please remove diagnosis, medication, or treatment instructions and share an everyday experience instead.",
+    legal: "This reads like legal advice. Please avoid telling people what the law requires and share an everyday experience instead.",
+    safety: "This could put someone at risk. Please remove unsafe instructions and share a safer, supportive everyday step instead.",
+    financial: "This reads like financial advice. Please avoid investment or debt instructions and share a basic everyday budgeting habit instead.",
+  };
+  const message = labels.map((label) => typeof label === "string" ? guidance[label] : null).find(Boolean);
+  return message ?? "Please keep this to an everyday experience rather than expert instructions.";
+}
 
 export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roomId?: string }) {
   const router = useRouter();
@@ -198,7 +229,7 @@ export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roo
         throw new Error(`Looks like this contains ${finding}; please remove it before sharing.`);
       }
       if (body.error === "professional") {
-        throw new Error("professional_advice");
+        throw new Error(`professional_advice:${professionalAdviceMessage(body.categories)}`);
       }
       if (body.error === "self_harm") {
         setNotice(body.message || "Please pause and reach out to someone you trust. Help is available in the app.");
@@ -208,7 +239,10 @@ export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roo
       if (body.error === "bot_seed_unavailable") {
         throw new Error("Kiki's reviewed tip cards are not ready yet. Please try a Buddy session later.");
       }
-      throw new Error(body.message || body.error || "That action could not be completed.");
+      if (body.error === "invalid_card" || body.error === "invalid_card_shape") {
+        throw new Error(cardShapeMessage(body.fields));
+      }
+      throw new Error(body.message || "That action could not be completed. Please try again.");
     }
     return body;
   }
@@ -300,8 +334,14 @@ export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roo
       await loadState(session.id);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Your tip card could not be submitted.";
-      if (message === "professional_advice") setNotice("This kind of advice should come from a professional. Please edit your tip and keep it to everyday experience.");
-      else if (message !== "supportive_message") setError(message);
+      if (message.startsWith("professional_advice:")) {
+        const feedback = message.slice("professional_advice:".length);
+        setNotice(feedback);
+        showGameError("Tip needs a small edit", feedback);
+      } else if (message !== "supportive_message") {
+        setError(message);
+        showGameError("Tip not shared", message);
+      }
     } finally {
       setBusy(false);
     }

@@ -7,6 +7,7 @@ import { ArrowLeft, Bomb, Flame, Heart, Link2, Mic, Sparkles, Volume2, VolumeX }
 import { createClient } from "@/lib/supabase/client";
 import { BOMB, rolesForRound, wildcardBanner } from "@/lib/games/linkup/engine";
 import type { Mode, RoundSpec } from "@/lib/games/linkup/engine";
+import { dismissGameError, showGameError } from "@/lib/gameFeedback";
 import styles from "./LinkupMatch.module.css";
 
 type Snapshot = {
@@ -89,6 +90,20 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   const lastPhaseRef = useRef<string | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const busyRef = useRef(false);
+  const syncSequenceRef = useRef(0);
+  const syncToastId = `linkup-sync-${matchId}`;
+
+  const reportSyncFailure = useCallback((failure: unknown) => {
+    setMessage("Reconnecting to your match…");
+    showGameError(
+      "Match sync interrupted",
+      failure instanceof Error
+        ? failure.message
+        : "Your match is still on the server. Keep this page open while it reconnects.",
+      syncToastId,
+    );
+  }, [syncToastId]);
 
   useEffect(() => {
     const speechWindow = window as Window & {
@@ -215,18 +230,36 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
   }, [sound]);
 
   const refresh = useCallback(async () => {
-    const response = await fetch(`/api/linkup?matchId=${encodeURIComponent(matchId)}`, { cache: "no-store" });
-    const body = await response.json().catch(() => null) as { error?: unknown } | null;
+    const sequence = ++syncSequenceRef.current;
+    let response: Response;
+    try {
+      response = await fetch(`/api/linkup?matchId=${encodeURIComponent(matchId)}`, { cache: "no-store" });
+    } catch (error) {
+      if (sequence !== syncSequenceRef.current) return;
+      throw error;
+    }
+    const body = await response.json().catch(() => null) as { error?: unknown; operation?: unknown } | null;
+    if (sequence !== syncSequenceRef.current) return;
     if (!response.ok) {
       const reason = typeof body?.error === "string" ? body.error : `HTTP ${response.status}`;
-      throw new Error(`Match sync failed: ${reason}`);
+      if (reason === "match_state_unavailable") {
+        const operation = typeof body?.operation === "string" ? body.operation : "";
+        const descriptions: Record<string, string> = {
+          initialize_match: "The match is saved, but its opening state could not be loaded. We are retrying.",
+          advance_round: "The latest turn is still saved. We are retrying the round update.",
+          build_snapshot: "Your round is saved, but its latest view could not be loaded yet.",
+        };
+        throw new Error(descriptions[operation] ?? "Your match is still on the server. Keep this page open while it reconnects.");
+      }
+      throw new Error("We couldn't refresh your match. Keep this page open and try again shortly.");
     }
     if (!body) throw new Error("Match sync returned an empty response.");
     const next = body as Snapshot;
+    dismissGameError(syncToastId);
     setMessage("");
     setSnapshot(next);
     setNow(Date.parse(next.serverNow || new Date().toISOString()));
-  }, [matchId]);
+  }, [matchId, syncToastId]);
 
   useEffect(() => {
     let active = true;
@@ -234,11 +267,11 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
     void db.auth.getUser().then(({ data }) => { if (active && data.user) setUserId(data.user.id); });
     const timer = window.setInterval(() => {
       setNow(Date.now());
-      void refresh().catch((error) => setMessage(error instanceof Error ? `Reconnecting… ${error.message}` : "Reconnecting…"));
+      if (!busyRef.current) void refresh().catch(reportSyncFailure);
     }, 850);
-    void refresh().catch((error) => setMessage(error instanceof Error ? `Reconnecting… ${error.message}` : "Reconnecting…"));
-    return () => { active = false; window.clearInterval(timer); };
-  }, [refresh]);
+    void refresh().catch(reportSyncFailure);
+    return () => { active = false; window.clearInterval(timer); dismissGameError(syncToastId); };
+  }, [refresh, reportSyncFailure, syncToastId]);
 
   useEffect(() => {
     setWord("");
@@ -247,6 +280,8 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
 
   const send = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
     if (busy) return;
+    busyRef.current = true;
+    syncSequenceRef.current += 1;
     setBusy(true);
     setMessage("");
     try {
@@ -256,17 +291,29 @@ export function LinkupMatch({ matchId }: { matchId: string }) {
         body: JSON.stringify({ matchId, action, ...extra }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Action could not be completed.");
+      if (!response.ok) {
+        const message = result.error === "bomb_turn_already_resolved"
+          ? "That bomb turn has already been handled. Syncing the latest turn now."
+          : result.error === "answer_late"
+            ? "That answer arrived after the timer ended."
+            : "That move could not be saved. Your match is still open; please try again.";
+        throw new Error(message);
+      }
       setSnapshot(result as Snapshot);
       setNow(Date.parse((result as Snapshot).serverNow || new Date().toISOString()));
+      syncSequenceRef.current += 1;
+      dismissGameError(syncToastId);
       if (action === "pick") playTone(520, 0.08, "triangle", 0.03);
       if (action === "answer") playTone(820, 0.09, "sine", 0.04);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Action could not be completed.");
+      const description = error instanceof Error ? error.message : "That move could not be saved. Please try again.";
+      setMessage(description);
+      showGameError("Move not saved", description);
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
-  }, [busy, matchId, playTone]);
+  }, [busy, matchId, playTone, syncToastId]);
 
   useEffect(() => {
     if (!snapshot || snapshot.match.mode !== "bomb" || snapshot.match.status === "finished") return;

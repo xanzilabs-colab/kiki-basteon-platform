@@ -26,11 +26,33 @@ const PII_PATTERNS: [string, RegExp][] = [
   ["social handle", /(?:^|\s)@[a-z0-9_.]{3,}/i],
 ];
 
-const RISK_WORDS: Record<string, string[]> = {
-  medical: ["dose", "dosage", " mg", "medication", "prescription", "stop taking", "diagnos", "cure"],
-  legal: ["sue ", "lawsuit", "court order", "you must legally", "it is illegal", "legal advice"],
-  safety: ["confront him", "confront her", "don't call the police", "dont call the police", "don't report", "dont report", "carry a weapon", "fight back", "hurt "],
-  financial: ["guaranteed return", "loan shark", "get rich", "crypto", "invest all"],
+const RISK_PATTERNS: Record<string, RegExp[]> = {
+  medical: [
+    /\b(?:dose|dosage|medication|prescription|diagnose|diagnosis|diagnosed|diagnosing|cure)\b/,
+    /\bstop\s+taking\b/,
+  ],
+  legal: [
+    /\b(?:sue|sues|sued|suing|lawsuit)\b/,
+    /\bcourt\s+order\b/,
+    /\byou\s+must\s+legally\b/,
+    /\bit\s+is\s+illegal\b/,
+    /\blegal\s+advice\b/,
+  ],
+  safety: [
+    /\bconfront\s+(?:him|her|them)\b/,
+    /\bdon['’]?t\s+(?:call|contact)\s+the\s+police\b/,
+    /\bdon['’]?t\s+report\b/,
+    /\bcarry\s+a\s+weapon\b/,
+    /\bfight\s+back\b/,
+    /\b(?:hurt|harm)\s+(?:yourself|someone|them|him|her)\b/,
+  ],
+  financial: [
+    /\bguaranteed\s+returns?\b/,
+    /\bloan\s+shark\b/,
+    /\bget\s+rich\b/,
+    /\bcrypto(?:currency)?\b/,
+    /\binvest\s+all\b/,
+  ],
 };
 
 const SELF_HARM = ["suicide", "kill myself", "end my life", "self-harm", "self harm", "cut myself", "want to die"];
@@ -43,10 +65,13 @@ export function scanText(text: string): Findings {
   const t = normalizeText(text);
   const lower = " " + t.toLowerCase() + " ";
   const pii = PII_PATTERNS.filter(([, re]) => re.test(t)).map(([name]) => name);
-  const risk = Object.entries(RISK_WORDS)
-    .filter(([, words]) => words.some((w) => lower.includes(w)))
+  const risk = Object.entries(RISK_PATTERNS)
+    .filter(([, patterns]) => patterns.some((pattern) => pattern.test(lower)))
     .map(([k]) => k);
-  const selfHarm = SELF_HARM.some((w) => lower.includes(w));
+  const selfHarm = SELF_HARM.some((phrase) => {
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    return new RegExp(`\\b${escaped}\\b`).test(lower);
+  });
   return { pii, risk, selfHarm };
 }
 
