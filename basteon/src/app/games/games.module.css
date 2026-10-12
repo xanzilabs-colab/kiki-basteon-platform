@@ -199,8 +199,8 @@
 
 .filters { display: flex; gap: 7px; overflow-x: auto; padding: 1px 0 5px; scrollbar-width: none; }
 .filters::-webkit-scrollbar { display: none; }
-.filter { min-height: 34px; flex: none; padding: 0 13px; border: 1px solid #e3d8e7; border-radius: 999px; background: #fff; color: #624d6d; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease; }
-.filterActive { border-color: #54256f; background: #54256f; color: #fff; box-shadow: 0 4px 12px rgba(84, 37, 111, .2); }
+.filter { min-height: 34px; flex: none; padding: 0 13px; border: 1px solid #e3d8e7; border-radius: 999px; background: #fff; color: #624d6d; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; transition: background var(--kiki-control-speed) var(--kiki-ease), color var(--kiki-control-speed) var(--kiki-ease), border-color var(--kiki-control-speed) var(--kiki-ease), box-shadow var(--kiki-control-speed) var(--kiki-ease), transform var(--kiki-control-speed) var(--kiki-ease); }
+.filterActive { border-color: #7a4f9a; background: #7a4f9a; color: #fff; box-shadow: 0 4px 12px rgba(84, 37, 111, .2); }
 
 .gameList { display: grid; gap: 10px; }
 .gameRow { min-width: 0; display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 12px; border: 1px solid rgba(115, 91, 125, .15); border-radius: 13px; background: rgba(255,255,255,.91); color: inherit; text-decoration: none; box-shadow: 0 5px 16px rgba(59, 38, 68, .045); animation: rowIn .32s ease both; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }

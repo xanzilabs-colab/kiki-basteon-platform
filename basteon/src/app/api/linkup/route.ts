@@ -8,7 +8,7 @@ import {
   solutions, validateAnswer,
 } from "@/lib/games/linkup/engine";
 import type { BombState, Mode, RoundSpec, Verdict } from "@/lib/games/linkup/engine";
-import { botAnswer, botLetter, buildBotRoundPick } from "@/lib/games/linkup/bot";
+import { botAnswer, botLetter, buildBombBotTurn, buildBotRoundPick } from "@/lib/games/linkup/bot";
 import type { Difficulty } from "@/lib/games/linkup/bot";
 import { isPickDeadlineExpired, isPickSubmissionOnTime, PICK_REQUEST_GRACE_MS } from "@/lib/games/linkup/pickTiming";
 import { LINKUP_WORDS } from "@/lib/games/linkup/words";
@@ -575,20 +575,16 @@ async function actOnBomb(match: Match, uid: string, action: z.infer<typeof schem
       if (claimed) await markBombRoomFinished(match);
       return;
     }
-    if (match.vs_bot && state.holder === botId && state.end) {
-      const rng = mulberry32(match.seed + state.turn * 23);
-      const spec = buildSpec({
-        round: state.turn,
-        mode: "classic",
-        start: state.start,
-        end: state.end,
-        preserveStart: true,
-        preserveEnd: true,
+    const botEnd = state.end;
+    if (match.vs_bot && state.holder === botId && botEnd) {
+      const { spec, answer } = buildBombBotTurn({
         idx: index,
+        state: { ...state, end: botEnd },
         used: new Set(state.used),
-        rng,
+        difficulty: match.bot_difficulty ?? "medium",
+        seed: match.seed,
+        attempt: match.turn_no,
       });
-      const answer = botAnswer(index, spec, new Set(state.used), match.bot_difficulty ?? "medium", rng);
       if (elapsed >= answer.delayMs) {
         const verdict = answer.word ? validateAnswer(answer.word, spec, words, new Set(state.used)) : { valid: false, word: "", reason: "timeout" as const };
         const usedMs = Math.max(answer.delayMs, elapsed);

@@ -2415,7 +2415,7 @@ export function OrganisationConsole() {
         border: 1px solid var(--line);
         border-radius: 999px;
         background: #343945;
-        transition: background .28s cubic-bezier(.22,1,.36,1), border-color .28s cubic-bezier(.22,1,.36,1), box-shadow .28s cubic-bezier(.22,1,.36,1);
+        transition: background var(--kiki-control-speed) var(--kiki-ease), border-color var(--kiki-control-speed) var(--kiki-ease), box-shadow var(--kiki-control-speed) var(--kiki-ease);
       }
       .org-switch span {
         display: block;
@@ -2424,7 +2424,7 @@ export function OrganisationConsole() {
         border-radius: 50%;
         background: #fff;
         box-shadow: 0 1px 3px rgba(0,0,0,.35);
-        transition: transform .28s cubic-bezier(.22,1,.36,1);
+        transition: transform var(--kiki-control-speed) var(--kiki-ease);
       }
       .org-switch.is-on { background: #22a06b; border-color: #22a06b; }
       .org-switch.is-on span { transform: translateX(18px); }

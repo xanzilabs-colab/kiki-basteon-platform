@@ -1,5 +1,5 @@
-import { CONFIG, LETTERS, buildSpec, rolesForRound, solutions } from "./engine";
-import type { Mode, RoundSpec, Rng, WordIndex } from "./engine";
+import { CONFIG, LETTERS, buildSpec, mulberry32, rolesForRound, solutions } from "./engine";
+import type { BombState, Mode, RoundSpec, Rng, WordIndex } from "./engine";
 
 export type Difficulty = "easy" | "medium" | "hard";
 
@@ -112,6 +112,32 @@ export function botAnswer(
   const cut = Math.max(1, Math.ceil(sorted.length * 0.4));
   const pool = profile.bias < 0 ? sorted.slice(0, cut) : profile.bias > 0 ? sorted.slice(-cut) : sorted;
   return { word: pool[Math.floor(rng() * pool.length)], delayMs, kind: "correct" };
+}
+
+export function buildBombBotTurn(args: {
+  idx: WordIndex;
+  state: Omit<BombState, "end"> & { end: string };
+  used: Set<string>;
+  difficulty: Difficulty;
+  seed: number;
+  attempt: number;
+}) {
+  const rng = mulberry32(args.seed + args.attempt * 23);
+  const spec = buildSpec({
+    round: args.state.turn,
+    mode: "classic",
+    start: args.state.start,
+    end: args.state.end,
+    preserveStart: true,
+    preserveEnd: true,
+    idx: args.idx,
+    used: args.used,
+    rng,
+  });
+  return {
+    spec,
+    answer: botAnswer(args.idx, spec, args.used, args.difficulty, rng),
+  };
 }
 
 export const BOT_LINES = {

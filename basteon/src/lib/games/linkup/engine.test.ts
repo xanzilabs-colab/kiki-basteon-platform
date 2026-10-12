@@ -20,7 +20,7 @@ import {
   wildcardBanner,
 } from "./engine";
 import type { RoundSpec } from "./engine";
-import { botAnswer, buildBotRoundPick } from "./bot";
+import { botAnswer, buildBombBotTurn, buildBotRoundPick } from "./bot";
 
 const WORDS = [
   "smart", "shout", "sprout", "start", "sunset", "seat", "salt", "sight", "sit", "set",
@@ -309,6 +309,22 @@ describe("round setup helpers", () => {
 });
 
 describe("Kiki bot", () => {
+  it("keeps a bomb response stable while polling and changes it after a failed attempt", () => {
+    const bomb = bombSetEnd(bombInit("kiki", "player", "s"), "t");
+    const buildTurn = (attempt: number) => buildBombBotTurn({
+      idx,
+      state: bomb,
+      used: new Set(bomb.used),
+      difficulty: "easy",
+      seed: 99,
+      attempt,
+    });
+
+    const first = buildTurn(2);
+    expect(buildTurn(2)).toEqual(first);
+    expect(buildTurn(3).answer).not.toEqual(first.answer);
+  });
+
   it("returns valid words when its answer kind is correct", () => {
     const rng = mulberry32(42);
     let correct = 0;

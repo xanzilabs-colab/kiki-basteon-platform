@@ -1097,11 +1097,62 @@
 .smart-safety-setting { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid #f1edf5; padding: 12px 0; }
 .smart-safety-setting b { color: #2b1636; font-size: 13px; }
 .smart-safety-setting p { margin: 3px 0 0; color: #6b5f73; font-size: 11px; line-height: 1.4; }
-.smart-safety-switch { position: relative; flex: none; width: 46px; height: 26px; border: 0; border-radius: 99px; background: #d9cfe0; transition: background .28s cubic-bezier(.22,1,.36,1), box-shadow .28s cubic-bezier(.22,1,.36,1); }
-.smart-safety-switch span { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .28s cubic-bezier(.22,1,.36,1); }
+.smart-safety-switch { position: relative; flex: none; width: 46px; height: 26px; border: 0; border-radius: 99px; background: #d9cfe0; transition: background var(--kiki-control-speed) var(--kiki-ease), box-shadow var(--kiki-control-speed) var(--kiki-ease); }
+.smart-safety-switch span { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform var(--kiki-control-speed) var(--kiki-ease); }
 .smart-safety-switch[aria-checked="true"] { background: #54256f; }
 .smart-safety-switch[aria-checked="true"] span { transform: translateX(20px); }
 .smart-safety-switch:disabled { opacity: .5; cursor: not-allowed; }
 .smart-safety-alert { margin: 8px 0 0; border-radius: 12px; background: #fff4e5; padding: 9px 11px; color: #8a4b00; font-size: 12px; }
 .hamba-tools + .hamba-note, .hamba-tools ~ .hamba-note { margin-top: 0; margin-bottom: 12px; }
 .hamba-tools ~ .hamba-preview { margin-top: 4px; }
+
+:is(.account-shell, .auth-shell) {
+  --chrome: #fcf9ff;
+  --bg: #f7f2fa;
+  --surface-1: #fff;
+  --surface-2: #f3eef8;
+  --surface-3: #e9dcf0;
+  --well: #faf7fc;
+  --divider: #e6dced;
+  --text: #2a1536;
+  --text-2: #574964;
+  --muted: #766982;
+  --line: var(--divider);
+  --line-strong: #cbb7d7;
+  --line-focus: #7a4f9a;
+  --accent: #7a4f9a;
+  --accent-ink: #fff;
+  --accent-bg: #e9dcf0;
+  --accent-line: #7a4f9a;
+  --font-ui: "Plus Jakarta Sans", "Manrope", sans-serif;
+  --font-display: "Manrope", "Plus Jakarta Sans", sans-serif;
+  --font-data: var(--font-display);
+  --elev-float: 0 10px 30px rgba(65, 34, 80, .08);
+  color: var(--text);
+  background: radial-gradient(circle at 100% 0, #eee3f5 0, transparent 32rem), var(--bg);
+}
+.account-shell .sidebar { background: #522868; border-right: 0; }
+.account-shell .sidebar-head { border-bottom-color: #ffffff2b; color: #fff; }
+.account-shell .mark { background: #e9dcf0; color: #522868; }
+.account-shell .sidebar-link { border-left: 0; border-radius: 9px; color: #eadff0; }
+.account-shell .sidebar-link:hover,
+.account-shell .sidebar-link[aria-current="page"] { background: #ffffff20; color: #fff; }
+.account-shell .appbar { background: #fcf9ffeF; border-bottom-color: var(--divider); }
+.account-shell .panel, .account-shell .glass, .account-shell .tbl-wrap { border-color: var(--divider); border-radius: 18px; box-shadow: 0 6px 20px rgba(65, 34, 80, .05); }
+.account-shell .pane-head { background: #f8f4fb; border-bottom-color: var(--divider); color: #522868; }
+.account-shell .btn { border-radius: 10px; background: var(--surface-2); color: var(--text); }
+.account-shell .btn:hover { background: var(--surface-3); }
+.account-shell .btn-primary { background: #7a4f9a; color: #fff; }
+.account-shell .btn-primary:hover { background: #684184; }
+.account-shell .input { border-color: var(--divider); border-radius: 10px; background: #fff; }
+.account-shell .input:focus { border-bottom-color: #7a4f9a; outline-color: #b691cb; }
+.account-shell .nav-link:hover,
+.account-shell .nav-link[aria-current="page"] { background: #e9dcf0; color: #522868; }
+.account-shell .page-title { color: #2a1536; }
+.account-shell .eyebrow { color: #7a4f9a; }
+.account-shell .hamba-trip-tabs,
+.account-shell .hamba-mode,
+.account-shell .hamba-tools { --control-accent: #7a4f9a; }
+.account-shell .hamba-trip-tabs button,
+.account-shell .hamba-mode button,
+.account-shell .hamba-tools button { transition: color var(--kiki-control-speed) var(--kiki-ease), background-color var(--kiki-control-speed) var(--kiki-ease), border-color var(--kiki-control-speed) var(--kiki-ease), box-shadow var(--kiki-control-speed) var(--kiki-ease), transform var(--kiki-control-speed) var(--kiki-ease); }

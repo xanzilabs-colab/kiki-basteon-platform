@@ -440,14 +440,14 @@ export default function AdminOrganisationsPage() {
           border: 1px solid var(--line);
           border-radius: 999px;
           background: var(--surface-3);
-          transition: background .28s cubic-bezier(.22,1,.36,1), border-color .28s cubic-bezier(.22,1,.36,1), box-shadow .28s cubic-bezier(.22,1,.36,1);
+          transition: background var(--kiki-control-speed) var(--kiki-ease), border-color var(--kiki-control-speed) var(--kiki-ease), box-shadow var(--kiki-control-speed) var(--kiki-ease);
         }
         .admin-toggle span {
           width: 18px;
           height: 18px;
           border-radius: 999px;
           background: var(--text-2);
-          transition: transform .28s cubic-bezier(.22,1,.36,1), background .28s cubic-bezier(.22,1,.36,1);
+          transition: transform var(--kiki-control-speed) var(--kiki-ease), background var(--kiki-control-speed) var(--kiki-ease);
         }
         .admin-toggle.is-on {
           border-color: var(--ok);
