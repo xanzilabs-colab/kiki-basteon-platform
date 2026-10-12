@@ -13,6 +13,7 @@ import { ResponderLocationPublisher } from "@/components/ResponderLocationPublis
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Navbar } from "@/components/Navbar";
+import { NotificationBell } from "@/components/NotificationBell";
 import { UserProfileDrawer } from "@/components/UserProfileDrawer";
 import type { Alert, ProfileContact } from "@/lib/types";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
@@ -31,7 +32,8 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
 export default function ResponderPage() {
   const [responderView, setResponderView] = useState<"alerts" | "overview" | "settings">("alerts");
   const [organisationId, setOrganisationId] = useState("");
-  const scopedOrganisationIds = useMemo(() => organisationId ? [organisationId] : [], [organisationId]);
+  const [alertScopeOrganisationIds, setAlertScopeOrganisationIds] = useState<string[]>([]);
+  const scopedOrganisationIds = useMemo(() => alertScopeOrganisationIds, [alertScopeOrganisationIds]);
   const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts({ scopeOrganisationIds: scopedOrganisationIds });
   const { position, error } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -60,16 +62,46 @@ export default function ResponderPage() {
         if (body?.blocked?.isBlocked) {
           setOrganisationName(body?.organisation?.name ?? "");
           setOrganisationId("");
+          setAlertScopeOrganisationIds([]);
           return;
         }
         setOrganisationName(body?.organisation?.name ?? "");
         setOrganisationId(body?.organisation?.id ?? "");
+        const membershipOrganisationIds: string[] = Array.isArray(body?.memberships)
+          ? body.memberships
+            .filter((membership: any) => membership.status === "active")
+            .map((membership: any) => membership.organisation_id)
+            .filter((id: unknown): id is string => typeof id === "string")
+          : [];
+        setAlertScopeOrganisationIds([...new Set<string>(membershipOrganisationIds.length
+          ? membershipOrganisationIds
+          : body?.organisation?.id ? [body.organisation.id] : [])]);
         setCanDispatch(["owner", "admin", "manager", "dispatcher"].includes(body?.memberships?.[0]?.role ?? ""));
         setSupportContacts([...(body?.supportContacts?.organisation ?? []), ...(body?.supportContacts?.global ?? [])]);
         const ownPresence = (body?.responderPresence ?? []).find((row: any) => row.user_id === user.id);
         if (ownPresence?.availability) setSelfAvailability(ownPresence.availability);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    const selectFromNotification = (alertId: string) => {
+      setSelectedId(alertId);
+      setDetailCleared(false);
+      setTab("all");
+      setResponderView("alerts");
+    };
+    const onNotificationAlert = (event: Event) => {
+      const alertId = (event as CustomEvent<{ alertId?: unknown }>).detail?.alertId;
+      if (typeof alertId === "string") selectFromNotification(alertId);
+    };
+    const alertId = new URLSearchParams(window.location.search).get("alertId");
+    if (alertId) {
+      selectFromNotification(alertId);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    window.addEventListener("basteon:select-alert", onNotificationAlert);
+    return () => window.removeEventListener("basteon:select-alert", onNotificationAlert);
   }, []);
 
   async function updateSelfAvailability(next: string) {
@@ -101,7 +133,9 @@ export default function ResponderPage() {
   };
   const selected = detailCleared
     ? null
-    : alerts.find((a) => a.id === selectedId) ?? unacked[0] ?? active[0] ?? null;
+    : selectedId
+      ? alerts.find((a) => a.id === selectedId) ?? null
+      : unacked[0] ?? active[0] ?? null;
 
   const trail = useAlertTrail(selected?.id ?? null);
 
@@ -121,6 +155,7 @@ export default function ResponderPage() {
   return (
     <div className="h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]">
       <Navbar>
+        <NotificationBell />
         <ConnectionIndicator state={connection} />
         <SoundToggle />
       </Navbar>

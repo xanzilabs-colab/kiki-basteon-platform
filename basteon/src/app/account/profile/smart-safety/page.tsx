@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Brain, Clock3, Database, Route, ShieldCheck, Trash2 } from "lucide-react";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 type Settings = {
   learningEnabled: boolean;
@@ -47,6 +48,7 @@ function Toggle({ label, description, checked, onChange, disabled }: {
 }
 
 export default function SmartSafetyPage() {
+  const { confirm } = useAppDialog();
   const [settings, setSettings] = useState<Settings>(defaults);
   const [savedSettings, setSavedSettings] = useState<Settings>(defaults);
   const [loading, setLoading] = useState(true);
@@ -102,7 +104,11 @@ export default function SmartSafetyPage() {
   }
 
   async function deleteLearningData() {
-    if (!window.confirm("Delete learned trip patterns, Smart Safety check-ins and hints? Your trip history and normal trip tracking will remain.")) return;
+    if (!(await confirm("Delete learned trip patterns, Smart Safety check-ins and hints? Your trip history and normal trip tracking will remain.", {
+      title: "Delete Smart Safety data?",
+      confirmLabel: "Delete data",
+      danger: true,
+    }))) return;
     setSaving(true);
     setError("");
     setMessage("");

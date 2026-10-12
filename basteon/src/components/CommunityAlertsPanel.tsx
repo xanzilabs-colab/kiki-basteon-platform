@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
+import { useAppDialog } from "@/components/AppDialogProvider";
 import { AlertTriangle, Check, ChevronRight, LocateFixed, MapPin, ThumbsUp, Trash2, X } from "lucide-react";
 import { categoryLabel, currentMeetingLocation, meetingFetch, type CommunityAlert } from "@/lib/buddies/meeting/client";
 
@@ -29,6 +30,7 @@ function formatReportAge(value: string) {
 }
 
 export function CommunityAlertsPanel({ alerts, busy, onBusyChange, onAlertsChange, onLocationChange, onMessage }: Props) {
+  const { confirm } = useAppDialog();
   const [kind, setKind] = useState("unsafe_area"); const [detail, setDetail] = useState(""); const [address, setAddress] = useState(""); const [suggestions, setSuggestions] = useState<Place[]>([]); const [location, setLocation] = useState<Place | null>(null); const [reportOpen, setReportOpen] = useState(false); const [category, setCategory] = useState("all");
   useEffect(() => { if (address.trim().length < 3 || location?.label === address) { setSuggestions([]); return; } const controller = new AbortController(); const timer = window.setTimeout(() => { void fetch("/api/trips/geocode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: address }), signal: controller.signal }).then(async (response) => response.ok ? response.json() as Promise<Place[]> : []).then((places) => { if (!controller.signal.aborted) setSuggestions(places); }).catch(() => undefined); }, 300); return () => { controller.abort(); window.clearTimeout(timer); }; }, [address, location?.label]);
   useEffect(() => { if (!reportOpen) return; function onKeyDown(event: KeyboardEvent) { if (event.key === "Escape" && !busy) setReportOpen(false); } window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [busy, reportOpen]);
@@ -37,7 +39,11 @@ export function CommunityAlertsPanel({ alerts, busy, onBusyChange, onAlertsChang
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!location || detail.trim().length < 4) return; onBusyChange(true); try { await meetingFetch("/api/buddies/community-alerts", { kind, lat: location.lat, lng: location.lng, locationLabel: location.label, detail: detail.trim() }); const query = new URLSearchParams({ lat: String(location.lat), lng: String(location.lng) }); const data = await meetingFetch<{ alerts: CommunityAlert[] }>(`/api/buddies/community-alerts?${query}`); onAlertsChange(data.alerts); onMessage("Your community report is now visible to people nearby."); setDetail(""); setReportOpen(false); } catch (error) { onMessage(error instanceof Error ? error.message : "Could not submit that report."); } finally { onBusyChange(false); } }
   async function vote(alert: CommunityAlert) { onBusyChange(true); try { const result = await meetingFetch<{ voted: boolean; upvotes: number }>(`/api/buddies/community-alerts/${alert.id}/vote`, {}); onAlertsChange(alerts.map((item) => item.id === alert.id ? { ...item, voted: result.voted, upvotes: result.upvotes } : item)); } catch (error) { onMessage(error instanceof Error ? error.message : "Could not update your confirmation."); } finally { onBusyChange(false); } }
   async function deleteAlert(alert: CommunityAlert) {
-    if (!alert.mine || busy || !window.confirm("Delete your community report? This will remove it for everyone.")) return;
+    if (!alert.mine || busy || !(await confirm("Delete your community report? This will remove it for everyone.", {
+      title: "Delete community report?",
+      confirmLabel: "Delete report",
+      danger: true,
+    }))) return;
     onBusyChange(true);
     try {
       await meetingFetch("/api/buddies/community-alerts", { id: alert.id }, undefined, "DELETE");

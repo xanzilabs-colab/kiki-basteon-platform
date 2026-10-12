@@ -2,17 +2,33 @@
 
 import { fmtDateTime, fmtRelativeTime } from "@/lib/datetime";
 import type { Device } from "@/lib/types";
+import { useAppDialog } from "@/components/AppDialogProvider";
+import { toast } from "sonner";
 
 export function DeviceTable({ devices, refresh }: { devices: Device[]; refresh(): void }) {
+  const { confirm, prompt } = useAppDialog();
   async function toggle(device: Device) { await fetch("/api/admin/devices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: device.device_id, active: !device.active }) }); void refresh(); }
-  async function changeOwner(device: Device) { const userId = window.prompt("Owner user UUID. Leave blank to unlink.", device.user_id ?? ""); if (userId === null) return; await fetch("/api/admin/devices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: device.device_id, user_id: userId.trim() || null }) }); void refresh(); }
+  async function changeOwner(device: Device) {
+    const userId = await prompt("Enter an owner user UUID, or leave it blank to unlink this device.", device.user_id ?? "", {
+      title: "Change device owner",
+      inputLabel: "Owner user UUID",
+      submitLabel: "Save owner",
+    });
+    if (userId === null) return;
+    await fetch("/api/admin/devices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: device.device_id, user_id: userId.trim() || null }) });
+    void refresh();
+  }
   async function pinAction(device: Device, action: "reset" | "clear_lockout") {
-    const prompt = action === "reset"
+    const message = action === "reset"
       ? `Remove the PIN from ${device.device_name}? Only do this after verifying the owner's identity. The owner is notified and the band drops its PIN on its next check-in.`
       : `Clear the wrong-PIN lockout on ${device.device_name}?`;
-    if (!window.confirm(prompt)) return;
+    if (!(await confirm(message, {
+      title: action === "reset" ? "Reset device PIN?" : "Clear PIN lockout?",
+      confirmLabel: action === "reset" ? "Reset PIN" : "Clear lockout",
+      danger: true,
+    }))) return;
     const response = await fetch("/api/admin/devices/pin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: device.device_id, action }) });
-    if (!response.ok) window.alert("PIN action failed.");
+    if (!response.ok) toast.error("PIN action failed.");
     void refresh();
   }
   const lockedOut = (device: Device) => Boolean(device.pin?.locked_until && new Date(device.pin.locked_until).getTime() > Date.now());

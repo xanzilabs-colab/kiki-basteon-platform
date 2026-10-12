@@ -13,6 +13,7 @@ import { evaluateRouteWatch } from "@/lib/hamba/routeWatch";
 import type { GeoPoint, RouteWatchState } from "@/lib/hamba/types";
 import { enablePushNotifications } from "@/lib/usePushNotifications";
 import { TravelTogetherPanel } from "@/components/TravelTogetherPanel";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false, loading: () => <div className="hamba-map hamba-map-loading">Loading map...</div> });
 type Place = { label: string; lat: number; lng: number };
@@ -33,6 +34,7 @@ const modeLabels: Record<TripMode, string> = { taxi: "Taxi", walk: "Walk", ehail
 
 export default function TripsPage() {
   const { position, error: locationError } = useGeolocation();
+  const { confirm } = useAppDialog();
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<Place[]>([]);
   const [destination, setDestination] = useState<Place | null>(null);
@@ -206,7 +208,10 @@ export default function TripsPage() {
 
   async function arrive() {
     if (!activeTrip) return;
-    if (!window.confirm("Confirm that you have arrived safely.")) return;
+    if (!(await confirm("Confirm that you have arrived safely.", {
+      title: "End your trip?",
+      confirmLabel: "I arrived safely",
+    }))) return;
     setBusy(true);
     try {
       const response = await fetch(`/api/trips/${activeTrip.id}/arrive`, { method: "POST" });

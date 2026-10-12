@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { membershipTypeOptionsForOrganisation, roleHintForMembershipType } from "@/lib/organisationCategories";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 type MeResponse = {
   userId?: string;
@@ -149,6 +150,7 @@ function parseRosterText(text: string, defaultType: "email" | "member_id" | "acc
 }
 
 export function OrganisationConsole() {
+  const { confirm } = useAppDialog();
   const [state, setState] = useState<MeResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -309,7 +311,7 @@ export function OrganisationConsole() {
   async function memberAction(userId: string, action: "revoke" | "block" | "unblock") {
     if (!organisationId) return;
     const label = action === "revoke" ? "Revoke this person's access? They will need to link again." : action === "block" ? "Block this person? They will lose access and cannot re-link until unblocked." : "";
-    if (label && !window.confirm(label)) return;
+    if (label && !(await confirm(label, { title: action === "revoke" ? "Revoke access?" : "Block this person?", confirmLabel: action === "revoke" ? "Revoke access" : "Block person", danger: true }))) return;
     setBusy(true);
     setError("");
     const response = await fetch("/api/organisation/members", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organisationId, userId, action }) });
@@ -320,7 +322,11 @@ export function OrganisationConsole() {
   }
 
   async function deleteRosterEntry(entry: RosterEntry) {
-    if (!organisationId || !window.confirm("Delete this roster entry? Anyone linked through it will lose access.")) return;
+    if (!organisationId || !(await confirm("Delete this roster entry? Anyone linked through it will lose access.", {
+      title: "Delete roster entry?",
+      confirmLabel: "Delete entry",
+      danger: true,
+    }))) return;
     setBusy(true);
     setError("");
     const response = await fetch("/api/organisation/roster", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organisationId, id: entry.id }) });

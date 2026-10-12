@@ -7,6 +7,7 @@ import { ArrowLeft, BookOpen, DoorOpen, Heart, Library, ShieldAlert, Sparkles } 
 import { createClient } from "@/lib/supabase/client";
 import { showGameError } from "@/lib/gameFeedback";
 import styles from "./TeachGame.module.css";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 type Topic = { id: string; title: string; blurb: string | null; contentNote: string | null };
 type SafeCard = {
@@ -93,6 +94,7 @@ function professionalAdviceMessage(categories: unknown) {
 }
 
 export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roomId?: string }) {
+  const { confirm } = useAppDialog();
   const router = useRouter();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [ageBand, setAgeBand] = useState<"teen" | "adult" | "">("");
@@ -383,7 +385,8 @@ export function TeachGame({ mode = "bot", roomId }: { mode?: "pair" | "bot"; roo
   }
 
   async function report(target: "tip" | "partner") {
-    if (!session || !window.confirm(target === "partner" ? "Report this partner and end the session?" : "Report this tip and end the session?")) return;
+    const message = target === "partner" ? "Report this partner and end the session?" : "Report this tip and end the session?";
+    if (!session || !(await confirm(message, { title: "Send a safety report?", confirmLabel: "Send report", danger: true }))) return;
     setBusy(true);
     try {
       await post("report", { sessionId: session.id, target });

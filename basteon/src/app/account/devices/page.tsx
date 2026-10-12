@@ -6,6 +6,7 @@ import { BatteryCharging, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus,
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useAppDialog } from "@/components/AppDialogProvider";
 import { pinErrorMessage } from "@/lib/devicePin";
 import type { Device } from "@/lib/types";
 import "./devicesPage.css";
@@ -39,6 +40,7 @@ function isDeviceOnline(device: Device) {
 
 export default function DevicesPage() {
   const router = useRouter();
+  const { confirm, prompt } = useAppDialog();
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [error, setError] = useState("");
@@ -74,7 +76,11 @@ export default function DevicesPage() {
   }
 
   async function rename(device: Device) {
-    const deviceName = window.prompt("Device nickname", device.device_name);
+    const deviceName = await prompt("Choose a name that helps you recognise this device.", device.device_name, {
+      title: "Rename device",
+      inputLabel: "Device nickname",
+      submitLabel: "Save name",
+    });
     if (!deviceName?.trim()) return;
     try {
       const response = await fetch(`/api/devices/${device.id}`, {
@@ -91,7 +97,11 @@ export default function DevicesPage() {
 
   async function unlink(device: Device) {
     if (device.pin_locked) return router.push(`/account/devices/${device.id}/security#unlink`);
-    if (!window.confirm(`Unlink ${device.device_name}?`)) return;
+    if (!(await confirm(`Unlink ${device.device_name}?`, {
+      title: "Unlink this device?",
+      confirmLabel: "Unlink device",
+      danger: true,
+    }))) return;
     try {
       const response = await fetch(`/api/devices/${device.id}/unlink`, {
         method: "POST",

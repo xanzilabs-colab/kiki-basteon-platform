@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type NotificationItem = { id: string; type: string; title: string; body: string; href: string | null; read: boolean; createdAt: string };
+type NotificationItem = { id: string; type: string; title: string; body: string; href: string | null; payload?: Record<string, unknown>; read: boolean; createdAt: string };
 
 const POLL_MS = 30_000;
 
@@ -102,7 +102,16 @@ export function NotificationBell() {
       setUnread((count) => Math.max(0, count - 1));
       markRead({ id: item.id });
     }
-    if (item.href && /^\/account(\/|$)/.test(item.href)) router.push(item.href);
+    const alertId = typeof item.payload?.alertId === "string" ? item.payload.alertId : null;
+    if (alertId && item.href?.startsWith("/responder")) {
+      if (window.location.pathname.startsWith("/responder")) {
+        window.dispatchEvent(new CustomEvent("basteon:select-alert", { detail: { alertId } }));
+      } else {
+        router.push(`/responder?alertId=${encodeURIComponent(alertId)}`);
+      }
+      return;
+    }
+    if (item.href) router.push(item.href);
   }
 
   function markAll() {

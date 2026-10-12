@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppDialog } from "@/components/AppDialogProvider";
 import { Flag, Handshake, ShieldAlert } from "lucide-react";
 import { playMessageSound, unlockAlertSound } from "@/lib/alertSound";
 import { VoicePanel } from "@/components/buddies/VoicePanel";
@@ -12,6 +13,7 @@ const labels: Record<string, string> = { on_my_way: "On my way", at_the_meeting_
 
 export default function BubblePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { confirm } = useAppDialog();
   const [id, setId] = useState(""); const [bubble, setBubble] = useState<Bubble | null>(null); const [message, setMessage] = useState(""); const [pending, setPending] = useState(false); const [loadFailed, setLoadFailed] = useState(false);
   const pollTimer = useRef<number | null>(null);
   const consecutiveFailures = useRef(0);
@@ -75,7 +77,11 @@ export default function BubblePage({ params }: { params: Promise<{ id: string }>
     } catch { setMessage("Could not update. Check your connection and try again."); } finally { setPending(false); }
   }
   async function leave() {
-    if (pending || !window.confirm("Leave this Buddy bubble? Your Bubble activity remains in your private history.")) return;
+    if (pending || !(await confirm("Leave this Buddy bubble? Your Bubble activity remains in your private history.", {
+      title: "Leave this Buddy bubble?",
+      confirmLabel: "Leave bubble",
+      danger: true,
+    }))) return;
     setPending(true); setMessage("");
     try { const response = await fetch(`/api/buddies/bubble/${id}/leave`, { method: "POST" }); if (!response.ok) { setMessage("Could not leave this Buddy bubble."); return; } router.replace("/account/buddies/history"); } catch { setMessage("Could not leave this Buddy bubble. Check your connection and try again."); } finally { setPending(false); }
   }

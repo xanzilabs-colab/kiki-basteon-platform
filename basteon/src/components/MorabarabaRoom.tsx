@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { MorabarabaBoard } from "./MorabarabaBoard";
 import styles from "./games.module.css";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 type Player = 1 | 2;
 type Snapshot = {
@@ -109,6 +110,7 @@ function playGameSound(context: AudioContext, sound: GameSound) {
 }
 
 export function MorabarabaRoom({ roomId }: { roomId: string }) {
+  const { confirm } = useAppDialog();
   const router = useRouter();
   const audioContextRef = useRef<AudioContext | null>(null);
   const chatChannelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
@@ -331,7 +333,10 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   }
 
   async function reportBuddy() {
-    if (!room || !window.confirm("Send a private safety report about this game to the Kiki team?")) return;
+    if (!room || !(await confirm("Send a private safety report about this game to the Kiki team?", {
+      title: "Send a private report?",
+      confirmLabel: "Send report",
+    }))) return;
     const { error } = await createClient().rpc("game_report_room", {
       p_room_id: room.id,
       p_reason: "other",

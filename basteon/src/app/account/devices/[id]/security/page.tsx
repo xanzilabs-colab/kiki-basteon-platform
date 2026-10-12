@@ -8,6 +8,7 @@ import { connectBasteonDevice, type BasteonBleDevice } from "@/lib/ble/basteon";
 import { pinErrorMessage, pinProblem } from "@/lib/devicePin";
 import { createClient } from "@/lib/supabase/client";
 import type { Device } from "@/lib/types";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 type SecurityDevice = Pick<Device, "id" | "device_id" | "device_name" | "pin_locked" | "pin_set_at" | "band_pin_locked" | "band_lock_reported_at">;
 
@@ -30,6 +31,7 @@ function PinInput({ label, value, onChange, autoComplete = "off" }: { label: str
 export default function DeviceSecurityPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { confirm } = useAppDialog();
   const [device, setDevice] = useState<SecurityDevice | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -148,7 +150,11 @@ export default function DeviceSecurityPage() {
   const unlink = () => run(async () => {
     if (!device) return;
     if (device.pin_locked && !/^\d{4,8}$/.test(unlinkPin)) throw new Error("Enter the band PIN to unlink it.");
-    if (!window.confirm(`Unlink ${device.device_name}? Its alerts will no longer reach your account.`)) return;
+    if (!(await confirm(`Unlink ${device.device_name}? Its alerts will no longer reach your account.`, {
+      title: "Unlink this device?",
+      confirmLabel: "Unlink device",
+      danger: true,
+    }))) return;
     const response = await fetch(`/api/devices/${device.id}/unlink`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(device.pin_locked ? { pin: unlinkPin } : {}) });
     if (!response.ok) { setUnlinkPin(""); throw new Error(await apiError(response, "Could not unlink the device.")); }
     router.replace("/account/devices");

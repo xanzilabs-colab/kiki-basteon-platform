@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { useAppDialog } from "@/components/AppDialogProvider";
+import type { AlertStatus } from "@/lib/types";
+import { isExpiredAuthError, redirectToSignIn, refreshExpiredSession } from "@/lib/authSession";
 
 type Assignment = { id: string; responder_user_id: string | null; status: string };
 type ResponseEvent = { id: string; actor_id: string | null; action: string; created_at: string };
@@ -15,14 +18,19 @@ const statusText: Record<string, string> = {
   on_scene: "On scene",
 };
 
-export function AlertResponseActions({ alertId }: { alertId: string }) {
+export function AlertResponseActions({ alertId, alertStatus }: { alertId: string; alertStatus: AlertStatus }) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [history, setHistory] = useState<ResponseEvent[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const authRecoveryAttempted = useRef(false);
+  const progressErrorShown = useRef(false);
+  const { confirm } = useAppDialog();
   const supabase = useMemo(() => createClient(), []);
+  const isClosed = alertStatus === "resolved" || alertStatus === "false_alarm";
 
   const loadAssignments = useCallback(async () => {
+    if (isClosed) return;
     const [{ data: { user } }, { data, error }, { data: events, error: eventError }] = await Promise.all([
       supabase.auth.getUser(),
       supabase.from("alert_assignments")
@@ -37,15 +45,33 @@ export function AlertResponseActions({ alertId }: { alertId: string }) {
         .limit(6),
     ]);
     if (error || eventError) {
+      const authError = isExpiredAuthError(error) || isExpiredAuthError(eventError);
+      if (authError) {
+        if (authRecoveryAttempted.current) {
+          await supabase.auth.signOut();
+          redirectToSignIn(window.location.pathname);
+          return;
+        }
+        authRecoveryAttempted.current = true;
+        if (await refreshExpiredSession(supabase, window.location.pathname)) {
+          await loadAssignments();
+        }
+        return;
+      }
+      if (progressErrorShown.current) return;
+      progressErrorShown.current = true;
       toast.error("Could not refresh responder progress and audit history.");
       return;
     }
+    authRecoveryAttempted.current = false;
+    progressErrorShown.current = false;
     setUserId(user?.id ?? null);
     setAssignments((data ?? []) as Assignment[]);
     setHistory((events ?? []) as ResponseEvent[]);
-  }, [alertId, supabase]);
+  }, [alertId, isClosed, supabase]);
 
   useEffect(() => {
+    if (isClosed) return;
     void loadAssignments();
     const channel = supabase.channel(`alert-response-${alertId}`)
       .on("postgres_changes", {
@@ -60,16 +86,30 @@ export function AlertResponseActions({ alertId }: { alertId: string }) {
       window.clearInterval(timer);
       void supabase.removeChannel(channel);
     };
-  }, [alertId, loadAssignments, supabase]);
+  }, [alertId, isClosed, loadAssignments, supabase]);
 
   const myAssignment = assignments.find((assignment) => assignment.responder_user_id === userId);
   const acceptedCount = assignments.filter((assignment) => assignment.status === "acknowledged").length;
   const enRouteCount = assignments.filter((assignment) => assignment.status === "en_route").length;
   const onSceneCount = assignments.filter((assignment) => assignment.status === "on_scene").length;
   const activeCount = assignments.filter((assignment) => ["acknowledged", "en_route", "on_scene"].includes(assignment.status)).length;
+  if (isClosed) {
+    return (
+      <section className="section" aria-label="Responder progress">
+        <p className="rounded-lg border border-emerald-400/30 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100">
+          This incident is {alertStatus === "resolved" ? "resolved" : "closed as a false alarm"}. No further response is required.
+        </p>
+      </section>
+    );
+  }
 
   async function act(action: "accept" | "en_route" | "on_scene" | "withdraw" | "resolved") {
-    if (action === "resolved" && !window.confirm("Mark this incident resolved? Other responders will be notified.")) return;
+    if (isClosed) return;
+    if (action === "resolved" && !(await confirm("Mark this incident resolved? Other responders will be notified.", {
+      title: "Resolve incident",
+      confirmLabel: "Resolve incident",
+      danger: true,
+    }))) return;
     setBusy(true);
     try {
       const isResolve = action === "resolved";

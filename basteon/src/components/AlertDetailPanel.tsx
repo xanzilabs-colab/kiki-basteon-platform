@@ -82,6 +82,9 @@ export function AlertDetailPanel({
       ? "text-[var(--warn)]"
       : "text-[var(--crit)]";
   const currentAlert = alert;
+  const isClosed = alert.status === "resolved" || alert.status === "false_alarm";
+  const deviceOwnerLabel = alert.device?.owner?.full_name
+    ?? (alert.device?.user_id ? "Owner profile unavailable" : "Device not linked to an account");
   const branchAvailability = availability.filter((item) => item.branch_id === (currentAlert.primary_branch_id ?? null));
   const bestAvailable = branchAvailability.find((item) => item.availability === "available") ?? branchAvailability[0] ?? null;
   const movement = movementLabel(alert);
@@ -115,8 +118,8 @@ export function AlertDetailPanel({
         <StatusBadge status={alert.status} />
         <AlertTypeBadge typeCode={alert.type_code} size="header" />
         <span className="data text-[11px] muted">#{alert.ctr}</span>
-        <button type="button" className="btn ml-auto inline-flex h-7 items-center gap-1 px-2 text-[11px]" onClick={onClear} aria-label="Clear incident details">
-          <X size={13} />Clear
+        <button type="button" className="btn ml-auto inline-flex h-8 shrink-0 items-center gap-1.5 px-2.5 text-[11px]" onClick={onClear} aria-label="Clear incident details" title="Clear selected incident details">
+          <X size={14} />Clear
         </button>
       </div>
 
@@ -125,7 +128,7 @@ export function AlertDetailPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="section">
-        <div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--surface-3)] font-bold"><CachedProfileImage src={alert.device?.owner?.avatar_url} alt="" className="h-full w-full object-cover" fallback={alert.device?.owner?.full_name?.slice(0, 1) ?? "?"} /></span><div><h2 className="text-[15px] font-semibold tracking-[-.005em]">{alert.device?.device_name ?? alert.device_id}</h2><p className="muted text-[12px] mt-0.5">{alert.device?.owner?.full_name ?? "No owner assigned"}</p></div></div>
+        <div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--surface-3)] font-bold"><CachedProfileImage src={alert.device?.owner?.avatar_url} alt="" className="h-full w-full object-cover" fallback={alert.device?.owner?.full_name?.slice(0, 1) ?? "?"} /></span><div><h2 className="text-[15px] font-semibold tracking-[-.005em]">{alert.device?.device_name ?? alert.device_id}</h2><p className="muted text-[12px] mt-0.5">{deviceOwnerLabel}</p></div></div>
 
         {alert.device?.owner?.phone && (
           <a
@@ -213,7 +216,7 @@ export function AlertDetailPanel({
         </div>
       </div>
 
-      {canDispatch && (
+      {canDispatch && !isClosed && (
         <div className="section space-y-2">
           <span className="label block">Dispatch</span>
           {!alert.primary_branch_id && <p className="muted text-[12px]">No routed branch available yet for assignment.</p>}
@@ -240,8 +243,8 @@ export function AlertDetailPanel({
       </div>
       </div>
 
-      <AlertResponseActions alertId={alert.id} />
-      {canDispatch && <div className="section shrink-0 border-t border-[var(--line-strong)] border-b-0 bg-[var(--surface)]">
+      <AlertResponseActions alertId={alert.id} alertStatus={alert.status} />
+      {canDispatch && !isClosed && <div className="section shrink-0 border-t border-[var(--line-strong)] border-b-0 bg-[var(--surface)]">
         <StatusActions alert={alert} admin={admin} closeOnly onChanged={refresh} />
       </div>}
     </div>

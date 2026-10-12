@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SosType } from "@/lib/sos/sosGesture";
 import { estimateResponseRoute, formatResponseEta } from "@/lib/sos/responseRoute";
 import type { MapPoint, MapResponder, ResponseRoute } from "./SosResponseMap";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 const ResponseMap = dynamic(() => import("./SosResponseMap"), {
   ssr: false,
@@ -95,6 +96,7 @@ export function SosResponseScreen({
   onClose(): void;
   onChangeType(): void;
 }) {
+  const { confirm } = useAppDialog();
   const [data, setData] = useState<ResponseData | null>(null);
   const [loadError, setLoadError] = useState("");
   const [trackingError, setTrackingError] = useState("");
@@ -209,7 +211,11 @@ export function SosResponseScreen({
   const accepted = data?.responders.length ?? 0;
 
   async function cancelAlert() {
-    if (!window.confirm("Cancel this alert as a false alarm? Responders will be notified immediately.")) return;
+    if (!(await confirm("Cancel this alert as a false alarm? Responders will be notified immediately.", {
+      title: "Cancel emergency alert?",
+      confirmLabel: "Cancel alert",
+      danger: true,
+    }))) return;
     setCancelBusy(true);
     try {
       const response = await fetch("/api/account/sos/cancel", {

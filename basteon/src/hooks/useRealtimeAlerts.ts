@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { playAlertSound, unlockAlertSound } from "@/lib/alertSound";
 import { createClient } from "@/lib/supabase/client";
 import { enablePushNotifications } from "@/lib/usePushNotifications";
+import { isExpiredAuthError, redirectToSignIn, refreshExpiredSession } from "@/lib/authSession";
 import type { Alert, AlertEvent, Device } from "@/lib/types";
 
 const alertQuery = "*, assignee:profiles!alerts_assigned_to_fkey(full_name)";
@@ -35,6 +36,7 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 	const knownAlertIds = useRef(new Set<string>());
 	const knownAlerts = useRef(new Map<string, Alert>());
 	const hasInitialSnapshot = useRef(false);
+	const expiredSessionRecoveryAttempted = useRef(false);
 
 	useEffect(() => {
 		const supabase = createClient();
@@ -45,6 +47,31 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 		const canAccessAlert = (alert: Alert) => {
 			if (!hasScope) return true;
 			return Boolean(alert.primary_organisation_id && allowed.has(alert.primary_organisation_id));
+		};
+		let retrySync: (() => void) | null = null;
+		let authRecovery: Promise<void> | null = null;
+		let signingOut = false;
+		const handleQueryError = async (queryError: { code?: string; message?: string }) => {
+			if (!isExpiredAuthError(queryError)) return false;
+			setConnection("reconnecting");
+			setError("Your sign-in expired. Reconnecting to live alerts…");
+			if (!authRecovery) {
+				authRecovery = (async () => {
+					if (expiredSessionRecoveryAttempted.current) {
+						signingOut = true;
+						await supabase.auth.signOut();
+						redirectToSignIn(window.location.pathname);
+						return;
+					}
+					expiredSessionRecoveryAttempted.current = true;
+					const refreshed = await refreshExpiredSession(supabase, window.location.pathname);
+					if (!refreshed || !active) return;
+					authRecovery = null;
+					retrySync?.();
+				})();
+			}
+			await authRecovery;
+			return true;
 		};
 
 		const addOrUpdateAlert = (alert: Alert, notify: boolean) => {
@@ -69,9 +96,14 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 		};
 
 		const syncAlerts = async () => {
+			if (!active || signingOut) return;
 			const { data, error: alertError } = await supabase.from("alerts").select(alertQuery).order("triggered_at", { ascending: false }).limit(200);
 			if (!active) return;
-			if (alertError) { setError(alertError.message); return; }
+			if (alertError) {
+				if (await handleQueryError(alertError)) return;
+				setError(alertError.message);
+				return;
+			}
 
 			const rawAlerts = (data ?? []) as Alert[];
 			const scopedAlerts = rawAlerts.filter(canAccessAlert);
@@ -80,14 +112,22 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 				? await supabase.from("devices").select("device_id,device_name,user_id").in("device_id", deviceIds)
 				: { data: [] as Device[], error: null };
 			if (!active) return;
-			if (deviceError) { setError(deviceError.message); return; }
+			if (deviceError) {
+				if (await handleQueryError(deviceError)) return;
+				setError(deviceError.message);
+				return;
+			}
 
 			const ownerIds = [...new Set((devices ?? []).map((device) => device.user_id).filter((id): id is string => Boolean(id)))];
 			const { data: owners, error: ownerError } = ownerIds.length
 				? await supabase.from("profiles").select("id,full_name,phone,home_address,emergency_contact_name,emergency_contact_phone,avatar_path").in("id", ownerIds)
 				: { data: [], error: null };
 			if (!active) return;
-			if (ownerError) { setError(ownerError.message); return; }
+			if (ownerError) {
+				if (await handleQueryError(ownerError)) return;
+				setError(ownerError.message);
+				return;
+			}
 
 			const deviceById = new Map((devices ?? []).map((device) => [device.device_id, device]));
 			const ownersWithAvatars = await Promise.all((owners ?? []).map(async (owner) => {
@@ -101,6 +141,8 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 				return { ...alert, device: device ? { ...device, owner: device.user_id ? ownerById.get(device.user_id) ?? null : null } : null };
 			});
 			setError("");
+			expiredSessionRecoveryAttempted.current = false;
+			authRecovery = null;
 			const newAlerts = hasInitialSnapshot.current
 				? nextAlerts.filter((alert) => !knownAlertIds.current.has(alert.id))
 				: [];
@@ -122,6 +164,7 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 		window.addEventListener("pointerdown", unlock);
 		window.addEventListener("keydown", unlock);
 		void syncAlerts();
+		retrySync = () => void syncAlerts();
 
 		const channel = supabase
 			.channel("ops-alerts")
@@ -149,8 +192,9 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 			.on("postgres_changes", { event: "INSERT", schema: "public", table: "alert_events" }, (payload) => {
 				setEvents((current) => [...current, payload.new as AlertEvent]);
 			})
-			.subscribe((status) => {
+			.subscribe((status, channelError) => {
 				setConnection(status === "SUBSCRIBED" ? "live" : status === "CHANNEL_ERROR" ? "reconnecting" : "connecting");
+				if (channelError && isExpiredAuthError(channelError)) void handleQueryError(channelError);
 				if (status === "SUBSCRIBED") void syncAlerts();
 			});
 
@@ -167,12 +211,23 @@ export function useRealtimeAlerts(options?: RealtimeAlertOptions) {
 
 	const refresh = async () => {
 		const supabase = createClient();
-		const { data, error: alertError } = await supabase.from("alerts").select(alertQuery).order("triggered_at", { ascending: false }).limit(200);
-		if (alertError) { setError(alertError.message); return; }
+		let result = await supabase.from("alerts").select(alertQuery).order("triggered_at", { ascending: false }).limit(200);
+		if (result.error && isExpiredAuthError(result.error)) {
+			const refreshed = await refreshExpiredSession(supabase, window.location.pathname);
+			if (!refreshed) return;
+			result = await supabase.from("alerts").select(alertQuery).order("triggered_at", { ascending: false }).limit(200);
+			if (result.error && isExpiredAuthError(result.error)) {
+				await supabase.auth.signOut();
+				redirectToSignIn(window.location.pathname);
+				return;
+			}
+		}
+		if (result.error) { setError(result.error.message); return; }
+		setError("");
 		const scopedIds = options?.scopeOrganisationIds ?? null;
 		const hasScope = Array.isArray(scopedIds);
 		const allowed = new Set(scopedIds ?? []);
-		const next = ((data ?? []) as Alert[]).filter((alert) => !hasScope || Boolean(alert.primary_organisation_id && allowed.has(alert.primary_organisation_id)));
+		const next = ((result.data ?? []) as Alert[]).filter((alert) => !hasScope || Boolean(alert.primary_organisation_id && allowed.has(alert.primary_organisation_id)));
 		setAlerts(next);
 	};
 
