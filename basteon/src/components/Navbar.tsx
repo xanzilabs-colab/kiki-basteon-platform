@@ -14,7 +14,7 @@ function Clock() {
   }, []);
   if (!now) return null;
   return (
-    <div className="clock hidden sm:flex" aria-label="Current time">
+    <div className="clock hidden gap-0.5 px-1 sm:flex" aria-label="Current time">
       <span className="clock-time">{now.toLocaleTimeString("en-ZA", { hour12: false })}</span>
       <span className="clock-date">
         {now.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
@@ -39,7 +39,7 @@ export function Navbar({ children }: { children?: React.ReactNode }) {
 
       <div className="spacer" />
 
-      <div className="slot">
+      <div className="slot gap-4">
         <Clock />
         {children}
       </div>

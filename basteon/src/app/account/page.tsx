@@ -11,7 +11,7 @@ import {
   X,
   UsersRound,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocationEligibility } from "@/hooks/useLocationEligibility";
 import { createClient } from "@/lib/supabase/client";
 
@@ -57,26 +57,43 @@ export default function AccountPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeSos, setActiveSos] = useState<ActiveSos | null>(null);
   const { allowed, reason: eligibility } = useLocationEligibility();
+  const refreshNearbyRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let cancelled = false;
-    const load = (coords?: { lat: number; lng: number }) => {
+    let requestSequence = 0;
+    const load = (sequence: number, coords?: { lat: number; lng: number }) => {
       const query = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : "";
       void fetch(`/api/account/nearby-responders${query}`, { cache: "no-store" })
         .then((response) => response.ok ? response.json() : Promise.reject(new Error("unavailable")))
-        .then((data) => { if (!cancelled) { setNearby(data); setNearbyError(false); } })
-        .catch(() => { if (!cancelled) setNearbyError(true); });
+        .then((data) => {
+          if (!cancelled && sequence === requestSequence) {
+            setNearby(data);
+            setNearbyError(false);
+          }
+        })
+        .catch(() => { if (!cancelled && sequence === requestSequence) setNearbyError(true); });
     };
     const refresh = () => {
       if (eligibility === "loading") return;
+      const sequence = ++requestSequence;
       // Nearby responders need the Live Location Sharing setting as well as the browser permission.
-      if (!allowed || !navigator.geolocation) { setLocationDenied(true); return load(); }
+      if (!allowed || !navigator.geolocation) { setLocationDenied(true); return load(sequence); }
       navigator.geolocation.getCurrentPosition(
-        (position) => { setLocationDenied(false); load({ lat: position.coords.latitude, lng: position.coords.longitude }); },
-        () => { setLocationDenied(true); load(); },
+        (position) => {
+          if (cancelled || sequence !== requestSequence) return;
+          setLocationDenied(false);
+          load(sequence, { lat: position.coords.latitude, lng: position.coords.longitude });
+        },
+        () => {
+          if (cancelled || sequence !== requestSequence) return;
+          setLocationDenied(true);
+          load(sequence);
+        },
         { timeout: 8_000, maximumAge: 30_000 },
       );
     };
+    refreshNearbyRef.current = refresh;
     const refreshSos = () => {
       void fetch("/api/account/sos/active", { cache: "no-store" })
         .then((response) => response.ok ? response.json() : null)
@@ -85,9 +102,19 @@ export default function AccountPage() {
     };
     refresh();
     refreshSos();
-    const timer = window.setInterval(refresh, 30_000);
+    const timer = window.setInterval(refresh, 15_000);
     const sosTimer = window.setInterval(refreshSos, 5_000);
-    return () => { cancelled = true; window.clearInterval(timer); window.clearInterval(sosTimer); };
+    const refreshOnFocus = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    return () => {
+      cancelled = true;
+      refreshNearbyRef.current = () => {};
+      window.clearInterval(timer);
+      window.clearInterval(sosTimer);
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+    };
   }, [allowed, eligibility]);
 
   useEffect(() => {
@@ -198,7 +225,7 @@ export default function AccountPage() {
           <span className={`kiki-overview-state${connectedDeviceCount ? " is-on" : ""}`}><i />{readinessError ? "Unavailable" : connectedDeviceCount ? "Connected" : deviceCount ? "Offline" : "Not linked"}</span>
           <ChevronRight className="kiki-overview-chevron" size={17} />
         </Link>
-        <button type="button" className="kiki-overview-status-row" style={{ width: "100%", textAlign: "left" }} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
+        <button type="button" className="kiki-overview-status-row" style={{ width: "100%", textAlign: "left" }} onClick={() => { setSheetOpen(true); refreshNearbyRef.current(); }} aria-haspopup="dialog">
           <span className="kiki-overview-tile-icon"><ShieldCheck size={22} /></span>
           <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearbyError ? "Responder availability unavailable" : responderStatusCopy}</span></span>
           <span className={`kiki-overview-state${nearby?.availableCount ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : responderStatusLabel}</span>

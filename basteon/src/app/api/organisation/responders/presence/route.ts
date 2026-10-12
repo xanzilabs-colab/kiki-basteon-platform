@@ -20,12 +20,14 @@ export async function POST(request: Request) {
   if (!memberships.some((membership: any) => membership.organisation_id === payload.data.organisationId)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const db = createAdminClient();
-  const update: { last_seen_at: string; last_lat?: number; last_lng?: number } = {
-    last_seen_at: new Date().toISOString(),
+  const seenAt = new Date().toISOString();
+  const update: { last_seen_at: string; last_location_at?: string; last_lat?: number; last_lng?: number } = {
+    last_seen_at: seenAt,
   };
   if (payload.data.lat != null && payload.data.lng != null) {
     update.last_lat = payload.data.lat;
     update.last_lng = payload.data.lng;
+    update.last_location_at = seenAt;
   }
   const { data, error } = await db.from("responder_presence")
     .update(update)

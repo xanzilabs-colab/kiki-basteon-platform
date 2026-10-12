@@ -1,4 +1,11 @@
-export interface Position { lat: number; lng: number; accuracy?: number; }
+export interface Position { lat: number; lng: number; accuracy?: number; capturedAt?: number; }
+export const LOCATION_FIX_MAX_AGE_MS = 60_000;
+export function isFreshPosition(position: Position | null, now = Date.now()): position is Position & { capturedAt: number } {
+  const capturedAt = position?.capturedAt;
+  if (typeof capturedAt !== "number" || !Number.isFinite(capturedAt)) return false;
+  const age = now - capturedAt;
+  return age >= 0 && age <= LOCATION_FIX_MAX_AGE_MS;
+}
 export const haversineKm = (a: Position, b: Position) => {
   const radians = (degrees: number) => degrees * Math.PI / 180;
   const dLat = radians(b.lat - a.lat), dLng = radians(b.lng - a.lng);

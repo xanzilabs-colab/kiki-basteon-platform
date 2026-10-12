@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentUserId } from "@/lib/organisation";
+import { createNotification } from "@/lib/notifications";
 
 const schema = z.object({
   alertId: z.string().uuid(),
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   const db = createAdminClient();
   const { data: alert, error: alertError } = await db
     .from("alerts")
-    .select("id,status,assigned_to")
+    .select("id,status,assigned_to,device_id")
     .eq("id", payload.data.alertId)
     .maybeSingle();
   if (alertError) return NextResponse.json({ error: alertError.message }, { status: 500 });
@@ -83,5 +84,67 @@ export async function POST(request: Request) {
     .select("status")
     .eq("id", assignmentId)
     .maybeSingle();
+
+  if (payload.data.action !== "location") {
+    const eventAction = payload.data.action === "accept"
+      ? "acknowledged"
+      : payload.data.action === "withdraw" ? "withdrawn" : payload.data.action;
+    const { data: statusEvent, error: statusEventError } = await db.from("alert_assignment_events")
+      .select("from_status,to_status")
+      .eq("alert_id", payload.data.alertId)
+      .eq("assignment_id", assignmentId)
+      .eq("actor_id", actorId)
+      .eq("action", eventAction)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (statusEventError) {
+      console.error("Responder alert status event lookup failed", statusEventError);
+    } else if (statusEvent && statusEvent.from_status !== statusEvent.to_status) {
+      const { data: device, error: deviceError } = await db.from("devices")
+        .select("user_id")
+        .eq("device_id", alert.device_id)
+        .maybeSingle();
+      const { data: responder, error: responderError } = await db.from("profiles")
+        .select("full_name")
+        .eq("id", actorId)
+        .maybeSingle();
+      if (deviceError || responderError) {
+        console.error("Responder alert notification recipient lookup failed", deviceError ?? responderError);
+      } else if (device?.user_id && device.user_id !== actorId) {
+        const responderName = responder?.full_name?.trim() || "A responder";
+        const statusMessage: Record<string, string> = {
+          acknowledged: "has acknowledged your alert.",
+          en_route: "is on the way to you.",
+          on_scene: "has arrived at your location.",
+          cancelled: "is no longer responding to your alert.",
+        };
+        const message = statusMessage[statusEvent.to_status] ?? "updated their response to your alert.";
+        const title = statusEvent.to_status === "on_scene" ? "Responder arrived" : "Responder status updated";
+        const body = `${responderName} ${message}`;
+        const notificationIds = await createNotification({
+          userId: device.user_id,
+          type: "system",
+          title,
+          body,
+          href: "/account",
+          payload: {
+            alertId: payload.data.alertId,
+            assignmentId: String(assignmentId),
+            status: statusEvent.to_status,
+          },
+        }, db);
+        if (!notificationIds.length) {
+          console.error("Responder alert status notification could not be persisted", {
+            alertId: payload.data.alertId,
+            responderId: actorId,
+            status: statusEvent.to_status,
+          });
+        }
+      }
+    }
+  }
+
   return NextResponse.json({ ok: true, assignmentId, status: assignment?.status ?? payload.data.action });
 }

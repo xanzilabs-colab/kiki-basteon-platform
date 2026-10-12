@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Position } from "@/lib/geo";
+import { isFreshPosition, type Position } from "@/lib/geo";
 import { createClient } from "@/lib/supabase/client";
 
 export function ResponderLocationPublisher({
@@ -21,20 +21,39 @@ export function ResponderLocationPublisher({
     let active = true;
     let running = false;
     const client = createClient();
+    const readCurrentPosition = () => new Promise<Position | null>((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (value) => resolve({
+          lat: value.coords.latitude,
+          lng: value.coords.longitude,
+          accuracy: value.coords.accuracy,
+          capturedAt: value.timestamp,
+        }),
+        () => resolve(null),
+        { enableHighAccuracy: true, maximumAge: 10_000, timeout: 8_000 },
+      );
+    });
     const publish = async () => {
-      const current = positionRef.current;
       if (!active || running) return;
       running = true;
       try {
+        const sampledPosition = await readCurrentPosition();
+        if (!active) return;
+        const current = sampledPosition ?? positionRef.current;
+        const freshPosition = isFreshPosition(current) ? current : null;
         const heartbeat = await fetch("/api/organisation/responders/presence", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(current
-            ? { organisationId, lat: current.lat, lng: current.lng }
+          body: JSON.stringify(freshPosition
+            ? { organisationId, lat: freshPosition.lat, lng: freshPosition.lng }
             : { organisationId }),
         });
         if (!heartbeat.ok) throw new Error("Responder presence heartbeat failed.");
-        if (!current) {
+        if (!freshPosition) {
           if (active) setError("");
           return;
         }
@@ -53,8 +72,8 @@ export function ResponderLocationPublisher({
           body: JSON.stringify({
             alertId,
             action: "location",
-            lat: current.lat,
-            lng: current.lng,
+            lat: freshPosition.lat,
+            lng: freshPosition.lng,
           }),
         })));
         if (results.some((response) => !response.ok)) throw new Error("Location sharing update failed.");

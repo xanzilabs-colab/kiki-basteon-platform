@@ -115,10 +115,10 @@ export function AlertDetailPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="pane-head">
+      <div className="pane-head flex-wrap justify-start gap-2.5 py-2">
         <StatusBadge status={alert.status} />
         <AlertTypeBadge typeCode={alert.type_code} size="header" />
-        <span className="data text-[11px] muted">#{alert.ctr}</span>
+        <span className="data whitespace-nowrap rounded border border-[var(--line)] px-2 py-1 text-[11px] muted">#{alert.ctr}</span>
         <button type="button" className="btn ml-auto inline-flex h-8 shrink-0 items-center gap-1.5 px-2.5 text-[11px]" onClick={onClear} aria-label="Clear incident details" title="Clear selected incident details">
           <X size={14} />Clear
         </button>
