@@ -30,17 +30,23 @@ function message(error: unknown) { return error instanceof api.JournalError ? er
 
 export function JournalApp() {
   const unlocked = useIsUnlocked(); const [gate, setGate] = useState<Gate>("loading"); const [userId, setUserId] = useState<string | null>(null); const [settings, setSettings] = useState<{ autoLock: number; calm: boolean }>({ autoLock: 300, calm: false });
-  const [entries, setEntries] = useState<DecryptedEntry[]>([]); const [composer, setComposer] = useState<JournalKind | null>(null); const [list, setList] = useState(false); const [settingsOpen, setSettingsOpen] = useState(false); const [selected, setSelected] = useState<DecryptedEntry | null>(null);
+  const [entries, setEntries] = useState<DecryptedEntry[]>([]); const [composer, setComposer] = useState<JournalKind | null>(null); const [gutCheckTemplate, setGutCheckTemplate] = useState(false); const [list, setList] = useState(false); const [settingsOpen, setSettingsOpen] = useState(false); const [selected, setSelected] = useState<DecryptedEntry | null>(null);
   const urls = useRef(new Set<string>()); const idle = useRef<number | null>(null); const hidden = useRef<number | null>(null);
   const lock = () => { if (idle.current) window.clearTimeout(idle.current); if (hidden.current) window.clearTimeout(hidden.current); urls.current.forEach(URL.revokeObjectURL); urls.current.clear(); lockSession(); setEntries([]); setComposer(null); setSelected(null); };
   const resetTimer = () => { if (!unlocked) return; if (idle.current) window.clearTimeout(idle.current); idle.current = window.setTimeout(lock, settings.autoLock * 1000); };
   useEffect(() => { void (async () => { const { data: { user } } = await createClient().auth.getUser(); if (!user) return; setUserId(user.id); const [keys, stored] = await Promise.all([api.getKeys(), api.getSettings()]); setSettings({ autoLock: stored?.auto_lock_seconds ?? 300, calm: localStorage.getItem("kiki-journal-calm") === "1" }); setGate(keys ? "unlock" : "setup"); })(); }, []);
   useEffect(() => { if (!unlocked) return; const events = ["pointerdown", "keydown", "scroll", "touchstart"]; events.forEach((event) => window.addEventListener(event, resetTimer, { passive: true })); const visibility = () => { if (document.hidden) hidden.current = window.setTimeout(lock, settings.autoLock * 1000); else if (hidden.current) { window.clearTimeout(hidden.current); hidden.current = null; } }; document.addEventListener("visibilitychange", visibility); const escape = (() => { let last = 0; return (event: KeyboardEvent) => { if (event.key === "Escape") { const now = Date.now(); if (now - last < 800) { lock(); location.assign("/"); } last = now; } }; })(); window.addEventListener("keydown", escape); resetTimer(); return () => { events.forEach((event) => window.removeEventListener(event, resetTimer)); document.removeEventListener("visibilitychange", visibility); window.removeEventListener("keydown", escape); }; }, [unlocked, settings.autoLock]);
   useEffect(() => { if (!unlocked || !userId) return; void loadEntries(); }, [unlocked, userId]);
+  useEffect(() => {
+    if (!unlocked || new URLSearchParams(window.location.search).get("template") !== "gut-check") return;
+    setGutCheckTemplate(true);
+    setComposer("thought");
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [unlocked]);
   async function loadEntries() { const key = getSessionKey(); if (!key || !userId) return; try { const rows = await api.listEntries(); const values = await Promise.all(rows.map(async (row) => ({ ...row, payload: await decryptJson<EntryPayloadV1>(key, row.payload_enc, row.payload_iv, `entry:${userId}:${row.id}`) }))); setEntries(values); } catch { toast.error("Couldn't open your journal."); } }
   if (gate === "loading") return <main className={`${styles.loading} ${barlow.variable}`}>Opening your garden...</main>;
   if (!unlocked) return <main className={`${styles.shell} ${barlow.variable}`}>{gate === "setup" ? <Setup userId={userId} onReady={() => setGate("unlock")} /> : gate === "recovery" ? <Recovery onBack={() => setGate("unlock")} onUnlocked={() => undefined} /> : <Unlock onRecovery={() => setGate("recovery")} onUnlocked={() => undefined} />}</main>;
-  return <main className={`${styles.shell} ${barlow.variable} ${settings.calm ? styles.calm : ""}`}>{list ? <JournalGarden entries={entries} calm={settings.calm} list={list} onList={() => setList(!list)} onSelect={setSelected} onLeave={() => setComposer("thought")} /> : <GardenScene entries={entries} calm={settings.calm} onList={() => setList(true)} onSelect={setSelected} onLeave={() => setComposer("thought")} />}<div className={styles.topActions}><button aria-label="Quick hide" title="Quick hide" onClick={() => { lock(); location.assign("/"); }}><EyeOff /></button><button aria-label="Journal settings" title="Journal settings" onClick={() => setSettingsOpen(true)}><Settings /></button></div>{composer && <LeaveSheet kind={composer} userId={userId!} onClose={() => setComposer(null)} onSaved={async () => { setComposer(null); await loadEntries(); }} />}{selected && <EntryViewer entry={selected} userId={userId!} onClose={() => setSelected(null)} onDeleted={async () => { setSelected(null); await loadEntries(); }} />}{settingsOpen && <JournalSettings settings={settings} onClose={() => setSettingsOpen(false)} onChange={setSettings} onLock={lock} />}</main>;
+  return <main className={`${styles.shell} ${barlow.variable} ${settings.calm ? styles.calm : ""}`}>{list ? <JournalGarden entries={entries} calm={settings.calm} list={list} onList={() => setList(!list)} onSelect={setSelected} onLeave={() => setComposer("thought")} /> : <GardenScene entries={entries} calm={settings.calm} onList={() => setList(true)} onSelect={setSelected} onLeave={() => setComposer("thought")} />}<div className={styles.topActions}><button aria-label="Quick hide" title="Quick hide" onClick={() => { lock(); location.assign("/"); }}><EyeOff /></button><button aria-label="Journal settings" title="Journal settings" onClick={() => setSettingsOpen(true)}><Settings /></button></div>{composer && <LeaveSheet kind={composer} userId={userId!} template={gutCheckTemplate ? "gut-check" : undefined} onClose={() => { setComposer(null); setGutCheckTemplate(false); }} onSaved={async () => { setComposer(null); setGutCheckTemplate(false); await loadEntries(); }} />}{selected && <EntryViewer entry={selected} userId={userId!} onClose={() => setSelected(null)} onDeleted={async () => { setSelected(null); await loadEntries(); }} />}{settingsOpen && <JournalSettings settings={settings} onClose={() => setSettingsOpen(false)} onChange={setSettings} onLock={lock} />}</main>;
 }
 
 function Setup({ userId, onReady }: { userId: string | null; onReady: () => void }) {
@@ -83,9 +89,9 @@ function formatDuration(milliseconds: number) {
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-function LeaveSheet({ kind, userId, onClose, onSaved }: { kind: JournalKind; userId: string; onClose: () => void; onSaved: () => Promise<void> }) {
+function LeaveSheet({ kind, userId, template, onClose, onSaved }: { kind: JournalKind; userId: string; template?: "gut-check"; onClose: () => void; onSaved: () => Promise<void> }) {
   const [current, setCurrent] = useState<JournalKind>(kind);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(template === "gut-check" ? "What I noticed:\n\nWhere I felt it:\n\nHow it felt:\n" : "");
   const [mood, setMood] = useState<Mood>("sunny");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -230,10 +236,11 @@ function LeaveSheet({ kind, userId, onClose, onSaved }: { kind: JournalKind; use
   const canSave = !saving && !recording && (!needsMedia || Boolean(file)) && (current !== "thought" || Boolean(text.trim()));
   return (
     <div className={styles.scrim} onClick={(event) => { if (event.target === event.currentTarget && !recording) onClose(); }}>
-      <section className={`${styles.sheet} ${styles.leaveSheet}`} role="dialog" aria-modal="true" aria-label="Leave something here">
+      <section className={`${styles.sheet} ${styles.leaveSheet}`} role="dialog" aria-modal="true" aria-label={template === "gut-check" ? "Gut check encrypted journal template" : "Leave something here"}>
         <div className={styles.grab} />
         <div className={styles.shScroll}>
-          <div className={styles.shTop}><h2>Leave something here</h2><button className={styles.x} onClick={onClose} aria-label="Close"><X size={18} /></button></div>
+          <div className={styles.shTop}><h2>{template === "gut-check" ? "Gut check" : "Leave something here"}</h2><button className={styles.x} onClick={onClose} aria-label="Close"><X size={18} /></button></div>
+          {template === "gut-check" && <p className={styles.label}>This note is encrypted on your device and stays locked in your garden.</p>}
           <div className={styles.types} role="tablist">
             {(["moment", "voice", "thought", "feeling"] as JournalKind[]).map((item) => (
               <button type="button" role="tab" aria-selected={current === item} className={`${styles.optB} ${current === item ? styles.optOn : ""}`} onClick={() => chooseKind(item)} key={item} disabled={recording}>

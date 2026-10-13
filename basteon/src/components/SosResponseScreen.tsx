@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { ArrowLeft, Check, Clock3, HeartPulse, RefreshCw, ShieldCheck, Siren } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SosType } from "@/lib/sos/sosGesture";
@@ -361,7 +362,7 @@ export function SosResponseScreen({
         </div>
 
         <footer className="flex shrink-0 flex-col gap-2 bg-gradient-to-b from-transparent via-[#f3eefb] to-[#f3eefb] px-[14px] pb-[max(14px,env(safe-area-inset-bottom))] pt-3">
-          {closed ? <button className="flex h-[54px] items-center justify-center gap-2 rounded-[17px] bg-[#522868] text-base font-bold text-white" onClick={onClose}><Check size={19} />Done</button> : <>
+          {closed ? <><Link href="/account/calm/winds?mode=quiet" className="flex h-[48px] items-center justify-center gap-2 rounded-[17px] border border-[#d9c9e3] bg-white text-sm font-bold text-[#522868]">Need a minute? <span className="font-medium">Gentle Winds</span></Link><button className="flex h-[54px] items-center justify-center gap-2 rounded-[17px] bg-[#522868] text-base font-bold text-white" onClick={onClose}><Check size={19} />Done</button></> : <>
             <button className="flex h-[54px] items-center justify-center gap-2 rounded-[17px] bg-[#522868] text-base font-bold text-white disabled:opacity-60" disabled={changingType} onClick={onChangeType}>
               {changingType ? <RefreshCw size={16} className="animate-spin" /> : type === "sos" ? <HeartPulse size={17} /> : <Siren size={17} />}
               {changingType ? "Updating alert…" : type === "sos" ? "Update to a medical emergency" : "Change alert type"}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpen, Eye, Flower2, Gamepad2, Sailboat } from "lucide-react";
+import { ArrowRight, BookOpen, Eye, Flower2, Gamepad2, Sailboat, Wind } from "lucide-react";
 import { AccountShell } from "@/components/AccountShell";
 import { createClient } from "@/lib/supabase/client";
 import styles from "./games.module.css";
@@ -24,6 +24,7 @@ const games = [
   { href: "/games/teach", title: "Each One Teach One", description: "Learn and share everyday tips with an anonymous nearby Buddy", category: "buddy" as const, icon: BookOpen, action: "Teach" },
   { href: "/games/read-room", title: "Read the Room", description: "Explore different perspectives on gentle, fictional everyday moments", category: "buddy" as const, icon: Eye, action: "Play" },
   { href: "/games/calm/five-things", title: "Five Things", description: "Notice what is around you", category: "grounding" as const, icon: Flower2, action: "Start" },
+  { href: "/account/calm", title: "Calm tools", description: "Gentle Winds, Spot the Baseline, and Body Check", category: "grounding" as const, icon: Wind, action: "Explore" },
   { href: "/games/calm/boats", title: "Worry Boats", description: "Name a worry and send it off", category: "release" as const, icon: Sailboat, action: "Launch" },
   { href: "/games/play", title: "Play with a Buddy", description: "A quick, light two-player game", category: "buddy" as const, icon: Gamepad2, action: "Play" },
 ];

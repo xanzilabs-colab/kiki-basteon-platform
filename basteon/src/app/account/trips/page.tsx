@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bike, Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound } from "lucide-react";
+import { Bike, Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound, Wind } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { formatDistance } from "@/lib/geo";
 import { remainingRouteDurationS } from "@/lib/hamba/geometry";
@@ -236,6 +236,9 @@ export default function TripsPage() {
         <button type="button" role="tab" aria-selected={tripTab === "route"} onClick={() => setTripTab("route")}><Navigation size={16} />Route Watch</button>
         <button type="button" role="tab" aria-selected={tripTab === "travel"} onClick={() => setTripTab("travel")}><UsersRound size={16} />Travel Together</button>
       </div>
+      <Link href="/account/calm/winds?mode=quiet" className="my-3 flex min-h-12 items-center gap-3 rounded-2xl border border-[#e3d8eb] bg-white px-4 py-3 text-[#522868] shadow-sm">
+        <Wind size={19} /><span><b className="block">Need a minute?</b><small className="text-[#756583]">Open Gentle Winds in Quiet mode</small></span><ChevronRight size={17} className="ml-auto" />
+      </Link>
       {tripTab === "route" ? <>
       {activeTrip ? (
         <section className="hamba-active">
