@@ -51,9 +51,10 @@ rule.
    Android-version changes. Test mode remains separate; Practice disarms the
    live service.
 5. Profiles can be exported/imported and backed up to the signed-in account's
-   server record. The server stores mappings and aggregate samples, never the
-   Android trigger bearer token. Profile backup requires an active registered
-   Android trigger; deleting all local profiles synchronizes an empty backup.
+   server record. The server stores mappings, observed signatures and timing
+   samples, never the Android trigger bearer token. Profile backup requires an
+   active registered Android trigger; deleting all local profiles synchronizes
+   an empty backup.
 6. Compatibility reports have a separate explicit-consent action. They submit
    only phone model, Android SDK, accessory category and aggregate signatures,
    reliability, and grade. They exclude accessory names/IDs, addresses, raw

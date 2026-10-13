@@ -600,7 +600,7 @@ export default function GestureCalibrationPanel({
         </div>
       </div>
       <p className="rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed text-[var(--muted)]">
-        Profiles are stored in encrypted phone preferences. When signed in with a registered Android trigger, profile names, mappings, and aggregate calibration samples sync to your Kiki account for backup. Trigger tokens and Bluetooth addresses are never included.
+        Profiles are stored in encrypted phone preferences. When signed in with a registered Android trigger, profile names, mappings, observed signatures, and timing samples sync to your Kiki account for backup. Trigger tokens and Bluetooth addresses are never included.
       </p>
       {!practice && (
         <div className="rounded-xl bg-[var(--surface-2)] p-3 text-sm">
