@@ -204,7 +204,7 @@ export default function ResponderPage() {
   );
 
   return (
-    <div className="h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]">
+    <div className="responder-console h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]">
       <Navbar>
         <NotificationBell />
         <ConnectionIndicator state={connection} />
