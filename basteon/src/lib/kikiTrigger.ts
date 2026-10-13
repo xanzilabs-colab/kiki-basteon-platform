@@ -47,9 +47,18 @@ export interface PairedBluetoothDevice {
 export interface TriggerEvent {
   type: "press" | "sequence";
   n?: number;
+  presses?: number;
   origin?: string;
   sequence?: string;
   pattern?: "sos" | "medical" | "duress" | "cancel" | null;
+}
+
+export interface UniversalTriggerConfig {
+  enabled: boolean;
+  sos: number | null;
+  medical: number | null;
+  duress: number | null;
+  cancel: number | null;
 }
 
 interface KikiTriggerPlugin {
@@ -58,6 +67,8 @@ interface KikiTriggerPlugin {
   forgetToken(): Promise<{ tokenId: string | null }>;
   status(): Promise<KikiStatus>;
   setPractice(options: { on: boolean }): Promise<void>;
+  getTriggerConfig(): Promise<UniversalTriggerConfig>;
+  setTriggerConfig(config: UniversalTriggerConfig): Promise<void>;
   getLog(): Promise<{ lines: string[] }>;
   requestBluetooth(): Promise<{ granted: boolean }>;
   audioDevices(): Promise<{ devices: Array<{ name: string; type: number }> }>;

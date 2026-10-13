@@ -151,6 +151,52 @@ class KikiTriggerPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun getTriggerConfig(call: PluginCall) {
+        val prefs = Store.prefs(context)
+        val config = JSONObject()
+            .put("enabled", prefs.getBoolean("universalTriggerEnabled", false))
+        listOf("sos", "medical", "duress", "cancel").forEach { action ->
+            val clicks = prefs.getInt("universalTrigger_${action}Clicks", 0)
+            config.put(action, if (clicks in 1..20) clicks else JSONObject.NULL)
+        }
+        call.resolve(JSObject(config.toString()))
+    }
+
+    @PluginMethod
+    fun setTriggerConfig(call: PluginCall) {
+        val prefs = Store.prefs(context)
+        val actions = listOf("sos", "medical", "duress", "cancel")
+        val counts = try {
+            actions.associateWith { action -> universalClickCount(call, action) }
+        } catch (error: IllegalArgumentException) {
+            call.reject(error.message ?: "The custom trigger configuration is invalid.", error)
+            return
+        }
+        val assigned = counts.values.filterNotNull()
+        if (assigned.distinct().size != assigned.size) {
+            call.reject("Each action needs a different click count.")
+            return
+        }
+        val edit = prefs.edit().putBoolean("universalTriggerEnabled", call.getBoolean("enabled", false) ?: false)
+        counts.forEach { (action, clicks) ->
+            edit.putInt("universalTrigger_${action}Clicks", clicks ?: 0)
+        }
+        edit.apply()
+        call.resolve()
+    }
+
+    private fun universalClickCount(call: PluginCall, action: String): Int? {
+        val raw = call.data.opt(action)
+        if (raw == null || raw == JSONObject.NULL) return null
+        val number = raw as? Number ?: throw IllegalArgumentException("The $action click count must be a number.")
+        val clicks = number.toInt()
+        if (number.toDouble() != clicks.toDouble() || clicks !in 1..20) {
+            throw IllegalArgumentException("The $action click count must be between 1 and 20.")
+        }
+        return clicks
+    }
+
+    @PluginMethod
     fun setPractice(call: PluginCall) {
         val on = call.getBoolean("on", false) ?: false
         val prefs = Store.prefs(context)

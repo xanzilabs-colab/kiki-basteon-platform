@@ -44,6 +44,20 @@ class PressPatternRecognizerTest {
         assertEquals("sos", second?.pattern)
     }
 
+    @Test
+    fun universalModeMapsConfiguredSingleBurstClickCounts() {
+        val patterns = mapOf(2 to "sos", 3 to "medical")
+        assertEquals("sos", resolveUniversalPattern("2", patterns))
+        assertEquals("medical", resolveUniversalPattern("3", patterns))
+        assertEquals(null, resolveUniversalPattern("4", patterns))
+    }
+
+    @Test
+    fun universalModeCountsClicksAcrossBurstGroupsInOneSequence() {
+        assertEquals("sos", resolveUniversalPattern("2-2", mapOf(4 to "sos")))
+        assertEquals(null, resolveUniversalPattern("2-x", mapOf(2 to "sos")))
+    }
+
     private fun presses(vararg timestamps: Long) = pressesOn(PressPatternRecognizer(), *timestamps)
 
     private fun pressesOn(recognizer: PressPatternRecognizer, vararg timestamps: Long): PressPatternRecognizer {

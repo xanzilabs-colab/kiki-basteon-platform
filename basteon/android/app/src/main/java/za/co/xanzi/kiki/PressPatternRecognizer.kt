@@ -6,6 +6,14 @@ data class PressPattern(
     val pattern: String?
 )
 
+fun resolveUniversalPattern(sequence: String, patterns: Map<Int, String>): String? {
+    val bursts = sequence.split("-")
+    if (bursts.isEmpty()) return null
+    val clicks = bursts.sumOf { it.toIntOrNull() ?: return null }
+    if (clicks <= 0) return null
+    return patterns[clicks]
+}
+
 class PressPatternRecognizer(private val gapMs: Long = 650L) {
     private val bursts = ArrayList<Int>()
     private var currentBurst = 0

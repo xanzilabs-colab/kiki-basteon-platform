@@ -382,11 +382,22 @@ class KikiTriggerService : Service() {
         val origin = lastOrigin
         sequenceKeys.clear()
 
-        val pattern = result.pattern
+        val prefs = Store.prefs(this)
+        val pattern = if (prefs.getBoolean("universalTriggerEnabled", false)) {
+            val configured = mutableMapOf<Int, String>()
+            listOf("sos", "medical", "duress", "cancel").forEach { action ->
+                val clicks = prefs.getInt("universalTrigger_${action}Clicks", 0)
+                if (clicks in 1..20) configured[clicks] = action
+            }
+            resolveUniversalPattern(sequence, configured)
+        } else {
+            result.pattern
+        }
         listener?.invoke(
             JSONObject()
                 .put("type", "sequence")
                 .put("sequence", sequence)
+                .put("presses", result.presses)
                 .put("pattern", pattern ?: JSONObject.NULL)
                 .put("origin", origin)
         )
@@ -400,7 +411,7 @@ class KikiTriggerService : Service() {
         )
         sendHealthSync()
 
-        val testMode = Store.prefs(this).getBoolean("test", true)
+        val testMode = prefs.getBoolean("test", true)
         when (pattern) {
             "sos" -> fire("sos", false, testMode, sequence)
             "medical" -> fire("medical", false, testMode, sequence)
