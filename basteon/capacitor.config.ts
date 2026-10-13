@@ -14,6 +14,7 @@ const config: CapacitorConfig = {
   appId: "za.co.xanzi.kiki",
   appName: "Kiki",
   webDir: "capacitor-shell",
+  android: { adjustMarginsForEdgeToEdge: "auto" },
   server: { url: parsedUrl.origin, errorPath: "offline.html" },
 };
 
