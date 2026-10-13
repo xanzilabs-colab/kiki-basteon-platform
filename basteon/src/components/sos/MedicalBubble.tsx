@@ -3,7 +3,11 @@
 import { useEffect, useId, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { HeartPulse } from "lucide-react";
-import type { Point } from "@/lib/sos/sosGesture";
+import {
+  MEDICAL_BUBBLE_SIZE_PX,
+  medicalBubblePosition,
+  type Point,
+} from "@/lib/sos/sosGesture";
 
 type Props = {
   anchor: DOMRect;
@@ -12,8 +16,7 @@ type Props = {
 };
 
 /* ── tuning ─────────────────────────────────────────────── */
-const SIZE = 124; // bubble diameter
-const GAP = 20; // gap between SOS button edge and bubble edge
+const SIZE = MEDICAL_BUBBLE_SIZE_PX;
 const PAD = 90; // svg padding so wobble / overshoot never clips
 const POINTS = 14; // control points on the blob outline
 const TAIL = 6; // droplets trailing the swimmer
@@ -78,9 +81,8 @@ export function MedicalBubble({ anchor, armed, bubbleRef }: Props) {
   const geometry = useMemo(() => {
     const radius = SIZE / 2;
     const viewportHeight = window.innerHeight;
-    // Keep the target to the RIGHT so the gesture's travel axis never reverses.
-    const left = anchor.right + GAP;
-    const top = clamp(anchor.top + (anchor.height - SIZE) / 2, 12, viewportHeight - SIZE - 12);
+    const position = medicalBubblePosition(anchor, { width: window.innerWidth, height: viewportHeight });
+    const { left, top } = position;
     const button: Point = { x: anchor.left + anchor.width / 2, y: anchor.top + anchor.height / 2 };
     const target: Point = { x: left + radius, y: top + radius };
     const buttonRadius = Math.min(anchor.width, anchor.height) / 2;

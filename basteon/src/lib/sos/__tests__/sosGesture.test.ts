@@ -1,11 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { gestureReducer, type GestureEvent, type GestureState } from "../sosGesture";
+import { gestureReducer, medicalBubblePosition, type GestureEvent, type GestureState } from "../sosGesture";
 
 const origin = { x: 10, y: 10 };
 const bubble = { x: 150, y: 10 };
 const reduce = (events: GestureEvent[]) => events.reduce(gestureReducer, { phase: "idle" } as GestureState);
 
 describe("SOS gesture state machine", () => {
+  it("places the Medical target to the left of a centered Android navigation button", () => {
+    const position = medicalBubblePosition(
+      { left: 168, right: 222, top: 780, bottom: 834, width: 54, height: 54 },
+      { width: 390, height: 844 },
+    );
+
+    expect(position.direction).toBe("left");
+    expect(position.left + 124).toBeLessThan(168);
+  });
+
+  it("keeps the Medical target visible by placing it to the right near the left edge", () => {
+    const position = medicalBubblePosition(
+      { left: 24, right: 78, top: 100, bottom: 154, width: 54, height: 54 },
+      { width: 390, height: 844 },
+    );
+
+    expect(position.direction).toBe("right");
+    expect(position.left).toBeGreaterThan(78);
+  });
+
   it("turns a quick press and release into SOS", () => {
     expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "up", pos: origin, bubble: null }]))
       .toEqual({ phase: "done", type: "sos", via: "tap" });
