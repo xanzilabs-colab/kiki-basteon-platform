@@ -114,6 +114,8 @@ export default function GestureCalibrationPanel({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupNeedsRetry, setBackupNeedsRetry] = useState(false);
   const [verifyActions, setVerifyActions] = useState<Action[]>([]);
   const [verifyActionIndex, setVerifyActionIndex] = useState(0);
   const [verifyHits, setVerifyHits] = useState(0);
@@ -140,23 +142,37 @@ export default function GestureCalibrationPanel({
   const connected = accessories.find((item) => item.ref === selectedAccessory);
 
   const syncProfiles = useCallback(async (next: GestureProfile[]) => {
+    setError("");
+    setBackupBusy(true);
     try {
       const response = await fetch("/api/trigger/profiles", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profiles: next }),
       });
-      if (response.status === 401 || response.status === 409) {
-        setMessage("Saved on this phone. Account backup is not available right now.");
-        return;
-      }
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) {
-        setError("Saved on this phone, but account backup failed. Check your connection and try again.");
+        setBackupNeedsRetry(true);
+        if (response.status === 401 || payload?.error === "unauthorized") {
+          setMessage("Your setup is saved securely on this phone and alerts can keep using it. Sign in to back it up.");
+        } else if (response.status === 409 || payload?.error === "android_trigger_not_registered") {
+          setMessage("Your setup is saved securely on this phone and alerts can keep using it. Reconnect the Kiki trigger in Settings to back it up.");
+        } else if (response.status === 400 || payload?.error === "bad_request") {
+          setMessage("Your setup is saved securely on this phone and alerts can keep using it. Account backup could not accept it; retry after updating the setup.");
+        } else if (response.status === 503 || payload?.error === "profile_backup_not_ready") {
+          setMessage("Your setup is saved securely on this phone and alerts can keep using it. Account backup is not ready yet; try again later.");
+        } else {
+          setMessage("Your setup is saved securely on this phone and alerts can keep using it. Account backup did not finish; try again later.");
+        }
         return;
       }
-      setMessage("Saved on this phone.");
+      setBackupNeedsRetry(false);
+      setMessage(next.length ? "Saved on this phone and backed up to your account." : "Your account backup is up to date.");
     } catch {
-      setError("Saved on this phone, but account backup could not connect. Check your connection and try again.");
+      setBackupNeedsRetry(true);
+      setMessage("Your setup is saved securely on this phone and alerts can keep using it. Account backup could not connect; check your connection and retry later.");
+    } finally {
+      setBackupBusy(false);
     }
   }, []);
 
@@ -184,11 +200,13 @@ export default function GestureCalibrationPanel({
     try {
       response = await fetch("/api/trigger/profiles", { cache: "no-store" });
     } catch {
-      setMessage("Your button setups are saved on this phone. Account backup is unavailable.");
+      setBackupNeedsRetry(local.profiles.length > 0);
+      setMessage("Your button setups are saved on this phone. Account backup status could not be checked.");
       return;
     }
     if (!response.ok) {
-      setMessage("Your button setups are saved on this phone. Account backup is unavailable.");
+      setBackupNeedsRetry(local.profiles.length > 0);
+      setMessage("Your button setups are saved on this phone. Account backup status could not be checked.");
       return;
     }
     const payload = await response.json() as { profiles?: GestureProfile[] };
@@ -658,8 +676,14 @@ export default function GestureCalibrationPanel({
         </details>
       )}
 
-      {message && <p className="text-sm" role="status">{message}</p>}
+      {message && <p className={`text-sm ${backupNeedsRetry ? "text-[var(--warn)]" : ""}`} role="status">{message}</p>}
       {error && <p className="text-sm text-[var(--crit)]" role="alert">{error}</p>}
+      {backupNeedsRetry && profiles.length > 0 && <button
+        className="btn"
+        type="button"
+        disabled={busy || backupBusy}
+        onClick={() => void syncProfiles(profiles)}
+      >{backupBusy ? "Retrying account backup…" : "Retry account backup"}</button>}
       {busy && <p className="text-sm text-[var(--muted)]">Saving gesture profile…</p>}
     </section>
   );

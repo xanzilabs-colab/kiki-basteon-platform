@@ -33,6 +33,11 @@ const Profile = z.object({
 }).strict();
 const Body = z.object({ profiles: z.array(Profile).max(20) }).strict();
 
+function profileSchemaUnavailable(error: { code?: unknown } | null) {
+  const code = typeof error?.code === "string" ? error.code : "";
+  return ["42P01", "42703", "PGRST204", "PGRST205"].includes(code);
+}
+
 async function authenticatedUser() {
   const client = await createClient();
   const { data: { user }, error } = await client.auth.getUser();
@@ -49,7 +54,11 @@ export async function GET() {
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false })
     .limit(20);
-  if (error) return NextResponse.json({ error: "profiles_unavailable" }, { status: 500, headers: noStore });
+  if (error) {
+    const code = profileSchemaUnavailable(error) ? "profile_backup_not_ready" : "profiles_unavailable";
+    const status = code === "profile_backup_not_ready" ? 503 : 500;
+    return NextResponse.json({ error: code }, { status, headers: noStore });
+  }
 
   return NextResponse.json({
     profiles: (data ?? []).map((row) => ({
@@ -107,7 +116,11 @@ export async function PUT(request: Request) {
   }));
   if (rows.length) {
     const { error } = await db.from("trigger_profiles").upsert(rows, { onConflict: "token_id,local_id" });
-    if (error) return NextResponse.json({ error: "profiles_save_failed" }, { status: 500, headers: noStore });
+    if (error) {
+      const code = profileSchemaUnavailable(error) ? "profile_backup_not_ready" : "profiles_save_failed";
+      const status = code === "profile_backup_not_ready" ? 503 : 500;
+      return NextResponse.json({ error: code }, { status, headers: noStore });
+    }
   }
   const { data: existing, error: existingError } = await db
     .from("trigger_profiles")
@@ -115,7 +128,11 @@ export async function PUT(request: Request) {
     .eq("user_id", user.id)
     .eq("token_id", token.id)
     .limit(25);
-  if (existingError) return NextResponse.json({ error: "profiles_sync_failed" }, { status: 500, headers: noStore });
+  if (existingError) {
+    const code = profileSchemaUnavailable(existingError) ? "profile_backup_not_ready" : "profiles_sync_failed";
+    const status = code === "profile_backup_not_ready" ? 503 : 500;
+    return NextResponse.json({ error: code }, { status, headers: noStore });
+  }
   const currentIds = new Set(parsed.data.profiles.map(({ id }) => id));
   const staleIds = (existing ?? []).map((row) => row.local_id).filter((id) => !currentIds.has(id));
   if (staleIds.length) {

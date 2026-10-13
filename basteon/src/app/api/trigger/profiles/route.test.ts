@@ -37,6 +37,14 @@ describe("trigger profile backup routes", () => {
     expect(response.status).toBe(401);
   });
 
+  it("reports an unapplied profile-backup migration as service unavailable", async () => {
+    const db = fakeSupabase(() => ({ error: { code: "PGRST205" } }));
+    mocks.admin.mockReturnValue(db.client);
+    const response = await GET();
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: "profile_backup_not_ready" });
+  });
+
   it("stores validated profiles under the user's active Android trigger without tokens", async () => {
     const db = fakeSupabase((call) => {
       if (call.table === "trigger_tokens") return { data: { id: "token-id" } };
@@ -58,6 +66,24 @@ describe("trigger profile backup routes", () => {
       mapping: profile.mapping,
     })]);
     expect(JSON.stringify(saved?.payload)).not.toContain("ktk_");
+  });
+
+  it("reports a missing profile table during save as service unavailable", async () => {
+    const db = fakeSupabase((call) => {
+      if (call.table === "trigger_tokens") return { data: { id: "token-id" } };
+      if (call.table === "trigger_profiles" && call.action === "upsert") {
+        return { error: { code: "42P01" } };
+      }
+      return {};
+    });
+    mocks.admin.mockReturnValue(db.client);
+    const response = await PUT(new Request("http://localhost/api/trigger/profiles", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ profiles: [profile] }),
+    }));
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: "profile_backup_not_ready" });
   });
 
   it("rejects duplicate actions and out-of-range timing", async () => {
