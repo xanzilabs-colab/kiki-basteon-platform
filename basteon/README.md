@@ -101,7 +101,7 @@ The Android app is a Capacitor shell around the deployed Kiki web app. It requir
 Before enabling triggers:
 
 1. Apply the trigger migrations in order, including `supabase/migrations/20261111000600_trigger_gateway_bluetooth.sql`, `supabase/migrations/20261112000100_trigger_virtual_endpoints_and_user_cancel.sql`, and `supabase/migrations/20261113000100_trigger_everyday_device_types.sql`, with `supabase db push` or your controlled SQL deployment process. Do not enable the app before the migrations are deployed.
-2. Configure `CRON_SECRET` in the deployed app environment. The Vercel cron promotes due alerts as a recovery fallback; the gateway also schedules immediate countdown promotion in the request lifecycle.
+2. Vercel scheduled jobs are currently disabled so deployments do not require a plan that supports sub-daily cron schedules. The former once-per-minute trigger recovery sweep also pruned trigger diagnostics and routed pending trigger alerts; immediate countdown promotion remains in the trigger gateway request lifecycle. Re-enable the sweep and configure `CRON_SECRET` only when scheduled jobs are desired.
 3. Deploy the current Next.js app and set `KIKI_APP_URL` to its HTTPS origin when building Android. The wrapper signs into that deployment and uses its existing Supabase session.
 
 Build and install a debug APK from PowerShell on Windows:
