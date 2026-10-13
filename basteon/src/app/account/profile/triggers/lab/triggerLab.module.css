@@ -465,7 +465,16 @@ a.primaryButton { text-decoration: none; }
 @keyframes rise { from { transform: translateY(30px); opacity: .7; } }
 
 @media (max-width: 560px) {
-  .page { width: 100%; min-height: 100%; padding-top: max(14px, env(safe-area-inset-top)); border: 0; border-radius: 0; box-shadow: none; }
+  .page {
+    width: calc(100% + 28px);
+    min-height: 100%;
+    margin-right: -14px;
+    margin-left: -14px;
+    padding: max(14px, env(safe-area-inset-top)) 8px 12px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
   .table { font-size: 12px; }
   .table th { font-size: 9px; }
   .verificationPips i { width: 15px; }
