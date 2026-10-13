@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/organisation", () => ({ requireOrganisationAccess: mocks.access }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
 
-import { PATCH } from "./route";
+import { PATCH, POST } from "./route";
 
 const organisationId = "00000000-0000-4000-8000-000000000001";
 const managerId = "00000000-0000-4000-8000-000000000002";
@@ -20,6 +20,70 @@ describe("PATCH /api/organisation/logo", () => {
     mocks.access.mockResolvedValue({
       userId: managerId,
       memberships: [{ organisation_id: organisationId, role: "manager" }],
+    });
+  });
+
+  describe("POST /api/organisation/logo", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mocks.access.mockResolvedValue({
+        userId: managerId,
+        memberships: [{ organisation_id: organisationId, role: "manager" }],
+      });
+    });
+
+    it("retries transient Storage errors and persists the uploaded image URL", async () => {
+      const db = fakeSupabase((call: FakeCall) =>
+        call.table === "organisations" && call.action === "update"
+          ? { data: { logo_url: "https://storage.example.org/logo.webp" } }
+          : { data: null },
+      );
+      const upload = vi.fn()
+        .mockResolvedValueOnce({ error: { message: "connection interrupted", name: "StorageUnknownError" } })
+        .mockResolvedValueOnce({ error: null });
+      const storage = {
+        upload,
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: "https://storage.example.org/logo.webp" } })),
+        remove: vi.fn(),
+      };
+      mocks.admin.mockReturnValue({ ...db.client, storage: { from: vi.fn(() => storage) } });
+
+      const form = new FormData();
+      form.set("organisationId", organisationId);
+      form.set("file", new File(["image"], "logo.webp", { type: "image/webp" }));
+      const response = await POST(new Request("http://localhost/api/organisation/logo", {
+        method: "POST",
+        headers: { origin: "http://localhost", "x-forwarded-host": "localhost" },
+        body: form,
+      }));
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toEqual({ logoUrl: "https://storage.example.org/logo.webp" });
+      expect(upload).toHaveBeenCalledTimes(2);
+    });
+
+    it("returns a retryable upload error after transient failures are exhausted", async () => {
+      const db = fakeSupabase(() => ({ data: null }));
+      const upload = vi.fn().mockResolvedValue({ error: { message: "temporarily unavailable", statusCode: "503" } });
+      const storage = {
+        upload,
+        getPublicUrl: vi.fn(),
+        remove: vi.fn(),
+      };
+      mocks.admin.mockReturnValue({ ...db.client, storage: { from: vi.fn(() => storage) } });
+
+      const form = new FormData();
+      form.set("organisationId", organisationId);
+      form.set("file", new File(["image"], "logo.webp", { type: "image/webp" }));
+      const response = await POST(new Request("http://localhost/api/organisation/logo", {
+        method: "POST",
+        headers: { origin: "http://localhost", "x-forwarded-host": "localhost" },
+        body: form,
+      }));
+
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ error: "logo_upload_failed", retryable: true });
+      expect(upload).toHaveBeenCalledTimes(3);
     });
   });
 

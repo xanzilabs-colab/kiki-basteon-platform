@@ -76,7 +76,9 @@ https://<PROJECT_REF>.supabase.co/functions/v1/secure-alert
 
 ## Device Provisioning
 
-Sign in as an admin, open **Devices**, and choose **Register device**. Enter the identifier shown by the device serial monitor (`Boot ok, id: ...`) and a device name. The console displays a base64 AES-256 key exactly once; copy it to the device's secure configuration before closing the dialog.
+Sign in as an admin, open **Devices**, and choose **Register device**. Enter the identifier shown by the device serial monitor (`[BOOT] Kiki Band v2.7, device id: ...`) and a device name. The console displays a base64 AES-256 key exactly once. With the band connected to USB, open Serial Monitor at 115200 baud, select a line ending, and send `KEY:<base64-key>`; the band saves the key to NVS without echoing it. If WiFi credentials are not compiled in through the ignored local `kiki-secrets.h`, send `WIFI:<ssid>|<password>` as well; the password is not echoed and both values are stored in NVS. If an already-registered band has lost its NVS key, an admin can rotate it from the key-shaped action in the **Devices** table; copy the complete `KEY:<base64-key>:<server-counter>` command displayed by the dialog and send it to the band. Rotation invalidates the old key, so server communication resumes only after the new key is provisioned.
+
+Missing credentials no longer prevent the band from booting: the alert button, status output, and BLE setup remain available offline. Network alerts and device claims require both the matching unique key and WiFi. Send `s` in Serial Monitor for device ID, key provisioning, WiFi, PIN-lock, GPS, IMU, and operating-state status. The `KEY:` command must use the key generated for that same device ID in the admin dialog; registering it again generates a different key and invalidates the old one.
 
 ## Testing Alerts
 

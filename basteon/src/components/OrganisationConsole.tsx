@@ -741,7 +741,14 @@ export function OrganisationConsole() {
       form.set("file", logoFile);
       const response = await fetch("/api/organisation/logo", { method: "POST", body: form });
       const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.error ?? "Could not upload organisation logo.");
+      if (!response.ok) {
+        if (body?.error === "logo_upload_failed") {
+          throw new Error(body.retryable
+            ? "Image storage is temporarily unavailable. The upload was retried; please try again shortly."
+            : "The image storage service rejected this logo. Please try a PNG, JPEG, or WebP image under 2 MB.");
+        }
+        throw new Error(body?.error ?? "Could not upload organisation logo.");
+      }
       setState((current) => current ? { ...current, organisation: { ...current.organisation, logo_url: body.logoUrl } } : current);
       setLogoUrl(body.logoUrl ?? "");
       setLogoFile(null);

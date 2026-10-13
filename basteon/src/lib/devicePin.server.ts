@@ -98,7 +98,8 @@ export async function hasActiveAlert(db: SupabaseClient, deviceId: string): Prom
 
 export type DeviceSecurityEvent =
   | "pin_set" | "pin_changed" | "pin_removed" | "pin_failed" | "pin_locked_out"
-  | "unlinked" | "transfer_authorized" | "admin_pin_reset" | "admin_lockout_cleared" | "admin_owner_changed";
+  | "unlinked" | "transfer_authorized" | "admin_pin_reset" | "admin_lockout_cleared" | "admin_owner_changed"
+  | "admin_device_key_rotated";
 
 /** Best-effort audit log; never pass PINs, hashes or tokens in detail. */
 export async function logDeviceEvent(db: SupabaseClient, deviceId: string, actorId: string | null, event: DeviceSecurityEvent, detail: Record<string, string | number | boolean | null> = {}) {

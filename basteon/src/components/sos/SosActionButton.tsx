@@ -80,7 +80,7 @@ export function SosActionButton({ className, title, children, onSelect }: Props)
         type="button"
         className={className}
         title={title}
-        aria-label="SOS. Tap to send an emergency alert. Press and hold for more options."
+        aria-label="SOS. Tap to send an emergency alert. Press and hold, then slide to Medical."
         style={{ touchAction: "none", userSelect: "none", WebkitTouchCallout: "none" }}
         {...gesture.buttonProps}
         onContextMenu={gesture.onContextMenu}
@@ -126,7 +126,7 @@ export function SosActionButton({ className, title, children, onSelect }: Props)
               animation: "kikiCoachDrop 2.2s ease-in-out infinite",
             }}
           />
-          Hold for more options
+          Hold, then slide to Medical
         </span>
       )}
 
