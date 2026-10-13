@@ -24,7 +24,7 @@ function request(path: string, body: unknown, headers: Record<string, string> = 
 describe("trigger bearer routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.push.mockResolvedValue(undefined);
+    mocks.push.mockResolvedValue({ status: "accepted", attempted: 1, accepted: 1, failed: 0 });
   });
 
   it("fires a validated trigger, stores only the token hash, and sends the cancel-window push", async () => {
@@ -44,7 +44,12 @@ describe("trigger bearer routes", () => {
       pattern: "triple",
     }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, pending_id: "pending-1", countdown_s: 10 });
+    expect(await response.json()).toEqual({
+      ok: true,
+      pending_id: "pending-1",
+      countdown_s: 10,
+      delivery: { status: "accepted", attempted: 1, accepted: 1, failed: 0 },
+    });
     expect(db.rpc).toHaveBeenCalledWith("trigger_fire", {
       p_token_hash: sha256(token),
       p_payload: expect.objectContaining({ src: "bt_media", pattern: "triple" }),
@@ -56,6 +61,27 @@ describe("trigger bearer routes", () => {
     }));
     expect(mocks.after).toHaveBeenCalledOnce();
     expect(JSON.stringify(mocks.push.mock.calls)).not.toContain("-26.2");
+  });
+
+  it("accepts bounded gesture profile evidence without changing alert semantics", async () => {
+    const db = fakeSupabase(() => ({}), () => ({
+      data: { ok: true, user_id: "user-1", pending_id: "pending-1", countdown_s: 10 },
+    }));
+    mocks.admin.mockReturnValue(db.client);
+    const response = await fire(request("/api/trigger/fire", {
+      type: "sos",
+      src: "bt_media",
+      pattern: "TTT",
+      profile: "profile-123",
+      sig_verified: true,
+    }));
+    expect(response.status).toBe(200);
+    expect(db.rpc).toHaveBeenCalledWith("trigger_fire", expect.objectContaining({
+      p_payload: expect.objectContaining({
+        profile: "profile-123",
+        sig_verified: true,
+      }),
+    }));
   });
 
   it("does not notify or create an alert for a test fire", async () => {
@@ -125,7 +151,7 @@ describe("trigger bearer routes", () => {
     });
   });
 
-  it("accepts Kotlin's other device kind and rejects stale kinds or top-level battery_pct", async () => {
+  it("accepts Kotlin's other device kind and rejects unknown kinds or top-level battery_pct", async () => {
     const db = fakeSupabase(() => ({}), () => ({ data: { ok: true } }));
     mocks.admin.mockReturnValue(db.client);
     const valid = await heartbeat(request("/api/trigger/heartbeat", {
@@ -143,8 +169,8 @@ describe("trigger bearer routes", () => {
       armed: true,
       devices: [{
         ref: "old-kind",
-        kind: "helmet",
-        label: "Helmet",
+        kind: "unknown",
+        label: "Unknown device",
         status: "untracked",
       }],
     }));

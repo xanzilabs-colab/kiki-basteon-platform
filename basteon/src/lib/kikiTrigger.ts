@@ -24,6 +24,10 @@ export interface KikiStatus {
   notifications: boolean;
   bluetooth: boolean;
   notifyDrop: boolean;
+  liveGestureReady: boolean;
+  androidSdk: number;
+  appVersion: string | null;
+  phoneModel?: string | null;
 }
 
 export interface EverydayDevice {
@@ -46,7 +50,22 @@ export interface PairedBluetoothDevice {
 }
 
 export interface TriggerEvent {
-  type: "press" | "sequence";
+  type: "press" | "sequence" | "raw";
+  atMs?: number;
+  src?: "key" | "session" | "volume" | string;
+  tok?: string;
+  action?: string | null;
+  repeat?: number;
+  heldMs?: number | null;
+  deviceId?: number | null;
+  deviceName?: string | null;
+  vendorId?: number | null;
+  productId?: number | null;
+  signature?: string;
+  gapsMs?: number[];
+  profileId?: string | null;
+  matchStatus?: "hit" | "ambiguous" | "unverified" | "unmatched";
+  matchActions?: string[];
   n?: number;
   presses?: number;
   origin?: string;
@@ -55,6 +74,33 @@ export interface TriggerEvent {
   sequence?: string;
   keyCodes?: string[];
   pattern?: "sos" | "medical" | "duress" | "cancel" | null;
+}
+
+export interface GestureSample {
+  prompted: number;
+  sig: string;
+  presses: number;
+  gaps: number[];
+}
+
+export interface GestureProfile {
+  id: string;
+  name: string;
+  kind: "earbuds" | "wired" | "car" | "speaker" | "watch" | "ring" | "other";
+  deviceRef: string | null;
+  gapMs: number;
+  settleMs: number;
+  mapping: Partial<Record<string, "sos" | "medical" | "duress" | "cancel">>;
+  library: GestureSample[];
+  verifiedAt: number | null;
+  appVersion?: string | null;
+  androidSdk?: number | null;
+}
+
+export interface TriggerTraceEntry {
+  at: string;
+  layer: "INPUT" | "GESTURE" | "MATCH" | "SERVER" | "DELIVERY" | string;
+  status: string;
 }
 
 export interface UniversalTriggerConfig {
@@ -73,6 +119,16 @@ interface KikiTriggerPlugin {
   setPractice(options: { on: boolean }): Promise<void>;
   getTriggerConfig(): Promise<UniversalTriggerConfig>;
   setTriggerConfig(config: UniversalTriggerConfig): Promise<void>;
+  startCapture(options?: { gapMs?: number; settleMs?: number; verification?: boolean }): Promise<{ capturing: boolean }>;
+  stopCapture(): Promise<{ capturing: boolean }>;
+  getProfiles(): Promise<{ profiles: GestureProfile[]; mode: string }>;
+  saveProfile(options: { profile: GestureProfile }): Promise<{ profile: GestureProfile }>;
+  deleteProfile(options: { id: string }): Promise<void>;
+  setActiveMode(options: { mode: "auto" | string }): Promise<void>;
+  importProfiles(options: { json: string }): Promise<{ profiles: GestureProfile[]; mode: string }>;
+  exportProfiles(): Promise<{ json: string }>;
+  getTrace(): Promise<{ entries: TriggerTraceEntry[]; export: string }>;
+  connectedAccessories(): Promise<{ devices: Array<{ ref: string; label: string; kind: string }> }>;
   getLog(): Promise<{ lines: string[] }>;
   requestBluetooth(): Promise<{ granted: boolean }>;
   audioDevices(): Promise<{ devices: Array<{ name: string; type: number }> }>;

@@ -312,6 +312,16 @@ object DeviceTracker {
         return result
     }
 
+    fun connectedRefs(context: Context): Set<String> {
+        val state = snapshot(context)
+        return (0 until state.length()).mapNotNull { index ->
+            state.optJSONObject(index)
+                ?.takeIf { it.optString("status") == "connected" }
+                ?.optString("ref")
+                ?.takeIf(String::isNotBlank)
+        }.toSet()
+    }
+
     fun syncPayload(context: Context): JSONArray {
         val state = snapshot(context)
         val payload = JSONArray()

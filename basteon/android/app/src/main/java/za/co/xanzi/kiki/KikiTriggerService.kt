@@ -5,12 +5,16 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.LocationManager
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
 import android.os.Handler
@@ -21,6 +25,7 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import android.view.InputDevice
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.media.app.NotificationCompat.MediaStyle
@@ -38,6 +43,20 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.ConcurrentHashMap
+import za.co.xanzi.kiki.gesture.Gesture
+import za.co.xanzi.kiki.gesture.GestureProfiles
+import za.co.xanzi.kiki.gesture.KeyCodes
+import za.co.xanzi.kiki.gesture.MatchResult
+import za.co.xanzi.kiki.gesture.PressMerger
+import za.co.xanzi.kiki.gesture.Profile
+import za.co.xanzi.kiki.gesture.RawInput
+import za.co.xanzi.kiki.gesture.Sequencer
+import za.co.xanzi.kiki.gesture.Src
+import za.co.xanzi.kiki.gesture.Tok
+import za.co.xanzi.kiki.gesture.gapMsFor
+import za.co.xanzi.kiki.gesture.matchGesture
+import za.co.xanzi.kiki.gesture.settleMsFor
+import za.co.xanzi.kiki.gesture.tokenForKeyCode
 
 class KikiTriggerService : Service() {
     companion object {
@@ -50,26 +69,61 @@ class KikiTriggerService : Service() {
         const val COUNTDOWN_CHANNEL = "kiki_trigger_countdown"
         const val ACTION_CANCEL_PENDING = "za.co.xanzi.kiki.CANCEL_PENDING_TRIGGER"
         private const val PRACTICE_WINDOW_MS = 10 * 60 * 1000L
+        private const val HOLD_THRESHOLD_MS = 600L
+        private const val VOLUME_CHANGED_ACTION = "android.media.VOLUME_CHANGED_ACTION"
         private const val TAG = "KikiTrigger"
         private const val MAX_PENDING_DIAGNOSTICS = 20
+        private const val MAX_TRACE_ENTRIES = 200
         private val diagnosticLock = Any()
+        private val traceLock = Any()
 
         @Volatile var running = false
         @Volatile var practice = false
         @Volatile var instance: KikiTriggerService? = null
         @Volatile var listener: ((JSONObject) -> Unit)? = null
+        @Volatile var captureEnabled = false
+        @Volatile var captureVerificationEnabled = false
+        @Volatile var captureGapMs = GAP_MS
+        @Volatile var captureSettleMs = SETTLE_MS
+        @Volatile var pendingCountdown = false
 
         private val logBuffer = ArrayDeque<String>()
+        private val traceBuffer = ArrayDeque<JSONObject>()
 
         fun log(message: String) {
             synchronized(logBuffer) {
                 logBuffer.addLast(message)
-                while (logBuffer.size > 100) logBuffer.removeFirst()
+                while (logBuffer.size > MAX_TRACE_ENTRIES) logBuffer.removeFirst()
+            }
+            val layer = when {
+                message.contains("input raw", ignoreCase = true) -> "INPUT"
+                message.contains("match outcome", ignoreCase = true) -> "MATCH"
+                message.contains("media button", ignoreCase = true) -> "INPUT"
+                message.contains("gesture sequence", ignoreCase = true) -> "GESTURE"
+                message.contains("gesture device", ignoreCase = true) || message.contains("gesture profile", ignoreCase = true) -> "MATCH"
+                message.contains("push", ignoreCase = true) -> "DELIVERY"
+                else -> "SERVER"
+            }
+            synchronized(traceLock) {
+                traceBuffer.addLast(
+                    JSONObject()
+                        .put("at", isoTimestamp(System.currentTimeMillis()))
+                        .put("layer", layer)
+                        .put("status", message.take(180))
+                )
+                while (traceBuffer.size > MAX_TRACE_ENTRIES) traceBuffer.removeFirst()
             }
             Log.d(TAG, message)
         }
 
         fun logLines(): List<String> = synchronized(logBuffer) { logBuffer.toList() }
+
+        fun traceEntries(): List<JSONObject> = synchronized(traceLock) { traceBuffer.map { JSONObject(it.toString()) } }
+
+        fun clearPendingCountdown() {
+            pendingCountdown = false
+            instance?.let { service -> service.main.removeCallbacks(service.countdownExpired) }
+        }
 
         fun sendHealthSync() {
             instance?.let { service ->
@@ -132,11 +186,30 @@ class KikiTriggerService : Service() {
     private var audioTrack: AudioTrack? = null
     @Volatile private var audioRunning = false
     private val main = Handler(Looper.getMainLooper())
-    private val recognizer = PressPatternRecognizer(GAP_MS)
+    private val merger = PressMerger()
+    private var sequencer: Sequencer? = null
+    private var sequenceCandidates: List<Profile> = emptyList()
     private val sequenceKeys = ArrayList<Int>()
     private val keyDownAt = ConcurrentHashMap<Int, Long>()
-    private var lastOrigin = "media_button"
+    private val heldKeys = ConcurrentHashMap.newKeySet<Int>()
+    private var lastOrigin = "key"
     private var practiceExpiresAt = 0L
+    private var volumeReceiverRegistered = false
+    private val countdownExpired = Runnable {
+        pendingCountdown = false
+        log("countdown window elapsed locally")
+    }
+    private val volumeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val stream = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1)
+            if (stream != AudioManager.STREAM_MUSIC) return
+            val current = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1)
+            val previous = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
+            if (current < 0 || previous < 0 || current == previous) return
+            val token = if (current > previous) Tok.VOL_UP else Tok.VOL_DOWN
+            onInput(RawInput(SystemClock.elapsedRealtime(), Src.VOLUME, token))
+        }
+    }
 
     private val settle = Runnable { evaluateSequence() }
     private val practiceExpiry = Runnable {
@@ -256,6 +329,7 @@ class KikiTriggerService : Service() {
         main.removeCallbacks(heartbeat)
         main.postDelayed(heartbeat, HEARTBEAT_MS)
         if (!practice) sendHealthSync()
+        registerVolumeReceiver()
         log("foreground trigger started")
     }
 
@@ -264,7 +338,10 @@ class KikiTriggerService : Service() {
         instance = null
         practice = false
         audioRunning = false
+        captureEnabled = false
+        captureVerificationEnabled = false
         main.removeCallbacks(settle)
+        main.removeCallbacks(countdownExpired)
         main.removeCallbacks(heartbeat)
         main.removeCallbacks(practiceExpiry)
         audioTrack?.runCatching { pause(); flush(); release() }
@@ -272,6 +349,10 @@ class KikiTriggerService : Service() {
         if (::mediaSession.isInitialized) {
             mediaSession.isActive = false
             mediaSession.release()
+        }
+        if (volumeReceiverRegistered) {
+            unregisterReceiver(volumeReceiver)
+            volumeReceiverRegistered = false
         }
         log("foreground trigger stopped")
         super.onDestroy()
@@ -295,6 +376,7 @@ class KikiTriggerService : Service() {
                 val eventAt = SystemClock.elapsedRealtime()
                 if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                     keyDownAt[event.keyCode] = eventAt
+                    heldKeys.remove(event.keyCode)
                 }
                 val heldMs = if (event.action == KeyEvent.ACTION_UP) {
                     keyDownAt.remove(event.keyCode)?.let { (eventAt - it).coerceAtLeast(0L) }
@@ -302,18 +384,41 @@ class KikiTriggerService : Service() {
                     null
                 }
                 log("media button $action $keyCode repeat=${event.repeatCount}${heldMs?.let { " held=${it}ms" } ?: ""}")
-                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && isTriggerKey(event.keyCode)) {
-                    onPress("media_button", event.keyCode)
+                if (isTriggerKey(event.keyCode)) {
+                    val inputDevice = runCatching { event.device }.getOrNull()
+                    emitRawEvent(
+                        eventAt,
+                        Src.KEY,
+                        tokenForKeyCode(event.keyCode),
+                        event.keyCode,
+                        action,
+                        event.repeatCount,
+                        heldMs,
+                        inputDevice
+                    )
+                    if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0) {
+                        if (heldKeys.add(event.keyCode)) {
+                            onInput(RawInput(eventAt, Src.KEY, Tok.HOLD, event.keyCode, event.repeatCount, heldMs))
+                        }
+                    } else if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                        onInput(RawInput(eventAt, Src.KEY, tokenForKeyCode(event.keyCode), event.keyCode), rawAlreadyEmitted = true)
+                    } else if (event.action == KeyEvent.ACTION_UP && heldMs != null && heldMs >= HOLD_THRESHOLD_MS) {
+                        if (heldKeys.add(event.keyCode)) {
+                            onInput(RawInput(eventAt, Src.KEY, Tok.HOLD, event.keyCode, event.repeatCount, heldMs))
+                        }
+                    } else if (event.action == KeyEvent.ACTION_UP) {
+                        heldKeys.remove(event.keyCode)
+                    }
                 }
             }
             return true
         }
 
-        override fun onPlay() = onPress("media_session", KeyEvent.KEYCODE_MEDIA_PLAY)
-        override fun onPause() = onPress("media_session", KeyEvent.KEYCODE_MEDIA_PAUSE)
-        override fun onStop() = onPress("media_session", KeyEvent.KEYCODE_MEDIA_STOP)
-        override fun onSkipToNext() = onPress("media_session", KeyEvent.KEYCODE_MEDIA_NEXT)
-        override fun onSkipToPrevious() = onPress("media_session", KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+        override fun onPlay() = onInput(RawInput(SystemClock.elapsedRealtime(), Src.SESSION, Tok.TOGGLE, KeyCodes.PLAY))
+        override fun onPause() = onInput(RawInput(SystemClock.elapsedRealtime(), Src.SESSION, Tok.TOGGLE, KeyCodes.PAUSE))
+        override fun onStop() = onInput(RawInput(SystemClock.elapsedRealtime(), Src.SESSION, Tok.STOP, KeyCodes.STOP))
+        override fun onSkipToNext() = onInput(RawInput(SystemClock.elapsedRealtime(), Src.SESSION, Tok.NEXT, KeyCodes.NEXT))
+        override fun onSkipToPrevious() = onInput(RawInput(SystemClock.elapsedRealtime(), Src.SESSION, Tok.PREV, KeyCodes.PREVIOUS))
     }
 
     private fun isTriggerKey(code: Int) = code in setOf(
@@ -321,6 +426,7 @@ class KikiTriggerService : Service() {
         KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
         KeyEvent.KEYCODE_MEDIA_PLAY,
         KeyEvent.KEYCODE_MEDIA_PAUSE,
+        KeyEvent.KEYCODE_MEDIA_STOP,
         KeyEvent.KEYCODE_MEDIA_NEXT,
         KeyEvent.KEYCODE_MEDIA_PREVIOUS,
         KeyEvent.KEYCODE_VOLUME_UP,
@@ -372,24 +478,83 @@ class KikiTriggerService : Service() {
         }, "kiki-silent-media-session").apply { isDaemon = true }.start()
     }
 
-    private fun onPress(origin: String, keyCode: Int) {
+    private fun onInput(input: RawInput, rawAlreadyEmitted: Boolean = false) {
         main.post {
             if (!running && !practice) return@post
-            val clickWeight = mediaButtonClickWeight(keyCode)
-            val eventCount = recognizer.press(SystemClock.elapsedRealtime(), clickWeight)
-            lastOrigin = origin
-            sequenceKeys.add(keyCode)
+            if (!rawAlreadyEmitted) {
+                emitRawEvent(input.atMs, input.src, input.tok, input.keyCode, null, input.repeat, input.heldMs, null)
+            }
+            log("input raw src=${input.src.name.lowercase(Locale.ROOT)} token=${input.tok.code}")
+            if (!merger.isNewPress(input)) {
+                listener?.invoke(
+                    JSONObject()
+                        .put("type", "raw")
+                        .put("src", input.src.name.lowercase(Locale.ROOT))
+                        .put("tok", input.tok.code.toString())
+                        .put("keyCode", if (input.keyCode >= 0) KeyEvent.keyCodeToString(input.keyCode) else JSONObject.NULL)
+                        .put("deduplicated", true)
+                )
+                return@post
+            }
+            if (sequencer == null || sequencer?.isEmpty() == true) {
+                sequenceCandidates = GestureProfiles.connectedCandidates(this)
+                val defaultGap = if (practice && captureEnabled) captureGapMs else GAP_MS
+                sequencer = Sequencer(gapMsFor(sequenceCandidates, defaultGap))
+            }
+            sequencer?.add(input)
+            lastOrigin = when (input.src) {
+                Src.KEY -> "key"
+                Src.SESSION -> "session"
+                Src.VOLUME -> "volume"
+            }
+            if (input.keyCode >= 0) sequenceKeys.add(input.keyCode)
             if (sequenceKeys.size > 20) sequenceKeys.removeAt(0)
-            listener?.invoke(
-                JSONObject()
-                    .put("type", "press")
-                    .put("n", eventCount)
-                    .put("origin", origin)
-                    .put("keyCode", KeyEvent.keyCodeToString(keyCode))
-                    .put("clickWeight", clickWeight)
-            )
             main.removeCallbacks(settle)
-            main.postDelayed(settle, SETTLE_MS)
+            val defaultSettle = if (practice && captureEnabled) captureSettleMs else SETTLE_MS
+            main.postDelayed(settle, settleMsFor(sequenceCandidates, defaultSettle))
+        }
+    }
+
+    private fun emitRawEvent(
+        atMs: Long,
+        src: Src,
+        tok: Tok,
+        keyCode: Int,
+        action: String?,
+        repeat: Int,
+        heldMs: Long?,
+        device: InputDevice?
+    ) {
+        listener?.invoke(
+            JSONObject()
+                .put("type", "raw")
+                .put("atMs", atMs)
+                .put("src", src.name.lowercase(Locale.ROOT))
+                .put("tok", tok.code.toString())
+                .put("keyCode", KeyEvent.keyCodeToString(keyCode))
+                .put("action", action ?: JSONObject.NULL)
+                .put("repeat", repeat)
+                .put("heldMs", heldMs ?: JSONObject.NULL)
+                .put("deviceId", device?.id ?: JSONObject.NULL)
+                .put("deviceName", device?.name?.take(60) ?: JSONObject.NULL)
+                .put("vendorId", device?.vendorId ?: JSONObject.NULL)
+                .put("productId", device?.productId ?: JSONObject.NULL)
+        )
+    }
+
+    private fun registerVolumeReceiver() {
+        if (volumeReceiverRegistered) return
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                volumeReceiver,
+                IntentFilter(VOLUME_CHANGED_ACTION),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            volumeReceiverRegistered = true
+            log("music volume changes are observed when Android broadcasts them; volume gestures can alter volume and may fail at limits")
+        } catch (error: Exception) {
+            log("music volume observer unavailable (${error.javaClass.simpleName}); gesture capture does not depend on it")
         }
     }
 
@@ -399,56 +564,71 @@ class KikiTriggerService : Service() {
         if (expiresAt > System.currentTimeMillis()) {
             main.postDelayed(practiceExpiry, expiresAt - System.currentTimeMillis())
         }
+
+        fun clearLocalCountdown() {
+            clearPendingCountdown()
+        }
     }
 
     private fun evaluateSequence() {
-        val result = recognizer.finish() ?: return
-        val sequence = result.sequence
+        val gesture = sequencer?.finish() ?: return
+        sequencer = null
+        val sequence = gesture.signature()
+        if (sequence.isEmpty()) return
         val keys = JSONArray(sequenceKeys)
         val keyCodes = JSONArray(sequenceKeys.map { KeyEvent.keyCodeToString(it) })
         val origin = lastOrigin
         sequenceKeys.clear()
+        sequenceCandidates = emptyList()
 
         val prefs = Store.prefs(this)
-        val pattern = if (prefs.getBoolean("universalTriggerEnabled", false)) {
-            val configured = mutableMapOf<Int, String>()
-            listOf("sos", "medical", "duress", "cancel").forEach { action ->
-                val clicks = prefs.getInt("universalTrigger_${action}Clicks", 0)
-                if (clicks in 1..20) configured[clicks] = action
-            }
-            resolveUniversalPattern(sequence, configured)
-        } else {
-            result.pattern
+        val match = matchGesture(sequence, GestureProfiles.connectedCandidates(this), requireVerified = !practice)
+        if (practice && captureEnabled && captureVerificationEnabled) {
+            GestureProfiles.recordPracticeResult(this, match)
+        }
+        val pattern = (match as? MatchResult.Hit)?.action
+        val profileId = (match as? MatchResult.Hit)?.profileId
+        val status = when (match) {
+            is MatchResult.Hit -> "hit"
+            is MatchResult.Ambiguous -> "ambiguous"
+            is MatchResult.Unverified -> "unverified"
+            MatchResult.None -> "unmatched"
         }
         listener?.invoke(
             JSONObject()
                 .put("type", "sequence")
                 .put("sequence", sequence)
-                .put("presses", result.presses)
+                .put("signature", sequence)
+                .put("presses", gesture.presses)
                 .put("pattern", pattern ?: JSONObject.NULL)
                 .put("origin", origin)
                 .put("keyCodes", keyCodes)
+                .put("gapsMs", JSONArray(gesture.gapsMs))
+                .put("profileId", profileId ?: JSONObject.NULL)
+                .put("matchStatus", status)
+                .put("matchActions", JSONArray((match as? MatchResult.Ambiguous)?.actions?.toList() ?: emptyList<String>()))
         )
-        log("button sequence recognized (${pattern ?: "no match"}; $sequence; ${result.presses} gesture clicks; ${keyCodes.join(",")}; $origin)")
+        log("gesture sequence recognized ($status; $sequence; ${gesture.presses} inputs; ${keyCodes.join(",")}; $origin)")
+        log("match outcome ($status${pattern?.let { "; $it" } ?: ""}${profileId?.let { "; profile=${it.take(8)}" } ?: ""})")
         if (practice) return
         recordDiagnostic(
             this,
-            pattern ?: "unmatched:${sequence}",
-            lastOrigin,
+            pattern ?: "$status:$sequence",
+            if (origin == "session") "media_session" else "media_button",
             keys
         )
         sendHealthSync()
 
         val testMode = prefs.getBoolean("test", true)
         when (pattern) {
-            "sos" -> fire("sos", false, testMode, sequence)
-            "medical" -> fire("medical", false, testMode, sequence)
-            "duress" -> fire("sos", true, testMode, sequence)
+            "sos" -> fire("sos", false, testMode, sequence, profileId)
+            "medical" -> fire("medical", false, testMode, sequence, profileId)
+            "duress" -> fire("sos", true, testMode, sequence, profileId)
             "cancel" -> cancelTrigger()
         }
     }
 
-    private fun fire(type: String, duress: Boolean, testMode: Boolean, pattern: String) {
+    private fun fire(type: String, duress: Boolean, testMode: Boolean, pattern: String, profileId: String?) {
         vibrate(if (duress) longArrayOf(0, 350, 180, 350) else longArrayOf(0, 80, 100, 80))
         val location = lastKnownLocation()
         Thread({
@@ -458,6 +638,8 @@ class KikiTriggerService : Service() {
                 .put("test", testMode)
                 .put("src", "bt_media")
                 .put("pattern", pattern.take(20))
+                .put("profile", profileId?.take(12))
+                .put("sig_verified", profileId != null)
             if (location != null) {
                 payload.put("lat", location.latitude)
                     .put("lng", location.longitude)
@@ -481,7 +663,14 @@ class KikiTriggerService : Service() {
                     isTest -> log("TEST MODE: $type press recorded; no active alert, countdown, or push notification was created")
                     pendingId.isNotBlank() -> {
                         val countdown = result.body?.optInt("countdown_s", 10) ?: 10
-                        log("LIVE ALERT: $type pending for ${countdown}s; server accepted the alert request")
+                        log("LIVE ALERT: $type pending ${pendingId.take(8)} for ${countdown}s; server accepted the alert request")
+                        result.body?.optJSONObject("delivery")?.let { delivery ->
+                            log(
+                                "push gateway ${delivery.optString("status", "unknown")}; accepted " +
+                                    "${delivery.optInt("accepted")}/${delivery.optInt("attempted")}; " +
+                                    "device receipt is not confirmed"
+                            )
+                        }
                         showCancelNotification(countdown)
                     }
                     else -> log("trigger request accepted without a test result or pending alert ID; check the server response")
@@ -492,10 +681,15 @@ class KikiTriggerService : Service() {
     }
 
     private fun cancelTrigger() {
+        if (!pendingCountdown) {
+            log("gesture cancel ignored: no local pending countdown")
+            return
+        }
         Thread({
             val result = post("/api/trigger/cancel", JSONObject())
             log("trigger cancel completed (HTTP ${result.status})")
             if (result.status in 200..299) {
+                pendingCountdown = false
                 (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(COUNTDOWN_NOTIFICATION_ID)
                 main.post { showArmedNotification("Pending alert cancelled.") }
                 vibrate(longArrayOf(0, 350, 150, 350))
@@ -570,6 +764,9 @@ class KikiTriggerService : Service() {
     }
 
     private fun showCancelNotification(countdownSeconds: Int) {
+        pendingCountdown = true
+        main.removeCallbacks(countdownExpired)
+        main.postDelayed(countdownExpired, countdownSeconds.coerceAtLeast(0) * 1_000L)
         val cancelIntent = Intent(this, TriggerCancelReceiver::class.java).setAction(ACTION_CANCEL_PENDING)
         val cancelPendingIntent = PendingIntent.getBroadcast(
             this,

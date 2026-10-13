@@ -65,6 +65,10 @@ export default function EarbudTriggerCard() {
 
   async function arm() {
     if (!status) return;
+    if (!test && !status.liveGestureReady) {
+      setNotice("Live alerts are locked until a connected accessory has a verified SOS and Cancel gesture profile. Open Trigger Lab to calibrate and verify it.");
+      return;
+    }
     if (!test && status.test && !(await confirm(
       "Bluetooth button patterns will create real alerts for responders. Only continue after successfully testing the exact phone and accessory. Keep another emergency option available.",
       {
@@ -193,7 +197,7 @@ export default function EarbudTriggerCard() {
         <p className="mt-1 text-sm text-[var(--muted)]">
           Use a compatible headset, watch, car control, or other paired device that sends Android media-button presses.
           Adding an accessory under My devices is optional for triggering; it tracks connection health and enables a guided compatibility check.
-          Any compatible accessory can send a trigger while this phone is armed.
+          Live alerts require a connected accessory and a verified gesture profile. Calibrate and verify it in Trigger Lab first; unmatched or ambiguous gestures are ignored.
         </p>
       </div>
 
@@ -230,11 +234,11 @@ export default function EarbudTriggerCard() {
       </label>
 
       <div className="flex flex-wrap gap-2">
-        <button className="btn btn-primary" type="button" disabled={busy || !status} onClick={() => void (status.armed ? disarm() : arm())}>
+        <button className="btn btn-primary" type="button" disabled={busy || !status || (!test && !status.liveGestureReady)} onClick={() => void (status.armed ? disarm() : arm())}>
           {busy ? "Please wait…" : status.armed ? "Disarm phone" : "Arm phone"}
         </button>
         {status.armed && (
-          <button className="btn" type="button" disabled={busy} onClick={() => void arm()}>
+          <button className="btn" type="button" disabled={busy || (!test && !status.liveGestureReady)} onClick={() => void arm()}>
             {test === status.test ? "Refresh trigger" : test ? "Apply test mode" : "Apply LIVE alerts"}
           </button>
         )}
@@ -254,16 +258,15 @@ export default function EarbudTriggerCard() {
       )}
       {notice && <p className="text-sm text-[var(--warn)]" role="status">{notice}</p>}
       {error && <p className="text-sm text-[var(--crit)]" role="alert">{error}</p>}
+      {!test && !status.liveGestureReady && (
+        <p className="rounded-xl bg-[var(--surface-2)] p-3 text-sm text-[var(--warn)]">
+          Live mode is unavailable. A verified profile with SOS and Cancel must be connected and rechecked after app/Android updates or after 90 days.
+        </p>
+      )}
       <div className="space-y-2 rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed">
-        <h3 className="font-semibold">Button patterns (same for every compatible device)</h3>
-        <ul className="space-y-1 text-[var(--muted)]">
-          <li><b className="text-[var(--text)]">SOS:</b> 5 or more quick media-button presses in one burst.</li>
-          <li><b className="text-[var(--text)]">Medical:</b> 3 quick presses, pause, then 2 quick presses.</li>
-          <li><b className="text-[var(--text)]">Discreet SOS:</b> 2 quick presses, pause, 2 quick presses, pause, 2 quick presses.</li>
-          <li><b className="text-[var(--text)]">Cancel:</b> exactly 4 quick presses in one burst while an alert is counting down.</li>
-        </ul>
-        <p className="text-[var(--muted)]">Keep presses within each burst under about 650 ms apart; leave a longer pause between groups. Kiki waits about 900 ms after the final press before recognising the pattern. Accessories vary: their button must send a standard play/pause, headset, or next/previous media event. Verify your exact phone and accessory in Practice before considering live mode.</p>
-        <p className="text-[var(--muted)]">Adding an accessory under My devices is for connection tracking, disconnect notices and a guided practice check. It is not required to trigger an alert and does not itself arm this phone. For an actual alert, uncheck Test mode and tap “Apply LIVE alerts” (or “Arm phone”); confirm the safety prompt. Kiki should then show its countdown notification and the server will notify responders. A vibration alone is not proof an alert was created.</p>
+        <h3 className="font-semibold">Gesture profiles</h3>
+        <p className="text-[var(--muted)]">Every accessory sends its own media-event sequence. Practice captures and repeats those raw events; Kiki only matches a gesture when one verified profile produces exactly one action. Old click-count mappings are retained as legacy data but are not used for live matching.</p>
+        <p className="text-[var(--muted)]">Keep Test mode on until you have verified the exact phone and accessory. Live mode is safety gated and requires both SOS and Cancel in the connected profile. A vibration alone is not proof that the server accepted an alert.</p>
       </div>
     </section>
   );

@@ -9,6 +9,7 @@ export const EVERYDAY_DEVICE_KINDS = [
   "pedal",
   "keyboard",
   "watch",
+  "other",
 ] as const;
 
 export type EverydayDeviceKind = (typeof EVERYDAY_DEVICE_KINDS)[number];
@@ -102,5 +103,13 @@ export const EVERYDAY_DEVICE_GUIDES: Record<EverydayDeviceKind, EverydayDeviceGu
     press: "The watch must send a standard play/pause or next-track media event to the phone.",
     practice: "Compatibility varies by watch and companion app; verify the event before relying on it.",
     reconnect: ["Check the watch's media controls and phone connection.", "Reopen the watch media controls and run Practice again."],
+  },
+  other: {
+    label: "Other media control",
+    pairing: "manual",
+    connect: "Connect the accessory and confirm it sends standard Android media-button events.",
+    press: "Capture the button or control that sends a media event.",
+    practice: "Verify every gesture in Practice before considering live mode.",
+    reconnect: ["Reconnect the accessory in Android settings.", "Confirm its media controls reach the phone."],
   },
 };

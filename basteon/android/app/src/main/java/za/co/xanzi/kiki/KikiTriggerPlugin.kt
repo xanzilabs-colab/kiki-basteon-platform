@@ -22,6 +22,7 @@ import com.getcapacitor.annotation.PermissionCallback
 import org.json.JSONObject
 import java.net.URI
 import java.util.UUID
+import za.co.xanzi.kiki.gesture.GestureProfiles
 
 @CapacitorPlugin(
     name = "KikiTrigger",
@@ -41,6 +42,8 @@ class KikiTriggerPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        KikiTriggerService.captureEnabled = false
+        KikiTriggerService.captureVerificationEnabled = false
         KikiTriggerService.listener = null
         DeviceTracker.onChange = null
     }
@@ -76,11 +79,16 @@ class KikiTriggerPlugin : Plugin() {
             call.reject("This app can only connect to the Kiki server it was built for.")
             return
         }
+        val testMode = call.getBoolean("test", true) ?: true
+        if (!testMode && !GestureProfiles.hasLiveReadyProfile(context)) {
+            call.reject("Calibrate and verify a connected gesture profile with SOS and Cancel before enabling live alerts.")
+            return
+        }
         prefs.edit()
             .putString("base", origin)
             .putString("token", token)
             .putString("tokenId", tokenId)
-            .putBoolean("test", call.getBoolean("test", true) ?: true)
+            .putBoolean("test", testMode)
             .putBoolean("practiceMode", false)
             .remove("practiceExpiresAt")
             .putBoolean("wantArmed", true)
@@ -148,7 +156,158 @@ class KikiTriggerPlugin : Plugin() {
                 .put("notifications", androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled())
                 .put("bluetooth", DeviceTracker.hasBluetoothPermission(context))
                 .put("notifyDrop", prefs.getBoolean("notifyDrop", true))
+                .put("liveGestureReady", GestureProfiles.hasLiveReadyProfile(context))
+                .put("androidSdk", Build.VERSION.SDK_INT)
+                .put("phoneModel", "${Build.MANUFACTURER} ${Build.MODEL}".trim().take(40))
+                .put("appVersion", runCatching {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                }.getOrNull())
         )
+    }
+
+    @PluginMethod
+    fun startCapture(call: PluginCall) {
+        if (!KikiTriggerService.practice) {
+            call.reject("Start Practice before capturing accessory gestures.")
+            return
+        }
+        val gapMs = call.getInt("gapMs")?.toLong() ?: KikiTriggerService.GAP_MS
+        val settleMs = call.getInt("settleMs")?.toLong() ?: KikiTriggerService.SETTLE_MS
+        if (gapMs !in 200..1500 || settleMs !in 300..2500) {
+            call.reject("Capture timing must use a 200–1500 ms gap and 300–2500 ms settle window.")
+            return
+        }
+        KikiTriggerService.captureGapMs = gapMs
+        KikiTriggerService.captureSettleMs = settleMs
+        KikiTriggerService.captureVerificationEnabled = call.getBoolean("verification", false) ?: false
+        KikiTriggerService.captureEnabled = true
+        call.resolve(JSObject().put("capturing", true))
+    }
+
+    @PluginMethod
+    fun stopCapture(call: PluginCall) {
+        KikiTriggerService.captureEnabled = false
+        KikiTriggerService.captureVerificationEnabled = false
+        KikiTriggerService.captureGapMs = KikiTriggerService.GAP_MS
+        KikiTriggerService.captureSettleMs = KikiTriggerService.SETTLE_MS
+        call.resolve(JSObject().put("capturing", false))
+    }
+
+    @PluginMethod
+    fun getProfiles(call: PluginCall) {
+        val profiles = JSArray()
+        GestureProfiles.all(context).forEach { profiles.put(GestureProfiles.toJson(it)) }
+        call.resolve(JSObject().put("profiles", profiles).put("mode", GestureProfiles.mode(context)))
+    }
+
+    @PluginMethod
+    fun saveProfile(call: PluginCall) {
+        if (!KikiTriggerService.practice) {
+            call.reject("Start Practice before changing gesture profiles.")
+            return
+        }
+        try {
+            val value = call.data.optJSONObject("profile")
+                ?: throw IllegalArgumentException("A gesture profile is required.")
+            val profile = GestureProfiles.fromJson(value)
+            GestureProfiles.save(context, profile)
+            call.resolve(JSObject().put("profile", GestureProfiles.toJson(profile)))
+        } catch (error: Exception) {
+            call.reject(error.message ?: "Could not save the gesture profile.", error)
+        }
+    }
+
+    @PluginMethod
+    fun deleteProfile(call: PluginCall) {
+        if (!KikiTriggerService.practice) {
+            call.reject("Start Practice before changing gesture profiles.")
+            return
+        }
+        val id = call.getString("id")
+        if (id.isNullOrBlank()) {
+            call.reject("Choose a gesture profile to delete.")
+            return
+        }
+        GestureProfiles.delete(context, id)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setActiveMode(call: PluginCall) {
+        if (KikiTriggerService.running && !KikiTriggerService.practice) {
+            call.reject("Start Practice or disarm the trigger before changing the active gesture profile.")
+            return
+        }
+        val mode = call.getString("mode")
+        if (mode.isNullOrBlank()) {
+            call.reject("Choose Auto or a saved profile.")
+            return
+        }
+        try {
+            GestureProfiles.setMode(context, mode)
+            call.resolve()
+        } catch (error: IllegalArgumentException) {
+            call.reject(error.message ?: "Could not select that gesture profile.", error)
+        }
+    }
+
+    @PluginMethod
+    fun importProfiles(call: PluginCall) {
+        if (!KikiTriggerService.practice) {
+            call.reject("Start Practice before importing gesture profiles.")
+            return
+        }
+        val payload = call.getString("json")
+        try {
+            val array = org.json.JSONArray(payload ?: throw IllegalArgumentException("Choose a profile export file."))
+            val profiles = (0 until array.length()).map { index ->
+                GestureProfiles.fromJson(array.getJSONObject(index)).copy(verifiedAt = null)
+            }
+            GestureProfiles.replaceAll(context, profiles)
+            getProfiles(call)
+        } catch (error: Exception) {
+            call.reject(error.message ?: "The profile export is invalid.", error)
+        }
+    }
+
+    @PluginMethod
+    fun exportProfiles(call: PluginCall) {
+        val profiles = org.json.JSONArray()
+        GestureProfiles.all(context).forEach { profiles.put(GestureProfiles.toJson(it)) }
+        call.resolve(JSObject().put("json", profiles.toString()))
+    }
+
+    @PluginMethod
+    fun getTrace(call: PluginCall) {
+        val lines = JSArray()
+        KikiTriggerService.traceEntries().forEach { lines.put(JSObject(it.toString())) }
+        call.resolve(JSObject().put("entries", lines).put("export", org.json.JSONArray(KikiTriggerService.traceEntries()).toString()))
+    }
+
+    @PluginMethod
+    fun connectedAccessories(call: PluginCall) {
+        val devices = JSArray()
+        val snapshot = DeviceTracker.snapshot(context)
+        val seen = mutableSetOf<String>()
+        for (index in 0 until snapshot.length()) {
+            val item = snapshot.optJSONObject(index) ?: continue
+            if (item.optString("status") != "connected") continue
+            seen.add(item.optString("btName"))
+            devices.put(
+                JSObject()
+                    .put("ref", item.optString("ref"))
+                    .put("label", item.optString("name"))
+                    .put("kind", item.optString("kind"))
+            )
+        }
+        val outputs = DeviceTracker.audioOutputs(context)
+        for (index in 0 until outputs.length()) {
+            val output = outputs.optJSONObject(index) ?: continue
+            val name = output.optString("name").trim()
+            if (name.isBlank() || name in seen) continue
+            devices.put(JSObject().put("ref", JSONObject.NULL).put("label", name.take(80)).put("kind", "other"))
+        }
+        call.resolve(JSObject().put("devices", devices))
     }
 
     @PluginMethod
@@ -213,6 +372,10 @@ class KikiTriggerPlugin : Plugin() {
     @PluginMethod
     fun setPractice(call: PluginCall) {
         val on = call.getBoolean("on", false) ?: false
+        if (!on) {
+            KikiTriggerService.captureEnabled = false
+            KikiTriggerService.captureVerificationEnabled = false
+        }
         val prefs = Store.prefs(context)
         val wasArmed = prefs.getBoolean("wantArmed", false)
         val expiresAt = if (on) System.currentTimeMillis() + PRACTICE_WINDOW_MS else 0L

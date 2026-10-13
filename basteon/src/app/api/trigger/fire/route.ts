@@ -18,6 +18,8 @@ const Body = z.object({
   loc_at: z.string().datetime().optional(),
   src: z.enum(["bt_media", "bt_ble"]).optional(),
   pattern: z.string().max(20).optional(),
+  profile: z.string().max(12).optional(),
+  sig_verified: z.boolean().optional(),
 }).strict().refine((value) => (value.lat === undefined) === (value.lng === undefined), {
   message: "Latitude and longitude must be supplied together.",
 });
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429, headers: noStore });
   }
 
+  let delivery: Awaited<ReturnType<typeof sendPushNotificationsToUser>> | null = null;
   if (!data?.test && !data?.reused && data?.user_id) {
     const seconds = Number.isInteger(data.countdown_s) ? data.countdown_s : 10;
     const activationTime = typeof data.activates_at === "string" ? Date.parse(data.activates_at) : Number.NaN;
@@ -56,7 +59,7 @@ export async function POST(request: Request) {
       if (remainingMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, remainingMs));
       await processTriggerWork();
     });
-    await sendPushNotificationsToUser(data.user_id, {
+    delivery = await sendPushNotificationsToUser(data.user_id, {
       title: "Kiki",
       body: `Alert starts in ${seconds} seconds. Tap to cancel.`,
       tag: `kiki-trigger-${data.pending_id}`,
@@ -67,5 +70,5 @@ export async function POST(request: Request) {
   }
 
   const { user_id: _private, ...safe } = data ?? {};
-  return NextResponse.json(safe, { headers: noStore });
+  return NextResponse.json(delivery ? { ...safe, delivery } : safe, { headers: noStore });
 }

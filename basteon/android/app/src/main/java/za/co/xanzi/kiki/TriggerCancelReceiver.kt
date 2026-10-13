@@ -12,6 +12,7 @@ import java.net.URL
 class TriggerCancelReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != KikiTriggerService.ACTION_CANCEL_PENDING) return
+        KikiTriggerService.clearPendingCountdown()
         val notifications = NotificationManagerCompat.from(context)
         notifications.cancel(KikiTriggerService.COUNTDOWN_NOTIFICATION_ID)
         val pendingResult = goAsync()
