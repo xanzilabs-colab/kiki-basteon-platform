@@ -97,10 +97,10 @@ export function CalmExperience({ tool }: Props) {
 export function CalmHub() {
   const [muted, setMuted] = usePersistentMute();
   return (
-    <CalmShell title="A quiet place" onStop={() => window.location.assign("/account")} muted={muted} onMuteChange={setMuted}>
+    <CalmShell title="Calm" onStop={() => window.location.assign("/account")} muted={muted} onMuteChange={setMuted}>
       <section className={styles.hubHero}>
         <p className={styles.eyebrow}>Your Calm garden</p>
-        <h1>Choose what feels right.</h1>
+        <h1>Choose what feels right</h1>
         <p>Gentle, optional ways to breathe, notice, and check in with yourself.</p>
         <div className={styles.hubPond} aria-hidden="true"><span><Flower2 size={34} /></span></div>
       </section>
@@ -109,7 +109,6 @@ export function CalmHub() {
         <ToolCard href="/account/calm/baseline" icon="baseline" title="Spot the Baseline" rule="Notice a calm everyday scene and what is in it." length="1–2 min" />
         <ToolCard href="/account/calm/body" icon="body" title="Body Check" rule="Map how different parts of your body feel, without judgement." length="Your pace" />
       </nav>
-      <p className={styles.disclaimerCard}>These are calming exercises, not medical advice. You can stop at any time.</p>
       <div className={styles.hubActions}>
         <HelpSheet />
         <Link className={styles.textLink} href="/account/calm/settings">Settings &amp; privacy <ChevronRight size={16} /></Link>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { Bluetooth, CheckCircle2, Headphones, Link2, RefreshCw, Trash2 } from "lucide-react";
+import { Bluetooth, CheckCircle2, ChevronRight, Headphones, Plus, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
 import {
   KikiTrigger,
   type EverydayDevice,
@@ -22,6 +22,17 @@ function statusText(status: EverydayDevice["status"]) {
     case "bluetooth_off": return "Bluetooth is off";
     case "permission_needed": return "Bluetooth permission needed";
     case "untracked": return "Connection not tracked";
+  }
+}
+
+function statusChipText(status: EverydayDevice["status"]) {
+  switch (status) {
+    case "connected": return "Connected";
+    case "disconnected": return "Paired";
+    case "unpaired": return "Reconnect";
+    case "bluetooth_off": return "Bluetooth off";
+    case "permission_needed": return "Permission needed";
+    case "untracked": return "Unknown";
   }
 }
 
@@ -48,6 +59,7 @@ export default function EverydayDevicesCard() {
 
   const refresh = useCallback(async () => {
     if (!native || !mounted.current) return;
+    setError("");
     try {
       const [saved, bonded, status] = await Promise.all([KikiTrigger.devices(), KikiTrigger.pairedDevices(), KikiTrigger.status()]);
       if (!mounted.current) return;
@@ -139,7 +151,6 @@ export default function EverydayDevicesCard() {
     setSelected(device);
     setKind(device.kind);
     setName(`${KIND_NAMES[device.kind]} device`);
-    setFlowStep(3);
   }
 
   async function addDevice(deviceKind: EverydayDeviceKind, bluetoothDevice?: PairedBluetoothDevice) {
@@ -224,190 +235,291 @@ export default function EverydayDevicesCard() {
 
   const activePractice = useRef(false);
 
+  async function closeFlow() {
+    if (practiceRef) {
+      try {
+        await stopPractice();
+      } catch {
+        setError("Could not stop practice mode. Please stop it before closing this setup.");
+        return;
+      }
+    }
+    setFlowStep(0);
+    setSelected(null);
+  }
+
+  async function toggleNotifyDrop() {
+    const next = !notifyDrop;
+    setNotifyDrop(next);
+    try {
+      await KikiTrigger.setNotifyDrop({ on: next });
+    } catch {
+      setNotifyDrop(!next);
+      setError("Could not update disconnect notifications. Please try again.");
+    }
+  }
+
   if (!native) {
     return (
-      <section className="everyday-devices-card rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
-        <h2 className="font-semibold">Everyday devices</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">Pair and verify everyday Bluetooth devices from the Kiki Android app.</p>
+      <section className="everyday-devices-card">
+        <div className="everyday-empty-card">
+          <span className="everyday-empty-icon"><Bluetooth size={27} /></span>
+          <h2>Manage phone accessories in Kiki for Android</h2>
+          <p>Pair and verify everyday Bluetooth devices from the Kiki Android app.</p>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="everyday-devices-card space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Everyday devices</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">This list tracks connection health and lets you practice an accessory. Adding one is optional: any compatible media-button accessory can trigger Kiki while Bluetooth triggers are armed. Pairing alone does not confirm that it sends supported controls.</p>
+    <section className="everyday-devices-card">
+      {pairingMessage && <p className="everyday-message" role="status">{pairingMessage}</p>}
+
+      <div className="everyday-section-heading">
+        <div className="everyday-heading-copy">
+          <span className="everyday-heading-icon"><Bluetooth size={23} /></span>
+          <div>
+            <p className="everyday-eyebrow">PHONE ACCESSORIES</p>
+            <h2>Everyday devices</h2>
+            <p>Track connections and check that an accessory can trigger Kiki.</p>
+          </div>
         </div>
-        {pairingMessage && <p className="rounded-lg bg-[var(--surface-2)] px-3 py-2 text-sm" role="status">{pairingMessage}</p>}
-        <button className="btn btn-primary" type="button" disabled={busy || devices.length >= 10} onClick={() => {
+        <button className="everyday-primary-button" type="button" disabled={busy || devices.length >= 10} onClick={() => {
           setFlowStep(1);
           setSelected(null);
           setName("");
           setPairingMessage("");
-        }}><Link2 size={16} />Add an everyday device</button>
+          setError("");
+        }}><Plus size={19} />Add a device</button>
       </div>
-      {flowStep > 0 && (
-        <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
-          <div className="flex flex-wrap gap-2 text-xs" aria-label="Add device steps">
-            {["Choose type", "Connect", "Name", "Learn & practice", "Done"].map((label, index) => (
-              <span key={label} aria-current={flowStep === index + 1 ? "step" : undefined} className={`rounded-full px-2.5 py-1 ${flowStep === index + 1 ? "bg-[var(--accent)] text-white" : "bg-[var(--surface)] text-[var(--muted)]"}`}>{index + 1}. {label}</span>
-            ))}
-          </div>
-          {flowStep === 1 && <>
-            <label className="block text-sm font-medium">What kind of device?
-              <select className="input mt-1 w-full" value={kind} onChange={(event) => setKind(event.target.value as EverydayDeviceKind)}>
-                {EVERYDAY_DEVICE_KINDS.map((value) => <option key={value} value={value}>{KIND_NAMES[value]}</option>)}
-              </select>
-            </label>
-            <p className="text-sm text-[var(--muted)]">{EVERYDAY_DEVICE_GUIDES[kind].connect}</p>
-            <button className="btn btn-primary" type="button" onClick={() => {
-              if (EVERYDAY_DEVICE_GUIDES[kind].pairing === "plug") {
-                setName("Wired headphones");
-                setFlowStep(3);
-              } else if (EVERYDAY_DEVICE_GUIDES[kind].pairing === "manual") {
-                setFlowStep(2);
-              } else {
-                void pairDevice();
-              }
-            }}>Continue</button>
-            <button className="btn" type="button" onClick={() => setFlowStep(0)}>Cancel</button>
-          </>}
-          {flowStep === 2 && <>
-            <p className="text-sm">{EVERYDAY_DEVICE_GUIDES[kind].connect}</p>
-            <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void pairDevice()}>Open Android Bluetooth settings</button>
-            <button className="btn" type="button" onClick={() => {
-              setSelected(null);
-              setName(kind === "watch" ? "My watch" : `${KIND_NAMES[kind]} device`);
-              setPairingMessage(`Add ${kind === "watch" ? "a watch" : `a ${KIND_NAMES[kind].toLowerCase()}`} manually. It must deliver standard media-button events to this phone; pairing alone is not enough.`);
-              setFlowStep(3);
-            }}>{kind === "watch" ? "My watch isn’t listed" : "Device isn’t listed? Add manually"}</button>
-            <button className="btn" type="button" onClick={() => setFlowStep(1)}>Back</button>
-          </>}
-          {flowStep === 3 && <>
-            <label className="block text-sm font-medium">Device name
-              <input className="input mt-1 w-full" maxLength={40} value={name} onChange={(event) => setName(event.target.value)} required />
-            </label>
-            {selected && <p className="text-xs text-[var(--muted)]">Selected from the phone’s paired devices: {selected.btName}</p>}
-            <button className="btn btn-primary" type="button" disabled={busy || !name.trim()} onClick={() => void addDevice(kind, selected ?? undefined)}>Add device and continue</button>
-            <button className="btn" type="button" onClick={() => setFlowStep(kind === "wired" ? 1 : 2)}>Back</button>
-          </>}
-          {flowStep === 4 && (() => {
-            const added = devices.find((device) => device.ref === lastAddedRef);
-            return <div className="space-y-2">
-              <p className="font-medium">Learn the button rhythm</p>
-              <p className="text-sm text-[var(--muted)]">{EVERYDAY_DEVICE_GUIDES[added?.kind ?? kind].practice}</p>
-              {practiceRef === lastAddedRef ? <p className="text-sm" role="status" aria-live="polite">{lastPractice} · waiting for the device button…</p> : <button className="btn btn-primary" type="button" disabled={busy || !added} onClick={() => added && void startPractice(added)}>Start a local-only practice check</button>}
-              <p className="text-xs text-[var(--muted)]">Practice never sends an alert. This device stays “Not tested yet” until a complete supported rhythm is detected.</p>
-              <button className="btn" type="button" onClick={() => setFlowStep(0)}>Finish later</button>
-            </div>;
-          })()}
-          {flowStep === 5 && <>
-            <p className="font-semibold text-[var(--ok)]">{KIND_NAMES[devices.find((device) => device.ref === lastAddedRef)?.kind ?? kind]} practice press verified.</p>
-            <p className="text-sm text-[var(--muted)]">This confirms a media-key event arrived during practice; it cannot guarantee future delivery or identify the accessory at the Android system level.</p>
-            <button className="btn btn-primary" type="button" onClick={() => { setFlowStep(0); setName(""); setPairingMessage(""); setLastAddedRef(null); }}>Done</button>
-          </>}
-        </div>
-      )}
 
-      {flowStep === 2 && paired.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Paired on this phone</h3>
-          {paired.map((device) => (
-            <button
-              className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left text-[var(--text)] ${selected?.address === device.address ? "border-[#39734f] bg-[#eaf3ec] ring-1 ring-[#39734f]" : "border-[var(--line)] bg-[var(--surface)]"}`}
-              key={device.address}
-              type="button"
-              onClick={() => choose(device)}
-            >
-              <span className="min-w-0"><b className="block truncate text-[var(--text)]">{device.btName}</b><small className="text-[var(--text-2)]">{KIND_NAMES[device.kind]} · {device.connected ? "Connected" : "Paired"}</small></span>
-              <span className="shrink-0 text-xs font-semibold text-[var(--text-2)]">{selected?.address === device.address ? "Selected" : "Choose"}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {flowStep === 0 && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-3">
-        <div className="flex items-center gap-2 text-sm"><Headphones size={18} /><span><b>Wired headset</b><small className="block text-[var(--muted)]">Track its connection state on this phone</small></span></div>
-        <button className="btn" type="button" disabled={busy || devices.some((device) => device.kind === "wired") || devices.length >= 10} onClick={() => { setKind("wired"); setName("Wired headphones"); setFlowStep(3); }}>Add wired device</button>
-      </div>}
+      {error && flowStep === 0 && <p role="alert" className="everyday-error">{error}</p>}
 
       {devices.length > 0 ? (
-        <ul className="space-y-2">
-          {devices.map((device) => (
-            <li key={device.ref} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{device.name}</p>
-                <p className="text-xs text-[var(--muted)]">{KIND_NAMES[device.kind]} · {statusText(device.status)}</p>
-                <p className="mt-1 text-xs">{device.battery == null ? <span className="text-[var(--warn)]">Battery not reported</span> : <span className={device.battery < 20 ? "text-[var(--warn)]" : ""}>Battery {device.battery}%</span>} · Last connected {device.lastConnectedAt ? new Date(device.lastConnectedAt).toLocaleString() : "Not recorded"}</p>
-                <p className="mt-1 text-xs">{device.verifiedAt ? <span className="inline-flex items-center gap-1 text-[var(--ok)]"><CheckCircle2 size={13} />Practice press verified</span> : <span className="text-[var(--warn)]">Not tested yet</span>}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button className="btn" type="button" disabled={busy || practiceRef !== null} onClick={() => void startPractice(device)}>{practiceRef === device.ref ? "Listening…" : "Practice check"}</button>
-                <button className="btn" type="button" aria-label="How to use this device" onClick={() => setInfoDevice(device)}>How to use</button>
-                {device.status !== "connected" && <button className="btn btn-primary" type="button" onClick={() => setReconnectDevice(device)}>Reconnect</button>}
-                <details className="relative">
-                  <summary className="btn cursor-pointer list-none">More</summary>
-                  <div className="absolute right-0 z-10 mt-1 grid min-w-36 gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2 shadow-xl">
-                    <button className="btn justify-start" type="button" onClick={() => {
-                      const next = window.prompt("Choose a name for this device.", device.name)?.trim();
-                      if (next) void KikiTrigger.renameDevice({ ref: device.ref, name: next }).then(refresh).catch(() => setError("Could not rename this device."));
-                    }}>Rename</button>
-                    <button className="btn justify-start" type="button" onClick={() => setReconnectDevice(device)}>Reconnect</button>
-                    <button className="btn justify-start" type="button" onClick={() => void removeDevice(device)}>Remove</button>
-                  </div>
-                </details>
-                <button className="btn" type="button" aria-label={`Remove ${device.name}`} disabled={busy} onClick={() => void removeDevice(device)}><Trash2 size={16} /></button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <section className="everyday-device-section" aria-labelledby="everyday-list-title">
+          <div className="everyday-section-title">
+            <h3 id="everyday-list-title">Your devices</h3>
+            <span>{devices.length}</span>
+          </div>
+          <ul className="everyday-device-list">
+            {devices.map((device) => (
+              <li className="everyday-device-entry" key={device.ref}>
+                <span className={`everyday-device-icon${device.kind === "wired" ? " wired" : ""}`}>
+                  {device.kind === "wired" ? <Headphones size={21} /> : <Bluetooth size={21} />}
+                </span>
+                <div className="everyday-device-copy">
+                  <b>{device.name}</b>
+                  <span>{KIND_NAMES[device.kind]} · {statusText(device.status)}</span>
+                  <small>
+                    {device.battery == null ? "Battery not reported" : `Battery ${device.battery}%`}
+                    {" · "}
+                    {device.lastConnectedAt ? `Last connected ${new Date(device.lastConnectedAt).toLocaleString()}` : "Not connected yet"}
+                  </small>
+                  <small className={device.verifiedAt ? "verified" : "unverified"}>
+                    {device.verifiedAt ? <><CheckCircle2 size={13} />Practice press verified</> : "Not tested yet"}
+                  </small>
+                </div>
+                <span className={`everyday-status-chip${device.status === "connected" ? " connected" : ""}`}>
+                  {device.verifiedAt ? "Practiced" : statusChipText(device.status)}
+                </span>
+                <div className="everyday-device-actions">
+                  <button className="everyday-action-button primary" type="button" disabled={busy || practiceRef !== null} onClick={() => void startPractice(device)}>
+                    {practiceRef === device.ref ? "Listening…" : "Practice"}
+                  </button>
+                  <button className="everyday-action-button" type="button" onClick={() => setInfoDevice(device)}>How to use</button>
+                  {device.status !== "connected" && <button className="everyday-action-button" type="button" onClick={() => setReconnectDevice(device)}>Reconnect</button>}
+                  <details className="everyday-more">
+                    <summary aria-label={`More actions for ${device.name}`}>More<ChevronRight size={15} /></summary>
+                    <div>
+                      <button type="button" onClick={() => {
+                        const next = window.prompt("Choose a name for this device.", device.name)?.trim();
+                        if (next) void KikiTrigger.renameDevice({ ref: device.ref, name: next }).then(refresh).catch(() => setError("Could not rename this device."));
+                      }}>Rename</button>
+                      <button type="button" onClick={() => setReconnectDevice(device)}>Reconnect</button>
+                      <button type="button" onClick={() => void removeDevice(device)}>Remove</button>
+                    </div>
+                  </details>
+                  <button className="everyday-action-button remove" type="button" aria-label={`Remove ${device.name}`} disabled={busy} onClick={() => void removeDevice(device)}><Trash2 size={16} /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : (
-        <p className="rounded-xl bg-[var(--surface-2)] p-3 text-sm text-[var(--muted)]">No everyday devices added yet. Use Pair a device to open Android Bluetooth settings.</p>
+        <div className="everyday-empty-card">
+          <span className="everyday-empty-icon"><Headphones size={29} /></span>
+          <div>
+            <h3>No everyday devices yet</h3>
+            <p>Add earbuds or a headset to track its connection and practice triggering Kiki.</p>
+          </div>
+          <button className="everyday-primary-button" type="button" disabled={busy} onClick={() => {
+            setFlowStep(1);
+            setSelected(null);
+            setName("");
+          }}><Plus size={19} />Add a device</button>
+        </div>
       )}
 
+      <section className="everyday-device-section" aria-labelledby="wired-title">
+        <h3 className="everyday-section-label" id="wired-title">Wired</h3>
+        <div className="everyday-simple-list">
+          <div className="everyday-simple-row">
+            <span className="everyday-small-icon"><Headphones size={20} /></span>
+            <span className="everyday-simple-copy"><b>Wired headset</b><small>Track its connection on this phone</small></span>
+            {devices.some((device) => device.kind === "wired")
+              ? <span className="everyday-status-chip connected">Added</span>
+              : <button className="everyday-row-add" type="button" disabled={busy || devices.length >= 10} onClick={() => { setKind("wired"); setName("Wired headphones"); setFlowStep(3); }}><Plus size={16} />Add</button>}
+          </div>
+        </div>
+      </section>
+
+      <section className="everyday-device-section" aria-labelledby="alerts-title">
+        <h3 className="everyday-section-label" id="alerts-title">Alerts</h3>
+        <div className="everyday-simple-list">
+          <div className="everyday-simple-row">
+            <span className="everyday-simple-copy"><b>Notify me on disconnect</b><small>When a paired device drops</small></span>
+            <button className={`everyday-toggle${notifyDrop ? " on" : ""}`} type="button" role="switch" aria-checked={notifyDrop} aria-label="Notify me when a paired device disconnects" onClick={() => void toggleNotifyDrop()}><i /></button>
+          </div>
+        </div>
+      </section>
+
+      <p className="everyday-privacy"><ShieldCheck size={17} /><span>Bluetooth names and addresses stay encrypted on this phone and never reach Kiki’s server. Only your label, device type, verification time, and connection health sync.</span></p>
+
       {practiceRef && flowStep !== 4 && (
-        <div className="rounded-xl border border-[var(--accent)] p-3 text-sm" role="status" aria-live="polite">
-          <p className="font-semibold">Practice mode is active for up to 2 minutes. No alert will be sent.</p>
-          <p className="mt-1">{lastPractice}</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">Try a supported media-button pattern while this device is connected.</p>
-          <button className="btn mt-2" type="button" onClick={() => void stopPractice()}>Stop practice</button>
+        <div className="everyday-practice-status" role="status" aria-live="polite">
+          <b>Practice mode is active for up to 2 minutes. No alert will be sent.</b>
+          <span>{lastPractice}</span>
+          <small>Try a supported media-button pattern while this device is connected.</small>
+          <button className="everyday-action-button" type="button" onClick={() => void stopPractice()}>Stop practice</button>
         </div>
       )}
-      {!practiceRef && lastPractice && <p className="text-sm" role="status">{lastPractice}</p>}
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={notifyDrop} onChange={(event) => { setNotifyDrop(event.target.checked); void KikiTrigger.setNotifyDrop({ on: event.target.checked }); }} />
-        Notify me when a paired device disconnects
-      </label>
-      <p className="text-xs leading-relaxed text-[var(--muted)]">Bluetooth names and addresses stay encrypted on this phone and are never sent to Kiki’s server. Only your label, device type, verification time, and connection health are synchronised.</p>
+      {!practiceRef && lastPractice && <p className="everyday-message" role="status">{lastPractice}</p>}
       {busy && <span className="sr-only" role="status">Updating paired devices…</span>}
-      {infoDevice && (
-        <div className="fixed inset-0 z-50 grid items-end bg-black/60 p-3 sm:items-center sm:justify-center" onClick={() => setInfoDevice(null)}>
-          <section className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5" role="dialog" aria-modal="true" aria-label="How to use this device" onClick={(event) => event.stopPropagation()}>
-            <h3 className="text-lg font-semibold">{infoDevice.name}</h3>
-            <p className="mt-3 text-sm">{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].press}</p>
-            <p className="mt-2 text-sm text-[var(--muted)]">{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].practice}</p>
-            <h4 className="mt-4 font-semibold">Reconnect steps</h4>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].reconnect.map((step) => <li key={step}>{step}</li>)}</ol>
-            <button className="btn mt-4" type="button" onClick={() => setInfoDevice(null)}>Close</button>
-          </section>
-        </div>
-      )}
-      {reconnectDevice && (
-        <div className="fixed inset-0 z-50 grid items-end bg-black/60 p-3 sm:items-center sm:justify-center" onClick={() => setReconnectDevice(null)}>
-          <section className="w-full max-w-lg rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5" role="dialog" aria-modal="true" aria-label="Reconnect device" onClick={(event) => event.stopPropagation()}>
-            <h3 className="text-lg font-semibold">Reconnect {reconnectDevice.name}</h3>
-            <p className="mt-2 text-sm text-[var(--muted)]">Android controls the Bluetooth connection; Kiki cannot reconnect an accessory itself.</p>
-            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm">{EVERYDAY_DEVICE_GUIDES[reconnectDevice.kind].reconnect.map((step) => <li key={step}>{step}</li>)}</ol>
-            <div className="mt-4 flex gap-2">
-              <button className="btn btn-primary" type="button" onClick={() => void KikiTrigger.openBluetoothSettings().catch(() => setError("Could not open Bluetooth settings."))}>Open Bluetooth settings</button>
-              <button className="btn" type="button" onClick={() => { setReconnectDevice(null); void refresh(); }}>Done</button>
+      <button type="button" className="everyday-refresh" onClick={() => void refresh()}><RefreshCw size={16} />Refresh devices</button>
+      <p className="everyday-footnote">Pairing alone doesn’t confirm a device sends supported controls. Practice it to be sure.</p>
+
+      {flowStep > 0 && (
+        <div className="everyday-sheet-backdrop" onClick={(event) => { if (event.target === event.currentTarget) void closeFlow(); }}>
+          <section className="everyday-sheet" role="dialog" aria-modal="true" aria-labelledby="everyday-sheet-title">
+            <div className="everyday-sheet-top">
+              <div className="everyday-progress" aria-label={`Step ${Math.min(flowStep, 5)} of 5`}>
+                {[1, 2, 3, 4, 5].map((step) => <i key={step} className={flowStep >= step ? "done" : ""} />)}
+              </div>
+              <button className="everyday-sheet-close" type="button" aria-label="Close setup" onClick={() => void closeFlow()}><X size={19} /></button>
+            </div>
+            <p className="everyday-step-label">STEP {Math.min(flowStep, 5)} OF 5 · {["", "CHOOSE TYPE", "CONNECT", "NAME", "PRACTICE", "DONE"][flowStep]}</p>
+            <div className="everyday-sheet-body">
+              {error && <p role="alert" className="everyday-error">{error}</p>}
+              {flowStep === 1 && <>
+                <h2 id="everyday-sheet-title">What kind of device?</h2>
+                <p>Pick the closest match. You can rename it later.</p>
+                <div className="everyday-type-grid">
+                  {EVERYDAY_DEVICE_KINDS.map((value) => (
+                    <button key={value} type="button" className={`everyday-type-tile${kind === value ? " selected" : ""}`} onClick={() => setKind(value)}>
+                      <span>{value === "wired" ? <Headphones size={20} /> : <Bluetooth size={20} />}</span>
+                      <b>{KIND_NAMES[value]}</b>
+                    </button>
+                  ))}
+                </div>
+                <button className="everyday-primary-button full" type="button" onClick={() => {
+                  if (EVERYDAY_DEVICE_GUIDES[kind].pairing === "plug") {
+                    setName("Wired headphones");
+                    setFlowStep(3);
+                  } else if (EVERYDAY_DEVICE_GUIDES[kind].pairing === "manual") {
+                    setFlowStep(2);
+                  } else {
+                    void pairDevice();
+                  }
+                }}>Continue</button>
+                <button className="everyday-sheet-text-button" type="button" onClick={() => void closeFlow()}>Cancel</button>
+              </>}
+              {flowStep === 2 && <>
+                <h2 id="everyday-sheet-title">Connect it</h2>
+                <p>{EVERYDAY_DEVICE_GUIDES[kind].connect} Select it below once it’s paired.</p>
+                <button className="everyday-secondary-button full" type="button" disabled={busy} onClick={() => void pairDevice()}><Bluetooth size={18} />Open Bluetooth settings</button>
+                {paired.length > 0 && <>
+                  <h3 className="everyday-paired-title">Paired on this phone</h3>
+                  <div className="everyday-paired-list">
+                    {paired.map((device) => (
+                      <button className={`everyday-paired-row${selected?.address === device.address ? " selected" : ""}`} key={device.address} type="button" onClick={() => choose(device)}>
+                        <span><b>{device.btName}</b><small>{KIND_NAMES[device.kind]} · {device.connected ? "Connected" : "Paired"}</small></span>
+                        <i aria-label={selected?.address === device.address ? "Selected" : "Choose"} />
+                      </button>
+                    ))}
+                  </div>
+                </>}
+                <button className="everyday-sheet-text-button" type="button" onClick={() => {
+                  setSelected(null);
+                  setName(kind === "watch" ? "My watch" : `${KIND_NAMES[kind]} device`);
+                  setPairingMessage(`Add ${kind === "watch" ? "a watch" : `a ${KIND_NAMES[kind].toLowerCase()}`} manually. It must deliver standard media-button events to this phone; pairing alone is not enough.`);
+                  setFlowStep(3);
+                }}>{kind === "watch" ? "My watch isn’t listed? Add manually" : "Device isn’t listed? Add manually"}</button>
+                {selected && <button className="everyday-primary-button full" type="button" onClick={() => setFlowStep(3)}>Continue with {selected.btName}</button>}
+                <button className="everyday-sheet-text-button" type="button" onClick={() => setFlowStep(1)}>Back</button>
+              </>}
+              {flowStep === 3 && <>
+                <h2 id="everyday-sheet-title">Name it</h2>
+                <p>A label you’ll recognise. This is the only device name Kiki’s server sees.</p>
+                <label className="everyday-name-label">Device name
+                  <input className="everyday-name-input" maxLength={40} value={name} onChange={(event) => setName(event.target.value)} required />
+                </label>
+                {selected && <p className="everyday-selected-note">Selected from this phone’s paired devices: {selected.btName}</p>}
+                <button className="everyday-primary-button full" type="button" disabled={busy || !name.trim()} onClick={() => void addDevice(kind, selected ?? undefined)}>Add device and continue</button>
+                <button className="everyday-sheet-text-button" type="button" onClick={() => setFlowStep(kind === "wired" ? 1 : 2)}>Back</button>
+              </>}
+              {flowStep === 4 && (() => {
+                const added = devices.find((device) => device.ref === lastAddedRef);
+                return <>
+                  <h2 id="everyday-sheet-title">Practice a press</h2>
+                  <p>{EVERYDAY_DEVICE_GUIDES[added?.kind ?? kind].practice}</p>
+                  <div className={`everyday-practice-orb${practiceRef === lastAddedRef ? " listening" : ""}`} aria-hidden="true"><Bluetooth size={42} /></div>
+                  {practiceRef === lastAddedRef
+                    ? <p className="everyday-listening" role="status" aria-live="polite">{lastPractice} · listening for the device button…</p>
+                    : <button className="everyday-primary-button full" type="button" disabled={busy || !added} onClick={() => added && void startPractice(added)}>Start practice check</button>}
+                  <p className="everyday-selected-note">Practice never sends an alert. The device stays “Not tested yet” until a supported rhythm is detected.</p>
+                  <button className="everyday-sheet-text-button" type="button" onClick={() => void closeFlow()}>Finish later</button>
+                </>;
+              })()}
+              {flowStep === 5 && <>
+                <div className="everyday-practice-orb complete"><CheckCircle2 size={45} /></div>
+                <h2 className="everyday-centered-title" id="everyday-sheet-title">{KIND_NAMES[devices.find((device) => device.ref === lastAddedRef)?.kind ?? kind]} is ready</h2>
+                <p className="everyday-centered-copy">Kiki heard your press. Connection health is now tracked on this phone.</p>
+                <button className="everyday-primary-button full" type="button" onClick={() => { setFlowStep(0); setName(""); setPairingMessage(""); setLastAddedRef(null); }}>Done</button>
+              </>}
             </div>
           </section>
         </div>
       )}
-      {error && <p role="alert" className="text-sm text-[var(--crit)]">{error}</p>}
-      <button type="button" className="btn" onClick={() => void refresh()}><RefreshCw size={15} />Refresh devices</button>
+
+      {infoDevice && (
+        <div className="everyday-sheet-backdrop" onClick={() => setInfoDevice(null)}>
+          <section className="everyday-sheet info" role="dialog" aria-modal="true" aria-label="How to use this device" onClick={(event) => event.stopPropagation()}>
+            <button className="everyday-sheet-close" type="button" aria-label="Close" onClick={() => setInfoDevice(null)}><X size={19} /></button>
+            <div className="everyday-sheet-body">
+              <h2>{infoDevice.name}</h2>
+              <p>{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].press}</p>
+              <p>{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].practice}</p>
+              <h3 className="everyday-paired-title">Reconnect steps</h3>
+              <ol className="everyday-reconnect-list">{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].reconnect.map((step) => <li key={step}>{step}</li>)}</ol>
+              <button className="everyday-secondary-button full" type="button" onClick={() => setInfoDevice(null)}>Close</button>
+            </div>
+          </section>
+        </div>
+      )}
+      {reconnectDevice && (
+        <div className="everyday-sheet-backdrop" onClick={() => setReconnectDevice(null)}>
+          <section className="everyday-sheet info" role="dialog" aria-modal="true" aria-label="Reconnect device" onClick={(event) => event.stopPropagation()}>
+            <button className="everyday-sheet-close" type="button" aria-label="Close" onClick={() => setReconnectDevice(null)}><X size={19} /></button>
+            <div className="everyday-sheet-body">
+              <h2>Reconnect {reconnectDevice.name}</h2>
+              <p>Android controls the Bluetooth connection; Kiki cannot reconnect an accessory itself.</p>
+              <ol className="everyday-reconnect-list">{EVERYDAY_DEVICE_GUIDES[reconnectDevice.kind].reconnect.map((step) => <li key={step}>{step}</li>)}</ol>
+              <button className="everyday-primary-button full" type="button" onClick={() => void KikiTrigger.openBluetoothSettings().catch(() => setError("Could not open Bluetooth settings."))}>Open Bluetooth settings</button>
+              <button className="everyday-sheet-text-button" type="button" onClick={() => { setReconnectDevice(null); void refresh(); }}>Done</button>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }

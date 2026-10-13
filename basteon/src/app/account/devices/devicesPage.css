@@ -16,7 +16,14 @@
 .devices-heading { display:flex; min-height:54px; align-items:center; justify-content:space-between; gap:12px; margin:0 2px 13px; }
 .devices-heading h1 { margin:0; color:var(--device-ink); font-size:30px; font-weight:850; letter-spacing:-1px; line-height:1.06; }
 .devices-heading p { margin:4px 0 0; color:var(--device-mute); font-size:12px; font-weight:650; }
+.devices-heading-eyebrow { display:block; margin-bottom:4px; color:var(--device-mute); font-size:10px; font-weight:800; letter-spacing:.1em; }
 .devices-link-button { display:inline-flex; min-height:40px; flex:none; align-items:center; justify-content:center; gap:6px; border-radius:999px; background:var(--device-plum); padding:0 14px; color:#fff; font-size:12px; font-weight:800; text-decoration:none; box-shadow:0 5px 12px rgba(74,21,96,.18); }
+.devices-mode-switch { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin:0 0 14px; padding:4px; border:1px solid rgba(82,40,104,.08); border-radius:17px; background:#eee6f4; }
+.devices-mode-switch button { display:flex; min-width:0; min-height:43px; align-items:center; justify-content:center; gap:7px; border:0; border-radius:13px; background:transparent; padding:6px 8px; color:#776783; font-size:11px; font-weight:800; line-height:1.2; transition:background .18s ease,color .18s ease,box-shadow .18s ease; }
+.devices-mode-switch button.active { background:#fff; color:#522868; box-shadow:0 2px 8px rgba(50,26,63,.1); }
+.devices-mode-switch button:focus-visible,.everyday-devices-card button:focus-visible { outline:3px solid rgba(122,79,154,.4); outline-offset:2px; }
+.devices-screen[hidden] { display:none!important; }
+.phone-devices-screen { margin-top:2px; }
 .devices-error { margin:0 0 12px; border:1px solid #f2c8d1; border-radius:13px; background:#fff0f2; padding:11px 13px; color:#a12443; font-size:12px; line-height:1.45; }
 .devices-loading { display:grid; min-height:180px; place-items:center; border:1px solid var(--device-line); border-radius:22px; background:rgba(255,255,255,.8); color:var(--device-mute); font-size:13px; }
 .devices-hero { position:relative; overflow:hidden; border:1px solid #dce5dc; border-radius:29px; background:radial-gradient(85% 67% at 50% 32%,#fffefa 0%,#f2f5ef 70%,#e8eee7 100%); box-shadow:0 18px 36px -28px rgba(31,48,41,.35); }
@@ -99,30 +106,135 @@
 .devices-empty > a { display:inline-flex; min-height:43px; align-items:center; justify-content:center; gap:7px; border-radius:13px; background:var(--device-plum); padding:0 16px; color:#fff; font-size:12px; font-weight:800; text-decoration:none; }
 .devices-empty > button { min-height:41px; border:0; border-radius:13px; background:var(--device-plum); padding:0 16px; color:#fff; font-size:12px; font-weight:800; }
 .devices-empty > span { display:flex; align-items:center; gap:6px; margin-top:16px; color:var(--device-green); font-size:10px; font-weight:700; }
-.phone-devices-section { display:grid; gap:12px; margin-top:24px; }
-.phone-devices-heading { display:flex; align-items:center; gap:12px; padding:2px 2px 0; color:#20352a; }
-.phone-devices-icon { display:grid; width:42px; height:42px; flex:none; place-items:center; border:1px solid #d5e3d8; border-radius:14px; background:#e9f2eb; color:#23634d; }
-.phone-devices-heading h2,.phone-devices-heading p { margin:0; }
-.phone-devices-heading h2 { color:#20352a; font-size:17px; font-weight:800; line-height:1.25; }
-.phone-devices-heading p:last-child { margin-top:3px; color:#53665d; font-size:11px; line-height:1.45; }
-.phone-devices-eyebrow { margin-bottom:3px!important; color:#64756b; font-size:9px; font-weight:800; letter-spacing:.1em; }
-.everyday-devices-card { --surface:#fff; --surface-2:#f3f7f3; --surface-3:#e6efe8; --line:#dbe5dd; --text:#20352a; --text-2:#53665d; --muted:#64756b; --accent:#23634d; --accent-ink:#fff; --ok:#247052; --warn:#9a5a00; --crit:#bf4a4a; border-color:#dbe5dd!important; background:#fff!important; color:#20352a; box-shadow:0 5px 18px rgba(31,48,41,.06); }
-.everyday-devices-card h2,.everyday-devices-card h3,.everyday-devices-card h4 { color:#20352a; }
-.everyday-devices-card .btn { min-height:38px; height:auto; padding-top:8px; padding-bottom:8px; white-space:normal; }
-.everyday-devices-card > ul > li { align-items:flex-start; border-color:#dbe5dd; background:#fbfdfb; }
-.everyday-devices-card > ul > li > div:last-child { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
+.everyday-devices-card { --ed-ink:#2a1536; --ed-muted:#6e5a7c; --ed-line:#e6dcf0; --ed-plum:#7a4f9a; --ed-deep:#522868; --ed-lav:#e9dcf0; --ed-ok:#2f7a4a; --ed-okbg:#e6f3ea; display:grid; gap:14px; border:0!important; background:transparent!important; padding:0!important; color:var(--ed-ink); box-shadow:none!important; }
+.everyday-devices-card h2,.everyday-devices-card h3 { margin:0; color:var(--ed-ink); }
+.everyday-section-heading { display:grid; gap:12px; }
+.everyday-heading-copy { display:flex; align-items:center; gap:12px; }
+.everyday-heading-icon,.everyday-empty-icon { display:grid; width:48px; height:48px; flex:none; place-items:center; border:1px solid var(--ed-line); border-radius:16px; background:#fff; color:var(--ed-plum); }
+.everyday-eyebrow { margin:0 0 3px; color:var(--ed-muted); font-size:9px; font-weight:800; letter-spacing:.1em; }
+.everyday-heading-copy h2 { font-size:17px; font-weight:800; line-height:1.2; }
+.everyday-heading-copy p:last-child { margin:4px 0 0; color:var(--ed-muted); font-size:11px; line-height:1.4; }
+.everyday-primary-button,.everyday-secondary-button { display:inline-flex; min-height:48px; align-items:center; justify-content:center; gap:8px; border:0; border-radius:15px; padding:10px 16px; font:inherit; font-size:13px; font-weight:800; text-align:center; transition:filter .16s ease,transform .16s ease; }
+.everyday-primary-button { background:linear-gradient(135deg,#7a4f9a,#a2659c); color:#fff; box-shadow:0 7px 18px rgba(82,40,104,.16); }
+.everyday-primary-button:disabled { cursor:not-allowed; opacity:.55; }
+.everyday-primary-button:not(:disabled):active,.everyday-secondary-button:active { transform:scale(.98); }
+.everyday-secondary-button { border:1px solid var(--ed-line); background:var(--ed-lav); color:var(--ed-deep); }
+.everyday-primary-button.full,.everyday-secondary-button.full { width:100%; }
+.everyday-message,.everyday-error { margin:0; border-radius:13px; padding:11px 13px; font-size:12px; line-height:1.45; }
+.everyday-message { background:#f4eff8; color:#584164; }
+.everyday-error { border:1px solid #f1c6ce; background:#fff0f2; color:#a12443; }
+.everyday-empty-card { display:grid; grid-template-columns:48px minmax(0,1fr); align-items:center; gap:12px; border:1px solid var(--ed-line); border-radius:22px; background:#fff; padding:16px; box-shadow:0 5px 18px rgba(42,21,54,.04); }
+.everyday-empty-icon { width:56px; height:56px; grid-row:span 2; border:0; border-radius:50%; background:var(--ed-lav); color:var(--ed-deep); }
+.everyday-empty-card h2,.everyday-empty-card h3 { font-size:15px; font-weight:750; line-height:1.3; }
+.everyday-empty-card p { margin:4px 0 0; color:var(--ed-muted); font-size:11px; line-height:1.45; }
+.everyday-empty-card .everyday-primary-button { grid-column:1/-1; }
+.everyday-device-section { display:grid; gap:8px; }
+.everyday-section-title { display:flex; align-items:center; justify-content:space-between; margin:2px 5px 0; }
+.everyday-section-title h3,.everyday-section-label { color:var(--ed-muted)!important; font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.everyday-section-title > span { display:grid; min-width:22px; height:22px; place-items:center; border-radius:50%; background:var(--ed-lav); color:var(--ed-deep); font-size:10px; font-weight:800; }
+.everyday-device-list,.everyday-simple-list { overflow:visible; margin:0; border:1px solid var(--ed-line); border-radius:20px; background:#fff; padding:0; list-style:none; box-shadow:0 4px 15px rgba(42,21,54,.035); }
+.everyday-device-entry { display:grid; grid-template-columns:40px minmax(0,1fr) auto; align-items:center; gap:10px; padding:13px; }
+.everyday-device-entry + .everyday-device-entry,.everyday-simple-row + .everyday-simple-row { border-top:1px solid var(--ed-line); }
+.everyday-device-icon,.everyday-small-icon { display:grid; width:40px; height:40px; place-items:center; border-radius:12px; background:var(--ed-lav); color:var(--ed-deep); }
+.everyday-device-icon.wired { background:#f5e8f2; }
+.everyday-device-copy { display:grid; min-width:0; gap:3px; }
+.everyday-device-copy b,.everyday-device-copy span,.everyday-device-copy small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.everyday-device-copy b { font-size:13px; font-weight:750; }
+.everyday-device-copy span,.everyday-device-copy small { color:var(--ed-muted); font-size:10px; line-height:1.35; }
+.everyday-device-copy small.verified,.everyday-device-copy small.unverified { display:flex; align-items:center; gap:4px; }
+.everyday-device-copy small.verified { color:var(--ed-ok); }
+.everyday-device-copy small.unverified { color:#93651b; }
+.everyday-status-chip { max-width:105px; overflow:hidden; border-radius:99px; background:#f0ebf3; padding:5px 9px; color:#756782; font-size:9px; font-weight:800; text-overflow:ellipsis; white-space:nowrap; }
+.everyday-status-chip.connected { background:var(--ed-okbg); color:var(--ed-ok); }
+.everyday-device-actions { display:flex; grid-column:1/-1; flex-wrap:wrap; align-items:center; gap:7px; padding-top:2px; }
+.everyday-action-button { display:inline-flex; min-height:34px; align-items:center; justify-content:center; gap:5px; border:1px solid var(--ed-line); border-radius:11px; background:#fff; padding:6px 9px; color:var(--ed-deep); font:inherit; font-size:10px; font-weight:750; }
+.everyday-action-button.primary { border-color:transparent; background:var(--ed-lav); }
+.everyday-action-button.remove { padding:6px 8px; color:#b3354c; }
+.everyday-action-button:disabled { opacity:.55; }
+.everyday-more { position:relative; }
+.everyday-more summary { display:flex; min-height:34px; align-items:center; gap:3px; border:1px solid var(--ed-line); border-radius:11px; background:#fff; padding:6px 8px; color:var(--ed-deep); cursor:pointer; font-size:10px; font-weight:750; list-style:none; }
+.everyday-more summary::-webkit-details-marker { display:none; }
+.everyday-more[open] summary svg { transform:rotate(90deg); }
+.everyday-more > div { position:absolute; z-index:10; right:0; bottom:calc(100% + 5px); display:grid; min-width:130px; gap:3px; border:1px solid var(--ed-line); border-radius:13px; background:#fff; padding:6px; box-shadow:0 8px 24px rgba(42,21,54,.16); }
+.everyday-more > div button { border:0; border-radius:8px; background:transparent; padding:8px 10px; color:var(--ed-ink); font:inherit; font-size:11px; text-align:left; }
+.everyday-more > div button:hover { background:#f4eff8; }
+.everyday-section-label { margin:3px 5px 0; }
+.everyday-simple-row { display:flex; min-height:66px; align-items:center; gap:11px; padding:11px 13px; }
+.everyday-small-icon { width:40px; height:40px; flex:none; }
+.everyday-simple-copy { display:grid; min-width:0; flex:1; gap:3px; }
+.everyday-simple-copy b { font-size:13px; font-weight:700; }
+.everyday-simple-copy small { color:var(--ed-muted); font-size:10px; line-height:1.35; }
+.everyday-row-add { display:inline-flex; min-height:34px; align-items:center; gap:4px; border:0; border-radius:10px; background:var(--ed-lav); padding:0 10px; color:var(--ed-deep); font-size:11px; font-weight:800; }
+.everyday-row-add:disabled { opacity:.55; }
+.everyday-toggle { position:relative; width:50px; height:30px; flex:none; border:0; border-radius:99px; background:#d3c3e2; padding:0; transition:background .2s ease; }
+.everyday-toggle i { position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 3px #0003; transition:transform .2s ease; }
+.everyday-toggle.on { background:#2f7a4a; }
+.everyday-toggle.on i { transform:translateX(20px); }
+.everyday-privacy { display:flex; align-items:flex-start; gap:9px; margin:0 5px; color:var(--ed-muted); font-size:10px; line-height:1.5; }
+.everyday-privacy svg { flex:none; margin-top:1px; color:var(--ed-deep); }
+.everyday-practice-status { display:grid; gap:6px; border:1px solid #d7c3e4; border-radius:15px; background:#fbf8ff; padding:13px; color:var(--ed-ink); font-size:11px; }
+.everyday-practice-status span,.everyday-practice-status small { color:var(--ed-muted); }
+.everyday-refresh,.everyday-sheet-text-button { display:inline-flex; min-height:42px; align-items:center; justify-content:center; gap:7px; border:0; background:transparent; color:var(--ed-muted); font:inherit; font-size:12px; font-weight:700; }
+.everyday-refresh { justify-self:center; }
+.everyday-footnote { margin:-9px 5px 0; color:var(--ed-muted); font-size:10px; line-height:1.45; text-align:center; }
+.everyday-sheet-backdrop { position:fixed; z-index:100; inset:0; display:grid; align-items:end; justify-items:center; background:rgba(42,21,54,.42); padding:0; }
+.everyday-sheet { position:relative; width:min(100%,560px); max-height:92dvh; overflow:auto; overscroll-behavior:contain; border:1px solid rgba(230,220,240,.9); border-radius:28px 28px 0 0; background:#fff; padding:10px 20px max(24px,env(safe-area-inset-bottom)); box-shadow:0 -12px 45px rgba(42,21,54,.15); animation:everyday-sheet-up .22s ease-out; }
+.everyday-sheet.info { padding-top:40px; }
+.everyday-sheet-top { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.everyday-progress { display:flex; flex:1; gap:6px; }
+.everyday-progress i { height:4px; flex:1; border-radius:99px; background:var(--ed-line); }
+.everyday-progress i.done { background:var(--ed-plum); }
+.everyday-sheet-close { position:absolute; top:12px; right:15px; display:grid; width:36px; height:36px; place-items:center; border:1px solid var(--ed-line); border-radius:50%; background:#fff; color:var(--ed-deep); }
+.everyday-step-label { margin:0 0 5px; color:var(--ed-muted); font-size:10px; font-weight:800; letter-spacing:.09em; }
+.everyday-sheet-body { display:grid; gap:12px; }
+.everyday-sheet-body h2 { font-size:22px; font-weight:800; letter-spacing:-.025em; line-height:1.2; }
+.everyday-sheet-body > p { margin:0; color:var(--ed-muted); font-size:13px; line-height:1.5; }
+.everyday-type-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; max-height:40vh; overflow:auto; }
+.everyday-type-tile { display:grid; min-height:88px; align-content:start; justify-items:start; gap:10px; border:1.5px solid var(--ed-line); border-radius:16px; background:#fff; padding:12px; color:var(--ed-ink); text-align:left; }
+.everyday-type-tile.selected { border-color:var(--ed-plum); background:#fbf8ff; }
+.everyday-type-tile > span { display:grid; width:36px; height:36px; place-items:center; border-radius:11px; background:var(--ed-lav); color:var(--ed-deep); }
+.everyday-type-tile.selected > span { background:var(--ed-plum); color:#fff; }
+.everyday-type-tile b { font-size:12px; font-weight:750; line-height:1.3; }
+.everyday-paired-title { margin:3px 0 0!important; color:var(--ed-ink)!important; font-size:13px!important; font-weight:750!important; }
+.everyday-paired-list { display:grid; gap:7px; max-height:32vh; overflow:auto; }
+.everyday-paired-row { display:flex; min-height:58px; align-items:center; justify-content:space-between; gap:10px; border:1.5px solid var(--ed-line); border-radius:15px; background:#fff; padding:10px 12px; text-align:left; }
+.everyday-paired-row.selected { border-color:var(--ed-plum); background:#fbf8ff; }
+.everyday-paired-row > span { display:grid; min-width:0; gap:3px; }
+.everyday-paired-row b { overflow:hidden; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.everyday-paired-row small { color:var(--ed-muted); font-size:10px; }
+.everyday-paired-row i { width:20px; height:20px; flex:none; border:2px solid #d3c3e2; border-radius:50%; }
+.everyday-paired-row.selected i { border:6px solid var(--ed-plum); }
+.everyday-name-label { display:grid; gap:7px; color:var(--ed-ink); font-size:12px; font-weight:750; }
+.everyday-name-input { width:100%; height:52px; border:1.5px solid var(--ed-line); border-radius:15px; background:#fff; padding:0 14px; color:var(--ed-ink); font:inherit; font-size:15px; }
+.everyday-name-input:focus { border-color:var(--ed-plum); outline:3px solid rgba(122,79,154,.15); }
+.everyday-selected-note { color:var(--ed-muted)!important; font-size:11px!important; }
+.everyday-practice-orb { display:grid; width:116px; height:116px; place-items:center; justify-self:center; margin:7px auto; border-radius:50%; background:var(--ed-lav); color:var(--ed-deep); }
+.everyday-practice-orb.listening { animation:everyday-pulse 1.6s ease-out infinite; }
+.everyday-practice-orb.complete { background:var(--ed-okbg); color:var(--ed-ok); animation:none; }
+.everyday-listening,.everyday-centered-title,.everyday-centered-copy { text-align:center; }
+.everyday-sheet-body h2.everyday-centered-title { margin-top:-8px; }
+.everyday-sheet-body p.everyday-centered-copy { text-align:center; }
+.everyday-reconnect-list { display:grid; gap:8px; margin:0; padding-left:21px; color:var(--ed-muted); font-size:12px; line-height:1.45; }
+@keyframes everyday-sheet-up { from { opacity:.7; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+@keyframes everyday-pulse { 0% { box-shadow:0 0 0 0 rgba(122,79,154,.3); } 100% { box-shadow:0 0 0 22px rgba(122,79,154,0); } }
 @keyframes device-orbit { 0% { opacity:0; transform:translate(-50%,-50%) scale(.58); } 15% { opacity:.75; } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.65); } }
 @keyframes device-float { 0%,100% { translate:0 0; } 50% { translate:0 -7px; } }
 @keyframes device-shadow { 50% { transform:translateX(-50%) scale(.8); opacity:.66; } }
 @media(max-width:390px) {
   .devices-heading h1 { font-size:27px; }
   .devices-link-button { min-height:38px; padding:0 11px; }
+  .devices-mode-switch button { gap:5px; padding-inline:5px; font-size:10px; }
+  .devices-mode-switch button svg { width:15px; height:15px; flex:none; }
   .devices-metrics { gap:6px; }
   .devices-metric { min-height:100px; padding:11px 8px; }
   .devices-metric b { font-size:11px; }
   .devices-list-row { gap:8px; padding-right:9px; padding-left:9px; }
   .devices-list-badge { gap:4px; padding:5px 6px; font-size:8px; }
-  .phone-devices-heading h2 { font-size:16px; }
+  .everyday-device-entry { grid-template-columns:36px minmax(0,1fr); gap:8px; padding:11px; }
+  .everyday-device-icon { width:36px; height:36px; }
+  .everyday-status-chip { grid-column:2; grid-row:2; justify-self:start; margin-top:-4px; }
+  .everyday-device-actions { gap:6px; }
+  .everyday-action-button { font-size:9px; padding-inline:7px; }
 }
 @media(prefers-reduced-motion:reduce) {
   .kiki-devices-redesign *, .kiki-devices-redesign *::before, .kiki-devices-redesign *::after { animation:none!important; transition:none!important; }

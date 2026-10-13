@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BatteryCharging, Bluetooth, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus, ShieldCheck, Trash2, Wifi } from "lucide-react";
+import { BatteryCharging, Bluetooth, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus, ShieldCheck, Smartphone, Trash2, Wifi } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -44,6 +44,7 @@ export default function DevicesPage() {
   const { confirm, prompt } = useAppDialog();
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [activeScreen, setActiveScreen] = useState<"kiki" | "phone">("kiki");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -119,15 +120,27 @@ export default function DevicesPage() {
   return <div className="kiki-devices-redesign">
     <header className="devices-heading">
       <div>
-        <h1>My devices</h1>
-        {!loading && devices.length > 0 && <p>{devices.length} {devices.length === 1 ? "device" : "devices"} linked</p>}
+        {activeScreen === "phone" && <span className="devices-heading-eyebrow">ANDROID ACCESSORIES</span>}
+        <h1>{activeScreen === "phone" ? "Devices" : "My devices"}</h1>
+        {activeScreen === "phone"
+          ? <p>Accessories connected to this phone</p>
+          : !loading && devices.length > 0 && <p>{devices.length} {devices.length === 1 ? "device" : "devices"} linked</p>}
       </div>
-      <Link className="devices-link-button" href="/account/devices/link"><Plus size={16} />Link device</Link>
+      {activeScreen === "kiki" && <Link className="devices-link-button" href="/account/devices/link"><Plus size={16} />Link device</Link>}
     </header>
 
-    {error && <p className="devices-error" role="alert">{error}</p>}
+    <div className="devices-mode-switch" role="group" aria-label="Choose which devices to view">
+      <button type="button" aria-controls="kiki-device-screen" aria-pressed={activeScreen === "kiki"} className={activeScreen === "kiki" ? "active" : ""} onClick={() => setActiveScreen("kiki")}>
+        <ShieldCheck size={17} />Kiki devices
+      </button>
+      <button type="button" aria-controls="phone-device-screen" aria-pressed={activeScreen === "phone"} className={activeScreen === "phone" ? "active" : ""} onClick={() => setActiveScreen("phone")}>
+        <Smartphone size={17} />Phone-connected
+      </button>
+    </div>
 
-    {loading ? (
+    <div className="devices-screen" id="kiki-device-screen" hidden={activeScreen !== "kiki"}>
+      {error && <p className="devices-error" role="alert">{error}</p>}
+      {loading ? (
       <div className="devices-loading" role="status">Loading your devices…</div>
     ) : selectedDevice ? (
       <>
@@ -226,18 +239,11 @@ export default function DevicesPage() {
         <span><ShieldCheck size={15} />Your Kiki device helps keep your account protected.</span>
       </section>
     )}
+    </div>
 
-    <section className="phone-devices-section">
-      <header className="phone-devices-heading">
-        <span className="phone-devices-icon"><Bluetooth size={20} /></span>
-        <div>
-          <p className="phone-devices-eyebrow">ANDROID ACCESSORIES</p>
-          <h2>Phone-connected devices</h2>
-          <p>Pair and manage accessories connected to this phone.</p>
-        </div>
-      </header>
+    <div className="devices-screen phone-devices-screen" id="phone-device-screen" hidden={activeScreen !== "phone"}>
       <EverydayDevicesCard />
-    </section>
+    </div>
 
   </div>;
 }

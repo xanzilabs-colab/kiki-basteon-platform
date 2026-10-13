@@ -36,14 +36,14 @@ export function CalmShell({
     <div className={styles.page}>
       <div className={styles.shell}>
         <header className={styles.header}>
-          <Link className={styles.brand} href="/account/calm" onClick={(event) => { if (running) { event.preventDefault(); onStop(); } }}><Flower2 size={20} /><span>Calm</span></Link>
-          <div className={styles.headerTitle}>{title}</div>
+          <Link className={styles.brand} href={title === "Calm" ? "/account" : "/account/calm"} onClick={(event) => { if (running) { event.preventDefault(); onStop(); } }} aria-label={title === "Calm" ? "Back to account" : "Back to Calm"}><ArrowLeft size={20} /></Link>
+          <div className={styles.headerTitle}>{title === "Calm" && <Flower2 size={22} />}{title}</div>
           <div className={styles.headerActions}>
             <button type="button" className={styles.iconButton} onClick={() => onMuteChange(!muted)} aria-pressed={muted} aria-label={muted ? "Turn sound on" : "Mute sound"} title={muted ? "Turn sound on" : "Mute sound"}>
               {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>
             <Link className={styles.iconButton} href="/account/calm/settings" aria-label="Calm settings" title="Calm settings"><Settings2 size={18} /></Link>
-            <button className={styles.stopButton} type="button" onClick={onStop} aria-label={running ? "Stop Calm session" : "Return to Calm home"} title={running ? "Stop Calm session" : "Return to Calm home"}>{running ? "Stop" : <><ArrowLeft size={15} /> Home</>}</button>
+            {running && <button className={styles.stopButton} type="button" onClick={onStop} aria-label="Stop Calm session" title="Stop Calm session">Stop</button>}
           </div>
         </header>
         <main className={styles.content}>{children}</main>
