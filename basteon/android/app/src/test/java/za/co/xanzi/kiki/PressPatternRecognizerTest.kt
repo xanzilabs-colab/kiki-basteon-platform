@@ -1,5 +1,6 @@
 package za.co.xanzi.kiki
 
+import android.view.KeyEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
@@ -56,6 +57,28 @@ class PressPatternRecognizerTest {
     fun universalModeCountsClicksAcrossBurstGroupsInOneSequence() {
         assertEquals("sos", resolveUniversalPattern("2-2", mapOf(4 to "sos")))
         assertEquals(null, resolveUniversalPattern("2-x", mapOf(2 to "sos")))
+    }
+
+    @Test
+    fun countsMediaPreviousAsTheObservedTwoClickGesture() {
+        val recognizer = PressPatternRecognizer()
+        val count = recognizer.press(100, mediaButtonClickWeight(KeyEvent.KEYCODE_MEDIA_PREVIOUS))
+
+        assertEquals(2, count)
+        val result = recognizer.finish()
+        assertNotNull(result)
+        assertEquals("2", result?.sequence)
+        assertEquals(2, result?.presses)
+        assertEquals("sos", resolveUniversalPattern(result?.sequence.orEmpty(), mapOf(2 to "sos")))
+    }
+
+    @Test
+    fun keepsMediaPauseAsOneClick() {
+        val recognizer = PressPatternRecognizer()
+        val count = recognizer.press(100, mediaButtonClickWeight(KeyEvent.KEYCODE_MEDIA_PAUSE))
+
+        assertEquals(1, count)
+        assertEquals("1", recognizer.finish()?.sequence)
     }
 
     private fun presses(vararg timestamps: Long) = pressesOn(PressPatternRecognizer(), *timestamps)

@@ -305,7 +305,7 @@ export default function TriggerLab() {
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Clicks detected in current sequence</p>
           <p className="mt-1 text-3xl font-extrabold tabular-nums">{tapCount || lastSequence?.clicks || 0}</p>
           <p className="mt-1 text-xs text-[var(--muted)]">{tapCount
-            ? `${clickWord(tapCount)} so far · last key: ${currentKeyCode}`
+            ? `${clickWord(tapCount)} so far · last key: ${currentKeyCode}${currentKeyCode === "KEYCODE_MEDIA_PREVIOUS" ? " (two-click gesture)" : ""}`
             : lastSequence
               ? `Last: ${clickWord(lastSequence.clicks)} (${lastSequence.sequence}) · ${lastSequence.origin === "media_button" ? "key event" : lastSequence.origin === "media_session" ? "media session" : "source unknown"} · ${lastSequence.keyCodes.join(", ") || "key unknown"}`
               : "Waiting for an earbud media-button press"}</p>
@@ -336,7 +336,7 @@ export default function TriggerLab() {
           <button className="btn" type="button" disabled={universalBusy || !universal.enabled} onClick={() => void setUniversalMode(false)}>Use standard fixed patterns</button>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-          Tap the earbud control quickly enough that the clicks arrive within the same sequence, then pause about one second. The log shows each Android key down/up and its key code, so you can tell whether the earbud sent one event or two. The custom action uses the total count in the sequence. Use a different count for each action. Universal mode replaces the standard rhythms; unassigned counts do nothing. Keep Practice active while configuring so no real alerts can be sent.
+          This phone reports your two-tap gesture as one KEYCODE_MEDIA_PREVIOUS event, so Kiki counts that event as two clicks; KEYCODE_MEDIA_PAUSE counts as one. Other earbuds or Android versions may report gestures differently. Release between taps and pause about one second after the sequence. Holds are measured only when Android delivers both key-down and key-up to Kiki; if a hold opens Gemini without a Kiki event, Android handled it outside Kiki. Use a different count for each action. Universal mode replaces the standard rhythms; unassigned counts do nothing. Keep Practice active while configuring so no real alerts can be sent.
         </p>
       </section>
 

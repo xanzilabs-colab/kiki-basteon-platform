@@ -37,6 +37,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.ConcurrentHashMap
 
 class KikiTriggerService : Service() {
     companion object {
@@ -132,6 +133,7 @@ class KikiTriggerService : Service() {
     private val main = Handler(Looper.getMainLooper())
     private val recognizer = PressPatternRecognizer(GAP_MS)
     private val sequenceKeys = ArrayList<Int>()
+    private val keyDownAt = ConcurrentHashMap<Int, Long>()
     private var lastOrigin = "media_button"
     private var practiceExpiresAt = 0L
 
@@ -289,7 +291,16 @@ class KikiTriggerService : Service() {
                     KeyEvent.ACTION_UP -> "UP"
                     else -> event.action.toString()
                 }
-                log("media button $action $keyCode repeat=${event.repeatCount}")
+                val eventAt = SystemClock.elapsedRealtime()
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    keyDownAt[event.keyCode] = eventAt
+                }
+                val heldMs = if (event.action == KeyEvent.ACTION_UP) {
+                    keyDownAt.remove(event.keyCode)?.let { (eventAt - it).coerceAtLeast(0L) }
+                } else {
+                    null
+                }
+                log("media button $action $keyCode repeat=${event.repeatCount}${heldMs?.let { " held=${it}ms" } ?: ""}")
                 if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && isTriggerKey(event.keyCode)) {
                     onPress("media_button", event.keyCode)
                 }
@@ -361,7 +372,8 @@ class KikiTriggerService : Service() {
     private fun onPress(origin: String, keyCode: Int) {
         main.post {
             if (!running && !practice) return@post
-            val eventCount = recognizer.press(SystemClock.elapsedRealtime())
+            val clickWeight = mediaButtonClickWeight(keyCode)
+            val eventCount = recognizer.press(SystemClock.elapsedRealtime(), clickWeight)
             lastOrigin = origin
             sequenceKeys.add(keyCode)
             if (sequenceKeys.size > 20) sequenceKeys.removeAt(0)
@@ -371,6 +383,7 @@ class KikiTriggerService : Service() {
                     .put("n", eventCount)
                     .put("origin", origin)
                     .put("keyCode", KeyEvent.keyCodeToString(keyCode))
+                    .put("clickWeight", clickWeight)
             )
             main.removeCallbacks(settle)
             main.postDelayed(settle, SETTLE_MS)
@@ -413,7 +426,7 @@ class KikiTriggerService : Service() {
                 .put("origin", origin)
                 .put("keyCodes", keyCodes)
         )
-        log("button sequence recognized (${pattern ?: "no match"}; $sequence; ${result.presses} presses; ${keyCodes.join(",")}; $origin)")
+        log("button sequence recognized (${pattern ?: "no match"}; $sequence; ${result.presses} gesture clicks; ${keyCodes.join(",")}; $origin)")
         if (practice) return
         recordDiagnostic(
             this,
