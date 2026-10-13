@@ -25,9 +25,9 @@ export interface KikiStatus {
   bluetooth: boolean;
   notifyDrop: boolean;
   liveGestureReady: boolean;
+  liveGestureBlockReason?: string | null;
   androidSdk: number;
   appVersion: string | null;
-  phoneModel?: string | null;
 }
 
 export interface EverydayDevice {

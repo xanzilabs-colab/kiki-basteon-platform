@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, Bluetooth, Download, RotateCcw, Send, ShieldCheck, Trash2, Upload } from "lucide-react";
+import { Bluetooth, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { KikiTrigger, type GestureProfile, type TriggerEvent } from "@/lib/kikiTrigger";
 import {
   analyze,
-  profileTrust,
   recommend,
   validateMapping,
   type Action,
-  type GestureStat,
   type Sample,
 } from "@/lib/triggerGestures/analyze";
 
@@ -21,15 +19,19 @@ const ACTIONS: { id: Action; label: string }[] = [
 ];
 
 type Step = "preflight" | "warmup" | "calibrate" | "review" | "verify" | "done";
-type WaitKind = "warmup" | "sample" | "verify" | "hold" | null;
+type WaitKind = "warmup" | "sample" | "verify" | null;
 type Accessory = { ref: string | null; label: string; kind: string };
 
 function id() {
   return globalThis.crypto?.randomUUID?.() ?? `gesture-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
-function gradeLabel(grade: GestureStat["grade"]) {
-  return grade === "A" ? "A · reliable" : grade === "B" ? "B · usable" : "C · avoid";
+function isProfileCurrent(profile: GestureProfile, status: { appVersion?: string | null; androidSdk?: number }) {
+  return profile.verifiedAt !== null &&
+    profile.appVersion === status.appVersion &&
+    profile.androidSdk === status.androidSdk &&
+    Date.now() >= profile.verifiedAt &&
+    Date.now() - profile.verifiedAt <= 90 * 24 * 60 * 60 * 1000;
 }
 
 function humanize(signature: string) {
@@ -55,7 +57,7 @@ function asNativeProfile(
   mapping: Partial<Record<Action, string>>,
   samples: Sample[],
   timing: { gapMs: number; settleMs: number },
-  status: { appVersion?: string | null; androidSdk?: number; phoneModel?: string | null },
+  status: { appVersion?: string | null; androidSdk?: number },
   verifiedAt: number | null,
 ): GestureProfile {
   const nativeMapping: GestureProfile["mapping"] = {};
@@ -89,13 +91,15 @@ export default function GestureCalibrationPanel({
 }: {
   practice: boolean;
   onStartPractice: () => void;
-  status: { appVersion?: string | null; androidSdk?: number; phoneModel?: string | null };
+  status: { appVersion?: string | null; androidSdk?: number };
 }) {
   const [profiles, setProfiles] = useState<GestureProfile[]>([]);
   const [accessories, setAccessories] = useState<Accessory[]>([]);
   const [selectedAccessory, setSelectedAccessory] = useState("");
   const [profileName, setProfileName] = useState("");
   const [kind, setKind] = useState<GestureProfile["kind"]>("earbuds");
+  const [activeMode, setActiveMode] = useState("auto");
+  const [savedSetupsOpen, setSavedSetupsOpen] = useState(false);
   const [profileId, setProfileId] = useState("");
   const [step, setStep] = useState<Step>("preflight");
   const [samples, setSamples] = useState<Sample[]>([]);
@@ -110,15 +114,10 @@ export default function GestureCalibrationPanel({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [rawEvents, setRawEvents] = useState<string[]>([]);
-  const [trace, setTrace] = useState<Array<{ at: string; layer: string; status: string }>>([]);
   const [verifyActions, setVerifyActions] = useState<Action[]>([]);
   const [verifyActionIndex, setVerifyActionIndex] = useState(0);
   const [verifyHits, setVerifyHits] = useState(0);
   const [verifyResult, setVerifyResult] = useState("");
-  const [holdChecks, setHoldChecks] = useState(0);
-  const [holdSeen, setHoldSeen] = useState(0);
-  const [legacyOpen, setLegacyOpen] = useState(false);
   const waitKindRef = useRef<WaitKind>(null);
   const verifyActionRef = useRef<Action | null>(null);
   const verifyActionsRef = useRef<Action[]>([]);
@@ -138,34 +137,60 @@ export default function GestureCalibrationPanel({
   const analysis = useMemo(() => analyze(samples), [samples]);
   const recommendations = useMemo(() => recommend(analysis.gestures), [analysis.gestures]);
   const mappedErrors = useMemo(() => validateMapping(mapping, analysis.gestures), [mapping, analysis.gestures]);
-  const trust = useMemo(
-    () => profileTrust(analysis.gestures, mapping, step === "done"),
-    [analysis.gestures, mapping, step],
-  );
   const connected = accessories.find((item) => item.ref === selectedAccessory);
 
   const syncProfiles = useCallback(async (next: GestureProfile[]) => {
-    const response = await fetch("/api/trigger/profiles", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profiles: next }),
-    });
-    if (response.status === 409) {
-      setMessage("Saved on this phone. Sign in to Kiki and register the Android trigger to enable account backup.");
-      return;
+    try {
+      const response = await fetch("/api/trigger/profiles", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profiles: next }),
+      });
+      if (response.status === 401 || response.status === 409) {
+        setMessage("Saved on this phone. Account backup is not available right now.");
+        return;
+      }
+      if (!response.ok) {
+        setError("Saved on this phone, but account backup failed. Check your connection and try again.");
+        return;
+      }
+      setMessage("Saved on this phone.");
+    } catch {
+      setError("Saved on this phone, but account backup could not connect. Check your connection and try again.");
     }
-    if (!response.ok) throw new Error("Profile saved on this phone, but server backup failed.");
+  }, []);
+
+  const loadAccessories = useCallback(async () => {
+    try {
+      const { devices } = await KikiTrigger.connectedAccessories();
+      setAccessories(devices);
+      if (devices[0]) {
+        setSelectedAccessory((current) => current || devices[0].ref || "");
+        setProfileName((current) => current || devices[0].label);
+        if (devices[0].kind in { earbuds: true, wired: true, car: true, speaker: true, watch: true, ring: true, other: true }) {
+          setKind((current) => current === "earbuds" ? devices[0].kind as GestureProfile["kind"] : current);
+        }
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not find the connected accessory.");
+    }
   }, []);
 
   const loadProfiles = useCallback(async () => {
     const local = await KikiTrigger.getProfiles();
     setProfiles(local.profiles);
-    const response = await fetch("/api/trigger/profiles", { cache: "no-store" });
-    if (response.status === 401) {
-      setMessage("Profiles are saved on this phone. Sign in on Kiki to access encrypted server backup.");
+    setActiveMode(local.mode || "auto");
+    let response: Response;
+    try {
+      response = await fetch("/api/trigger/profiles", { cache: "no-store" });
+    } catch {
+      setMessage("Your button setups are saved on this phone. Account backup is unavailable.");
       return;
     }
-    if (!response.ok) throw new Error("Phone profiles loaded, but server backup could not be checked.");
+    if (!response.ok) {
+      setMessage("Your button setups are saved on this phone. Account backup is unavailable.");
+      return;
+    }
     const payload = await response.json() as { profiles?: GestureProfile[] };
     const merged = new Map(local.profiles.map((profile) => [profile.id, profile]));
     for (const profile of payload.profiles ?? []) {
@@ -180,21 +205,7 @@ export default function GestureCalibrationPanel({
     }
   }, [practice]);
 
-  useEffect(() => {
-    void KikiTrigger.connectedAccessories()
-      .then(({ devices }) => {
-        setAccessories(devices);
-        if (devices[0]) {
-          setSelectedAccessory(devices[0].ref ?? "");
-          setProfileName(devices[0].label);
-          if (devices[0].kind in { earbuds: true, wired: true, car: true, speaker: true, watch: true, ring: true, other: true }) {
-            setKind(devices[0].kind as GestureProfile["kind"]);
-          }
-        }
-      })
-      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not identify connected audio accessories."));
-    void KikiTrigger.getTrace().then(({ entries }) => setTrace(entries)).catch(() => setTrace([]));
-  }, []);
+  useEffect(() => { void loadAccessories(); }, [loadAccessories]);
 
   useEffect(() => {
     void loadProfiles().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not load saved gesture profiles."));
@@ -202,11 +213,6 @@ export default function GestureCalibrationPanel({
 
   useEffect(() => {
     const subscription = KikiTrigger.addListener("event", (event: TriggerEvent) => {
-      if (event.type === "raw") {
-        const description = `${new Date().toLocaleTimeString()} · ${event.tok ?? "?"} · ${event.src ?? "unknown"} · ${event.keyCode ?? "key"}${event.heldMs ? ` · held ${event.heldMs}ms` : ""}`;
-        setRawEvents((previous) => [description, ...previous].slice(0, 12));
-        return;
-      }
       if (event.type !== "sequence") return;
       const signature = event.signature ?? event.sequence ?? "";
       const active = waitKindRef.current;
@@ -219,7 +225,7 @@ export default function GestureCalibrationPanel({
       void KikiTrigger.stopCapture();
       if (active === "warmup") {
         setWarmupSignature(signature);
-        setMessage(`Kiki received ${humanize(signature)} (${signature}).`);
+        setMessage("Button detected. Continue to capture the patterns you want to use.");
         return;
       }
       if (active === "sample") {
@@ -230,14 +236,6 @@ export default function GestureCalibrationPanel({
           gaps: event.gapsMs ?? [],
         });
         setNoSignal(false);
-        return;
-      }
-      if (active === "hold") {
-        setHoldChecks((count) => count + 1);
-        if (signature.includes("H")) setHoldSeen((count) => count + 1);
-        setMessage(signature.includes("H")
-          ? `Kiki received a hold token in ${signature}.`
-          : `Kiki received ${signature}, but not a distinct hold token.`);
         return;
       }
       const action = verifyActionRef.current;
@@ -294,6 +292,11 @@ export default function GestureCalibrationPanel({
     }
   }, [practice, loadProfiles]);
 
+  useEffect(() => {
+    const needsRecheck = profiles.some((profile) => !isProfileCurrent(profile, status));
+    if (needsRecheck) setSavedSetupsOpen(true);
+  }, [profiles, status.appVersion, status.androidSdk]);
+
   function resetWizard() {
     setStep("preflight");
     setSamples([]);
@@ -312,8 +315,6 @@ export default function GestureCalibrationPanel({
     setVerifyHits(0);
     verifyHitsRef.current = 0;
     finalizingRef.current = false;
-    setHoldChecks(0);
-    setHoldSeen(0);
     const newId = id();
     setProfileId(newId);
     profileIdRef.current = newId;
@@ -383,9 +384,8 @@ export default function GestureCalibrationPanel({
     if (!profileName.trim() || !profileId) return setError("Enter a name for this profile.");
     if (!mapping.sos || !mapping.cancel) return setError("Assign both SOS and Cancel before verification.");
     if (mappedErrors.length) return setError(mappedErrors.join(" "));
-    const draft = asNativeProfile(
-      profileId, profileName, kind, connected?.ref || null, mapping, samples, analysis.timing, status, null,
-    );
+    const deviceRef = connected?.ref ?? profiles.find((profile) => profile.id === profileId)?.deviceRef ?? null;
+    const draft = asNativeProfile(profileId, profileName, kind, deviceRef, mapping, samples, analysis.timing, status, null);
     setBusy(true);
     setError("");
     try {
@@ -413,9 +413,8 @@ export default function GestureCalibrationPanel({
   }
 
   async function finalizeVerification() {
-    const verified = asNativeProfile(
-      profileId, profileName, kind, connected?.ref || null, mapping, samples, analysis.timing, status, Date.now(),
-    );
+    const deviceRef = connected?.ref ?? profiles.find((profile) => profile.id === profileId)?.deviceRef ?? null;
+    const verified = asNativeProfile(profileId, profileName, kind, deviceRef, mapping, samples, analysis.timing, status, Date.now());
     try {
       await KikiTrigger.saveProfile({ profile: verified });
       const next = [...profiles.filter((profile) => profile.id !== verified.id), verified];
@@ -434,38 +433,6 @@ export default function GestureCalibrationPanel({
     if (!verifyActionRef.current) return;
     setNoSignal(false);
     await beginCapture("verify");
-  }
-
-  async function downloadExport() {
-    setError("");
-    try {
-      const { json } = await KikiTrigger.exportProfiles();
-      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = "kiki-gesture-profiles.json";
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not export gesture profiles.");
-    }
-  }
-
-  async function importFile(file: File | undefined) {
-    if (!file) return;
-    if (!practice) return setError("Start Practice before importing profiles.");
-    setBusy(true);
-    setError("");
-    try {
-      const imported = await KikiTrigger.importProfiles({ json: await file.text() });
-      setProfiles(imported.profiles);
-      await syncProfiles(imported.profiles);
-      setMessage(`Imported ${imported.profiles.length} gesture profile(s).`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Profile import failed.");
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function deleteSavedProfile(profile: GestureProfile) {
@@ -497,85 +464,9 @@ export default function GestureCalibrationPanel({
     }
   }
 
-  async function resetAll() {
-    if (!practice) return setError("Start Practice before resetting mappings.");
-    if (!window.confirm("Remove all saved gesture profiles from this phone?")) return;
-    setBusy(true);
-    setError("");
-    try {
-      await KikiTrigger.importProfiles({ json: "[]" });
-      setProfiles([]);
-      await syncProfiles([]);
-      resetWizard();
-      setMessage("All gesture profiles were removed.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not reset gesture profiles.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function exportTrace() {
-    try {
-      const result = await KikiTrigger.getTrace();
-      setTrace(result.entries);
-      const url = URL.createObjectURL(new Blob([result.export], { type: "application/json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = "kiki-trigger-trace.json";
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not export the diagnostic trace.");
-    }
-  }
-
-  async function shareCompatibilityReport() {
-    if (!analysis.gestures.length) {
-      setError("Capture at least one observed gesture before sharing a compatibility report.");
-      return;
-    }
-    const consent = window.confirm(
-      `Share an anonymous compatibility summary? It includes the phone model (${status.phoneModel || "not available"}), Android version, accessory type, and aggregate gesture signatures/reliability. It excludes device names/references, addresses, alert data, and raw event traces. The server temporarily hashes your IP for rate limiting; it is not stored with the report.`,
-    );
-    if (!consent) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/trigger/compat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          opt_in: true,
-          phone_model: status.phoneModel ?? undefined,
-          android_sdk: status.androidSdk,
-          accessory_kind: kind,
-          signatures: analysis.gestures.map((gesture) => ({
-            prompted: gesture.taps,
-            signature: gesture.sig,
-            reliability: gesture.reliability,
-            grade: gesture.grade,
-          })),
-        }),
-      });
-      if (response.status === 429) throw new Error("The anonymous report limit was reached for this network. Try again in an hour.");
-      if (!response.ok) throw new Error("The compatibility report could not be submitted. No report was confirmed saved.");
-      setMessage("Anonymous compatibility summary submitted. It contains aggregate signatures only, not a device ID or raw trace.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not submit the compatibility report.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function acceptRecommendations() {
     setMapping(recommendations);
     setMessage("Suggested gestures selected. Review each action and its warning before verification.");
-  }
-
-  async function startHoldTest() {
-    if (holdChecks >= 3) return;
-    await beginCapture("hold");
   }
 
   const activeVerifyAction = verifyActions[verifyActionIndex];
@@ -588,127 +479,119 @@ export default function GestureCalibrationPanel({
       </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Universal gesture profiles</h2>
+          <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Set up your button</h2>
           <p className="mt-1 max-w-3xl text-sm text-[var(--muted)]">
-            Kiki records the actual media events your accessory sends. No click weights or brand assumptions are used.
-            Capture repeatedly, assign only observed signatures, then verify each action before Live mode.
+            Connect your accessory, capture the gestures you want, and verify SOS and Cancel to unlock Live mode.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn" type="button" onClick={() => void downloadExport()}><Download size={15} />Export profiles</button>
-          <label className="btn cursor-pointer"><Upload size={15} />Import<input className="sr-only" type="file" accept="application/json,.json" disabled={!practice || busy} onChange={(event) => void importFile(event.target.files?.[0])} /></label>
-        </div>
       </div>
-      <p className="rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed text-[var(--muted)]">
-        Profiles are stored in encrypted phone preferences. When signed in with a registered Android trigger, profile names, mappings, observed signatures, and timing samples sync to your Kiki account for backup. Trigger tokens and Bluetooth addresses are never included.
-      </p>
-      {!practice && (
-        <div className="rounded-xl bg-[var(--surface-2)] p-3 text-sm">
-          Start Practice to calibrate or change profiles. Existing phone profiles can be viewed, but only Practice can capture, import, rename, or delete them.
-          <button className="btn btn-primary ml-2" type="button" onClick={onStartPractice}>Start Practice</button>
+      <ol className="grid grid-cols-4 gap-2 text-center text-xs" aria-label="Setup progress">
+        {(["warmup", "calibrate", "review", "verify"] as const).map((item, index) => {
+          const current = ["warmup", "calibrate", "review", "verify", "done"].indexOf(step) === index ||
+            (step === "done" && index === 3);
+          return <li key={item} className={`rounded-lg px-2 py-2 ${current ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-2)] text-[var(--muted)]"}`}>
+            {index + 1}. {item === "warmup" ? "Connect" : item === "calibrate" ? "Capture" : item === "review" ? "Choose" : "Verify"}
+          </li>;
+        })}
+      </ol>
+      {!practice && <p className="text-sm text-[var(--muted)]">Start Practice above before setting up buttons. No real alerts can be sent during setup.</p>}
+      <details className="rounded-xl border border-[var(--line)] p-3" open={step === "preflight"}>
+        <summary className="cursor-pointer font-semibold">Accessory and profile settings</summary>
+        <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+          <label className="grid gap-1">Connected accessory
+            <select className="input" disabled={!practice || accessories.length === 0} value={selectedAccessory} onChange={(event) => setSelectedAccessory(event.target.value)}>
+              {accessories.length === 0 && <option value="">No accessory detected</option>}
+              {accessories.map((accessory, index) => <option key={`${accessory.ref ?? "any"}-${index}`} value={accessory.ref ?? ""}>{accessory.label} · {accessory.kind}</option>)}
+            </select>
+            {practice && <button className="w-fit text-xs underline" type="button" onClick={() => void loadAccessories()}>Refresh accessories</button>}
+          </label>
+          <label className="grid gap-1">Profile name
+            <input className="input" maxLength={40} value={profileName} onChange={(event) => setProfileName(event.target.value)} />
+          </label>
+          <label className="grid gap-1">Accessory type
+            <select className="input" value={kind} onChange={(event) => setKind(event.target.value as GestureProfile["kind"])}>
+              {["earbuds", "wired", "car", "speaker", "watch", "ring", "other"].map((option) =>
+                <option key={option} value={option}>{option}</option>
+              )}
+            </select>
+          </label>
+          <label className="grid gap-1">Use profile
+            <select className="input" disabled={!practice || busy} value={activeMode} onChange={(event) => {
+              const mode = event.target.value;
+              setBusy(true);
+              void KikiTrigger.setActiveMode({ mode })
+                .then(() => setActiveMode(mode))
+                .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not select the gesture profile."))
+                .finally(() => setBusy(false));
+            }}>
+              <option value="auto">Auto · connected accessory</option>
+              {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+            </select>
+          </label>
         </div>
-      )}
-      <div className="grid gap-2 text-sm sm:grid-cols-2">
-        <label className="grid gap-1">Connected accessory
-          <select className="input" disabled={!practice || accessories.length === 0} value={selectedAccessory} onChange={(event) => setSelectedAccessory(event.target.value)}>
-            {accessories.length === 0 && <option value="">No accessory detected</option>}
-            {accessories.map((accessory, index) => <option key={`${accessory.ref ?? "any"}-${index}`} value={accessory.ref ?? ""}>{accessory.label} · {accessory.kind}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1">Profile name
-          <input className="input" maxLength={40} value={profileName} onChange={(event) => setProfileName(event.target.value)} />
-        </label>
-        <label className="grid gap-1">Accessory type
-          <select className="input" value={kind} onChange={(event) => setKind(event.target.value as GestureProfile["kind"])}>
-            {["earbuds", "wired", "car", "speaker", "watch", "ring", "other"].map((option) =>
-              <option key={option} value={option}>{option}</option>
-            )}
-          </select>
-        </label>
-        <label className="grid gap-1">Active matching
-          <select className="input" disabled={!practice || busy} value="auto" onChange={(event) => void KikiTrigger.setActiveMode({ mode: event.target.value })}>
-            <option value="auto">Auto · connected profiles</option>
-            {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-          </select>
-        </label>
-      </div>
-      <p className="rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed text-[var(--muted)]">
-        Close music/video apps, set media volume to a middle level, and keep the screen on. Volume-key gestures change your volume and can fail at minimum or maximum. Some holds are intercepted by Android or a voice assistant and may never reach Kiki. A profile with no accessory reference applies to any connected media accessory.
-      </p>
+        <p className="mt-3 text-xs text-[var(--muted)]">Close music apps before capturing button patterns.</p>
+      </details>
 
       <div className="flex flex-wrap gap-2">
         <button className="btn btn-primary" type="button" disabled={!practice || accessories.length === 0 || busy} onClick={() => {
           resetWizard();
           setStep("warmup");
-          setMessage("Press your accessory button once. Capture raw events below to check compatibility.");
-        }}>Start calibration</button>
+          setMessage("Press the accessory once to check that Kiki receives its media event.");
+        }}>{step === "preflight" ? "Start setup" : "Start new setup"}</button>
         {step !== "preflight" && <button className="btn" type="button" disabled={busy} onClick={resetWizard}><RotateCcw size={15} />Reset wizard</button>}
       </div>
+      {practice && accessories.length === 0 && <p className="text-sm text-[var(--warn)]">Connect your accessory, then choose Refresh accessories.</p>}
 
       {step === "warmup" && (
         <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
-          <h3 className="font-semibold">1. Warm-up</h3>
-          <p className="text-sm">Press your button once. If nothing arrives in 10 seconds, try again with music/video apps closed. Android or a voice assistant may capture the gesture before Kiki.</p>
-          <button className="btn" type="button" disabled={!practice || waiting} onClick={() => void beginCapture("warmup")}>{waiting && waitKind === "warmup" ? "Listening…" : "Capture one press"}</button>
-          {warmupSignature && <p className="text-sm text-[var(--ok)]">Detected: {humanize(warmupSignature)} · <code>{warmupSignature}</code></p>}
-          {noSignal && !warmupSignature && <p role="alert" className="text-sm text-[var(--warn)]">No signal detected. This control may not send media-button events to apps.</p>}
-          {warmupSignature && <button className="btn btn-primary" type="button" onClick={() => { setStep("calibrate"); setNoSignal(false); }}>Continue to repeated calibration</button>}
-          <div className="rounded-lg bg-[var(--surface-2)] p-2">
-            <p className="text-xs font-semibold">Raw events received</p>
-            <ol className="mt-1 space-y-1 text-xs">{rawEvents.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}</ol>
-          </div>
-          <button className="btn" type="button" onClick={() => void exportTrace()}><Download size={14} />Export diagnostics</button>
+          <h3 className="font-semibold">1. Check connection</h3>
+          <p className="text-sm">Press your accessory once.</p>
+          <button className="btn" type="button" disabled={!practice || waiting} onClick={() => void beginCapture("warmup")}>{waiting && waitKind === "warmup" ? "Listening…" : "Check button"}</button>
+          {warmupSignature && <p className="text-sm text-[var(--ok)]">Button detected. You can continue.</p>}
+          {noSignal && !warmupSignature && <p role="alert" className="text-sm text-[var(--warn)]">Kiki did not receive a signal. Try again with music apps closed. Some controls are not sent to Android apps.</p>}
+          {warmupSignature && <button className="btn btn-primary" type="button" onClick={() => { setStep("calibrate"); setNoSignal(false); }}>Continue</button>}
         </div>
       )}
 
       {step === "calibrate" && (
         <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
-          <h3 className="font-semibold">2. Repeatable tap calibration</h3>
-          <p className="text-sm">Sample {sampleNumber} of 3 · tap {tapCount} time(s) at your normal speed, then pause. {waiting ? "Listening for your sequence…" : "Start capture before each attempt."}</p>
+          <h3 className="font-semibold">2. Capture your button patterns</h3>
+          <p className="text-sm">Press {tapCount} time(s), then pause. Attempt {sampleNumber} of 3. {waiting ? "Listening…" : "Tap Start, then press your accessory."}</p>
           <div className="flex gap-1" aria-label={`Tap count ${tapCount} of 6`}>
             {Array.from({ length: 6 }, (_, index) => <span key={index} className={`h-2 flex-1 rounded ${index < tapCount ? "bg-[var(--accent)]" : "bg-[var(--line)]"}`} />)}
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="btn btn-primary" type="button" disabled={!practice || waiting || Boolean(pendingSample)} onClick={() => void beginCapture("sample")}>{waiting ? "Listening…" : "Start sample"}</button>
-            <button className="btn" type="button" disabled={!practice || waiting} onClick={() => { setPendingSample(null); setNoSignal(false); }}>Retry sample</button>
-            {noSignal && <button className="btn" type="button" onClick={() => void acceptNoSignal()}>I tapped, record no signal</button>}
+            <button className="btn btn-primary" type="button" disabled={!practice || waiting || Boolean(pendingSample)} onClick={() => void beginCapture("sample")}>{waiting ? "Listening…" : "Start"}</button>
+            <button className="btn" type="button" disabled={!practice || waiting} onClick={() => { setPendingSample(null); setNoSignal(false); }}>Try again</button>
+            {noSignal && <button className="btn" type="button" onClick={() => void acceptNoSignal()}>Record no signal</button>}
           </div>
           {pendingSample && <div className="rounded-lg bg-[var(--surface-2)] p-3 text-sm">
-            <p>Detected <b>{humanize(pendingSample.sig)}</b> · signature <code>{pendingSample.sig}</code> · {pendingSample.presses} events.</p>
-            <button className="btn btn-primary mt-2" type="button" onClick={() => appendSample(pendingSample)}>Record sample</button>
+            <p>Kiki detected: <b>{humanize(pendingSample.sig)}</b>.</p>
+            <button className="btn btn-primary mt-2" type="button" onClick={() => appendSample(pendingSample)}>Continue</button>
           </div>}
-          {noSignal && <p role="alert" className="text-sm text-[var(--warn)]">No complete media gesture arrived. Retry or record this attempt as unseen; do not invent a mapping.</p>}
-          <p className="text-xs text-[var(--muted)]">Samples recorded: {samples.length}/18. No-signal attempts are explicit and count toward reliability.</p>
+          {noSignal && <p role="alert" className="text-sm text-[var(--warn)]">No button signal arrived. Try again, or record it as unavailable.</p>}
+          <p className="text-xs text-[var(--muted)]">Kiki checks common 1–6 press patterns three times each, so it can avoid confusing one action with another.</p>
         </div>
       )}
 
       {(step === "review" || step === "verify" || step === "done") && (
         <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="font-semibold">3. What your accessory sends</h3>
-            <span className="rounded-full bg-[var(--surface-2)] px-2 py-1 text-xs">Trust: {trust.replaceAll("_", " ")}</span>
-          </div>
+          <h3 className="font-semibold">3. Choose actions</h3>
           {analysis.gestures.length === 0 ? <p className="text-sm text-[var(--muted)]">No complete gesture samples were detected yet.</p> : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[620px] text-left text-xs">
-                <thead><tr><th className="p-2">Prompt</th><th className="p-2">Observed signal</th><th className="p-2">Grade</th><th className="p-2">Reliability</th><th className="p-2">Risk / notes</th></tr></thead>
+              <table className="w-full min-w-[320px] text-left text-sm">
+                <thead><tr><th className="p-2">Button press</th><th className="p-2">Detected pattern</th><th className="p-2">Consistency</th></tr></thead>
                 <tbody>{analysis.gestures.map((gesture) => <tr key={`${gesture.taps}-${gesture.sig}`} className="border-t border-[var(--line)]">
                   <td className="p-2">{gesture.taps} tap(s)</td>
-                  <td className="p-2">{humanize(gesture.sig)} · <code>{gesture.sig}</code></td>
-                  <td className="p-2">{gradeLabel(gesture.grade)}</td>
-                  <td className="p-2">{Math.round(gesture.reliability * 100)}% ({gesture.samples}/{gesture.total})</td>
-                  <td className="p-2">{Math.round(gesture.risk * 100)}% · {gesture.notes.join(" ") || "No additional warning."}</td>
+                  <td className="p-2">{humanize(gesture.sig)}</td>
+                  <td className="p-2">{Math.round(gesture.reliability * 100)}%</td>
                 </tr>)}</tbody>
               </table>
             </div>
           )}
           {analysis.unseen.length > 0 && <p className="text-sm text-[var(--warn)]">No events were received for {analysis.unseen.join(", ")} tap(s). Those gestures cannot be assigned.</p>}
           {analysis.indistinguishable.map(({ sig, taps }) => <p key={sig} className="text-sm text-[var(--warn)]">Tap counts {taps.join(" and ")} produced the same signal ({sig}); Kiki cannot distinguish them.</p>)}
-          <div className="flex flex-wrap gap-2">
-            <button className="btn" type="button" onClick={() => void acceptRecommendations()} disabled={!analysis.gestures.length}>Accept suggested setup</button>
-            <button className="btn" type="button" disabled={waiting || !practice || holdChecks >= 3} onClick={() => void startHoldTest()}>Optional hold check {holdChecks}/3</button>
-          </div>
-          {holdChecks > 0 && <p className="text-xs text-[var(--muted)]">Hold events received: {holdSeen}/{holdChecks}. A hold is not offered as an assignment unless repeated event traces demonstrate it.</p>}
+          <button className="btn" type="button" onClick={() => void acceptRecommendations()} disabled={!analysis.gestures.length}>Suggest actions</button>
           <div className="grid gap-2 sm:grid-cols-2">
             {ACTIONS.map(({ id: action, label }) => {
               const chosen = mapping[action];
@@ -718,46 +601,44 @@ export default function GestureCalibrationPanel({
               return <label key={action} className="grid gap-1 text-sm">{label}
                 <select className="input" value={chosen ?? ""} onChange={(event) => setMapping((previous) => ({ ...previous, [action]: event.target.value || undefined }))}>
                   <option value="">Not assigned</option>
-                  {options.map((gesture) => <option key={gesture.sig} value={gesture.sig}>{humanize(gesture.sig)} · {gesture.sig} · {gradeLabel(gesture.grade)}</option>)}
+                  {options.map((gesture) => <option key={gesture.sig} value={gesture.sig}>{gesture.taps} tap(s) · {humanize(gesture.sig)} · {Math.round(gesture.reliability * 100)}% repeatable</option>)}
                 </select>
               </label>;
             })}
           </div>
           {Object.entries(mapping).map(([action, signature]) => {
             const gesture = analysis.gestures.find((item) => item.sig === signature);
-            return gesture && gesture.grade === "C" ? <p className="text-xs text-[var(--warn)]" key={`${action}-warning`}>{action} uses a C-grade gesture. It will require explicit verification and remains a risk.</p> : null;
+            return gesture && gesture.grade === "C" ? <p className="text-xs text-[var(--warn)]" key={`${action}-warning`}>{action} uses an inconsistent or easy-to-trigger pattern. Choose a different one if available.</p> : null;
           })}
           {mappedErrors.map((item) => <p key={item} className="text-sm text-[var(--crit)]">{item}</p>)}
           {step === "review" && <button className="btn btn-primary" type="button" disabled={!practice || busy || !mappedReady} onClick={() => void saveDraftForVerification()}>
-            <ShieldCheck size={15} />Save draft and verify 3 times
+            <ShieldCheck size={15} />Continue to safety check
           </button>}
           {step === "verify" && <div className="rounded-lg bg-[var(--surface-2)] p-3 text-sm">
-            <p>Verification {verifyActionIndex + 1}/{verifyActions.length}: perform <b>{activeVerifyAction}</b> three consecutive times. Each attempt must match the saved profile in Practice.</p>
-            <p className="mt-1" role="status">{verifyResult || `Successful attempts: ${verifyHits}/3.`}</p>
+            <p>Safety check {verifyActionIndex + 1}/{verifyActions.length}: perform <b>{activeVerifyAction}</b> three times so Kiki can confirm it reliably.</p>
+            <p className="mt-1" role="status">{verifyResult || `Confirmed ${verifyHits} of 3.`}</p>
             <button className="btn btn-primary mt-2" type="button" disabled={!practice || waiting || busy} onClick={() => void retryFailedVerification()}>
-              {waiting ? "Listening…" : `Capture ${activeVerifyAction ?? "gesture"} verification`}
+              {waiting ? "Listening…" : `Check ${activeVerifyAction ?? "button"} pattern`}
             </button>
-            {noSignal && <p className="mt-2 text-xs text-[var(--warn)]">No sequence arrived. Try again; a failed attempt resets the consecutive count.</p>}
+            {noSignal && <p className="mt-2 text-xs text-[var(--warn)]">No signal arrived. Try again.</p>}
           </div>}
-          {step === "done" && <p className="text-sm text-[var(--ok)]">Verified locally on this phone. Live alerts still require a connected accessory and a profile with SOS and Cancel; profile verification expires after 90 days and after app/Android updates.</p>}
+          {step === "done" && <p className="text-sm text-[var(--ok)]">Setup complete. SOS and Cancel are verified for this phone and accessory.</p>}
         </div>
       )}
 
       {profiles.length > 0 && (
-        <div className="space-y-2 rounded-xl bg-[var(--surface-2)] p-3">
-          <h3 className="font-semibold">Saved profiles</h3>
+        <details className="rounded-xl border border-[var(--line)] p-3" open={savedSetupsOpen} onToggle={(event) => setSavedSetupsOpen(event.currentTarget.open)}>
+          <summary className="cursor-pointer font-semibold">Saved button setups ({profiles.length})</summary>
+          <div className="mt-3 space-y-2">
           {profiles.map((profile) => {
-            const profileAnalysis = analyze(profile.library.map((sample) => ({
-              prompted: sample.prompted, sig: sample.sig, presses: sample.presses, gaps: sample.gaps,
-            })));
             const assigned: Partial<Record<Action, string>> = {};
             Object.entries(profile.mapping).forEach(([signature, action]) => { assigned[action as Action] = signature; });
-            const state = profileTrust(profileAnalysis.gestures, assigned, Boolean(profile.verifiedAt));
+            const verified = isProfileCurrent(profile, status);
             return <div key={profile.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--line)] p-2">
               <input className="input min-w-[160px] flex-1" defaultValue={profile.name} maxLength={40} disabled={!practice || busy} aria-label="Profile name" onBlur={(event) => {
                 if (event.target.value !== profile.name) void renameSavedProfile(profile, event.target.value);
               }} />
-              <span className="text-xs">{profile.kind} · {state.replaceAll("_", " ")}</span>
+              <span className="text-xs">{verified ? "Ready" : "Needs re-check"}</span>
               <button className="btn" type="button" disabled={!practice || busy} onClick={() => {
                 setProfileId(profile.id);
                 profileIdRef.current = profile.id;
@@ -766,36 +647,17 @@ export default function GestureCalibrationPanel({
                 setSelectedAccessory(profile.deviceRef ?? "");
                 setMapping(assigned);
                 setSamples(profile.library.map((sample) => ({ prompted: sample.prompted, sig: sample.sig, presses: sample.presses, gaps: sample.gaps })));
-                const gestures = analyze(profile.library.map((sample) => ({ prompted: sample.prompted, sig: sample.sig, presses: sample.presses, gaps: sample.gaps })));
                 setStep("review");
-                setMessage(`Re-check ${profile.name}; edit mappings and verify before using Live mode.`);
-                void gestures;
-              }}>Re-check</button>
+                setMessage(`Check the ${profile.name} buttons three times to enable Live mode.`);
+              }}>{verified ? "Edit" : "Re-check"}</button>
               <button className="btn" type="button" disabled={!practice || busy} aria-label={`Delete ${profile.name}`} onClick={() => void deleteSavedProfile(profile)}><Trash2 size={14} /></button>
             </div>;
           })}
-          <button className="btn text-[var(--crit)]" type="button" disabled={!practice || busy} onClick={() => void resetAll()}>Reset to nothing</button>
-        </div>
+          </div>
+          <p className="mt-2 text-xs text-[var(--muted)]">Your button setups are saved on this phone.</p>
+        </details>
       )}
 
-      <details className="rounded-xl border border-[var(--line)] p-3" open={legacyOpen} onToggle={(event) => setLegacyOpen(event.currentTarget.open)}>
-        <summary className="cursor-pointer font-semibold">Advanced · legacy click-count settings</summary>
-        <p className="mt-2 text-sm text-[var(--muted)]">Older click-count assignments are not used by the signature matcher. Recalibrate above for best results; Kiki never converts old counts into guessed gesture signatures.</p>
-      </details>
-
-      <div className="space-y-2 rounded-xl border border-[var(--line)] p-3">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 font-semibold"><Activity size={16} />Input · gesture · match · server trace</h3>
-          <div className="flex flex-wrap gap-2">
-            <button className="btn" type="button" disabled={busy || !analysis.gestures.length} onClick={() => void shareCompatibilityReport()}><Send size={14} />Share anonymous compatibility</button>
-            <button className="btn" type="button" onClick={() => void exportTrace()}><Download size={14} />Export trace</button>
-          </div>
-        </div>
-        <p className="text-xs text-[var(--muted)]">Trace exports contain timestamps, key codes, normalized signatures, match results and response statuses only. They do not include access tokens, device addresses, or coordinates.</p>
-        <ol className="max-h-48 space-y-1 overflow-auto font-mono text-xs text-[var(--muted)]">
-          {trace.map((entry, index) => <li key={`${entry.at}-${index}`}>{entry.at} · {entry.layer} · {entry.status}</li>)}
-        </ol>
-      </div>
       {message && <p className="text-sm" role="status">{message}</p>}
       {error && <p className="text-sm text-[var(--crit)]" role="alert">{error}</p>}
       {busy && <p className="text-sm text-[var(--muted)]">Saving gesture profile…</p>}

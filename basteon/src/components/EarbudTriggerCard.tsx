@@ -66,7 +66,7 @@ export default function EarbudTriggerCard() {
   async function arm() {
     if (!status) return;
     if (!test && !status.liveGestureReady) {
-      setNotice("Live alerts are locked until a connected accessory has a verified SOS and Cancel gesture profile. Open Trigger Lab to calibrate and verify it.");
+      setNotice(status.liveGestureBlockReason ?? "Live alerts are locked. Open Trigger Lab to re-check the connected profile.");
       return;
     }
     if (!test && status.test && !(await confirm(
@@ -234,11 +234,11 @@ export default function EarbudTriggerCard() {
       </label>
 
       <div className="flex flex-wrap gap-2">
-        <button className="btn btn-primary" type="button" disabled={busy || !status || (!test && !status.liveGestureReady)} onClick={() => void (status.armed ? disarm() : arm())}>
+        <button className="btn btn-primary" type="button" disabled={busy || !status} onClick={() => void (status.armed ? disarm() : arm())}>
           {busy ? "Please wait…" : status.armed ? "Disarm phone" : "Arm phone"}
         </button>
         {status.armed && (
-          <button className="btn" type="button" disabled={busy || (!test && !status.liveGestureReady)} onClick={() => void arm()}>
+          <button className="btn" type="button" disabled={busy} onClick={() => void arm()}>
             {test === status.test ? "Refresh trigger" : test ? "Apply test mode" : "Apply LIVE alerts"}
           </button>
         )}
@@ -260,7 +260,7 @@ export default function EarbudTriggerCard() {
       {error && <p className="text-sm text-[var(--crit)]" role="alert">{error}</p>}
       {!test && !status.liveGestureReady && (
         <p className="rounded-xl bg-[var(--surface-2)] p-3 text-sm text-[var(--warn)]">
-          Live mode is unavailable. A verified profile with SOS and Cancel must be connected and rechecked after app/Android updates or after 90 days.
+          <b>Live mode is unavailable.</b> {status.liveGestureBlockReason ?? "A connected accessory needs a fresh, verified profile with SOS and Cancel."} You can still arm Test mode while fixing this.
         </p>
       )}
       <div className="space-y-2 rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed">

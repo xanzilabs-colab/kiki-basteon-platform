@@ -125,18 +125,60 @@ object GestureProfiles {
         return profiles.filter { it.verifiedAt != null }
     }
 
-    fun hasLiveReadyProfile(context: Context): Boolean {
+    fun liveBlockReason(context: Context): String? {
         val connectedRefs = DeviceTracker.connectedRefs(context)
         val hasConnectedAudio = connectedRefs.isNotEmpty() || DeviceTracker.audioOutputs(context).length() > 0
-        val selected = connectedCandidates(context).filter { profile ->
-            profile.verifiedAt?.let { it <= System.currentTimeMillis() && System.currentTimeMillis() - it <= MAX_VERIFICATION_AGE_MS } == true &&
-                (profile.androidSdk == null || profile.androidSdk == Build.VERSION.SDK_INT) &&
-                (profile.appVersion == null || profile.appVersion == currentVersion(context)) &&
-                profile.mapping.values.containsAll(listOf("sos", "cancel")) &&
-                (profile.deviceRef?.let { it in connectedRefs } ?: hasConnectedAudio)
+        if (!hasConnectedAudio) return "Connect the accessory you want to use before enabling live alerts."
+
+        val profiles = all(context)
+        if (profiles.isEmpty()) return "No gesture profile is saved. Open Trigger Lab and calibrate one in Practice."
+        val candidates = connectedCandidates(context)
+        if (candidates.isEmpty()) {
+            return if (mode(context) == "auto") {
+                "No saved profile matches a connected accessory. Connect its accessory or select Auto in Trigger Lab."
+            } else {
+                "The selected profile's accessory is not connected. Connect it or select Auto in Trigger Lab."
+            }
         }
-        return selected.isNotEmpty()
+
+        val connectedProfiles = candidates.filter { profile ->
+            profile.deviceRef?.let { it in connectedRefs } ?: hasConnectedAudio
+        }
+        if (connectedProfiles.isEmpty()) return "Connect the accessory assigned to this gesture profile."
+        val profilesWithRequiredActions = connectedProfiles.filter {
+            it.mapping.values.containsAll(listOf("sos", "cancel"))
+        }
+        if (profilesWithRequiredActions.isEmpty()) {
+            return "This profile needs distinct SOS and Cancel gestures. Re-check it in Trigger Lab."
+        }
+
+        val now = System.currentTimeMillis()
+        if (profilesWithRequiredActions.any {
+                it.androidSdk == Build.VERSION.SDK_INT &&
+                    it.appVersion == currentVersion(context) &&
+                    it.verifiedAt?.let { verifiedAt ->
+                        verifiedAt <= now && now - verifiedAt <= MAX_VERIFICATION_AGE_MS
+                    } == true
+            }) return null
+
+        if (profilesWithRequiredActions.any { it.androidSdk != null && it.androidSdk != Build.VERSION.SDK_INT }) {
+            return "Android changed since this profile was verified. Re-check SOS and Cancel in Trigger Lab."
+        }
+        if (profilesWithRequiredActions.any { it.appVersion != null && it.appVersion != currentVersion(context) }) {
+            return "The Kiki app was updated since this profile was verified. Re-check SOS and Cancel in Trigger Lab."
+        }
+        if (profilesWithRequiredActions.any { it.verifiedAt == null }) {
+            return "This profile is not verified on this phone yet. Re-check SOS and Cancel in Trigger Lab."
+        }
+        if (profilesWithRequiredActions.any {
+                it.verifiedAt?.let { verifiedAt -> verifiedAt > now || now - verifiedAt > MAX_VERIFICATION_AGE_MS } == true
+            }) {
+            return "This profile's verification is older than 90 days. Re-check SOS and Cancel in Trigger Lab."
+        }
+        return "Re-check SOS and Cancel for the connected accessory in Trigger Lab before enabling live alerts."
     }
+
+    fun hasLiveReadyProfile(context: Context): Boolean = liveBlockReason(context) == null
 
     private fun currentVersion(context: Context): String? =
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull()

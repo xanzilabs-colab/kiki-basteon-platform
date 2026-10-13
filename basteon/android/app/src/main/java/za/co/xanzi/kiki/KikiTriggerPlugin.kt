@@ -80,9 +80,11 @@ class KikiTriggerPlugin : Plugin() {
             return
         }
         val testMode = call.getBoolean("test", true) ?: true
-        if (!testMode && !GestureProfiles.hasLiveReadyProfile(context)) {
-            call.reject("Calibrate and verify a connected gesture profile with SOS and Cancel before enabling live alerts.")
-            return
+        if (!testMode) {
+            GestureProfiles.liveBlockReason(context)?.let { reason ->
+                call.reject(reason)
+                return
+            }
         }
         prefs.edit()
             .putString("base", origin)
@@ -157,8 +159,8 @@ class KikiTriggerPlugin : Plugin() {
                 .put("bluetooth", DeviceTracker.hasBluetoothPermission(context))
                 .put("notifyDrop", prefs.getBoolean("notifyDrop", true))
                 .put("liveGestureReady", GestureProfiles.hasLiveReadyProfile(context))
+                .put("liveGestureBlockReason", GestureProfiles.liveBlockReason(context))
                 .put("androidSdk", Build.VERSION.SDK_INT)
-                .put("phoneModel", "${Build.MANUFACTURER} ${Build.MODEL}".trim().take(40))
                 .put("appVersion", runCatching {
                     context.packageManager.getPackageInfo(context.packageName, 0).versionName
                 }.getOrNull())
