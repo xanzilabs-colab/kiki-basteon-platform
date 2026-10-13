@@ -360,7 +360,7 @@
   transition: transform 160ms ease;
 }
 
-.settingsSwitch.switchOn { background: #59986d; }
+.settingsSwitch.switchOn { background: #7a4f9a; }
 .settingsSwitch.switchOn i { transform: translateX(18px); }
 .settingsSwitch:focus-visible,
 .settingsSegment button:focus-visible,
@@ -441,11 +441,11 @@
   gap: 8px;
   border: 0;
   border-radius: 14px;
-  background: #3f8058;
+  background: #522868;
   color: #fff;
   font-size: 14px;
   font-weight: 800;
-  box-shadow: 0 5px 14px rgba(48, 110, 69, .2);
+  box-shadow: 0 5px 14px rgba(82, 40, 104, .2);
 }
 
 .settingsSaveButton:disabled { opacity: .58; }
