@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -42,6 +42,15 @@ export function Navbar({ children }: { children?: React.ReactNode }) {
       <div className="slot gap-4">
         <Clock />
         {children}
+        <button
+          type="button"
+          className="btn btn-ghost"
+          title="Refresh app"
+          aria-label="Refresh app"
+          onClick={() => window.location.reload()}
+        >
+          <RefreshCw size={16} />
+        </button>
       </div>
 
       <div className="slot">
