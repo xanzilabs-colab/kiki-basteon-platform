@@ -284,19 +284,24 @@ export default function LinkDevicePage() {
           <span className={ready ? "is-ready" : ""}><i><CheckCircle2 size={17} /></i>The light is double-blinking</span>
         </label>
         <button
+          type="button"
           className="btn btn-primary kiki-link-primary"
-          disabled={!ready || busy}
+          disabled={busy}
+          aria-busy={busy}
           onClick={() => void findDevice(false)}
         >
           <Search size={17} />{busy && !deviceId ? "Looking for your device..." : "Find Kiki device"}
         </button>
         <button
+          type="button"
           className="btn kiki-link-secondary"
-          disabled={!ready || busy}
+          disabled={busy}
+          aria-busy={busy}
           onClick={() => void findDevice(true)}
         >
           Can&apos;t see it? Show all Bluetooth devices
         </button>
+        {busy && <p className="kiki-link-search-status" role="status" aria-live="polite">Searching for nearby Bluetooth devices. Select your Kiki band in the Android picker when it appears.</p>}
         <p className="kiki-link-caption kiki-link-timer"><Timer size={17} />Link mode lasts five minutes. Close any other Bluetooth app connected to your device before searching.</p>
       </section>
 
@@ -366,7 +371,7 @@ export default function LinkDevicePage() {
       {error && (
         <section className="kiki-link-card kiki-link-error">
           <p role="alert">{error}</p>
-          <button className="btn kiki-link-secondary" onClick={resetSession}>Try again</button>
+          <button type="button" className="btn kiki-link-secondary" onClick={resetSession}>Try again</button>
         </section>
       )}
 

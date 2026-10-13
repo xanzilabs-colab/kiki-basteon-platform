@@ -17,6 +17,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.widget.ArrayAdapter
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.getcapacitor.JSObject
@@ -46,6 +47,9 @@ class BasteonBlePlugin : Plugin() {
     private var scanner: BluetoothLeScanner? = null
     private var scanCallback: ScanCallback? = null
     private var scanTimeout: Runnable? = null
+    private var scanDialog: AlertDialog? = null
+    private var scanAdapter: ArrayAdapter<String>? = null
+    private var scanCandidates: List<FoundDevice> = emptyList()
     private var activeSession: BandSession? = null
 
     private data class FoundDevice(
@@ -141,13 +145,16 @@ class BasteonBlePlugin : Plugin() {
                     name.startsWith("Basteon", ignoreCase = true)
                 if (showAll || matches) {
                     devices[result.device.address] = FoundDevice(result.device, name, matches)
+                    updateScanDialog(showAll)
                 }
             }
 
             override fun onScanFailed(errorCode: Int) {
                 stopScan()
-                rejectCall(scanCall, "Bluetooth scan failed (code $errorCode). Check Bluetooth and try again.")
+                val call = scanCall
                 scanCall = null
+                dismissScanDialog()
+                rejectCall(call, "Bluetooth scan failed (code $errorCode). Check Bluetooth and try again.")
             }
         }
 
@@ -157,27 +164,74 @@ class BasteonBlePlugin : Plugin() {
                 ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(),
                 scanCallback
             )
-            scanTimeout = Runnable { showDevicePicker(showAll) }
+            activity.runOnUiThread { showScanDialog(showAll) }
+            scanTimeout = Runnable { finishScan(showAll) }
             handler.postDelayed(scanTimeout!!, SCAN_DURATION_MS)
         } catch (error: SecurityException) {
             stopScan()
+            dismissScanDialog()
             scanCall = null
             rejectCall(call, "Android denied Bluetooth scanning. Allow nearby-device access and try again.")
         } catch (error: IllegalStateException) {
             stopScan()
+            dismissScanDialog()
             scanCall = null
             rejectCall(call, "Bluetooth is not ready to scan. Turn Bluetooth off and on, then try again.")
         }
     }
 
-    private fun showDevicePicker(showAll: Boolean) {
-        stopScan()
-        val call = scanCall ?: return
+    private fun showScanDialog(showAll: Boolean) {
+        val adapter = ArrayAdapter(activity, android.R.layout.simple_list_item_1, mutableListOf("Searching nearby…"))
+        scanAdapter = adapter
+        scanCandidates = emptyList()
+        scanDialog = AlertDialog.Builder(activity)
+            .setTitle(if (showAll) "Searching for Bluetooth devices" else "Searching for your Kiki band")
+            .setMessage("Keep your band close and in link mode. Nearby devices will appear here.")
+            .setAdapter(adapter) { _, index ->
+                val call = scanCall ?: return@setAdapter
+                val candidate = scanCandidates.getOrNull(index) ?: return@setAdapter
+                scanCall = null
+                stopScan()
+                dismissScanDialog()
+                connectSelectedDevice(call, candidate)
+            }
+            .setNegativeButton("Cancel") { _, _ -> cancelScan() }
+            .setOnCancelListener { cancelScan() }
+            .create()
+        scanDialog?.show()
+        updateScanDialog(showAll)
+    }
+
+    private fun updateScanDialog(showAll: Boolean) {
         val candidates = devices.values
             .filter { showAll || it.isBasteon }
             .sortedBy { it.name.lowercase() }
+        activity.runOnUiThread {
+            scanCandidates = candidates
+            val adapter = scanAdapter ?: return@runOnUiThread
+            adapter.clear()
+            if (candidates.isEmpty()) {
+                adapter.add("Searching nearby…")
+            } else {
+                candidates.forEach { adapter.add("${it.name} · ${it.device.address.takeLast(5)}") }
+            }
+            scanDialog?.setTitle(
+                when {
+                    candidates.isEmpty() -> if (showAll) "Searching for Bluetooth devices" else "Searching for your Kiki band"
+                    showAll -> "Choose a Bluetooth device"
+                    else -> "Choose your Kiki band"
+                }
+            )
+        }
+    }
+
+    private fun finishScan(showAll: Boolean) {
+        stopScan()
+        val call = scanCall ?: return
+        val candidates = devices.values.filter { showAll || it.isBasteon }
         if (candidates.isEmpty()) {
             scanCall = null
+            dismissScanDialog()
             rejectCall(
                 call,
                 if (showAll) "No Bluetooth devices were found. Keep your Kiki band close and in double-blink link mode, then try again."
@@ -185,28 +239,23 @@ class BasteonBlePlugin : Plugin() {
             )
             return
         }
+        updateScanDialog(showAll)
+    }
 
-        val labels = candidates.map { "${it.name} · ${it.device.address.takeLast(5)}" }.toTypedArray()
-        activity.runOnUiThread {
-            if (scanCall !== call) return@runOnUiThread
-            AlertDialog.Builder(activity)
-                .setTitle("Choose your Kiki band")
-                .setItems(labels) { _, index ->
-                    scanCall = null
-                    connectSelectedDevice(call, candidates[index])
-                }
-                .setNegativeButton("Cancel") { _, _ ->
-                    scanCall = null
-                    rejectCall(call, "Bluetooth device selection cancelled.")
-                }
-                .setOnCancelListener {
-                    if (scanCall === call) {
-                        scanCall = null
-                        rejectCall(call, "Bluetooth device selection cancelled.")
-                    }
-                }
-                .show()
-        }
+    private fun cancelScan() {
+        val call = scanCall
+        scanCall = null
+        stopScan()
+        dismissScanDialog()
+        rejectCall(call, "Bluetooth device selection cancelled.")
+    }
+
+    private fun dismissScanDialog() {
+        val dialog = scanDialog
+        scanDialog = null
+        scanAdapter = null
+        scanCandidates = emptyList()
+        if (dialog != null) activity.runOnUiThread { dialog.dismiss() }
     }
 
     private fun connectSelectedDevice(call: PluginCall, found: FoundDevice) {
@@ -562,6 +611,7 @@ class BasteonBlePlugin : Plugin() {
 
     override fun handleOnDestroy() {
         stopScan()
+        dismissScanDialog()
         scanCall?.let { rejectCall(it, "Bluetooth search was interrupted.") }
         scanCall = null
         activeSession?.let(::closeSession)

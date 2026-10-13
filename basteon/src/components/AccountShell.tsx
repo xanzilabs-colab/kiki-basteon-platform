@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Gamepad2, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Gamepad2, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -319,6 +319,15 @@ export function AccountShell({ name, children }: { name: string; children: React
             <div className="md:hidden"><button className="account-header-action" title="Start safety call" onClick={() => void startSafetyCall()}><Volume2 size={17} /></button></div>
             <NotificationBell />
             <SafetyIntelWatcher />
+            <button
+              type="button"
+              className="account-header-action"
+              title="Refresh app"
+              aria-label="Refresh app"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCw size={17} aria-hidden="true" />
+            </button>
           </div>
           <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
             <LogOut size={17} aria-hidden="true" />

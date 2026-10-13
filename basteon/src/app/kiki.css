@@ -1164,3 +1164,10 @@
 .account-shell .hamba-trip-tabs button,
 .account-shell .hamba-mode button,
 .account-shell .hamba-tools button { transition: color var(--kiki-control-speed) var(--kiki-ease), background-color var(--kiki-control-speed) var(--kiki-ease), border-color var(--kiki-control-speed) var(--kiki-ease), box-shadow var(--kiki-control-speed) var(--kiki-ease), transform var(--kiki-control-speed) var(--kiki-ease); }
+.kiki-link-hero { background: radial-gradient(85% 70% at 50% 32%, #fffefa 0%, #f2f5ef 70%, #e8eee7 100%); }
+.kiki-link-rings i { border-color: rgba(35, 99, 77, .22); }
+.kiki-link-hero.is-scanning .kiki-link-rings i { border-color: rgba(35, 99, 77, .52); }
+.kiki-link-scan { color: #1f3029; }
+.kiki-link-search-status { margin: 0; border-radius: 12px; background: #eaf3ec; padding: 10px 12px; color: #244b3c; font-size: 12px; font-weight: 700; line-height: 1.45; }
+.account-header-action:hover { background: #e5eee6; color: #244b3c; }
+.account-header-action:focus-visible { outline: 2px solid #39734f; outline-offset: 2px; }

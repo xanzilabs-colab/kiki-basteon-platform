@@ -316,13 +316,13 @@ export default function EverydayDevicesCard() {
           <h3 className="text-sm font-semibold">Paired on this phone</h3>
           {paired.map((device) => (
             <button
-              className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left ${selected?.address === device.address ? "border-[var(--accent)] bg-[var(--surface-2)]" : "border-[var(--line)]"}`}
+              className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left text-[var(--text)] ${selected?.address === device.address ? "border-[#39734f] bg-[#eaf3ec] ring-1 ring-[#39734f]" : "border-[var(--line)] bg-[var(--surface)]"}`}
               key={device.address}
               type="button"
               onClick={() => choose(device)}
             >
-              <span className="min-w-0"><b className="block truncate">{device.btName}</b><small className="text-[var(--muted)]">{KIND_NAMES[device.kind]} · {device.connected ? "Connected" : "Paired"}</small></span>
-              <span className="shrink-0 text-xs">{selected?.address === device.address ? "Selected" : "Choose"}</span>
+              <span className="min-w-0"><b className="block truncate text-[var(--text)]">{device.btName}</b><small className="text-[var(--text-2)]">{KIND_NAMES[device.kind]} · {device.connected ? "Connected" : "Paired"}</small></span>
+              <span className="shrink-0 text-xs font-semibold text-[var(--text-2)]">{selected?.address === device.address ? "Selected" : "Choose"}</span>
             </button>
           ))}
         </div>
