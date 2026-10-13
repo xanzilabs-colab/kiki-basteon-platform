@@ -75,13 +75,22 @@ export default function TriggerLab() {
         KikiTrigger.getLog(),
         KikiTrigger.getTriggerConfig(),
       ]);
+      const hasSavedMappings = ACTIONS.some(({ id }) => config[id] !== null);
+      const shouldEnableSavedMappings = status.practice && !config.enabled && hasSavedMappings;
+      const effectiveConfig = shouldEnableSavedMappings ? { ...config, enabled: true } : config;
+      if (shouldEnableSavedMappings) {
+        await KikiTrigger.setTriggerConfig(effectiveConfig);
+      }
       if (mounted.current) {
         setArmed(status.armed);
         setPractice(status.practice);
         practiceActive.current = status.practice;
         setPracticeExpiresAt(status.practiceExpiresAt ?? 0);
         setLogs(result.lines);
-        setUniversal(config);
+        setUniversal(effectiveConfig);
+        if (shouldEnableSavedMappings) {
+          setModeMessage("Your saved click mapping is now enabled. Practice blocks real alerts; stop Practice and arm the trigger before testing.");
+        }
       }
     } catch {
       if (mounted.current) setError("Could not read trigger diagnostics or saved click settings.");
