@@ -99,6 +99,18 @@
 .devices-empty > a { display:inline-flex; min-height:43px; align-items:center; justify-content:center; gap:7px; border-radius:13px; background:var(--device-plum); padding:0 16px; color:#fff; font-size:12px; font-weight:800; text-decoration:none; }
 .devices-empty > button { min-height:41px; border:0; border-radius:13px; background:var(--device-plum); padding:0 16px; color:#fff; font-size:12px; font-weight:800; }
 .devices-empty > span { display:flex; align-items:center; gap:6px; margin-top:16px; color:var(--device-green); font-size:10px; font-weight:700; }
+.phone-devices-section { display:grid; gap:12px; margin-top:24px; }
+.phone-devices-heading { display:flex; align-items:center; gap:12px; padding:2px 2px 0; color:#20352a; }
+.phone-devices-icon { display:grid; width:42px; height:42px; flex:none; place-items:center; border:1px solid #d5e3d8; border-radius:14px; background:#e9f2eb; color:#23634d; }
+.phone-devices-heading h2,.phone-devices-heading p { margin:0; }
+.phone-devices-heading h2 { color:#20352a; font-size:17px; font-weight:800; line-height:1.25; }
+.phone-devices-heading p:last-child { margin-top:3px; color:#53665d; font-size:11px; line-height:1.45; }
+.phone-devices-eyebrow { margin-bottom:3px!important; color:#64756b; font-size:9px; font-weight:800; letter-spacing:.1em; }
+.everyday-devices-card { --surface:#fff; --surface-2:#f3f7f3; --surface-3:#e6efe8; --line:#dbe5dd; --text:#20352a; --text-2:#53665d; --muted:#64756b; --accent:#23634d; --accent-ink:#fff; --ok:#247052; --warn:#9a5a00; --crit:#bf4a4a; border-color:#dbe5dd!important; background:#fff!important; color:#20352a; box-shadow:0 5px 18px rgba(31,48,41,.06); }
+.everyday-devices-card h2,.everyday-devices-card h3,.everyday-devices-card h4 { color:#20352a; }
+.everyday-devices-card .btn { min-height:38px; height:auto; padding-top:8px; padding-bottom:8px; white-space:normal; }
+.everyday-devices-card > ul > li { align-items:flex-start; border-color:#dbe5dd; background:#fbfdfb; }
+.everyday-devices-card > ul > li > div:last-child { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
 @keyframes device-orbit { 0% { opacity:0; transform:translate(-50%,-50%) scale(.58); } 15% { opacity:.75; } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.65); } }
 @keyframes device-float { 0%,100% { translate:0 0; } 50% { translate:0 -7px; } }
 @keyframes device-shadow { 50% { transform:translateX(-50%) scale(.8); opacity:.66; } }
@@ -110,6 +122,7 @@
   .devices-metric b { font-size:11px; }
   .devices-list-row { gap:8px; padding-right:9px; padding-left:9px; }
   .devices-list-badge { gap:4px; padding:5px 6px; font-size:8px; }
+  .phone-devices-heading h2 { font-size:16px; }
 }
 @media(prefers-reduced-motion:reduce) {
   .kiki-devices-redesign *, .kiki-devices-redesign *::before, .kiki-devices-redesign *::after { animation:none!important; transition:none!important; }

@@ -56,6 +56,9 @@ function setup(
         : { data: [{ id: "membership-1", user_id: userId, role: "member", membership_type: "member", status: "active", profiles: { full_name: "Member", phone: null } }] };
     }
     if (call.table === "organisations" && call.action === "select") return { data: { id: organisationId, status: "active" } };
+    if (call.table === "profiles" && call.action === "select") {
+      return { data: [{ id: userId, full_name: "Responder", phone: null }] };
+    }
     return historyHandler(call);
   });
   db.listUsers.mockResolvedValue({
@@ -94,6 +97,8 @@ describe("GET /api/organisation/me roster membership reconciliation", () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
+    expect(db.calls.find((call) => call.table === "alert_assignments")?.selection)
+      .not.toContain("profiles(");
     expect(db.calls.some((call) =>
       call.table === "organisation_user_links"
       && call.action === "update"

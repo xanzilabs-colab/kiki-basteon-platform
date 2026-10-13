@@ -42,12 +42,24 @@ export async function GET(request: Request) {
   const db = createAdminClient();
   const { data, error } = await db
     .from("organisation_memberships")
-    .select("id,user_id,branch_id,membership_type,role,status,profiles(full_name,phone)")
+    .select("id,user_id,branch_id,membership_type,role,status")
     .eq("organisation_id", organisationId)
     .in("role", ["dispatcher", "responder", "manager", "viewer"])
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data ?? []);
+  const userIds = [...new Set((data ?? []).map((member) => member.user_id).filter(Boolean))];
+  const { data: profiles, error: profileError } = userIds.length
+    ? await db.from("profiles").select("id,full_name,phone").in("id", userIds)
+    : { data: [], error: null };
+  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+  const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  return NextResponse.json((data ?? []).map((member) => ({
+    ...member,
+    profiles: {
+      full_name: profilesById.get(member.user_id)?.full_name ?? null,
+      phone: profilesById.get(member.user_id)?.phone ?? null,
+    },
+  })));
 }
 
 export async function POST(request: Request) {

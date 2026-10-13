@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BatteryCharging, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus, ShieldCheck, Trash2, Wifi } from "lucide-react";
+import { BatteryCharging, Bluetooth, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus, ShieldCheck, Trash2, Wifi } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -227,11 +227,15 @@ export default function DevicesPage() {
       </section>
     )}
 
-    <section className="mt-6 space-y-4">
-      <div>
-        <h2 className="text-xl font-semibold">Phone-connected devices</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">Bluetooth and wired media devices paired to this Android phone.</p>
-      </div>
+    <section className="phone-devices-section">
+      <header className="phone-devices-heading">
+        <span className="phone-devices-icon"><Bluetooth size={20} /></span>
+        <div>
+          <p className="phone-devices-eyebrow">ANDROID ACCESSORIES</p>
+          <h2>Phone-connected devices</h2>
+          <p>Pair and manage accessories connected to this phone.</p>
+        </div>
+      </header>
       <EverydayDevicesCard />
     </section>
   </div>;

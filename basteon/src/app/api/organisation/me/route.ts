@@ -66,7 +66,7 @@ export async function GET() {
   let auditTrail: any[] = [];
 
   const alertAssignments = await db.from("alert_assignments")
-      .select("id,alert_id,organisation_id,branch_id,responder_user_id,status,assigned_at,acknowledged_at,completed_at,profiles(full_name)")
+      .select("id,alert_id,organisation_id,branch_id,responder_user_id,status,assigned_at,acknowledged_at,completed_at")
       .eq("organisation_id", organisationId)
       .order("assigned_at", { ascending: false })
       .limit(250);
@@ -118,7 +118,7 @@ export async function GET() {
 
   recentAssignments = (assignmentRows ?? []).map((assignment: any) => {
       const alert = alertById.get(assignment.alert_id);
-      const responderName = assignment.profiles?.full_name ?? responderNameByUserId.get(assignment.responder_user_id) ?? emailByUserId.get(assignment.responder_user_id) ?? null;
+      const responderName = responderNameByUserId.get(assignment.responder_user_id) ?? emailByUserId.get(assignment.responder_user_id) ?? null;
       return {
         id: assignment.id,
         alertId: assignment.alert_id,
@@ -144,7 +144,7 @@ export async function GET() {
         if (!userId) continue;
         const record = byUser.get(userId) ?? {
           userId,
-          name: assignment.profiles?.full_name ?? responderNameByUserId.get(userId) ?? emailByUserId.get(userId) ?? "Unknown responder",
+          name: responderNameByUserId.get(userId) ?? emailByUserId.get(userId) ?? "Unknown responder",
           totalAssignments: 0,
           acceptedAssignments: 0,
           onSceneAssignments: 0,

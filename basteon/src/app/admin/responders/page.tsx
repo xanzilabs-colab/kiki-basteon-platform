@@ -8,8 +8,9 @@ type Organisation = {
   name: string;
   organisation_type: string;
   responder_category: string | null;
+  is_partner?: boolean;
   organisation_branches?: Array<{ id: string; name: string }>;
-  organisation_memberships?: Array<{ id: string }>;
+  organisation_memberships?: Array<{ id: string; role?: string; status?: string }>;
 };
 
 export default function AdminRespondersPage() {
@@ -33,7 +34,7 @@ export default function AdminRespondersPage() {
   useEffect(() => { void load(); }, []);
 
   const responderRows = useMemo(
-    () => rows.filter((row) => row.organisation_type === "responder_partner" || !!row.responder_category),
+    () => rows.filter((row) => row.organisation_type === "responder_partner" || !!row.responder_category || row.is_partner),
     [rows],
   );
 
@@ -58,7 +59,9 @@ export default function AdminRespondersPage() {
                   <td>{row.name}</td>
                   <td>{row.responder_category || "Responder"}</td>
                   <td>{row.organisation_branches?.length ?? 0}</td>
-                  <td>{row.organisation_memberships?.length ?? 0}</td>
+                  <td>{row.organisation_memberships?.filter((membership) =>
+                    membership.status === "active" && ["responder", "dispatcher"].includes(membership.role ?? ""),
+                  ).length ?? 0}</td>
                 </tr>
               ))}
             </tbody>

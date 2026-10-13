@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 
-export type FakeCall = { table: string; action: string; payload?: unknown; filters: [string, string, unknown][] };
+export type FakeCall = { table: string; action: string; payload?: unknown; selection?: string; filters: [string, string, unknown][] };
 export type FakeResult = { data?: unknown; error?: unknown; count?: number | null };
 type Handler = (call: FakeCall) => FakeResult | undefined;
 
@@ -18,7 +18,7 @@ export function fakeSupabase(handler: Handler, rpc: (name: string, args: Record<
     for (const action of ["insert", "update", "upsert", "delete"]) {
       builder[action] = vi.fn((payload?: unknown) => { call.action = action; call.payload = payload; return builder; });
     }
-    builder.select = vi.fn(() => builder);
+    builder.select = vi.fn((selection?: string) => { call.selection = selection; return builder; });
     for (const op of ["eq", "neq", "is", "not", "in", "gte", "lte", "lt", "gt", "order", "limit"]) {
       builder[op] = vi.fn((column: string, value: unknown) => { call.filters.push([op, column, value]); return builder; });
     }

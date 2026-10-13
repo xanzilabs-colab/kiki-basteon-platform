@@ -28,19 +28,24 @@ export async function GET(_request: Request, context: Context) {
   ]);
   if (error || !organisation) return NextResponse.json({ error: error?.message ?? "Organisation not found" }, { status: 404 });
 
-  const { data: ownerMembership } = await db
+  const { data: ownerMembership, error: ownerMembershipError } = await db
     .from("organisation_memberships")
-    .select("user_id,profiles(full_name)")
+    .select("user_id")
     .eq("organisation_id", id)
     .eq("role", "owner")
     .eq("status", "active")
     .maybeSingle();
+  if (ownerMembershipError) return NextResponse.json({ error: ownerMembershipError.message }, { status: 500 });
+  const { data: ownerProfile, error: ownerProfileError } = ownerMembership?.user_id
+    ? await db.from("profiles").select("full_name").eq("id", ownerMembership.user_id).maybeSingle()
+    : { data: null, error: null };
+  if (ownerProfileError) return NextResponse.json({ error: ownerProfileError.message }, { status: 500 });
 
   return NextResponse.json({
     organisation,
     owner: ownerMembership ? {
       userId: ownerMembership.user_id,
-      name: (ownerMembership as any).profiles?.full_name ?? null,
+      name: ownerProfile?.full_name ?? null,
     } : null,
     counts: {
       members: memberCount ?? 0,

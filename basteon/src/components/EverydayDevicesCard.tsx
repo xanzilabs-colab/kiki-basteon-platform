@@ -226,7 +226,7 @@ export default function EverydayDevicesCard() {
 
   if (!native) {
     return (
-      <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+      <section className="everyday-devices-card rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
         <h2 className="font-semibold">Everyday devices</h2>
         <p className="mt-2 text-sm text-[var(--muted)]">Pair and verify everyday Bluetooth devices from the Kiki Android app.</p>
       </section>
@@ -234,7 +234,7 @@ export default function EverydayDevicesCard() {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+    <section className="everyday-devices-card space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Everyday devices</h2>
