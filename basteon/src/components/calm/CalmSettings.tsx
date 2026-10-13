@@ -153,7 +153,7 @@ export function CalmSettingsPage() {
 
           <SettingsGroup title="Feedback">
             <SettingSwitch title="Haptics" description="Gentle vibration cues where supported." checked={settings.haptics} disabled={busy} onChange={(checked) => changeSettings((value) => ({ ...value, haptics: checked }))} />
-            <SettingSwitch title="Sound" description="Soft cues in Quiet mode. Header mute silences them." checked={settings.sound} disabled={busy} onChange={(checked) => changeSettings((value) => ({ ...value, sound: checked }))} />
+            <SettingSwitch title="Calm sound cues" description="Enable optional sounds during Calm exercises. The header speaker is a quick mute for all app sounds." checked={settings.sound} disabled={busy} onChange={(checked) => changeSettings((value) => ({ ...value, sound: checked }))} />
           </SettingsGroup>
 
           <SettingsGroup title="Breathing">

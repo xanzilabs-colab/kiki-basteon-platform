@@ -177,8 +177,8 @@
 .everyday-refresh,.everyday-sheet-text-button { display:inline-flex; min-height:42px; align-items:center; justify-content:center; gap:7px; border:0; background:transparent; color:var(--ed-muted); font:inherit; font-size:12px; font-weight:700; }
 .everyday-refresh { justify-self:center; }
 .everyday-footnote { margin:-9px 5px 0; color:var(--ed-muted); font-size:10px; line-height:1.45; text-align:center; }
-.everyday-sheet-backdrop { position:fixed; z-index:100; inset:0; display:grid; align-items:end; justify-items:center; background:rgba(42,21,54,.42); padding:0; }
-.everyday-sheet { position:relative; width:min(100%,560px); max-height:92dvh; overflow:auto; overscroll-behavior:contain; border:1px solid rgba(230,220,240,.9); border-radius:28px 28px 0 0; background:#fff; padding:10px 20px max(24px,env(safe-area-inset-bottom)); box-shadow:0 -12px 45px rgba(42,21,54,.15); animation:everyday-sheet-up .22s ease-out; }
+.everyday-sheet-backdrop { --ed-ink:#2a1536; --ed-muted:#6e5a7c; --ed-line:#e6dcf0; --ed-plum:#7a4f9a; --ed-deep:#522868; --ed-lav:#e9dcf0; --ed-ok:#2f7a4a; --ed-okbg:#e6f3ea; position:fixed; z-index:100; inset:0; display:grid; align-items:end; justify-items:center; background:rgba(42,21,54,.42); padding:0; }
+.everyday-sheet { position:relative; width:min(100%,560px); max-height:92vh; max-height:92dvh; overflow:auto; overscroll-behavior:contain; border:1px solid rgba(230,220,240,.9); border-radius:28px 28px 0 0; background:#fff; padding:10px 20px max(24px,env(safe-area-inset-bottom)); box-shadow:0 -12px 45px rgba(42,21,54,.15); animation:everyday-sheet-up .28s cubic-bezier(.22,1,.36,1); }
 .everyday-sheet.info { padding-top:40px; }
 .everyday-sheet-top { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
 .everyday-progress { display:flex; flex:1; gap:6px; }
@@ -215,7 +215,7 @@
 .everyday-sheet-body h2.everyday-centered-title { margin-top:-8px; }
 .everyday-sheet-body p.everyday-centered-copy { text-align:center; }
 .everyday-reconnect-list { display:grid; gap:8px; margin:0; padding-left:21px; color:var(--ed-muted); font-size:12px; line-height:1.45; }
-@keyframes everyday-sheet-up { from { opacity:.7; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+@keyframes everyday-sheet-up { from { opacity:.7; transform:translateY(100%); } to { opacity:1; transform:translateY(0); } }
 @keyframes everyday-pulse { 0% { box-shadow:0 0 0 0 rgba(122,79,154,.3); } 100% { box-shadow:0 0 0 22px rgba(122,79,154,0); } }
 @keyframes device-orbit { 0% { opacity:0; transform:translate(-50%,-50%) scale(.58); } 15% { opacity:.75; } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.65); } }
 @keyframes device-float { 0%,100% { translate:0 0; } 50% { translate:0 -7px; } }

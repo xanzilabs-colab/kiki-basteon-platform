@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Capacitor } from "@capacitor/core";
 import { Bluetooth, CheckCircle2, ChevronRight, Headphones, Plus, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
 import {
@@ -398,7 +399,7 @@ export default function EverydayDevicesCard() {
       <button type="button" className="everyday-refresh" onClick={() => void refresh()}><RefreshCw size={16} />Refresh devices</button>
       <p className="everyday-footnote">Pairing alone doesn’t confirm a device sends supported controls. Practice it to be sure.</p>
 
-      {flowStep > 0 && (
+      {flowStep > 0 && typeof document !== "undefined" && createPortal(
         <div className="everyday-sheet-backdrop" onClick={(event) => { if (event.target === event.currentTarget) void closeFlow(); }}>
           <section className="everyday-sheet" role="dialog" aria-modal="true" aria-labelledby="everyday-sheet-title">
             <div className="everyday-sheet-top">
@@ -488,10 +489,11 @@ export default function EverydayDevicesCard() {
               </>}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {infoDevice && (
+      {infoDevice && typeof document !== "undefined" && createPortal(
         <div className="everyday-sheet-backdrop" onClick={() => setInfoDevice(null)}>
           <section className="everyday-sheet info" role="dialog" aria-modal="true" aria-label="How to use this device" onClick={(event) => event.stopPropagation()}>
             <button className="everyday-sheet-close" type="button" aria-label="Close" onClick={() => setInfoDevice(null)}><X size={19} /></button>
@@ -504,9 +506,10 @@ export default function EverydayDevicesCard() {
               <button className="everyday-secondary-button full" type="button" onClick={() => setInfoDevice(null)}>Close</button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
-      {reconnectDevice && (
+      {reconnectDevice && typeof document !== "undefined" && createPortal(
         <div className="everyday-sheet-backdrop" onClick={() => setReconnectDevice(null)}>
           <section className="everyday-sheet info" role="dialog" aria-modal="true" aria-label="Reconnect device" onClick={(event) => event.stopPropagation()}>
             <button className="everyday-sheet-close" type="button" aria-label="Close" onClick={() => setReconnectDevice(null)}><X size={19} /></button>
@@ -518,7 +521,8 @@ export default function EverydayDevicesCard() {
               <button className="everyday-sheet-text-button" type="button" onClick={() => { setReconnectDevice(null); void refresh(); }}>Done</button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   );

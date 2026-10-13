@@ -39,10 +39,10 @@ export function CalmShell({
           <Link className={styles.brand} href={title === "Calm" ? "/account" : "/account/calm"} onClick={(event) => { if (running) { event.preventDefault(); onStop(); } }} aria-label={title === "Calm" ? "Back to account" : "Back to Calm"}><ArrowLeft size={20} /></Link>
           <div className={styles.headerTitle}>{title === "Calm" && <Flower2 size={22} />}{title}</div>
           <div className={styles.headerActions}>
-            <button type="button" className={styles.iconButton} onClick={() => onMuteChange(!muted)} aria-pressed={muted} aria-label={muted ? "Turn sound on" : "Mute sound"} title={muted ? "Turn sound on" : "Mute sound"}>
+            <button type="button" className={styles.iconButton} onClick={() => onMuteChange(!muted)} aria-pressed={muted} aria-label={muted ? "Turn app sounds on" : "Mute app sounds"} title={muted ? "Turn app sounds on" : "Mute app sounds"}>
               {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>
-            <Link className={styles.iconButton} href="/account/calm/settings" aria-label="Calm settings" title="Calm settings"><Settings2 size={18} /></Link>
+            {title !== "Settings" && <Link className={styles.iconButton} href="/account/calm/settings" aria-label="Calm settings" title="Calm settings"><Settings2 size={18} /></Link>}
             {running && <button className={styles.stopButton} type="button" onClick={onStop} aria-label="Stop Calm session" title="Stop Calm session">Stop</button>}
           </div>
         </header>
