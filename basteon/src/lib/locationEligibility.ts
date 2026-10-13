@@ -1,5 +1,5 @@
-export type PermissionState = "granted" | "prompt" | "denied" | "unsupported";
-export type LocationReason = "ok" | "app_setting_off" | "permission_denied" | "permission_not_granted" | "unsupported" | "loading";
+export type PermissionState = "granted" | "prompt" | "denied" | "disabled" | "unsupported";
+export type LocationReason = "ok" | "app_setting_off" | "permission_denied" | "permission_not_granted" | "services_disabled" | "unsupported" | "loading";
 
 export type PrivacySettings = { liveLocationSharing: boolean; safetyIntelAlerts: boolean };
 export const defaultPrivacy: PrivacySettings = { liveLocationSharing: false, safetyIntelAlerts: false };
@@ -12,6 +12,7 @@ export function locationEligibility(liveLocationSharing: boolean | null, permiss
   if (liveLocationSharing === null) return { allowed: false, reason: "loading" };
   if (!liveLocationSharing) return { allowed: false, reason: "app_setting_off" };
   if (permission === "denied") return { allowed: false, reason: "permission_denied" };
+  if (permission === "disabled") return { allowed: false, reason: "services_disabled" };
   if (permission === "unsupported") return { allowed: false, reason: "unsupported" };
   if (permission === "prompt") return { allowed: false, reason: "permission_not_granted" };
   return { allowed: true, reason: "ok" };
@@ -23,5 +24,6 @@ export const reasonText: Record<LocationReason, string> = {
   app_setting_off: "Live location is off. Turn on Live Location Sharing in Profile to use this.",
   permission_denied: "Location is blocked in your browser. Allow it in your browser's site settings.",
   permission_not_granted: "Allow location access to continue.",
+  services_disabled: "Turn on Location services in Android settings.",
   unsupported: "This device doesn't support location.",
 };

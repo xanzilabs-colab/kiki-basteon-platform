@@ -159,9 +159,6 @@ function friendlyError(error: unknown, stage: Stage): string {
 
 export async function connectBasteonDevice(opts: ConnectOptions = {}): Promise<BasteonBleDevice> {
   if (Capacitor.isNativePlatform()) {
-    if (!Capacitor.isPluginAvailable("BasteonBle")) {
-      throw new Error("Update the Kiki app to enable native band linking.");
-    }
     return connectNativeBasteonDevice(opts);
   }
 

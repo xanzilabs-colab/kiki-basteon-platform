@@ -1,4 +1,28 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import type { Position } from "@/lib/geo";
-export function useGeolocation() { const [position, setPosition] = useState<Position | null>(null); const [error, setError] = useState<string | null>(null); useEffect(() => { if (!navigator.geolocation) { setError("Enable location to see distance to alerts"); return; } const id = navigator.geolocation.watchPosition((value) => { setPosition({ lat: value.coords.latitude, lng: value.coords.longitude, accuracy: value.coords.accuracy, capturedAt: value.timestamp }); setError(null); }, () => setError("Enable location to see distance to alerts"), { enableHighAccuracy: true, maximumAge: 10000 }); return () => navigator.geolocation.clearWatch(id); }, []); return { position, error }; }
+import { watchLocation } from "@/lib/platform/location";
+
+function locationErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("permission") || message.includes("denied")) return "Allow location access for Kiki in Android app settings.";
+  if (message.includes("disabled") || message.includes("turned off") || message.includes("services")) return "Turn on Location services in Android settings.";
+  return "Could not get your location. Check Location services and try again.";
+}
+
+export function useGeolocation() {
+  const [position, setPosition] = useState<Position | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => watchLocation(
+    (next) => {
+      setPosition(next);
+      setError(null);
+    },
+    (failure) => setError(locationErrorMessage(failure)),
+    { enableHighAccuracy: true, maximumAge: 10_000, timeout: 15_000 },
+  ), []);
+
+  return { position, error };
+}

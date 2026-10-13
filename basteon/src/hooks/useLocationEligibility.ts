@@ -1,7 +1,9 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useState } from "react";
 import { defaultPrivacy, locationEligibility, type PermissionState, type PrivacySettings } from "@/lib/locationEligibility";
+import { checkLocationPermission } from "@/lib/platform/location";
 
 export function useLocationEligibility() {
   const [settings, setSettings] = useState<PrivacySettings | null>(null);
@@ -17,12 +19,33 @@ export function useLocationEligibility() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   useEffect(() => {
-    if (!("geolocation" in navigator)) { setPermission("unsupported"); return; }
-    if (!navigator.permissions?.query) { setPermission("granted"); return; }
+    let active = true;
     let status: PermissionStatus | null = null;
-    const sync = () => status && setPermission(status.state as PermissionState);
-    void navigator.permissions.query({ name: "geolocation" }).then((value) => { status = value; sync(); value.addEventListener("change", sync); }).catch(() => setPermission("granted"));
-    return () => status?.removeEventListener("change", sync);
+    const sync = () => {
+      void checkLocationPermission().then((value) => {
+        if (active) setPermission(value as PermissionState);
+      });
+    };
+    sync();
+    if ("geolocation" in navigator && navigator.permissions?.query) {
+      void navigator.permissions.query({ name: "geolocation" }).then((value) => {
+        if (!active) return;
+        status = value;
+        if (!Capacitor.isNativePlatform()) {
+          setPermission(value.state as PermissionState);
+          value.addEventListener("change", sync);
+        }
+      }).catch(() => undefined);
+    }
+    const onFocus = () => sync();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      active = false;
+      status?.removeEventListener("change", sync);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, []);
 
   return { settings, refresh, ...locationEligibility(settings ? settings.liveLocationSharing : null, permission) };

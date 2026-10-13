@@ -67,8 +67,7 @@ export default function LinkDevicePage() {
 
   useEffect(() => {
     mountedRef.current = true;
-    const nativeBleAvailable = Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("BasteonBle");
-    setSupported(nativeBleAvailable || (!Capacitor.isNativePlatform() && "bluetooth" in navigator));
+    setSupported(Capacitor.isNativePlatform() || "bluetooth" in navigator);
     return () => {
       mountedRef.current = false;
       cleanup.current?.();

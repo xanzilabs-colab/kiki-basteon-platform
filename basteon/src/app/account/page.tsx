@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocationEligibility } from "@/hooks/useLocationEligibility";
+import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
 
 type TripActivity = {
@@ -78,20 +79,18 @@ export default function AccountPage() {
       if (eligibility === "loading") return;
       const sequence = ++requestSequence;
       // Nearby responders need the Live Location Sharing setting as well as the browser permission.
-      if (!allowed || !navigator.geolocation) { setLocationDenied(true); return load(sequence); }
-      navigator.geolocation.getCurrentPosition(
+      if (!allowed) { setLocationDenied(true); return load(sequence); }
+      void getCurrentLocation({ timeout: 8_000, maximumAge: 30_000 }).then(
         (position) => {
           if (cancelled || sequence !== requestSequence) return;
           setLocationDenied(false);
-          load(sequence, { lat: position.coords.latitude, lng: position.coords.longitude });
+          load(sequence, { lat: position.lat, lng: position.lng });
         },
-        () => {
+      ).catch(() => {
           if (cancelled || sequence !== requestSequence) return;
           setLocationDenied(true);
           load(sequence);
-        },
-        { timeout: 8_000, maximumAge: 30_000 },
-      );
+        });
     };
     refreshNearbyRef.current = refresh;
     const presenceClient = createClient();

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { isFreshPosition, type Position } from "@/lib/geo";
+import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
 
 export function ResponderLocationPublisher({
@@ -21,22 +22,11 @@ export function ResponderLocationPublisher({
     let active = true;
     let running = false;
     const client = createClient();
-    const readCurrentPosition = () => new Promise<Position | null>((resolve) => {
-      if (!navigator.geolocation) {
-        resolve(null);
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (value) => resolve({
-          lat: value.coords.latitude,
-          lng: value.coords.longitude,
-          accuracy: value.coords.accuracy,
-          capturedAt: value.timestamp,
-        }),
-        () => resolve(null),
-        { enableHighAccuracy: true, maximumAge: 10_000, timeout: 8_000 },
-      );
-    });
+    const readCurrentPosition = () => getCurrentLocation({
+      enableHighAccuracy: true,
+      maximumAge: 10_000,
+      timeout: 8_000,
+    }).catch(() => null);
     const publish = async () => {
       if (!active || running) return;
       running = true;
