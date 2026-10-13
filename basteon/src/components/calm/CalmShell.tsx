@@ -43,7 +43,7 @@ export function CalmShell({
               {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>
             <Link className={styles.iconButton} href="/account/calm/settings" aria-label="Calm settings" title="Calm settings"><Settings2 size={18} /></Link>
-            <button className={styles.stopButton} type="button" onClick={onStop}>{running ? "Stop" : <><ArrowLeft size={15} /> Calm home</>}</button>
+            <button className={styles.stopButton} type="button" onClick={onStop} aria-label={running ? "Stop Calm session" : "Return to Calm home"} title={running ? "Stop Calm session" : "Return to Calm home"}>{running ? "Stop" : <><ArrowLeft size={15} /> Home</>}</button>
           </div>
         </header>
         <main className={styles.content}>{children}</main>
