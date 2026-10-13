@@ -6,24 +6,14 @@ const bubble = { x: 150, y: 10 };
 const reduce = (events: GestureEvent[]) => events.reduce(gestureReducer, { phase: "idle" } as GestureState);
 
 describe("SOS gesture state machine", () => {
-  it("places the Medical target to the left of a centered Android navigation button", () => {
+  it("places the Medical target to the right of a centered Android navigation button", () => {
     const position = medicalBubblePosition(
       { left: 168, right: 222, top: 780, bottom: 834, width: 54, height: 54 },
       { width: 390, height: 844 },
     );
 
-    expect(position.direction).toBe("left");
-    expect(position.left + 124).toBeLessThan(168);
-  });
-
-  it("keeps the Medical target visible by placing it to the right near the left edge", () => {
-    const position = medicalBubblePosition(
-      { left: 24, right: 78, top: 100, bottom: 154, width: 54, height: 54 },
-      { width: 390, height: 844 },
-    );
-
-    expect(position.direction).toBe("right");
-    expect(position.left).toBeGreaterThan(78);
+    expect(position.left).toBeGreaterThanOrEqual(222);
+    expect(position.left + 124).toBeLessThanOrEqual(378);
   });
 
   it("turns a quick press and release into SOS", () => {
@@ -34,6 +24,11 @@ describe("SOS gesture state machine", () => {
   it("keeps hold-and-release outside the bubble as SOS", () => {
     expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "holdTimer" }, { kind: "up", pos: origin, bubble }]))
       .toEqual({ phase: "done", type: "sos", via: "hold_release" });
+  });
+
+  it("enters the visible hold state while the SOS button remains pressed", () => {
+    expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "holdTimer" }]))
+      .toEqual({ phase: "holding", start: origin, pos: origin, armed: false });
   });
 
   it("selects Medical when release lands inside the bubble", () => {

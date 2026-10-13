@@ -73,6 +73,7 @@ export function MedicalBubble({ anchor, armed, bubbleRef }: Props) {
   const tailRefs = useRef<(SVGCircleElement | null)[]>([]);
   const content = useRef<HTMLDivElement>(null);
   const icon = useRef<HTMLSpanElement>(null);
+  const fallback = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     armedRef.current = armed;
@@ -103,6 +104,7 @@ export function MedicalBubble({ anchor, armed, bubbleRef }: Props) {
 
   useEffect(() => {
     const { button, target, radius } = geometry;
+    if (fallback.current) fallback.current.style.opacity = "1";
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const directionX = target.x - button.x;
     const directionY = target.y - button.y;
@@ -340,6 +342,7 @@ export function MedicalBubble({ anchor, armed, bubbleRef }: Props) {
         iconElement.style.transform = `scale(${(1 + 0.2 * beat * (0.35 + 0.65 * clamp(armedValue, 0, 1))).toFixed(3)})`;
       }
 
+      if (fallback.current) fallback.current.style.opacity = "0";
       animationFrame = requestAnimationFrame(frame);
     };
 
@@ -357,6 +360,37 @@ export function MedicalBubble({ anchor, armed, bubbleRef }: Props) {
 
   return createPortal(
     <>
+      <div
+        ref={fallback}
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left,
+          top,
+          width: SIZE,
+          height: SIZE,
+          display: "grid",
+          placeContent: "center",
+          justifyItems: "center",
+          gap: 6,
+          border: "2px solid rgba(255,255,255,.8)",
+          borderRadius: "50%",
+          background: "radial-gradient(circle at 35% 28%, #ffb8c9, #ff4d73 48%, #c8103c)",
+          boxShadow: "0 8px 28px rgba(70,16,100,.45)",
+          color: "#fff",
+          fontSize: 13,
+          fontWeight: 800,
+          textAlign: "center",
+          textShadow: "0 1px 6px rgba(40,10,70,.6)",
+          pointerEvents: "none",
+          zIndex: 9997,
+          opacity: 1,
+          transition: "opacity 120ms ease-out",
+        }}
+      >
+        <HeartPulse size={30} aria-hidden="true" />
+        <span>Medical<br />slide right</span>
+      </div>
       <svg
         aria-hidden="true"
         style={{

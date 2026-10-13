@@ -26,40 +26,45 @@ export function useSosGesture(onSelect: Selection) {
     timer.current = null;
   }, []);
 
+  useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      if (pointerId.current !== event.pointerId) return;
+      dispatch({ kind: "move", pos: { x: event.clientX, y: event.clientY }, bubble: bubbleCenter() });
+    };
+    const onPointerUp = (event: PointerEvent) => {
+      if (pointerId.current !== event.pointerId) return;
+      pointerId.current = null;
+      clearTimer();
+      dispatch({ kind: "up", pos: { x: event.clientX, y: event.clientY }, bubble: bubbleCenter() });
+    };
+    const onPointerCancel = (event: PointerEvent) => {
+      if (pointerId.current !== event.pointerId) return;
+      pointerId.current = null;
+      clearTimer();
+      dispatch({ kind: "cancel" });
+    };
+    window.addEventListener("pointermove", onPointerMove, true);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerCancel, true);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove, true);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerCancel, true);
+    };
+  }, [bubbleCenter, clearTimer]);
+
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (state.phase !== "idle") return;
     event.preventDefault();
     pointerId.current = event.pointerId;
-    event.currentTarget.setPointerCapture(event.pointerId);
     setAnchor(event.currentTarget.getBoundingClientRect());
     dispatch({ kind: "down", pos: { x: event.clientX, y: event.clientY }, at: Date.now() });
     timer.current = window.setTimeout(() => dispatch({ kind: "holdTimer" }), HOLD_MS);
-  };
-
-  const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (pointerId.current !== event.pointerId) return;
-    dispatch({ kind: "move", pos: { x: event.clientX, y: event.clientY }, bubble: bubbleCenter() });
-  };
-
-  const onPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (pointerId.current !== event.pointerId) return;
-    pointerId.current = null;
-    clearTimer();
-    dispatch({ kind: "up", pos: { x: event.clientX, y: event.clientY }, bubble: bubbleCenter() });
-  };
-
-  const onPointerCancel = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (pointerId.current !== event.pointerId) return;
-    pointerId.current = null;
-    clearTimer();
-    dispatch({ kind: "cancel" });
-  };
-
-  const onLostPointerCapture = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (pointerId.current !== event.pointerId) return;
-    pointerId.current = null;
-    clearTimer();
-    dispatch({ kind: "cancel" });
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Window-level pointer listeners keep the gesture working if capture is unavailable.
+    }
   };
 
   useEffect(() => () => clearTimer(), [clearTimer]);
@@ -84,7 +89,7 @@ export function useSosGesture(onSelect: Selection) {
     state,
     anchor,
     bubbleRef,
-    buttonProps: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onLostPointerCapture },
+    buttonProps: { onPointerDown },
     onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => event.preventDefault(),
   };
 }

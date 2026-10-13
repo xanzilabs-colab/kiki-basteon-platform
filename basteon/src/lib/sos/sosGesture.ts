@@ -11,21 +11,14 @@ export type Point = { x: number; y: number };
 export type GestureAnchor = Pick<DOMRect, "left" | "right" | "top" | "bottom" | "width" | "height">;
 
 export function medicalBubblePosition(anchor: GestureAnchor, viewport: { width: number; height: number }) {
-  const leftCandidate = anchor.left - MEDICAL_BUBBLE_GAP_PX - MEDICAL_BUBBLE_SIZE_PX;
-  const rightCandidate = anchor.right + MEDICAL_BUBBLE_GAP_PX;
-  const leftFits = leftCandidate >= 12;
-  const rightFits = rightCandidate + MEDICAL_BUBBLE_SIZE_PX <= viewport.width - 12;
-  const left = leftFits && (!rightFits || anchor.left >= viewport.width - anchor.right);
   const maxLeft = Math.max(12, viewport.width - MEDICAL_BUBBLE_SIZE_PX - 12);
-  const candidate = left ? leftCandidate : rightCandidate;
 
   return {
-    left: Math.min(maxLeft, Math.max(12, candidate)),
+    left: Math.min(maxLeft, Math.max(12, anchor.right + MEDICAL_BUBBLE_GAP_PX)),
     top: Math.min(
       Math.max(12, anchor.top + (anchor.height - MEDICAL_BUBBLE_SIZE_PX) / 2),
       Math.max(12, viewport.height - MEDICAL_BUBBLE_SIZE_PX - 12),
     ),
-    direction: left ? "left" as const : "right" as const,
   };
 }
 
