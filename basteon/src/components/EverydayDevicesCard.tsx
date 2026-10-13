@@ -238,7 +238,7 @@ export default function EverydayDevicesCard() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Everyday devices</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">Pair, connect and test each accessory. Only verified standard media-button inputs can trigger Kiki; pairing alone is not evidence of compatibility.</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">This list tracks connection health and lets you practice an accessory. Adding one is optional: any compatible media-button accessory can trigger Kiki while Bluetooth triggers are armed. Pairing alone does not confirm that it sends supported controls.</p>
         </div>
         {pairingMessage && <p className="rounded-lg bg-[var(--surface-2)] px-3 py-2 text-sm" role="status">{pairingMessage}</p>}
         <button className="btn btn-primary" type="button" disabled={busy || devices.length >= 10} onClick={() => {

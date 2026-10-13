@@ -6,9 +6,11 @@ import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { BatteryCharging, Bluetooth, MapPin, Shield, ShieldAlert, Smartphone } from "lucide-react";
+import { useAppDialog } from "@/components/AppDialogProvider";
 import { KikiTrigger, type KikiStatus } from "@/lib/kikiTrigger";
 
 export default function EarbudTriggerCard() {
+  const { confirm } = useAppDialog();
   const native = Capacitor.isNativePlatform();
   const [status, setStatus] = useState<KikiStatus | null>(null);
   const [test, setTest] = useState(true);
@@ -61,6 +63,14 @@ export default function EarbudTriggerCard() {
 
   async function arm() {
     if (!status) return;
+    if (!test && status.test && !(await confirm(
+      "Bluetooth button patterns will create real alerts for responders. Only continue after successfully testing the exact phone and accessory. Keep another emergency option available.",
+      {
+        title: "Enable live Bluetooth alerts?",
+        confirmLabel: "Enable live alerts",
+        danger: true,
+      },
+    ))) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -154,7 +164,8 @@ export default function EarbudTriggerCard() {
         <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Bluetooth triggers</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Use a compatible headset, watch, car control, or other paired device that sends Android media-button presses.
-          Verify its press pattern in the Trigger Lab before relying on it.
+          Adding an accessory under My devices is optional for triggering; it tracks connection health and enables a guided compatibility check.
+          Any compatible accessory can send a trigger while this phone is armed.
         </p>
       </div>
 
@@ -192,7 +203,7 @@ export default function EarbudTriggerCard() {
         </button>
         {status.armed && (
           <button className="btn" type="button" disabled={busy} onClick={() => void arm()}>
-            Apply test setting
+            {test === status.test ? "Refresh trigger" : test ? "Apply test mode" : "Apply live mode"}
           </button>
         )}
         <Link className="btn" href="/account/profile/triggers/lab">Open Trigger Lab</Link>
@@ -211,10 +222,17 @@ export default function EarbudTriggerCard() {
       )}
       {notice && <p className="text-sm text-[var(--warn)]" role="status">{notice}</p>}
       {error && <p className="text-sm text-[var(--crit)]" role="alert">{error}</p>}
-      <p className="text-xs leading-relaxed text-[var(--muted)]">
-        Patterns: 5 quick presses = SOS; 3 then 2 = medical; 2, 2, 2 = discreet SOS; 4 = cancel. Android and headset makers
-        vary in which media events they expose. A listed or connected device is not marked ready until a practice press is detected.
-      </p>
+      <div className="space-y-2 rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed">
+        <h3 className="font-semibold">Button patterns (same for every compatible device)</h3>
+        <ul className="space-y-1 text-[var(--muted)]">
+          <li><b className="text-[var(--text)]">SOS:</b> 5 or more quick media-button presses in one burst.</li>
+          <li><b className="text-[var(--text)]">Medical:</b> 3 quick presses, pause, then 2 quick presses.</li>
+          <li><b className="text-[var(--text)]">Discreet SOS:</b> 2 quick presses, pause, 2 quick presses, pause, 2 quick presses.</li>
+          <li><b className="text-[var(--text)]">Cancel:</b> exactly 4 quick presses in one burst while an alert is counting down.</li>
+        </ul>
+        <p className="text-[var(--muted)]">Keep presses within each burst under about 650 ms apart; leave a longer pause between groups. Kiki waits about 900 ms after the final press before recognising the pattern. Accessories vary: their button must send a standard play/pause, headset, or next/previous media event. Verify your exact phone and accessory in Practice before considering live mode.</p>
+        <p className="text-[var(--muted)]">Adding an accessory under My devices is for connection tracking, disconnect notices and a guided practice check. It is not required to trigger an alert and does not itself arm this phone. Test mode records the recognized pattern without creating an alert; live mode can notify responders.</p>
+      </div>
     </section>
   );
 }
