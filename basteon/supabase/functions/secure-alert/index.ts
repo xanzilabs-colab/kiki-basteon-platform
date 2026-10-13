@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { parseHeartbeatPayload } from "./payload.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -33,59 +34,12 @@ type TrackingPayload = {
 };
 
 type LinkPayload = { status: "link_device"; ctr: number; token: string };
-type HeartbeatPayload = {
-  status: "device_heartbeat";
-  ctr: number;
-  battery: number | null;
-  wifiRssi: number | null;
-  lock: boolean | null;
-  gpsOk: boolean | null;
-  fix: boolean | null;
-  imuOk: boolean | null;
-  fw: string | null;
-  motionState: "still" | "walking" | "vehicle" | "unknown" | null;
-};
-
 function parseLinkPayload(value: unknown): LinkPayload | null {
   if (!value || typeof value !== "object") return null;
   const payload = value as Record<string, unknown>;
   if (payload.status !== "link_device" || typeof payload.ctr !== "number" || !Number.isSafeInteger(payload.ctr) || payload.ctr <= 0) return null;
   if (typeof payload.token !== "string" || !/^[a-fA-F0-9]{32}$/.test(payload.token)) return null;
   return { status: "link_device", ctr: payload.ctr, token: payload.token };
-}
-
-function parseHeartbeatPayload(value: unknown): HeartbeatPayload | null {
-  if (!value || typeof value !== "object") return null;
-  const payload = value as Record<string, unknown>;
-  if (payload.status !== "device_heartbeat" || typeof payload.ctr !== "number" || !Number.isSafeInteger(payload.ctr) || payload.ctr <= 0) return null;
-  const battery = payload.bat;
-  const wifiRssi = payload.rssi;
-  if (battery !== undefined && (!Number.isInteger(battery) || battery < 0 || battery > 100)) return null;
-  if (wifiRssi !== undefined && (!Number.isInteger(wifiRssi) || wifiRssi < -127 || wifiRssi > 0)) return null;
-  const lock = payload.lock;
-  if (lock !== undefined && lock !== 0 && lock !== 1) return null;
-  const gpsOk = payload.gps_ok;
-  const fix = payload.fix;
-  const imuOk = payload.imu_ok;
-  const fw = payload.fw;
-  const mot = payload.mot;
-  if (gpsOk !== undefined && gpsOk !== 0 && gpsOk !== 1) return null;
-  if (fix !== undefined && fix !== 0 && fix !== 1) return null;
-  if (imuOk !== undefined && imuOk !== 0 && imuOk !== 1) return null;
-  if (fw !== undefined && (typeof fw !== "string" || fw.length > 40)) return null;
-  const motionState = mot === "still" || mot === "walking" || mot === "vehicle" || mot === "unknown" ? mot : null;
-  return {
-    status: "device_heartbeat",
-    ctr: payload.ctr,
-    battery: typeof battery === "number" ? battery : null,
-    wifiRssi: typeof wifiRssi === "number" ? wifiRssi : null,
-    lock: lock === undefined ? null : lock === 1,
-    gpsOk: gpsOk === undefined ? null : gpsOk === 1,
-    fix: fix === undefined ? null : fix === 1,
-    imuOk: imuOk === undefined ? null : imuOk === 1,
-    fw: typeof fw === "string" ? fw : null,
-    motionState,
-  };
 }
 
 async function sha256Hex(value: string) {
@@ -253,29 +207,57 @@ Deno.serve(async (request) => {
   if (heartbeat) {
     if (heartbeat.ctr <= Number(device.last_ctr)) return json({ error: "replayed_counter" }, 409);
     const now = new Date().toISOString();
-    const { error } = await supabase.from("devices").update({
+    const baseUpdate = {
       last_ctr: heartbeat.ctr,
       last_seen_at: now,
       telemetry_at: now,
-      battery: heartbeat.battery,
-      wifi_rssi: heartbeat.wifiRssi,
-      hw_gps: heartbeat.gpsOk,
-      hw_imu: heartbeat.imuOk,
-      has_fix: heartbeat.fix,
-      fw_version: heartbeat.fw,
-      last_motion_state: heartbeat.motionState,
-      last_motion_at: heartbeat.motionState ? now : null,
+      ...(heartbeat.battery === null ? {} : { battery: heartbeat.battery }),
+      ...(heartbeat.wifiRssi === null ? {} : { wifi_rssi: heartbeat.wifiRssi }),
+      ...(heartbeat.gpsOk === null ? {} : { hw_gps: heartbeat.gpsOk }),
+      ...(heartbeat.imuOk === null ? {} : { hw_imu: heartbeat.imuOk }),
+      ...(heartbeat.fix === null ? {} : { has_fix: heartbeat.fix }),
+      ...(heartbeat.fw === null ? {} : { fw_version: heartbeat.fw }),
+      ...(heartbeat.motionState === null ? {} : { last_motion_state: heartbeat.motionState, last_motion_at: now }),
       ...(heartbeat.lock === null ? {} : { band_pin_locked: heartbeat.lock, band_lock_reported_at: now }),
-    }).eq("device_id", deviceId).lt("last_ctr", heartbeat.ctr);
-    if (error) return json({ error: "db_error" }, 500);
+    };
+    const qualityUpdate = {
+      ...(heartbeat.hdop === null ? {} : { last_hdop: heartbeat.hdop }),
+      ...(heartbeat.sats === null ? {} : { last_satellites: heartbeat.sats }),
+      ...(heartbeat.speedKmh === null ? {} : { last_speed_kmh: heartbeat.speedKmh }),
+      ...(heartbeat.headingDeg === null ? {} : { last_heading_deg: heartbeat.headingDeg }),
+    };
+    const { error: updateError } = await supabase.from("devices")
+      .update({ ...baseUpdate, ...qualityUpdate })
+      .eq("device_id", deviceId)
+      .lt("last_ctr", heartbeat.ctr);
+    let qualityTelemetryDegraded = false;
+    if (
+      updateError &&
+      (updateError.code === "42703" || updateError.code === "PGRST204") &&
+      ["last_hdop", "last_satellites", "last_speed_kmh", "last_heading_deg"].some((column) => updateError.message.includes(column))
+    ) {
+      const { error: fallbackError } = await supabase.from("devices")
+        .update(baseUpdate)
+        .eq("device_id", deviceId)
+        .lt("last_ctr", heartbeat.ctr);
+      if (fallbackError) {
+        console.error("device heartbeat update failed", fallbackError);
+        return json({ error: "db_error" }, 500);
+      }
+      console.warn("device tracking-quality columns are unavailable; apply migration 20261113000200_device_tracking_quality.sql", updateError);
+      qualityTelemetryDegraded = true;
+    } else if (updateError) {
+      console.error("device heartbeat update failed", updateError);
+      return json({ error: "db_error" }, 500);
+    }
     if (heartbeat.lock) {
       // The server is the authority: a band holding a PIN the server no longer has (unlinked, removed by the
       // owner, admin reset, new owner) is told to drop it. Never reveals anything about the PIN itself.
       const { data: pin, error: pinError } = await supabase.from("device_pins").select("device_id").eq("device_id", deviceId).maybeSingle();
-      if (pinError) return json({ ok: true }, 200);
-      if (!pin) return json({ ok: true, pin_clear: true }, 200);
+      if (pinError) return json({ ok: true, ...(qualityTelemetryDegraded ? { telemetry_degraded: true } : {}) }, 200);
+      if (!pin) return json({ ok: true, pin_clear: true, ...(qualityTelemetryDegraded ? { telemetry_degraded: true } : {}) }, 200);
     }
-    return json({ ok: true }, 200);
+    return json({ ok: true, ...(qualityTelemetryDegraded ? { telemetry_degraded: true } : {}) }, 200);
   }
 
   const tracking = parseTrackingPayload(payload);
