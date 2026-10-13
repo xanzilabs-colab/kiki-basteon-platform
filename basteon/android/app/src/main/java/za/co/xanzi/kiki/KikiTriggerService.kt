@@ -46,7 +46,8 @@ class KikiTriggerService : Service() {
         private const val HEARTBEAT_MS = 5 * 60 * 1000L
         private const val NOTIFICATION_ID = 401
         const val COUNTDOWN_NOTIFICATION_ID = 402
-        private const val COUNTDOWN_CHANNEL = "kiki_trigger_countdown"
+        const val CANCEL_RESULT_NOTIFICATION_ID = 403
+        const val COUNTDOWN_CHANNEL = "kiki_trigger_countdown"
         const val ACTION_CANCEL_PENDING = "za.co.xanzi.kiki.CANCEL_PENDING_TRIGGER"
         private const val PRACTICE_WINDOW_MS = 10 * 60 * 1000L
         private const val TAG = "KikiTrigger"
@@ -587,6 +588,7 @@ class KikiTriggerService : Service() {
             .setChronometerCountDown(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
+            .setTimeoutAfter(countdownSeconds.coerceAtLeast(0) * 1_000L)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel alert", cancelPendingIntent)
             .build()
         main.post {
