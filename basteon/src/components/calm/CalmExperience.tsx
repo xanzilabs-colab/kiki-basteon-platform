@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronRight, CircleHelp, Flower2, Heart, Pause, Play, RotateCcw, ScanEye, Wind, X } from "lucide-react";
-import { CalmSession, CalmSettings, DEFAULT_CALM_SETTINGS, fetchCalmHistory, fetchCalmSettings, saveCalmSession } from "./CalmSettings";
+import { ArrowRight, Check, ChevronRight, CircleHelp, Flower2, Heart, Play, RotateCcw, ScanEye, Wind, X } from "lucide-react";
+import { CalmSession, CalmSettings, DEFAULT_CALM_SETTINGS, fetchCalmHistory, fetchCalmSettings, saveCalmSession, saveCalmSettings } from "./CalmSettings";
 import { CalmShell, usePersistentMute, useReducedMotion } from "./CalmShell";
 import styles from "./calm.module.css";
-import { answerPhaseIndex, effectivePhases, PATTERNS, PHASE_LABEL, questionPhaseIndex, tickAt } from "@/lib/calm/breath/engine";
+import { answerPhaseIndex, effectivePhases, PATTERNS, PHASE_LABEL, questionPhaseIndex, tickAt, totalMs } from "@/lib/calm/breath/engine";
 import { playPhaseTone, unlockCalmAudio } from "@/lib/calm/audio";
 import { vibratePhase } from "@/lib/calm/haptics";
 import { cycleIntensity, INTENSITY_LABEL, suggestBreathing, summarize, tipsFor, ZONES, type Intensity, type ZoneId, type ZoneMap } from "@/lib/calm/body/zones";
@@ -19,7 +19,7 @@ type Props = { tool: Tool };
 function ratingLabel(value: number) {
   return ["", "Very low", "Low", "Okay", "Good", "Very good"][value];
 }
-function Rating({ value, onChange, label }: { value: number | null; onChange: (value: number) => void; label: string }) {
+function Rating({ value, onChange, label }: { value: number | null; onChange: (value: number) => void; label: React.ReactNode }) {
   return <fieldset className={styles.rating}><legend>{label}</legend><div>{[1, 2, 3, 4, 5].map((n) => <button type="button" key={n} className={value === n ? styles.ratingActive : ""} onClick={() => onChange(n)} aria-pressed={value === n} aria-label={`${n} of 5, ${ratingLabel(n)}`}>{n}</button>)}</div><button type="button" className={styles.skip} onClick={() => onChange(0)}>Skip</button></fieldset>;
 }
 
@@ -86,7 +86,7 @@ export function CalmExperience({ tool }: Props) {
   return (
     <CalmShell title={heading} running onStop={stopCurrentTool} muted={muted} onMuteChange={setMuted}>
       {loading ? <p className={styles.loading} role="status">Preparing your calm space…</p> : error ? <div className={styles.error} role="alert">{error}</div> : <>
-        {tool === "winds" && <Winds settings={settings} muted={muted} reducedMotion={reducedMotion} trivia={trivia} triviaNotice={triviaNotice} save={save} savedMessage={savedMessage} registerStop={registerStop} />}
+        {tool === "winds" && <Winds settings={settings} setSettings={setSettings} muted={muted} reducedMotion={reducedMotion} trivia={trivia} triviaNotice={triviaNotice} save={save} savedMessage={savedMessage} registerStop={registerStop} />}
         {tool === "baseline" && <Baseline settings={settings} setSettings={setSettings} history={history} save={save} savedMessage={savedMessage} registerStop={registerStop} />}
         {tool === "body" && <BodyCheck settings={settings} history={history} save={save} savedMessage={savedMessage} registerStop={registerStop} />}
       </>}
@@ -137,13 +137,16 @@ function HelpSheet({ tool }: { tool?: Tool } = {}) {
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
   }, [open]);
-  return <><button type="button" className={styles.secondaryButton} onClick={() => setOpen(true)}><CircleHelp size={16} /> {tool ? "How to play" : "How this space works"}</button>
+  return <><button type="button" className={styles.secondaryButton} onClick={() => setOpen(true)}><CircleHelp size={16} /> {tool === "winds" ? "How it works" : tool ? "How to play" : "How this space works"}</button>
     {open && <div className={styles.scrim} role="presentation" onClick={() => setOpen(false)}><section className={styles.sheet} role="dialog" aria-modal="true" aria-label={copy.title} onClick={(event) => event.stopPropagation()}><button className={styles.closeButton} onClick={() => setOpen(false)} aria-label="Close"><X size={19} /></button><p className={styles.eyebrow}>A gentle guide</p><h2>{copy.title}</h2><ol className={styles.steps}>{copy.steps.map(([heading, detail]) => <li key={heading}><b>{heading}</b><span>{detail}</span></li>)}</ol><div className={styles.example}><span className={styles.exampleCircle}>{copy.example}</span><span>No rush. Pause or stop whenever you like.</span></div></section></div>}</>;
 }
 
-function Winds({ settings, muted, reducedMotion, trivia, triviaNotice, save, savedMessage, registerStop }: { settings: CalmSettings; muted: boolean; reducedMotion: boolean; trivia: Trivia[]; triviaNotice: string; save: (payload: Record<string, unknown>) => Promise<void>; savedMessage: string; registerStop: (action: () => void) => void }) {
+function Winds({ settings, setSettings, muted, reducedMotion, trivia, triviaNotice, save, savedMessage, registerStop }: { settings: CalmSettings; setSettings: (settings: CalmSettings) => void; muted: boolean; reducedMotion: boolean; trivia: Trivia[]; triviaNotice: string; save: (payload: Record<string, unknown>) => Promise<void>; savedMessage: string; registerStop: (action: () => void) => void }) {
   const [mode, setMode] = useState<"wind" | "quiet">("wind");
   const [patternId, setPatternId] = useState<keyof typeof PATTERNS>("slow");
+  const [patternOpen, setPatternOpen] = useState(false);
+  const [paceBusy, setPaceBusy] = useState(false);
+  const [paceError, setPaceError] = useState("");
   const [before, setBefore] = useState<number | null>(null);
   const [after, setAfter] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
@@ -163,6 +166,7 @@ function Winds({ settings, muted, reducedMotion, trivia, triviaNotice, save, sav
   const completed = useRef(false);
   const phases = useMemo(() => effectivePhases(PATTERNS[patternId], settings.breathHolds, settings.breathPace), [patternId, settings.breathHolds, settings.breathPace]);
   const pattern = PATTERNS[patternId];
+  const totalDuration = totalMs(phases, pattern.cycles);
   const tick = tickAt(phases, pattern.cycles, elapsed);
   const qIndex = questionPhaseIndex(phases);
   const aIndex = answerPhaseIndex(phases);
@@ -197,6 +201,15 @@ function Winds({ settings, muted, reducedMotion, trivia, triviaNotice, save, sav
     const params = new URLSearchParams(window.location.search);
     if (params.get("mode") === "quiet") setMode("quiet");
   }, []);
+
+  useEffect(() => {
+    if (!patternOpen) return;
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPatternOpen(false);
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [patternOpen]);
 
   useEffect(() => {
     const visibility = () => {
@@ -264,6 +277,23 @@ function Winds({ settings, muted, reducedMotion, trivia, triviaNotice, save, sav
     if (mode === "quiet" && settings.sound && !muted) unlockCalmAudio();
   }
 
+  async function changePace(pace: CalmSettings["breathPace"]) {
+    if (pace === settings.breathPace || paceBusy) return;
+    const previous = settings;
+    const next = { ...settings, breathPace: pace };
+    setPaceBusy(true);
+    setPaceError("");
+    setSettings(next);
+    try {
+      await saveCalmSettings(next);
+    } catch (reason) {
+      setSettings(previous);
+      setPaceError(reason instanceof Error ? reason.message : "Couldn't save your breathing pace.");
+    } finally {
+      setPaceBusy(false);
+    }
+  }
+
   const stop = useCallback(() => {
     if (!started.current) { window.location.assign("/account/calm"); return; }
     if (typeof navigator !== "undefined") navigator.vibrate?.(0);
@@ -286,29 +316,107 @@ function Winds({ settings, muted, reducedMotion, trivia, triviaNotice, save, sav
 
   const quizVisible = Boolean(cycleTrivia && (tick.phaseIndex === qIndex || tick.phaseIndex === aIndex));
   const factVisible = Boolean(cycleTrivia && tick.phaseIndex === aIndex);
-  if (finished) return <section className={styles.card}><p className={styles.eyebrow}>A gentle pause</p><h1>That&apos;s okay. You did well.</h1><p>{pattern.title} · {Math.floor(elapsed / 1000)} seconds</p><Rating value={after} onChange={(value) => setAfter(value || null)} label="How do you feel now? (optional)" /><div className={styles.buttonRow}><button className={styles.primaryButton} onClick={() => void complete()}><Check size={17} /> Done</button><button className={styles.secondaryButton} onClick={() => void restart()}><RotateCcw size={17} /> One more round</button></div><Link className={styles.textLink} href="/account/calm">Calm home <ArrowRight size={16} /></Link>{savedMessage && <p className={styles.success} role="status">{savedMessage}</p>}</section>;
-  return <section className={`${styles.windStage} ${mode === "quiet" ? styles.quietStage : ""}`} data-reduced-motion={reducedMotion}>
-    {!running && !welcomeBack ? <>
-      <p className={styles.eyebrow}>Choose your pace</p><h1>Make a little room to breathe.</h1>
-      <div className={styles.choiceRow} role="group" aria-label="Breathing mode"><button className={mode === "wind" ? styles.choiceActive : ""} onClick={() => setMode("wind")} aria-pressed={mode === "wind"}>Wind · visual</button><button className={mode === "quiet" ? styles.choiceActive : ""} onClick={() => setMode("quiet")} aria-pressed={mode === "quiet"}>Quiet · eyes closed</button></div>
-      <label className={styles.formLabel}>Breathing pattern<select value={patternId} onChange={(event) => setPatternId(event.target.value as keyof typeof PATTERNS)}>{Object.values(PATTERNS).map((value) => <option value={value.id} key={value.id}>{value.title}</option>)}</select></label>
-      <p className={styles.smallNote}>{pattern.blurb}</p>
-      <label className={styles.formLabel}>Pace<select value={settings.breathPace} disabled><option value="gentle">Gentle · adjust in Calm settings</option><option value="standard">Standard · adjust in Calm settings</option></select></label>
-      <p className={styles.smallNote}>{settings.breathHolds ? "Optional holds are on." : "Holds are off; you can change this in settings."}</p>
-      <Rating value={before} onChange={(value) => setBefore(value || null)} label="How do you feel right now? (optional)" />
-      <HelpSheet tool="winds" />
-      <button className={styles.primaryButton} onClick={start}><Wind size={18} /> Begin gently</button>
+  async function finishAndLeave() {
+    await complete();
+    window.location.assign("/account/calm");
+  }
+
+  if (finished) return <section className={styles.windDone}>
+    <div className={styles.doneMark}><Check size={48} /></div>
+    <h1>Well done</h1>
+    <p>You took a moment for yourself. How do you feel now?</p>
+    <Rating value={after} onChange={(value) => setAfter(value || null)} label="How do you feel now? (optional)" />
+    <div className={styles.ratingLabels}><span>Tense</span><span>Calm</span></div>
+    <div className={styles.windDoneActions}>
+      <button className={styles.primaryButton} onClick={() => void finishAndLeave()}>Done</button>
+      <button className={styles.secondaryButton} onClick={() => void restart()}>Breathe again</button>
+    </div>
+    {savedMessage && <p className={styles.success} role="status">{savedMessage}</p>}
+  </section>;
+
+  const setup = !running && !welcomeBack;
+  const runStageClass = `${styles.windStage} ${mode === "quiet" ? styles.quietStage : ""}`;
+  return <>
+    {setup ? <section className={styles.windSetup} data-reduced-motion={reducedMotion}>
+      <p className={styles.eyebrow}>Choose your pace</p>
+      <h1>Make a little room to breathe</h1>
+
+      <div className={styles.breathMode} role="group" aria-label="Breathing mode">
+        <button className={mode === "wind" ? styles.breathModeActive : ""} onClick={() => setMode("wind")} aria-pressed={mode === "wind"}>
+          <b>Wind</b><small>Visual circle</small>
+        </button>
+        <button className={mode === "quiet" ? styles.breathModeActive : ""} onClick={() => setMode("quiet")} aria-pressed={mode === "quiet"}>
+          <b>Quiet</b><small>Eyes closed</small>
+        </button>
+      </div>
+
+      <h2 className={styles.controlHeading}>Breathing pattern</h2>
+      <button className={styles.patternButton} type="button" onClick={() => setPatternOpen(true)} aria-haspopup="dialog">
+        <span><b>{pattern.title}</b><small>{pattern.blurb}</small></span><ChevronRight size={19} className={styles.chev} />
+      </button>
+
+      <h2 className={styles.controlHeading}>Pace</h2>
+      <div className={styles.paceSegment} role="group" aria-label="Breathing pace">
+        {(["gentle", "standard"] as const).map((pace) => <button
+          className={settings.breathPace === pace ? styles.paceActive : ""}
+          type="button"
+          key={pace}
+          disabled={paceBusy}
+          aria-pressed={settings.breathPace === pace}
+          onClick={() => void changePace(pace)}
+        >{pace === "gentle" ? "Gentle" : "Standard"}</button>)}
+      </div>
+      <p className={styles.smallNoteLeft}>{settings.breathHolds ? "Optional holds are on. Change this in Calm settings." : "Holds are off. Change this in settings."}</p>
+      {paceError && <p className={styles.error} role="alert">{paceError}</p>}
+
+      <Rating value={before} onChange={(value) => setBefore(value || null)} label={<>How do you feel right now? <span className={styles.optionalLabel}>(optional)</span></>} />
+      <div className={styles.ratingLabels}><span>Tense</span><span>Calm</span></div>
       {triviaNotice && mode === "wind" && <p className={styles.smallNote} role="status">{triviaNotice}</p>}
       {!trivia.length && !triviaNotice && mode === "wind" && <p className={styles.smallNote}>Breathing is ready. Reviewed trivia cards will appear here when available.</p>}
-    </> : welcomeBack ? <div className={styles.card}><p className={styles.eyebrow}>Welcome back</p><h1>Ready when you are.</h1><p>Your breathing rhythm paused while you were away.</p><button className={styles.primaryButton} onClick={() => { startAt.current = performance.now(); setWelcomeBack(false); setRunning(true); }}><Play size={18} /> Continue</button><button className={styles.secondaryButton} onClick={stop}><Pause size={16} /> Stop gently</button></div> : <>
-      <p className={styles.phaseLabel} aria-live="polite">{PHASE_LABEL[tick.kind]}</p>
-      <div className={styles.breathRing} style={{ "--breath-size": tick.size } as React.CSSProperties} aria-hidden="true"><span>{mode === "quiet" ? "" : PHASE_LABEL[tick.kind]}</span></div>
-      <p className={styles.countdown} aria-label={`About ${Math.max(0, Math.ceil(tick.msLeftInPhase / 1000))} seconds in this phase`}>{Math.max(0, Math.ceil(tick.msLeftInPhase / 1000))}</p>
-      {vibrationUnsupported && mode === "quiet" && <p className={styles.smallNote} role="status">Vibration is not available here. If sound is on, a soft tone will guide each phase.</p>}
-      {quizVisible && cycleTrivia && <aside className={styles.triviaCard}><b>{cycleTrivia.question}</b>{tick.phaseIndex === qIndex && cycleTrivia.options.map((option, index) => <button key={option} className={selectedOption === index ? styles.choiceActive : ""} aria-pressed={selectedOption === index} onClick={() => setSelectedOption(index)}>{option}</button>)}{factVisible && <p>{selectedOption === null ? "Here's a fun one." : selectedOption === cycleTrivia.answer ? "Nice guess!" : "Here's a fun one."} {cycleTrivia.fact}</p>}</aside>}
-      <button className={styles.stopLarge} onClick={stop}><Pause size={18} /> Stop gently</button>
-    </>}
-  </section>;
+      <div className={styles.windFooter}>
+        <button className={styles.primaryButton} onClick={start}><Wind size={21} />Begin gently</button>
+        <HelpSheet tool="winds" />
+      </div>
+    </section> : <section className={runStageClass} data-reduced-motion={reducedMotion}>
+      {welcomeBack ? <div className={styles.welcomeBack}>
+        <p className={styles.eyebrow}>Welcome back</p><h1>Ready when you are.</h1>
+        <p>Your breathing rhythm paused while you were away.</p>
+        <button className={styles.primaryButton} onClick={() => { startAt.current = performance.now(); setWelcomeBack(false); setRunning(true); }}><Play size={18} />Continue</button>
+        <button className={styles.secondaryButton} onClick={stop}><X size={16} />Stop gently</button>
+      </div> : <>
+        <p className={styles.phaseLabel} aria-live="polite">{PHASE_LABEL[tick.kind]}</p>
+        <div className={styles.breathOrbit} aria-hidden="true"><div className={styles.breathRing} style={{ "--breath-size": tick.size } as React.CSSProperties}><span>{mode === "quiet" ? "" : PHASE_LABEL[tick.kind]}</span></div></div>
+        <p className={styles.countdown} aria-label={`About ${Math.max(0, Math.ceil(tick.msLeftInPhase / 1000))} seconds in this phase`}>{mode === "quiet" ? "" : Math.max(0, Math.ceil(tick.msLeftInPhase / 1000))}</p>
+        <div className={styles.breathProgress} role="progressbar" aria-label="Breathing session progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round(elapsed / totalDuration * 100))}>
+          <span style={{ width: `${Math.min(100, elapsed / totalDuration * 100)}%` }} />
+        </div>
+        {vibrationUnsupported && mode === "quiet" && <p className={styles.smallNote} role="status">Vibration is not available here. If sound is on, a soft tone will guide each phase.</p>}
+        {quizVisible && cycleTrivia && <aside className={styles.triviaCard}>
+          <b>{cycleTrivia.question}</b>
+          {tick.phaseIndex === qIndex && cycleTrivia.options.map((option, index) => <button key={option} className={selectedOption === index ? styles.choiceActive : ""} aria-pressed={selectedOption === index} onClick={() => setSelectedOption(index)}>{option}</button>)}
+          {factVisible && <p>{selectedOption === null ? "Here's a fun one." : selectedOption === cycleTrivia.answer ? "Nice guess!" : "Here's a fun one."} {cycleTrivia.fact}</p>}
+        </aside>}
+        <button className={styles.stopLarge} onClick={stop}>Stop gently</button>
+      </>}
+    </section>}
+
+    {patternOpen && <div className={styles.scrim} role="presentation" onClick={() => setPatternOpen(false)}>
+      <section className={`${styles.sheet} ${styles.patternSheet}`} role="dialog" aria-modal="true" aria-labelledby="winds-pattern-title" onClick={(event) => event.stopPropagation()}>
+        <div className={styles.grabber} />
+        <header className={styles.patternSheetHeader}><h2 id="winds-pattern-title">Breathing pattern</h2><button className={styles.sheetClose} type="button" onClick={() => setPatternOpen(false)} aria-label="Close pattern picker"><X size={19} /></button></header>
+        <div className={styles.patternOptions}>
+          {[PATTERNS.slow, PATTERNS.box, PATTERNS.sigh].map((option) => <button
+            className={`${styles.patternOption} ${patternId === option.id ? styles.patternOptionActive : ""}`}
+            type="button"
+            key={option.id}
+            onClick={() => { setPatternId(option.id); setPatternOpen(false); }}
+          >
+            <span><b>{option.title}</b><small>{option.blurb}</small></span><i className={styles.patternRadio} />
+          </button>)}
+        </div>
+      </section>
+    </div>}
+  </>;
 }
 
 function Baseline({ settings, setSettings, history, save, savedMessage, registerStop }: { settings: CalmSettings; setSettings: (settings: CalmSettings) => void; history: CalmSession[]; save: (payload: Record<string, unknown>) => Promise<void>; savedMessage: string; registerStop: (action: () => void) => void }) {

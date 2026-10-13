@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import { CircleStop, RefreshCw } from "lucide-react";
 import GestureCalibrationPanel from "@/components/GestureCalibrationPanel";
 import { KikiTrigger, type KikiStatus } from "@/lib/kikiTrigger";
+import styles from "@/app/account/profile/triggers/lab/triggerLab.module.css";
 
 const PRACTICE_WINDOW_MS = 10 * 60 * 1000;
 
@@ -88,37 +89,41 @@ export default function TriggerLab() {
   }
 
   if (!native) {
-    return <p className="rounded-xl border border-[var(--line)] p-4 text-sm">Open Trigger Lab in the Kiki Android app. A browser cannot capture Android media-button events.</p>;
+    return <p className={styles.card}>Open Trigger Lab in the Kiki Android app. A browser cannot capture Android media-button events.</p>;
   }
 
+  const remainingMs = Math.max(0, practiceExpiresAt - now);
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  const practiceTime = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`;
+
   return (
-    <div className="space-y-4">
-      <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
-        <h2 className="font-semibold">Safe setup</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">Practice temporarily turns off live alerts. Use it to teach Kiki your button patterns.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void setPracticeMode(true)}>
-            {practice ? "Extend Practice by 10 min" : "Start Practice · 10 min"}
-          </button>
-          <button className="btn" type="button" disabled={busy || !practice} onClick={() => void setPracticeMode(false)}><CircleStop size={16} />Stop Practice</button>
-          <button className="btn" type="button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />Refresh status</button>
+    <div className={styles.lab}>
+      <section className={styles.practice} aria-label="Practice safety status">
+        <div className={styles.practiceRow}>
+          <span className={`${styles.practiceDot} ${practice ? "" : styles.practiceDotOff}`} aria-hidden="true" />
+          <b className={styles.practiceTitle}>{practice ? "Practice is on" : "Practice is off"}</b>
+          {practice && <span className={styles.practiceTime} aria-label={`${Math.floor(remainingSeconds / 60)} minutes remaining`}>{practiceTime} left</span>}
         </div>
-        <p className="mt-2 text-sm" role="status">
+        <p className={styles.practiceCopy}>
           {practice
-            ? `Practice is on · ${Math.max(0, Math.ceil((practiceExpiresAt - now) / 60_000))} min left. No real alerts can be sent.`
-            : status?.armed
-              ? status.test ? "Phone is armed safely in Test mode." : "Phone is armed for live alerts."
-              : "Practice can be used to set up buttons before arming."}
+            ? "No real alerts can be sent while you set up."
+            : "Start Practice before setup. Live alerts pause while Practice is on."}
         </p>
+        <div className={`${styles.buttonRow} ${styles.practiceActions}`}>
+          <button className={styles.practiceChip} type="button" disabled={busy} onClick={() => void setPracticeMode(true)}>
+            {practice ? "Extend 10 min" : "Start Practice · 10 min"}
+          </button>
+          <button className={styles.practiceChip} type="button" disabled={busy || !practice} onClick={() => void setPracticeMode(false)}>
+            <CircleStop size={14} />Stop
+          </button>
+          <button className={styles.practiceChip} type="button" disabled={busy} onClick={() => void refresh()}>
+            <RefreshCw size={14} />Refresh
+          </button>
+        </div>
       </section>
 
-      <GestureCalibrationPanel
-        practice={practice}
-        onStartPractice={() => void setPracticeMode(true)}
-        status={status ?? {}}
-      />
-
-      {error && <p role="alert" className="text-sm text-[var(--crit)]">{error}</p>}
+      <GestureCalibrationPanel practice={practice} onStartPractice={() => void setPracticeMode(true)} status={status ?? {}} />
+      {error && <p className={styles.message + " " + styles.messageError} role="alert">{error}</p>}
     </div>
   );
 }

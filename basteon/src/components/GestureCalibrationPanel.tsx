@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bluetooth, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ChevronRight, CircleHelp, RotateCcw, ShieldCheck, Trash2, X } from "lucide-react";
 import { KikiTrigger, type GestureProfile, type TriggerEvent } from "@/lib/kikiTrigger";
+import styles from "@/app/account/profile/triggers/lab/triggerLab.module.css";
 import {
   analyze,
   recommend,
@@ -99,6 +101,8 @@ export default function GestureCalibrationPanel({
   const [profileName, setProfileName] = useState("");
   const [kind, setKind] = useState<GestureProfile["kind"]>("earbuds");
   const [activeMode, setActiveMode] = useState("auto");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editingAction, setEditingAction] = useState<Action | null>(null);
   const [savedSetupsOpen, setSavedSetupsOpen] = useState(false);
   const [profileId, setProfileId] = useState("");
   const [step, setStep] = useState<Step>("preflight");
@@ -315,6 +319,18 @@ export default function GestureCalibrationPanel({
     if (needsRecheck) setSavedSetupsOpen(true);
   }, [profiles, status.appVersion, status.androidSdk]);
 
+  useEffect(() => {
+    if (!settingsOpen && !editingAction) return;
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSettingsOpen(false);
+        setEditingAction(null);
+      }
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [editingAction, settingsOpen]);
+
   function resetWizard() {
     setStep("preflight");
     setSamples([]);
@@ -489,202 +505,255 @@ export default function GestureCalibrationPanel({
 
   const activeVerifyAction = verifyActions[verifyActionIndex];
   const mappedReady = Boolean(mapping.sos && mapping.cancel && mappedErrors.length === 0);
+  const currentStep = step === "preflight" ? "warmup" : step;
+  const currentStepIndex = currentStep === "warmup" ? 0
+    : currentStep === "calibrate" ? 1
+      : currentStep === "review" ? 2
+        : 3;
+
+  function assignGesture(action: Action, signature: string | undefined) {
+    setMapping((previous) => ({ ...previous, [action]: signature }));
+    setEditingAction(null);
+  }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
-      <div className="rounded-xl border border-[var(--warn)] bg-[var(--surface-2)] p-3 text-sm font-semibold">
-        Practice: no real alerts can be sent.
-      </div>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Set up your button</h2>
-          <p className="mt-1 max-w-3xl text-sm text-[var(--muted)]">
-            Connect your accessory, capture the gestures you want, and verify SOS and Cancel to unlock Live mode.
-          </p>
-        </div>
-      </div>
-      <ol className="grid grid-cols-4 gap-2 text-center text-xs" aria-label="Setup progress">
-        {(["warmup", "calibrate", "review", "verify"] as const).map((item, index) => {
-          const current = ["warmup", "calibrate", "review", "verify", "done"].indexOf(step) === index ||
-            (step === "done" && index === 3);
-          return <li key={item} className={`rounded-lg px-2 py-2 ${current ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-2)] text-[var(--muted)]"}`}>
-            {index + 1}. {item === "warmup" ? "Connect" : item === "calibrate" ? "Capture" : item === "review" ? "Choose" : "Verify"}
+    <section className={styles.wizard}>
+      <ol className={styles.steps} aria-label="Setup progress">
+        {(["Connect", "Capture", "Choose", "Verify"] as const).map((label, index) => {
+          const done = currentStep === "done" || index < currentStepIndex;
+          const current = !done && index === currentStepIndex;
+          return <li className={`${styles.step} ${done ? styles.stepDone : ""} ${current ? styles.stepCurrent : ""}`} key={label} aria-current={current ? "step" : undefined}>
+            <i className={styles.stepMarker}>{done ? <Check size={15} /> : index + 1}</i>{label}
           </li>;
         })}
       </ol>
-      {!practice && <p className="text-sm text-[var(--muted)]">Start Practice above before setting up buttons. No real alerts can be sent during setup.</p>}
-      <details className="rounded-xl border border-[var(--line)] p-3" open={step === "preflight"}>
-        <summary className="cursor-pointer font-semibold">Accessory and profile settings</summary>
-        <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-          <label className="grid gap-1">Connected accessory
-            <select className="input" disabled={!practice || accessories.length === 0} value={selectedAccessory} onChange={(event) => setSelectedAccessory(event.target.value)}>
-              {accessories.length === 0 && <option value="">No accessory detected</option>}
-              {accessories.map((accessory, index) => <option key={`${accessory.ref ?? "any"}-${index}`} value={accessory.ref ?? ""}>{accessory.label} · {accessory.kind}</option>)}
-            </select>
-            {practice && <button className="w-fit text-xs underline" type="button" onClick={() => void loadAccessories()}>Refresh accessories</button>}
-          </label>
-          <label className="grid gap-1">Profile name
-            <input className="input" maxLength={40} value={profileName} onChange={(event) => setProfileName(event.target.value)} />
-          </label>
-          <label className="grid gap-1">Accessory type
-            <select className="input" value={kind} onChange={(event) => setKind(event.target.value as GestureProfile["kind"])}>
-              {["earbuds", "wired", "car", "speaker", "watch", "ring", "other"].map((option) =>
-                <option key={option} value={option}>{option}</option>
-              )}
-            </select>
-          </label>
-          <label className="grid gap-1">Use profile
-            <select className="input" disabled={!practice || busy} value={activeMode} onChange={(event) => {
-              const mode = event.target.value;
-              setBusy(true);
-              void KikiTrigger.setActiveMode({ mode })
-                .then(() => setActiveMode(mode))
-                .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not select the gesture profile."))
-                .finally(() => setBusy(false));
-            }}>
-              <option value="auto">Auto · connected accessory</option>
-              {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-            </select>
-          </label>
-        </div>
-        <p className="mt-3 text-xs text-[var(--muted)]">Close music apps before capturing button patterns.</p>
-      </details>
 
-      <div className="flex flex-wrap gap-2">
-        <button className="btn btn-primary" type="button" disabled={!practice || accessories.length === 0 || busy} onClick={() => {
-          resetWizard();
-          setStep("warmup");
-          setMessage("Press the accessory once to check that Kiki receives its media event.");
-        }}>{step === "preflight" ? "Start setup" : "Start new setup"}</button>
-        {step !== "preflight" && <button className="btn" type="button" disabled={busy} onClick={resetWizard}><RotateCcw size={15} />Reset wizard</button>}
-      </div>
-      {practice && accessories.length === 0 && <p className="text-sm text-[var(--warn)]">Connect your accessory, then choose Refresh accessories.</p>}
+      <button className={styles.settingsButton} type="button" onClick={() => setSettingsOpen(true)}>
+        <span>Accessory and profile settings</span><ChevronDown size={18} />
+      </button>
+      {practice && accessories.length === 0 && <p className={`${styles.message} ${styles.messageWarning}`}><AlertCircle size={17} />Connect your accessory, then refresh the accessory list in settings.</p>}
 
-      {step === "warmup" && (
-        <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
-          <h3 className="font-semibold">1. Check connection</h3>
-          <p className="text-sm">Press your accessory once.</p>
-          <button className="btn" type="button" disabled={!practice || waiting} onClick={() => void beginCapture("warmup")}>{waiting && waitKind === "warmup" ? "Listening…" : "Check button"}</button>
-          {warmupSignature && <p className="text-sm text-[var(--ok)]">Button detected. You can continue.</p>}
-          {noSignal && !warmupSignature && <p role="alert" className="text-sm text-[var(--warn)]">Kiki did not receive a signal. Try again with music apps closed. Some controls are not sent to Android apps.</p>}
-          {warmupSignature && <button className="btn btn-primary" type="button" onClick={() => { setStep("calibrate"); setNoSignal(false); }}>Continue</button>}
-        </div>
-      )}
+      {(step === "preflight" || step === "warmup") && <section className={styles.card} aria-labelledby="trigger-connect-title">
+        <h2 className={styles.cardTitle} id="trigger-connect-title">1 · Check connection</h2>
+        <p className={styles.cardCopy}>Press your accessory once so Kiki can check that it receives the button signal.</p>
+        {waiting && waitKind === "warmup" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <>
+          {warmupSignature
+            ? <div className={`${styles.message} ${styles.messageSuccess}`} role="status"><Check size={17} />Button detected. Continue to capture the patterns you want to use.</div>
+            : <button className={styles.primaryButton} type="button" disabled={!practice || accessories.length === 0 || waiting} onClick={() => void beginCapture("warmup")}>Check button</button>}
+        </>}
+        {noSignal && !warmupSignature && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />Kiki did not receive a signal. Try again with music apps closed. Some controls may not be sent to Android.</p>}
+      </section>}
 
-      {step === "calibrate" && (
-        <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
-          <h3 className="font-semibold">2. Capture your button patterns</h3>
-          <p className="text-sm">Press {tapCount} time(s), then pause. Attempt {sampleNumber} of 3. {waiting ? "Listening…" : "Tap Start, then press your accessory."}</p>
-          <div className="flex gap-1" aria-label={`Tap count ${tapCount} of 6`}>
-            {Array.from({ length: 6 }, (_, index) => <span key={index} className={`h-2 flex-1 rounded ${index < tapCount ? "bg-[var(--accent)]" : "bg-[var(--line)]"}`} />)}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button className="btn btn-primary" type="button" disabled={!practice || waiting || Boolean(pendingSample)} onClick={() => void beginCapture("sample")}>{waiting ? "Listening…" : "Start"}</button>
-            <button className="btn" type="button" disabled={!practice || waiting} onClick={() => { setPendingSample(null); setNoSignal(false); }}>Try again</button>
-            {noSignal && <button className="btn" type="button" onClick={() => void acceptNoSignal()}>Record no signal</button>}
-          </div>
-          {pendingSample && <div className="rounded-lg bg-[var(--surface-2)] p-3 text-sm">
-            <p>Kiki detected: <b>{humanize(pendingSample.sig)}</b>.</p>
-            <button className="btn btn-primary mt-2" type="button" onClick={() => appendSample(pendingSample)}>Continue</button>
-          </div>}
-          {noSignal && <p role="alert" className="text-sm text-[var(--warn)]">No button signal arrived. Try again, or record it as unavailable.</p>}
-          <p className="text-xs text-[var(--muted)]">Kiki checks common 1–6 press patterns three times each, so it can avoid confusing one action with another.</p>
-        </div>
-      )}
-
-      {(step === "review" || step === "verify" || step === "done") && (
-        <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
-          <h3 className="font-semibold">3. Choose actions</h3>
-          {analysis.gestures.length === 0 ? <p className="text-sm text-[var(--muted)]">No complete gesture samples were detected yet.</p> : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[320px] text-left text-sm">
-                <thead><tr><th className="p-2">Button press</th><th className="p-2">Detected pattern</th><th className="p-2">Consistency</th></tr></thead>
-                <tbody>{analysis.gestures.map((gesture) => <tr key={`${gesture.taps}-${gesture.sig}`} className="border-t border-[var(--line)]">
-                  <td className="p-2">{gesture.taps} tap(s)</td>
-                  <td className="p-2">{humanize(gesture.sig)}</td>
-                  <td className="p-2">{Math.round(gesture.reliability * 100)}%</td>
-                </tr>)}</tbody>
-              </table>
-            </div>
-          )}
-          {analysis.unseen.length > 0 && <p className="text-sm text-[var(--warn)]">No events were received for {analysis.unseen.join(", ")} tap(s). Those gestures cannot be assigned.</p>}
-          {analysis.indistinguishable.map(({ sig, taps }) => <p key={sig} className="text-sm text-[var(--warn)]">Tap counts {taps.join(" and ")} produced the same signal ({sig}); Kiki cannot distinguish them.</p>)}
-          <button className="btn" type="button" onClick={() => void acceptRecommendations()} disabled={!analysis.gestures.length}>Suggest actions</button>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {ACTIONS.map(({ id: action, label }) => {
-              const chosen = mapping[action];
-              const options = analysis.gestures.filter((gesture) =>
-                !Object.entries(mapping).some(([otherAction, signature]) => otherAction !== action && signature === gesture.sig)
-              );
-              return <label key={action} className="grid gap-1 text-sm">{label}
-                <select className="input" value={chosen ?? ""} onChange={(event) => setMapping((previous) => ({ ...previous, [action]: event.target.value || undefined }))}>
-                  <option value="">Not assigned</option>
-                  {options.map((gesture) => <option key={gesture.sig} value={gesture.sig}>{gesture.taps} tap(s) · {humanize(gesture.sig)} · {Math.round(gesture.reliability * 100)}% repeatable</option>)}
-                </select>
-              </label>;
-            })}
-          </div>
-          {Object.entries(mapping).map(([action, signature]) => {
-            const gesture = analysis.gestures.find((item) => item.sig === signature);
-            return gesture && gesture.grade === "C" ? <p className="text-xs text-[var(--warn)]" key={`${action}-warning`}>{action} uses an inconsistent or easy-to-trigger pattern. Choose a different one if available.</p> : null;
+      {step === "calibrate" && <section className={styles.card} aria-labelledby="trigger-capture-title">
+        <h2 className={styles.cardTitle} id="trigger-capture-title">2 · Capture patterns</h2>
+        <p className={styles.cardCopy}>Press <b>{tapCount} time{tapCount === 1 ? "" : "s"}</b>, then pause. Sample {Math.min(sampleNumber, 3)} of 3.</p>
+        <div className={styles.pips} aria-label={`Tap count ${tapCount} of 6`}>
+          {Array.from({ length: 6 }, (_, index) => {
+            const width = index < tapCount - 1 ? 100 : index === tapCount - 1 ? ((sampleNumber - 1) / 3) * 100 : 0;
+            return <span className={styles.pip} key={index}><i className={styles.pipFill} style={{ width: `${width}%` }} /></span>;
           })}
-          {mappedErrors.map((item) => <p key={item} className="text-sm text-[var(--crit)]">{item}</p>)}
-          {step === "review" && <button className="btn btn-primary" type="button" disabled={!practice || busy || !mappedReady} onClick={() => void saveDraftForVerification()}>
-            <ShieldCheck size={15} />Continue to safety check
-          </button>}
-          {step === "verify" && <div className="rounded-lg bg-[var(--surface-2)] p-3 text-sm">
-            <p>Safety check {verifyActionIndex + 1}/{verifyActions.length}: perform <b>{activeVerifyAction}</b> three times so Kiki can confirm it reliably.</p>
-            <p className="mt-1" role="status">{verifyResult || `Confirmed ${verifyHits} of 3.`}</p>
-            <button className="btn btn-primary mt-2" type="button" disabled={!practice || waiting || busy} onClick={() => void retryFailedVerification()}>
-              {waiting ? "Listening…" : `Check ${activeVerifyAction ?? "button"} pattern`}
-            </button>
-            {noSignal && <p className="mt-2 text-xs text-[var(--warn)]">No signal arrived. Try again.</p>}
-          </div>}
-          {step === "done" && <p className="text-sm text-[var(--ok)]">Setup complete. SOS and Cancel are verified for this phone and accessory.</p>}
         </div>
-      )}
+        {waiting && waitKind === "sample" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : pendingSample ? <div className={styles.samplePreview}>
+          <p>Kiki detected: <b>{humanize(pendingSample.sig) || "No signal"}</b>.</p>
+          <div className={styles.sampleActions}>
+            <button className={styles.primaryButton} type="button" onClick={() => appendSample(pendingSample)}>Use this sample</button>
+            <button className={styles.secondaryButton} type="button" onClick={() => { setPendingSample(null); setNoSignal(false); }}>Try again</button>
+          </div>
+        </div> : <div className={styles.buttonRow}>
+          <button className={styles.primaryButton} type="button" disabled={!practice || waiting} onClick={() => void beginCapture("sample")}>Start capture</button>
+          {noSignal && <button className={styles.warningButton} type="button" onClick={() => void acceptNoSignal()}>Record no signal</button>}
+        </div>}
+        {noSignal && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />No button signal arrived. Try again, or record it as unavailable.</p>}
+        <p className={styles.fieldHelp}>Kiki checks common 1–6 press patterns three times each so it can avoid confusing one action with another.</p>
+      </section>}
 
-      {profiles.length > 0 && (
-        <details className="rounded-xl border border-[var(--line)] p-3" open={savedSetupsOpen} onToggle={(event) => setSavedSetupsOpen(event.currentTarget.open)}>
-          <summary className="cursor-pointer font-semibold">Saved button setups ({profiles.length})</summary>
-          <div className="mt-3 space-y-2">
-          {profiles.map((profile) => {
-            const assigned: Partial<Record<Action, string>> = {};
-            Object.entries(profile.mapping).forEach(([signature, action]) => { assigned[action as Action] = signature; });
-            const verified = isProfileCurrent(profile, status);
-            return <div key={profile.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--line)] p-2">
-              <input className="input min-w-[160px] flex-1" defaultValue={profile.name} maxLength={40} disabled={!practice || busy} aria-label="Profile name" onBlur={(event) => {
-                if (event.target.value !== profile.name) void renameSavedProfile(profile, event.target.value);
-              }} />
-              <span className="text-xs">{verified ? "Ready" : "Needs re-check"}</span>
-              <button className="btn" type="button" disabled={!practice || busy} onClick={() => {
-                setProfileId(profile.id);
-                profileIdRef.current = profile.id;
-                setProfileName(profile.name);
-                setKind(profile.kind);
-                setSelectedAccessory(profile.deviceRef ?? "");
-                setMapping(assigned);
-                setSamples(profile.library.map((sample) => ({ prompted: sample.prompted, sig: sample.sig, presses: sample.presses, gaps: sample.gaps })));
-                setStep("review");
-                setMessage(`Check the ${profile.name} buttons three times to enable Live mode.`);
-              }}>{verified ? "Edit" : "Re-check"}</button>
-              <button className="btn" type="button" disabled={!practice || busy} aria-label={`Delete ${profile.name}`} onClick={() => void deleteSavedProfile(profile)}><Trash2 size={14} /></button>
+      {step === "review" && <section className={styles.card} aria-labelledby="trigger-choose-title">
+        <h2 className={styles.cardTitle} id="trigger-choose-title">3 · Choose actions</h2>
+        <p className={styles.cardCopy}>Your accessory sent these patterns reliably.</p>
+        {analysis.gestures.length === 0 ? <p className={styles.messageWarning}>No complete gesture samples were detected yet.</p> : <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead><tr><th>Presses</th><th>Detected as</th><th>Repeatable</th></tr></thead>
+            <tbody>
+              {analysis.gestures.map((gesture) => <tr key={`${gesture.taps}-${gesture.sig}`}>
+                <td>{gesture.taps} tap{gesture.taps === 1 ? "" : "s"}</td>
+                <td>{humanize(gesture.sig)}</td>
+                <td><span className={styles.repeatable}>{Math.round(gesture.reliability * 100)}%</span></td>
+              </tr>)}
+              {analysis.unseen.map((count) => <tr key={`unseen-${count}`}>
+                <td className={styles.dimmed}>{count} taps</td><td className={styles.dimmed}>No signal</td><td className={styles.dimmed}>—</td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>}
+        {analysis.unseen.length > 0 && <p className={`${styles.message} ${styles.messageWarning}`}><AlertCircle size={17} />No events were received for {analysis.unseen.join(", ")} taps. Those gestures cannot be assigned.</p>}
+        {analysis.indistinguishable.map(({ sig, taps }) => <p className={`${styles.message} ${styles.messageWarning}`} key={sig}><AlertCircle size={17} />Tap counts {taps.join(" and ")} produced the same signal ({humanize(sig)}), so Kiki cannot distinguish them.</p>)}
+        <button className={styles.secondaryButton} type="button" onClick={() => void acceptRecommendations()} disabled={!analysis.gestures.length}>Suggest actions</button>
+        <div className={styles.actionList}>
+          {ACTIONS.map(({ id: action, label }) => {
+            const signature = mapping[action];
+            const gesture = analysis.gestures.find((item) => item.sig === signature);
+            const easyToTrigger = Boolean(gesture && gesture.grade === "C");
+            return <button
+              className={`${styles.actionButton} ${signature ? styles.actionButtonSelected : ""}`}
+              type="button"
+              key={action}
+              onClick={() => setEditingAction(action)}
+              aria-label={`Choose gesture for ${label}. Current: ${gesture ? `${gesture.taps} taps, ${humanize(gesture.sig)}` : "Not assigned"}`}
+            >
+              <span className={styles.actionBody}>
+                <small className={styles.actionLabel}>{label}</small>
+                <b className={styles.actionValue}>{gesture ? `${gesture.taps} tap${gesture.taps === 1 ? "" : "s"} · ${humanize(gesture.sig)}` : "Not assigned"}</b>
+                {easyToTrigger && <span className={styles.actionHint}>Single taps can trigger easily by accident. Choose another if available.</span>}
+              </span>
+              <ChevronRight size={18} className={styles.actionChevron} />
+            </button>;
+          })}
+        </div>
+        {mappedErrors.map((item) => <p className={`${styles.message} ${styles.messageError}`} key={item}><AlertCircle size={17} />{item}</p>)}
+      </section>}
+
+      {step === "verify" && <section className={styles.card} aria-labelledby="trigger-verify-title">
+        <h2 className={styles.cardTitle} id="trigger-verify-title">4 · Safety check</h2>
+        <p className={styles.cardCopy}>Perform each action three times so Kiki can confirm it reliably.</p>
+        <div className={styles.verificationList}>
+          {verifyActions.map((action, index) => {
+            const done = index < verifyActionIndex;
+            const current = index === verifyActionIndex;
+            const signature = mapping[action];
+            const gesture = analysis.gestures.find((item) => item.sig === signature);
+            return <div className={styles.verificationRow} key={action}>
+              <span className={`${styles.verificationIcon} ${done ? styles.verificationIconDone : current ? styles.verificationIconCurrent : ""}`}>
+                {done ? <Check size={17} /> : index + 1}
+              </span>
+              <span className={styles.verificationBody}><b>{ACTIONS.find((item) => item.id === action)?.label}</b><span>{gesture ? `${gesture.taps} tap${gesture.taps === 1 ? "" : "s"} · ${humanize(gesture.sig)}` : "Assigned gesture"}</span></span>
+              <span className={styles.verificationPips} aria-label={current ? `${verifyHits} of 3 confirmed` : done ? "Complete" : "Not started"}>
+                {[0, 1, 2].map((indexInProgress) => <i className={done || (current && indexInProgress < verifyHits) ? styles.pipPassed : ""} key={indexInProgress} />)}
+              </span>
             </div>;
           })}
-          </div>
-          <p className="mt-2 text-xs text-[var(--muted)]">Your button setups are saved on this phone.</p>
-        </details>
-      )}
+        </div>
+        {verifyResult && <p className={`${styles.message} ${verifyResult.startsWith("That attempt") || verifyResult.startsWith("No matching") ? styles.messageWarning : styles.messageInfo}`} role="status">
+          {verifyResult.startsWith("That attempt") || verifyResult.startsWith("No matching") ? <AlertCircle size={17} /> : <CircleHelp size={17} />}{verifyResult}
+        </p>}
+        {activeVerifyAction && <p className={styles.verifyPrompt}>Safety check {verifyActionIndex + 1}/{verifyActions.length}: perform <b>{ACTIONS.find((item) => item.id === activeVerifyAction)?.label}</b> three times.</p>}
+        {waiting && waitKind === "verify" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <button className={styles.primaryButton} type="button" disabled={!practice || busy || !activeVerifyAction} onClick={() => void retryFailedVerification()}><ShieldCheck size={18} />Check {ACTIONS.find((item) => item.id === activeVerifyAction)?.label ?? "button"} pattern</button>}
+        {noSignal && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />No signal arrived. Try again.</p>}
+      </section>}
 
-      {message && <p className={`text-sm ${backupNeedsRetry ? "text-[var(--warn)]" : ""}`} role="status">{message}</p>}
-      {error && <p className="text-sm text-[var(--crit)]" role="alert">{error}</p>}
-      {backupNeedsRetry && profiles.length > 0 && <button
-        className="btn"
-        type="button"
-        disabled={busy || backupBusy}
-        onClick={() => void syncProfiles(profiles)}
-      >{backupBusy ? "Retrying account backup…" : "Retry account backup"}</button>}
-      {busy && <p className="text-sm text-[var(--muted)]">Saving gesture profile…</p>}
+      {step === "done" && <section className={styles.card} aria-labelledby="trigger-done-title">
+        <div className={styles.verificationIcon + " " + styles.verificationIconDone} style={{ width: 64, height: 64, margin: "4px auto 14px" }}><Check size={30} /></div>
+        <h2 className={styles.cardTitle} id="trigger-done-title" style={{ textAlign: "center" }}>Setup complete</h2>
+        <p className={styles.cardCopy} style={{ textAlign: "center" }}>SOS and Cancel are verified for this phone and accessory.</p>
+      </section>}
+
+      {profiles.length > 0 && <details className={`${styles.card} ${styles.savedCard}`} open={savedSetupsOpen} onToggle={(event) => setSavedSetupsOpen(event.currentTarget.open)}>
+        <summary className={styles.savedHeader}><span className={styles.savedTitle}>Saved button setups ({profiles.length})</span><ChevronDown size={17} /></summary>
+        {profiles.map((profile) => {
+          const assigned: Partial<Record<Action, string>> = {};
+          Object.entries(profile.mapping).forEach(([signature, action]) => { assigned[action as Action] = signature; });
+          const verified = isProfileCurrent(profile, status);
+          return <div className={styles.savedRow} key={profile.id}>
+            <label className={styles.savedName}><input defaultValue={profile.name} maxLength={40} disabled={!practice || busy} aria-label={`Name for ${profile.name}`} onBlur={(event) => {
+              if (event.target.value !== profile.name) void renameSavedProfile(profile, event.target.value);
+            }} /></label>
+            <span className={`${styles.badge} ${verified ? "" : styles.badgeNeedsCheck}`}>{verified ? "Ready" : "Needs re-check"}</span>
+            <button className={styles.secondaryButton} type="button" disabled={!practice || busy} onClick={() => {
+              setProfileId(profile.id);
+              profileIdRef.current = profile.id;
+              setProfileName(profile.name);
+              setKind(profile.kind);
+              setSelectedAccessory(profile.deviceRef ?? "");
+              setMapping(assigned);
+              setSamples(profile.library.map((sample) => ({ prompted: sample.prompted, sig: sample.sig, presses: sample.presses, gaps: sample.gaps })));
+              setStep("review");
+              setMessage(`Check the ${profile.name} buttons three times to enable Live mode.`);
+            }}>{verified ? "Edit" : "Re-check"}</button>
+            <button className={`${styles.iconButton} ${styles.iconButtonDanger}`} type="button" disabled={!practice || busy} aria-label={`Delete ${profile.name}`} onClick={() => void deleteSavedProfile(profile)}><Trash2 size={15} /></button>
+          </div>;
+        })}
+        <p className={styles.phoneSaved}>Your button setups are saved on this phone.</p>
+      </details>}
+
+      {message && <p className={`${styles.message} ${backupNeedsRetry ? styles.messageWarning : styles.messageInfo}`} role="status">
+        {backupNeedsRetry ? <CircleHelp size={17} /> : <Check size={17} />}{message}
+      </p>}
+      {error && <p className={`${styles.message} ${styles.messageError}`} role="alert"><AlertCircle size={17} />{error}</p>}
+      {backupNeedsRetry && profiles.length > 0 && <button className={styles.secondaryButton} type="button" disabled={busy || backupBusy} onClick={() => void syncProfiles(profiles)}>{backupBusy ? "Retrying account backup…" : "Retry account backup"}</button>}
+      {busy && <p className={styles.phoneSaved} role="status">Saving gesture profile…</p>}
+
+      <div className={styles.footer}>
+        {(step === "preflight" || step === "warmup") && <button className={styles.primaryButton} type="button" disabled={!warmupSignature || !practice || busy} onClick={() => { setStep("calibrate"); setNoSignal(false); setMessage(""); }}>Continue</button>}
+        {step === "review" && <button className={styles.primaryButton} type="button" disabled={!practice || busy || !mappedReady} onClick={() => void saveDraftForVerification()}><ShieldCheck size={18} />Continue to safety check</button>}
+        {step === "done" && <Link className={styles.primaryButton} href="/account/profile/triggers">Done</Link>}
+        {(step === "calibrate" || step === "verify") && <button className={styles.ghostButton} type="button" disabled={busy || waiting} onClick={resetWizard}><RotateCcw size={15} />Reset setup</button>}
+      </div>
+
+      {settingsOpen && <div className={styles.settingsOverlay} role="presentation" onClick={() => setSettingsOpen(false)} onKeyDown={(event) => { if (event.key === "Escape") setSettingsOpen(false); }} tabIndex={-1}>
+        <section className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby="trigger-settings-title" onClick={(event) => event.stopPropagation()}>
+          <div className={styles.grabber} />
+          <header className={styles.sheetHeader}><h2 className={styles.sheetTitle} id="trigger-settings-title">Accessory and profile</h2><button className={styles.sheetClose} type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings"><X size={19} /></button></header>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>Connected accessory
+              <select disabled={!practice || accessories.length === 0} value={selectedAccessory} onChange={(event) => setSelectedAccessory(event.target.value)}>
+                {accessories.length === 0 && <option value="">No accessory detected</option>}
+                {accessories.map((accessory, index) => <option key={`${accessory.ref ?? "any"}-${index}`} value={accessory.ref ?? ""}>{accessory.label} · {accessory.kind}</option>)}
+              </select>
+            </label>
+            <button className={styles.ghostButton} type="button" disabled={!practice} onClick={() => void loadAccessories()}>Refresh accessories</button>
+            <label className={styles.field}>Profile name
+              <input maxLength={40} value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder={connected?.label ?? "Name this setup"} />
+            </label>
+            <label className={styles.field}>Accessory type
+              <select value={kind} onChange={(event) => setKind(event.target.value as GestureProfile["kind"])}>
+                {["earbuds", "wired", "car", "speaker", "watch", "ring", "other"].map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className={styles.field}>Use profile
+              <select disabled={!practice || busy} value={activeMode} onChange={(event) => {
+                const mode = event.target.value;
+                setBusy(true);
+                void KikiTrigger.setActiveMode({ mode })
+                  .then(() => setActiveMode(mode))
+                  .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not select the gesture profile."))
+                  .finally(() => setBusy(false));
+              }}>
+                <option value="auto">Auto · connected accessory</option>
+                {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+              </select>
+            </label>
+            <p className={styles.fieldHelp}>Close music apps before capturing button patterns. Practice mode cannot send real alerts.</p>
+          </div>
+          <div className={styles.sheetButtons}><button className={styles.primaryButton} type="button" onClick={() => setSettingsOpen(false)}>Save settings</button></div>
+        </section>
+      </div>}
+
+      {editingAction && <div className={styles.settingsOverlay} role="presentation" onClick={() => setEditingAction(null)} onKeyDown={(event) => { if (event.key === "Escape") setEditingAction(null); }} tabIndex={-1}>
+        <section className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby="trigger-action-title" onClick={(event) => event.stopPropagation()}>
+          <div className={styles.grabber} />
+          <header className={styles.sheetHeader}><h2 className={styles.sheetTitle} id="trigger-action-title">{ACTIONS.find((item) => item.id === editingAction)?.label}</h2><button className={styles.sheetClose} type="button" onClick={() => setEditingAction(null)} aria-label="Close gesture options"><X size={19} /></button></header>
+          <div className={styles.options}>
+            <button className={`${styles.option} ${!mapping[editingAction] ? styles.optionActive : ""}`} type="button" onClick={() => assignGesture(editingAction, undefined)}>
+              <span className={styles.optionBody}><b>Not assigned</b></span><i className={styles.radio} />
+            </button>
+            {analysis.gestures.map((gesture) => {
+              const assignedElsewhere = Object.entries(mapping).some(([other, signature]) => other !== editingAction && signature === gesture.sig);
+              return <button
+                className={`${styles.option} ${mapping[editingAction] === gesture.sig ? styles.optionActive : ""}`}
+                key={gesture.sig}
+                type="button"
+                disabled={assignedElsewhere}
+                onClick={() => assignGesture(editingAction, gesture.sig)}
+              >
+                <span className={styles.optionBody}>
+                  <b>{gesture.taps} tap{gesture.taps === 1 ? "" : "s"} · {humanize(gesture.sig)}</b>
+                  <span>{assignedElsewhere ? "Used by another action" : gesture.grade === "C" ? "Easy to trigger by accident" : `${Math.round(gesture.reliability * 100)}% repeatable`}</span>
+                </span>
+                <i className={styles.radio} />
+              </button>;
+            })}
+          </div>
+        </section>
+      </div>}
     </section>
   );
 }

@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import TriggerLab from "@/components/TriggerLab";
+import styles from "./triggerLab.module.css";
 
 export default function TriggerLabPage() {
   return (
-    <div className="kiki-trigger-settings space-y-4">
-      <Link className="inline-flex items-center gap-1 text-sm text-[var(--muted)]" href="/account/profile/triggers"><ChevronLeft size={16} />Bluetooth triggers</Link>
-      <header><span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">SAFE DEVICE CHECK</span><h1 className="text-2xl font-semibold">Trigger Lab</h1></header>
+    <div className={styles.page}>
+      <Link className={styles.back} href="/account/profile/triggers"><ChevronLeft size={18} />Bluetooth triggers</Link>
+      <header>
+        <span className={styles.eyebrow}>Safe device check</span>
+        <h1 className={styles.pageTitle}>Trigger Lab</h1>
+      </header>
       <TriggerLab />
     </div>
   );
