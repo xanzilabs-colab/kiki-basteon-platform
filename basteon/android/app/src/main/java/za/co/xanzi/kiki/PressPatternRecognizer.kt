@@ -10,6 +10,8 @@ data class PressPattern(
 
 fun mediaButtonClickWeight(keyCode: Int): Int = when (keyCode) {
     KeyEvent.KEYCODE_MEDIA_PREVIOUS -> 2
+    KeyEvent.KEYCODE_VOLUME_UP,
+    KeyEvent.KEYCODE_VOLUME_DOWN -> 3
     else -> 1
 }
 

@@ -321,7 +321,9 @@ class KikiTriggerService : Service() {
         KeyEvent.KEYCODE_MEDIA_PLAY,
         KeyEvent.KEYCODE_MEDIA_PAUSE,
         KeyEvent.KEYCODE_MEDIA_NEXT,
-        KeyEvent.KEYCODE_MEDIA_PREVIOUS
+        KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+        KeyEvent.KEYCODE_VOLUME_UP,
+        KeyEvent.KEYCODE_VOLUME_DOWN
     )
 
     private fun startSilentMediaSessionOutput() {

@@ -267,7 +267,8 @@ export default function TriggerLab() {
     await saveConfig({
       ...universal,
       [captureCandidate.action]: captureCandidate.clicks,
-    }, `Saved ${clickWord(captureCandidate.clicks)} for ${actionName(captureCandidate.action)}.`);
+      enabled: true,
+    }, `Saved ${clickWord(captureCandidate.clicks)} for ${actionName(captureCandidate.action)} and turned Universal click mode on. Stop Practice and arm the trigger before testing a real alert.`);
   }
 
   if (!native) {
@@ -298,14 +299,14 @@ export default function TriggerLab() {
             Use my click counts
           </label>
         </div>
-        {!universal.enabled && <p id="universal-mode-help" className="mt-2 text-xs text-[var(--muted)]">To turn this on: start Practice, Capture and Set at least one action, then check this box.</p>}
-        <p id="universal-mode-status" className="mt-2 text-sm" role="status" aria-live="polite">{modeMessage || (universal.enabled ? "Universal click mode is on." : "Universal click mode is off.")}</p>
+        {!universal.enabled && <p id="universal-mode-help" className="mt-2 text-xs text-[var(--muted)]">Start Practice and Capture → Set an action. Set now turns this mode on automatically. Practice blocks real alerts; stop Practice and arm the trigger before expecting an alert.</p>}
+        <p id="universal-mode-status" className="mt-2 text-sm" role="status" aria-live="polite">{modeMessage || (universal.enabled ? "Universal click mode is on." : "Universal click mode is off; captured click assignments will not trigger alerts until this is on.")}</p>
 
         <div className="mt-4 rounded-xl bg-[var(--surface-2)] p-4 text-center" role="status" aria-live="polite">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Clicks detected in current sequence</p>
           <p className="mt-1 text-3xl font-extrabold tabular-nums">{tapCount || lastSequence?.clicks || 0}</p>
           <p className="mt-1 text-xs text-[var(--muted)]">{tapCount
-            ? `${clickWord(tapCount)} so far · last key: ${currentKeyCode}${currentKeyCode === "KEYCODE_MEDIA_PREVIOUS" ? " (two-click gesture)" : ""}`
+            ? `${clickWord(tapCount)} so far · last key: ${currentKeyCode}${currentKeyCode === "KEYCODE_MEDIA_PREVIOUS" ? " (two-click gesture)" : currentKeyCode === "KEYCODE_VOLUME_UP" || currentKeyCode === "KEYCODE_VOLUME_DOWN" ? " (three-click gesture)" : ""}`
             : lastSequence
               ? `Last: ${clickWord(lastSequence.clicks)} (${lastSequence.sequence}) · ${lastSequence.origin === "media_button" ? "key event" : lastSequence.origin === "media_session" ? "media session" : "source unknown"} · ${lastSequence.keyCodes.join(", ") || "key unknown"}`
               : "Waiting for an earbud media-button press"}</p>
@@ -336,7 +337,7 @@ export default function TriggerLab() {
           <button className="btn" type="button" disabled={universalBusy || !universal.enabled} onClick={() => void setUniversalMode(false)}>Use standard fixed patterns</button>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-          This phone reports your two-tap gesture as one KEYCODE_MEDIA_PREVIOUS event, so Kiki counts that event as two clicks; KEYCODE_MEDIA_PAUSE counts as one. Other earbuds or Android versions may report gestures differently. Release between taps and pause about one second after the sequence. Holds are measured only when Android delivers both key-down and key-up to Kiki; if a hold opens Gemini without a Kiki event, Android handled it outside Kiki. Use a different count for each action. Universal mode replaces the standard rhythms; unassigned counts do nothing. Keep Practice active while configuring so no real alerts can be sent.
+          Based on your earbud behavior, Kiki counts KEYCODE_MEDIA_PAUSE as 1 click, KEYCODE_MEDIA_PREVIOUS as 2, and KEYCODE_VOLUME_UP or KEYCODE_VOLUME_DOWN as 3. Other earbuds or Android versions may report gestures differently. Release between taps and pause about one second after the sequence. Holds are measured only when Android delivers both key-down and key-up to Kiki; if a hold opens Gemini without a Kiki event, Android handled it outside Kiki. Use a different count for each action. Universal mode replaces the standard rhythms; unassigned counts do nothing. Keep Practice active while configuring so no real alerts can be sent.
         </p>
       </section>
 

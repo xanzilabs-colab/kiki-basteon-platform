@@ -81,6 +81,21 @@ class PressPatternRecognizerTest {
         assertEquals("1", recognizer.finish()?.sequence)
     }
 
+    @Test
+    fun countsObservedVolumeMasterGestureAsThreeClicks() {
+        listOf(KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN).forEach { keyCode ->
+            val recognizer = PressPatternRecognizer()
+            val count = recognizer.press(100, mediaButtonClickWeight(keyCode))
+
+            assertEquals(3, count)
+            val result = recognizer.finish()
+            assertNotNull(result)
+            assertEquals("3", result?.sequence)
+            assertEquals(3, result?.presses)
+            assertEquals("sos", resolveUniversalPattern(result?.sequence.orEmpty(), mapOf(3 to "sos")))
+        }
+    }
+
     private fun presses(vararg timestamps: Long) = pressesOn(PressPatternRecognizer(), *timestamps)
 
     private fun pressesOn(recognizer: PressPatternRecognizer, vararg timestamps: Long): PressPatternRecognizer {
