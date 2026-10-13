@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="theme-color" content="#34173f">
+    <title>Connection needed · Kiki</title>
+    <style>
+      :root { color-scheme: light; font-family: "Plus Jakarta Sans", "Manrope", sans-serif; background: #f7f2f7; color: #392b40; }
+      * { box-sizing: border-box; }
+      body { display: grid; min-height: 100vh; min-height: 100dvh; place-items: center; margin: 0; padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom)); background: radial-gradient(ellipse at 80% 18%, #e9e0ef 0, transparent 42%), linear-gradient(155deg, #faf6f8, #f2ecff); }
+      main { width: min(100%, 420px); padding: 30px 24px; border: 1px solid #e2d8e8; border-radius: 22px; background: rgba(255,255,255,.86); text-align: center; box-shadow: 0 16px 40px rgba(57,43,64,.09); }
+      .mark { display: grid; width: 64px; height: 64px; place-items: center; margin: 0 auto 18px; border: 3px solid #fff; border-radius: 50%; background: linear-gradient(140deg, #d99a9c, #d7c5f5); color: #fff; font-size: 30px; }
+      h1 { margin: 0; font-size: 24px; }
+      p { margin: 12px 0 22px; color: #6f6075; line-height: 1.6; }
+      button { min-height: 48px; padding: 0 20px; border: 0; border-radius: 999px; background: linear-gradient(100deg, #b97482, #81658f 55%, #789781); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">✿</div>
+      <h1>Kiki needs a connection</h1>
+      <p>We couldn't reach Kiki just now. Check your Wi-Fi or mobile data, then try again. Your account and saved information are safe.</p>
+      <button type="button" onclick="window.location.replace('https://kiki-bp.vercel.app/login')">Try again</button>
+    </main>
+  </body>
+</html>

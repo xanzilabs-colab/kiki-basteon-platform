@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronRight, CircleHelp, Pause, Play, RotateCcw, Wind, X } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, CircleHelp, Flower2, Heart, Pause, Play, RotateCcw, ScanEye, Wind, X } from "lucide-react";
 import { CalmSession, CalmSettings, DEFAULT_CALM_SETTINGS, fetchCalmHistory, fetchCalmSettings, saveCalmSession } from "./CalmSettings";
 import { CalmShell, usePersistentMute, useReducedMotion } from "./CalmShell";
 import styles from "./calm.module.css";
@@ -98,25 +98,29 @@ export function CalmHub() {
   const [muted, setMuted] = usePersistentMute();
   return (
     <CalmShell title="A quiet place" onStop={() => window.location.assign("/account")} muted={muted} onMuteChange={setMuted}>
-      <section className={styles.hero}>
-        <p className={styles.eyebrow}>A little space for yourself</p>
+      <section className={styles.hubHero}>
+        <p className={styles.eyebrow}>Your Calm garden</p>
         <h1>Choose what feels right.</h1>
-        <p>Gentle, optional exercises for breathing, noticing, and checking in with yourself.</p>
+        <p>Gentle, optional ways to breathe, notice, and check in with yourself.</p>
+        <div className={styles.hubPond} aria-hidden="true"><span><Flower2 size={34} /></span></div>
       </section>
-      <div className={styles.toolGrid}>
-        <ToolCard href="/account/calm/winds" icon="◌" title="Gentle Winds" rule="Follow a soft breathing rhythm, with a quiet eyes-closed option." length="About 1–2 minutes" />
-        <ToolCard href="/account/calm/baseline" icon="⌕" title="Spot the Baseline" rule="Notice a calm everyday scene and what is in it." length="About 1–2 minutes" />
-        <ToolCard href="/account/calm/body" icon="♡" title="Body Check" rule="Map how different parts of your body feel, without judgement." length="Take your time" />
-      </div>
+      <nav className={styles.toolList} aria-label="Calm tools">
+        <ToolCard href="/account/calm/winds" icon="wind" title="Gentle Winds" rule="Follow a soft breathing rhythm, with a quiet eyes-closed option." length="1–2 min" />
+        <ToolCard href="/account/calm/baseline" icon="baseline" title="Spot the Baseline" rule="Notice a calm everyday scene and what is in it." length="1–2 min" />
+        <ToolCard href="/account/calm/body" icon="body" title="Body Check" rule="Map how different parts of your body feel, without judgement." length="Your pace" />
+      </nav>
       <p className={styles.disclaimerCard}>These are calming exercises, not medical advice. You can stop at any time.</p>
-      <Link className={styles.textLink} href="/account/calm/settings">Calm settings and privacy <ChevronRight size={16} /></Link>
-      <HelpSheet />
+      <div className={styles.hubActions}>
+        <HelpSheet />
+        <Link className={styles.textLink} href="/account/calm/settings">Settings &amp; privacy <ChevronRight size={16} /></Link>
+      </div>
     </CalmShell>
   );
 }
 
-function ToolCard({ href, icon, title, rule, length }: { href: string; icon: string; title: string; rule: string; length: string }) {
-  return <Link className={styles.toolCard} href={href}><span className={styles.toolIcon} aria-hidden="true">{icon}</span><b>{title}</b><span>{rule}</span><small>{length}</small><ArrowRight size={18} className={styles.cardArrow} /></Link>;
+function ToolCard({ href, icon, title, rule, length }: { href: string; icon: "wind" | "baseline" | "body"; title: string; rule: string; length: string }) {
+  const Icon = icon === "wind" ? Wind : icon === "baseline" ? ScanEye : Heart;
+  return <Link className={styles.toolCard} href={href}><span className={styles.toolIcon} aria-hidden="true"><Icon size={22} /></span><span className={styles.toolCopy}><b>{title}</b><span>{rule}</span><small>{length}</small></span><ArrowRight size={18} className={styles.cardArrow} /></Link>;
 }
 
 function HelpSheet({ tool }: { tool?: Tool } = {}) {

@@ -14,7 +14,7 @@ const config: CapacitorConfig = {
   appId: "za.co.xanzi.kiki",
   appName: "Kiki",
   webDir: "capacitor-shell",
-  server: { url: parsedUrl.origin },
+  server: { url: parsedUrl.origin, errorPath: "offline.html" },
 };
 
 export default config;

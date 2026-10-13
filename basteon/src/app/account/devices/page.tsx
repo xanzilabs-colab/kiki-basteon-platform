@@ -127,6 +127,18 @@ export default function DevicesPage() {
 
     {error && <p className="devices-error" role="alert">{error}</p>}
 
+    <section className="phone-devices-section">
+      <header className="phone-devices-heading">
+        <span className="phone-devices-icon"><Bluetooth size={20} /></span>
+        <div>
+          <p className="phone-devices-eyebrow">ANDROID ACCESSORIES</p>
+          <h2>Phone-connected devices</h2>
+          <p>Pair and manage accessories connected to this phone.</p>
+        </div>
+      </header>
+      <EverydayDevicesCard />
+    </section>
+
     {loading ? (
       <div className="devices-loading" role="status">Loading your devices…</div>
     ) : selectedDevice ? (
@@ -227,16 +239,5 @@ export default function DevicesPage() {
       </section>
     )}
 
-    <section className="phone-devices-section">
-      <header className="phone-devices-heading">
-        <span className="phone-devices-icon"><Bluetooth size={20} /></span>
-        <div>
-          <p className="phone-devices-eyebrow">ANDROID ACCESSORIES</p>
-          <h2>Phone-connected devices</h2>
-          <p>Pair and manage accessories connected to this phone.</p>
-        </div>
-      </header>
-      <EverydayDevicesCard />
-    </section>
   </div>;
 }

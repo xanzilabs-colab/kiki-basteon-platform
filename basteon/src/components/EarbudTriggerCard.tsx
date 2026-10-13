@@ -24,11 +24,13 @@ export default function EarbudTriggerCard() {
     try {
       const current = await KikiTrigger.status();
       setStatus(current);
+      setError("");
       if (!initialStatusRead.current) {
         setTest(current.test);
         initialStatusRead.current = true;
       }
-    } catch {
+    } catch (cause) {
+      console.error("android_trigger_status_read_failed", cause);
       setError("Could not read Android trigger status. Reopen the app and try again.");
     }
   }, [native]);
@@ -148,14 +150,40 @@ export default function EarbudTriggerCard() {
 
   if (!native) {
     return (
-      <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+      <section className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
         <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Bluetooth triggers</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">Open this page in the Kiki Android app to arm Bluetooth media-button triggers.</p>
+        <p className="text-sm text-[var(--muted)]">Open this page in the Kiki Android app to arm Bluetooth media-button triggers. A paired accessory can trigger Kiki only when this phone is armed.</p>
+        <div className="rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed">
+          <h3 className="font-semibold">Supported button patterns</h3>
+          <ul className="mt-2 space-y-1 text-[var(--muted)]">
+            <li><b className="text-[var(--text)]">SOS:</b> 5 or more quick presses.</li>
+            <li><b className="text-[var(--text)]">Medical:</b> 3 quick presses, pause, then 2.</li>
+            <li><b className="text-[var(--text)]">Discreet SOS:</b> 2 quick presses, pause, 2, pause, 2.</li>
+            <li><b className="text-[var(--text)]">Cancel:</b> exactly 4 quick presses during the countdown.</li>
+          </ul>
+        </div>
+        <Link className="btn" href="/account/devices">Manage phone-connected devices</Link>
       </section>
     );
   }
   if (!status) {
-    return <p className="rounded-xl border border-[var(--line)] p-4 text-sm" role="status">{error || "Checking this phone's trigger status…"}</p>;
+    return (
+      <section className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+        <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Bluetooth triggers</h2>
+        <p className="text-sm text-[var(--muted)]">Use compatible paired-device media buttons to start a test or alert. The status check is needed before arming to avoid duplicating or interrupting an existing trigger.</p>
+        {error ? <p className="text-sm text-[var(--crit)]" role="alert">{error}</p> : <p className="text-sm text-[var(--muted)]" role="status">Checking this phone&apos;s trigger status…</p>}
+        {error && <button className="btn" type="button" onClick={() => void refresh()}>Retry status check</button>}
+        <div className="rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed">
+          <h3 className="font-semibold">Button patterns</h3>
+          <ul className="mt-2 space-y-1 text-[var(--muted)]">
+            <li><b className="text-[var(--text)]">SOS:</b> 5 or more quick presses.</li>
+            <li><b className="text-[var(--text)]">Medical:</b> 3 quick presses, pause, then 2.</li>
+            <li><b className="text-[var(--text)]">Discreet SOS:</b> 2 quick presses, pause, 2, pause, 2.</li>
+            <li><b className="text-[var(--text)]">Cancel:</b> exactly 4 quick presses during the countdown.</li>
+          </ul>
+        </div>
+      </section>
+    );
   }
 
   return (
