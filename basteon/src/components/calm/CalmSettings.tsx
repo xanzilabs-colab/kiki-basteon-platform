@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Check, ChevronRight, LockKeyhole, X } from "lucide-react";
 import { CalmShell, usePersistentMute } from "./CalmShell";
 import styles from "./calm.module.css";
 
@@ -73,6 +74,7 @@ export function CalmSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -81,6 +83,15 @@ export function CalmSettingsPage() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) setConfirmDelete(false);
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [busy, confirmDelete]);
 
   async function save() {
     setBusy(true);
@@ -96,8 +107,13 @@ export function CalmSettingsPage() {
     }
   }
 
+  function changeSettings(update: (current: CalmSettings) => CalmSettings) {
+    setSettings(update);
+    setMessage("");
+    setError("");
+  }
+
   async function deleteData() {
-    if (!window.confirm("Delete your saved Calm sessions and settings? This cannot be undone.")) return;
     setBusy(true);
     setMessage("");
     setError("");
@@ -106,6 +122,7 @@ export function CalmSettingsPage() {
       if (!response.ok) throw new Error("Couldn't delete your Calm data.");
       setSettings(DEFAULT_CALM_SETTINGS);
       setMessage("Your saved Calm data has been deleted.");
+      setConfirmDelete(false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Couldn't delete your Calm data.");
     } finally {
@@ -116,26 +133,90 @@ export function CalmSettingsPage() {
   const stop = () => { window.location.assign("/account/calm"); };
   return (
     <CalmShell title="Settings" onStop={stop} muted={muted} onMuteChange={setMuted}>
-      <section className={styles.card}>
-        <p className={styles.eyebrow}>Your choices</p>
-        <h1>Calm settings</h1>
-        <p className={styles.lede}>History is private and off by default. You can change or delete these choices at any time.</p>
-        {loading ? <p role="status">Loading settings…</p> : <>
-          <label className={styles.settingRow}><span><b>Save session history</b><small>Stores only short summaries for gentle trends. No journal notes or trivia answers. Turning this off hides history but does not delete it; use Delete my calm data to remove it.</small></span><input type="checkbox" checked={settings.saveHistory} onChange={(event) => setSettings((value) => ({ ...value, saveHistory: event.target.checked }))} /></label>
-          <label className={styles.settingRow}><span><b>Haptics</b><small>Use gentle vibration cues where your device supports them.</small></span><input type="checkbox" checked={settings.haptics} onChange={(event) => setSettings((value) => ({ ...value, haptics: event.target.checked }))} /></label>
-          <label className={styles.settingRow}><span><b>Sound</b><small>Soft optional cues in Quiet mode. The header mute also silences them.</small></span><input type="checkbox" checked={settings.sound} onChange={(event) => setSettings((value) => ({ ...value, sound: event.target.checked }))} /></label>
-          <label className={styles.settingRow}><span><b>Breathing pace</b><small>Gentle stretches each phase. Standard uses the suggested pace.</small></span><select value={settings.breathPace} onChange={(event) => setSettings((value) => ({ ...value, breathPace: event.target.value as CalmSettings["breathPace"] }))}><option value="gentle">Gentle</option><option value="standard">Standard</option></select></label>
-          <label className={styles.settingRow}><span><b>Breathing holds</b><small>Optional pauses in Box breathing. Off by default.</small></span><input type="checkbox" checked={settings.breathHolds} onChange={(event) => setSettings((value) => ({ ...value, breathHolds: event.target.checked }))} /></label>
-          <label className={styles.settingRow}><span><b>Spot the Baseline level</b><small>Choose a comfortable level. It never decreases automatically.</small></span><select value={settings.baselineLevel} onChange={(event) => setSettings((value) => ({ ...value, baselineLevel: Number(event.target.value) as CalmSettings["baselineLevel"] }))}><option value={1}>1 · Easy</option><option value={2}>2 · Steady</option><option value={3}>3 · Detailed</option></select></label>
+      <div className={styles.settingsPage}>
+        <p className={styles.settingsIntro}>History is private and off by default. You can change or delete these choices any time.</p>
+
+        {loading ? (
+          <div role="status" aria-label="Loading Calm settings" className={styles.settingsLoading}>
+            {["Privacy", "Feedback", "Breathing", "Spot the Baseline"].map((group) => <section key={group}>
+              <h2>{group}</h2>
+              <div className={styles.settingsList}>
+                <div className={styles.settingsSkeleton}><i /><span><b /><small /></span></div>
+                <div className={styles.settingsSkeleton}><i /><span><b /><small /></span></div>
+              </div>
+            </section>)}
+          </div>
+        ) : <>
+          <SettingsGroup title="Privacy">
+            <SettingSwitch title="Save session history" description="Short summaries only, for gentle trends. No journal notes or answers. Turning off hides history; it doesn’t delete it." checked={settings.saveHistory} disabled={busy} onChange={(checked) => changeSettings((value) => ({ ...value, saveHistory: checked }))} />
+          </SettingsGroup>
+
+          <SettingsGroup title="Feedback">
+            <SettingSwitch title="Haptics" description="Gentle vibration cues where supported." checked={settings.haptics} disabled={busy} onChange={(checked) => changeSettings((value) => ({ ...value, haptics: checked }))} />
+            <SettingSwitch title="Sound" description="Soft cues in Quiet mode. Header mute silences them." checked={settings.sound} disabled={busy} onChange={(checked) => changeSettings((value) => ({ ...value, sound: checked }))} />
+          </SettingsGroup>
+
+          <SettingsGroup title="Breathing">
+            <SettingChoice title="Pace" description="Choose the rhythm that feels comfortable." value={settings.breathPace} options={[["gentle", "Gentle"], ["standard", "Standard"]]} disabled={busy} onChange={(value) => changeSettings((current) => ({ ...current, breathPace: value }))} />
+            <SettingSwitch title="Holds" description="Optional pauses in Box breathing." checked={settings.breathHolds} disabled={busy} onChange={(checked) => changeSettings((value) => ({ ...value, breathHolds: checked }))} />
+          </SettingsGroup>
+
+          <SettingsGroup title="Spot the Baseline">
+            <SettingChoice title="Level" description="Never decreases automatically." value={settings.baselineLevel} options={[[1, "Easy"], [2, "Steady"], [3, "Detailed"]]} disabled={busy} onChange={(value) => changeSettings((current) => ({ ...current, baselineLevel: value }))} />
+          </SettingsGroup>
+
+          <SettingsGroup title="Your data">
+            <button className={styles.deleteRow} type="button" disabled={busy} onClick={() => setConfirmDelete(true)}>
+              <span>Delete my Calm data</span><ChevronRight size={18} />
+            </button>
+          </SettingsGroup>
         </>}
-        <div className={styles.buttonRow}>
-          <button className={styles.primaryButton} disabled={busy || loading} onClick={() => void save()}>{busy ? "Saving…" : "Save settings"}</button>
-          <button className={styles.dangerButton} disabled={busy} onClick={() => void deleteData()}>Delete my calm data</button>
-        </div>
+
         {message && <p className={styles.success} role="status">{message}</p>}
         {error && <p className={styles.error} role="alert">{error}</p>}
-        <Link className={styles.textLink} href="/account/calm">Back to Calm</Link>
-      </section>
+        <Link className={styles.textLink} href="/account/calm">Back to Calm <ChevronRight size={16} /></Link>
+
+        <div className={styles.settingsSaveBar}>
+          <button className={styles.settingsSaveButton} disabled={busy || loading} onClick={() => void save()}>
+            {busy ? "Saving…" : message === "Your Calm settings are saved." ? <><Check size={18} />Settings saved</> : "Save settings"}
+          </button>
+        </div>
+      </div>
+
+      {confirmDelete && <div className={styles.scrim} role="presentation" onClick={() => { if (!busy) setConfirmDelete(false); }}>
+        <section className={styles.settingsDeleteSheet} role="alertdialog" aria-modal="true" aria-labelledby="delete-calm-title" aria-describedby="delete-calm-description" onClick={(event) => event.stopPropagation()}>
+          <button className={styles.closeButton} type="button" disabled={busy} onClick={() => setConfirmDelete(false)} aria-label="Close delete confirmation"><X size={19} /></button>
+          <span className={styles.deleteSheetIcon}><LockKeyhole size={22} /></span>
+          <h2 id="delete-calm-title">Delete your Calm data?</h2>
+          <p id="delete-calm-description">This permanently removes saved session history and Calm settings. Journal notes aren’t affected. This can’t be undone.</p>
+          {error && <p className={styles.error} role="alert">{error}</p>}
+          <button className={styles.deleteConfirmButton} type="button" disabled={busy} onClick={() => void deleteData()}>{busy ? "Deleting…" : "Delete my Calm data"}</button>
+          <button className={styles.keepDataButton} type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Keep my data</button>
+        </section>
+      </div>}
     </CalmShell>
   );
+}
+
+function SettingsGroup({ title, children }: { title: string; children: ReactNode }) {
+  return <section className={styles.settingsGroup} aria-label={title}>
+    <h2>{title}</h2>
+    <div className={styles.settingsList}>{children}</div>
+  </section>;
+}
+
+function SettingSwitch({ title, description, checked, disabled, onChange }: { title: string; description: string; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }) {
+  return <div className={styles.settingsRow}>
+    <span className={styles.settingsCopy}><b>{title}</b><small>{description}</small></span>
+    <button className={`${styles.settingsSwitch}${checked ? ` ${styles.switchOn}` : ""}`} type="button" role="switch" aria-checked={checked} aria-label={title} disabled={disabled} onClick={() => onChange(!checked)}><i /></button>
+  </div>;
+}
+
+function SettingChoice<T extends string | number>({ title, description, value, options, disabled, onChange }: { title: string; description: string; value: T; options: [T, string][]; disabled: boolean; onChange: (value: T) => void }) {
+  return <div className={styles.settingsRow}>
+    <span className={styles.settingsCopy}><b>{title}</b><small>{description}</small></span>
+    <div className={styles.settingsSegment} role="group" aria-label={title}>
+      {options.map(([option, label]) => <button key={option} type="button" disabled={disabled} aria-pressed={value === option} className={value === option ? styles.segmentActive : ""} onClick={() => onChange(option)}>{label}</button>)}
+    </div>
+  </div>;
 }

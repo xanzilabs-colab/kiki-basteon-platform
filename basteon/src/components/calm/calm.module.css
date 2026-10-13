@@ -285,6 +285,215 @@
   color: #44314f;
 }
 
+.settingsPage {
+  width: min(100%, 560px);
+  margin: 0 auto;
+  padding: 0 16px 110px;
+}
+
+.settingsIntro {
+  margin: 3px 4px 23px;
+  color: #6e5a7c;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.settingsGroup { margin: 0 0 21px; }
+.settingsGroup > h2,
+.settingsLoading section > h2 {
+  margin: 0 4px 9px;
+  color: #705c7c;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .055em;
+}
+
+.settingsList {
+  overflow: hidden;
+  border: 1px solid #eee7f1;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(62, 38, 75, .035);
+}
+
+.settingsRow {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 15px;
+}
+
+.settingsRow + .settingsRow,
+.deleteRow { border-top: 1px solid #f0ebf3; }
+
+.settingsCopy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+
+.settingsCopy b { color: #34233f; font-size: 13px; font-weight: 800; }
+.settingsCopy small { color: #786b80; font-size: 11px; line-height: 1.45; }
+
+.settingsSwitch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex: none;
+  padding: 3px;
+  border: 0;
+  border-radius: 99px;
+  background: #d9d1df;
+  transition: background-color 160ms ease;
+}
+
+.settingsSwitch i {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(36, 22, 45, .2);
+  transition: transform 160ms ease;
+}
+
+.settingsSwitch.switchOn { background: #59986d; }
+.settingsSwitch.switchOn i { transform: translateX(18px); }
+.settingsSwitch:focus-visible,
+.settingsSegment button:focus-visible,
+.settingsSaveButton:focus-visible,
+.deleteRow:focus-visible { outline: 3px solid #b99acb; outline-offset: 2px; }
+
+.settingsSegment {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #eee8f1;
+  border-radius: 11px;
+  background: #f7f4f8;
+}
+
+.settingsSegment button {
+  min-height: 31px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #75687d;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.settingsSegment .segmentActive {
+  background: #fff;
+  color: #3e2a4c;
+  box-shadow: 0 1px 4px rgba(49, 34, 58, .12);
+}
+
+.deleteRow {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  background: #fff;
+  color: #a24455;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.deleteRow:disabled { opacity: .6; }
+
+.settingsPage > .textLink { align-items: center; gap: 2px; margin: 18px 4px 0; font-size: 12px; }
+.settingsPage > .success,
+.settingsPage > .error { margin: 16px 0 0; }
+
+.settingsSaveBar {
+  position: fixed;
+  z-index: 20;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  padding: 12px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  border-top: 1px solid rgba(226, 216, 233, .8);
+  background: rgba(250, 247, 252, .94);
+  backdrop-filter: blur(12px);
+}
+
+.settingsSaveButton {
+  display: flex;
+  width: min(100%, 560px);
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: #3f8058;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 5px 14px rgba(48, 110, 69, .2);
+}
+
+.settingsSaveButton:disabled { opacity: .58; }
+
+.settingsLoading section { margin: 0 0 21px; }
+.settingsSkeleton {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 15px;
+}
+
+.settingsSkeleton + .settingsSkeleton { border-top: 1px solid #f0ebf3; }
+.settingsSkeleton > i { width: 44px; height: 26px; flex: none; border-radius: 99px; background: #eee9f1; }
+.settingsSkeleton > span { display: grid; flex: 1; gap: 8px; }
+.settingsSkeleton b,
+.settingsSkeleton small { height: 9px; border-radius: 9px; background: #f0ebf3; }
+.settingsSkeleton b { width: 43%; }
+.settingsSkeleton small { width: 78%; }
+
+.settingsDeleteSheet {
+  position: relative;
+  width: min(100%, 440px);
+  padding: 27px 22px 19px;
+  border-radius: 25px 25px 18px 18px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(17, 8, 25, .28);
+  animation: sheet-up 220ms ease-out;
+}
+
+.settingsDeleteSheet h2 { margin: 14px 0 8px; color: #34233f; font-size: 20px; letter-spacing: -.025em; }
+.settingsDeleteSheet > p:not(.error) { margin: 0 0 19px; color: #74657e; font-size: 13px; line-height: 1.55; }
+.deleteSheetIcon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 15px; background: #f8e9ec; color: #a24455; }
+.deleteConfirmButton,
+.keepDataButton {
+  width: 100%;
+  min-height: 47px;
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.deleteConfirmButton { border: 0; background: #a83f51; color: #fff; }
+.keepDataButton { margin-top: 8px; border: 1px solid #e7ddea; background: #fff; color: #594666; }
+.deleteConfirmButton:disabled,
+.keepDataButton:disabled { opacity: .58; }
+
 .formLabel { display: grid; gap: 7px; max-width: 420px; margin: 15px 0 5px; color: #51405c; font-weight: 750; }
 .choiceRow, .mapToggle { flex-wrap: wrap; gap: 9px; margin: 15px 0; }
 .choiceRow button, .mapToggle button { border: 1px solid #ded2e6; background: #fff; color: #675274; }
@@ -378,6 +587,9 @@
   .settingRow { gap: 12px; padding: 13px 11px; }
   .settingRow small { font-size: 11px; }
   .card { border-radius: 16px; }
+  .settingsPage { padding-inline: 14px; }
+  .settingsRow { gap: 9px; padding: 13px 12px; }
+  .settingsSegment button { padding-inline: 7px; font-size: 9px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .windStage:before, .windStage:after, .sheet, .exampleCircle, .hubPond::before, .hubPond::after { animation: none; }
