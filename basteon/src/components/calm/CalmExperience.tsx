@@ -84,7 +84,7 @@ export function CalmExperience({ tool }: Props) {
   const heading = tool === "winds" ? "Gentle Winds" : tool === "baseline" ? "Spot the Baseline" : "Body Check";
 
   return (
-    <CalmShell title={heading} running onStop={stopCurrentTool} muted={muted} onMuteChange={setMuted}>
+    <CalmShell title={heading} layout={tool === "winds" ? "winds" : undefined} running onStop={stopCurrentTool} muted={muted} onMuteChange={setMuted}>
       {loading ? <p className={styles.loading} role="status">Preparing your calm space…</p> : error ? <div className={styles.error} role="alert">{error}</div> : <>
         {tool === "winds" && <Winds settings={settings} setSettings={setSettings} muted={muted} reducedMotion={reducedMotion} trivia={trivia} triviaNotice={triviaNotice} save={save} savedMessage={savedMessage} registerStop={registerStop} />}
         {tool === "baseline" && <Baseline settings={settings} setSettings={setSettings} history={history} save={save} savedMessage={savedMessage} registerStop={registerStop} />}

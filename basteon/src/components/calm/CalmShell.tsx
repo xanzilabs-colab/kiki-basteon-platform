@@ -19,6 +19,7 @@ export function useReducedMotion() {
 
 export function CalmShell({
   title,
+  layout,
   running = false,
   onStop,
   muted,
@@ -26,6 +27,7 @@ export function CalmShell({
   children,
 }: {
   title: string;
+  layout?: "winds";
   running?: boolean;
   onStop: () => void;
   muted: boolean;
@@ -33,7 +35,7 @@ export function CalmShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page}${layout === "winds" ? ` ${styles.windsPage}` : ""}`} data-calm-tool={layout}>
       <div className={styles.shell}>
         <header className={styles.header}>
           <Link className={styles.brand} href={title === "Calm" ? "/account" : "/account/calm"} onClick={(event) => { if (running) { event.preventDefault(); onStop(); } }} aria-label={title === "Calm" ? "Back to account" : "Back to Calm"}><ArrowLeft size={20} /></Link>

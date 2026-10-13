@@ -30,6 +30,8 @@
   --elev-float: 0 4px 20px rgba(50, 24, 63, 0.06);
 }
 
+.account-shell main:has([data-calm-tool="winds"]) { padding: 10px !important; }
+
 .account-shell { background: var(--bg); font-family: var(--font-ui); }
 .account-shell .muted,
 .account-shell .text-\[var\(--muted-2\)\],

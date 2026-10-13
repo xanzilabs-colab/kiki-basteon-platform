@@ -32,6 +32,11 @@
   padding: 0 14px 8px;
 }
 
+.windsPage .header {
+  padding-right: 8px;
+  padding-left: 8px;
+}
+
 .brand,
 .headerActions,
 .headerTitle,
@@ -584,6 +589,20 @@
   .headerActions { gap: 6px; }
   .iconButton { width: 42px; height: 42px; }
   .stopButton { min-height: 36px; padding-inline: 8px; font-size: 10px; }
+  .windsPage .header {
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-areas: "brand actions" "title title";
+    gap: 4px 8px;
+  }
+  .windsPage .brand { grid-area: brand; }
+  .windsPage .headerTitle {
+    grid-area: title;
+    min-height: 26px;
+    justify-content: center;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .windsPage .headerActions { grid-area: actions; }
   .settingRow { gap: 12px; padding: 13px 11px; }
   .settingRow small { font-size: 11px; }
   .card { border-radius: 16px; }
@@ -602,7 +621,7 @@
   min-height: 55vh;
   flex: 1;
   flex-direction: column;
-  padding: 6px 16px 16px;
+  padding: 6px 8px 16px;
   color: #2a1536;
 }
 
@@ -716,7 +735,7 @@
   justify-content: center;
   gap: 18px;
   overflow: hidden;
-  padding: 10px 22px 18px;
+  padding: 10px 10px 18px;
   border: 0;
   border-radius: 0;
   background: radial-gradient(ellipse at 50% 45%, #eee4f5 0, #f6f1fc 66%);
@@ -759,7 +778,7 @@
 .welcomeBack { display: grid; width: min(100%, 360px); gap: 12px; margin: auto; text-align: center; }
 .welcomeBack h1 { margin: 4px 0; color: #2a1536; font-size: 28px; }
 .welcomeBack p:not(.eyebrow) { color: #6e5a7c; line-height: 1.5; }
-.windDone { display: flex; min-height: 55vh; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 16px; text-align: center; }
+.windDone { display: flex; min-height: 55vh; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 16px 8px; text-align: center; }
 .doneMark { display: grid; width: 110px; height: 110px; place-items: center; margin: 0 auto 18px; border-radius: 50%; background: #e9dcf0; color: #522868; }
 .windDone h1 { margin: 0 0 8px; color: #2a1536; font-size: 28px; font-weight: 800; letter-spacing: -.03em; }
 .windDone > p:not(.success) { max-width: 330px; margin: 0 auto 8px; color: #6e5a7c; font-size: 15px; line-height: 1.5; }
@@ -780,7 +799,7 @@
 .page:has(.quietStage) .header { background: #1d1026; }
 
 @media (max-width: 430px) {
-  .windSetup { padding-inline: 16px; }
+  .windSetup { padding-inline: 8px; }
   .breathOrbit { width: min(76vw, 290px); }
 }
 
