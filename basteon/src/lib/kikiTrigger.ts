@@ -13,6 +13,7 @@ export type EverydayDeviceStatus =
 export interface KikiStatus {
   armed: boolean;
   practice: boolean;
+  practiceExpiresAt?: number;
   wantArmed: boolean;
   hasToken: boolean;
   tokenId: string | null;

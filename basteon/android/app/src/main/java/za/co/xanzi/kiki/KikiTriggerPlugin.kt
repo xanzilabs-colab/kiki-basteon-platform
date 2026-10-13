@@ -137,6 +137,7 @@ class KikiTriggerPlugin : Plugin() {
             JSObject()
                 .put("armed", KikiTriggerService.running && !KikiTriggerService.practice)
                 .put("practice", KikiTriggerService.practice)
+                .put("practiceExpiresAt", prefs.getLong("practiceExpiresAt", 0L))
                 .put("wantArmed", prefs.getBoolean("wantArmed", false))
                 .put("hasToken", !prefs.getString("token", null).isNullOrEmpty())
                 .put("tokenId", prefs.getString("tokenId", null))
@@ -177,7 +178,20 @@ class KikiTriggerPlugin : Plugin() {
             call.reject("Each action needs a different click count.")
             return
         }
-        val edit = prefs.edit().putBoolean("universalTriggerEnabled", call.getBoolean("enabled", false) ?: false)
+        val enabled = call.getBoolean("enabled", false) ?: false
+        if (enabled && assigned.isEmpty()) {
+            call.reject("Capture at least one action before enabling custom click counts.")
+            return
+        }
+        val changesMappings = actions.any { action ->
+            val current = prefs.getInt("universalTrigger_${action}Clicks", 0).takeIf { it in 1..20 }
+            current != counts[action]
+        }
+        if ((enabled || changesMappings) && !KikiTriggerService.practice) {
+            call.reject("Start Practice mode before enabling or changing custom click mappings.")
+            return
+        }
+        val edit = prefs.edit().putBoolean("universalTriggerEnabled", enabled)
         counts.forEach { (action, clicks) ->
             edit.putInt("universalTrigger_${action}Clicks", clicks ?: 0)
         }
@@ -357,7 +371,7 @@ class KikiTriggerPlugin : Plugin() {
     }
 
     companion object {
-        private const val PRACTICE_WINDOW_MS = 120_000L
+        private const val PRACTICE_WINDOW_MS = 10 * 60 * 1000L
         private val TOKEN_PATTERN = Regex("^ktk_[0-9a-f]{64}$")
         private val ADDRESS_PATTERN = Regex("^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
         private val DEVICE_KINDS = setOf(

@@ -47,7 +47,7 @@ class KikiTriggerService : Service() {
         const val COUNTDOWN_NOTIFICATION_ID = 402
         private const val COUNTDOWN_CHANNEL = "kiki_trigger_countdown"
         const val ACTION_CANCEL_PENDING = "za.co.xanzi.kiki.CANCEL_PENDING_TRIGGER"
-        private const val PRACTICE_WINDOW_MS = 120_000L
+        private const val PRACTICE_WINDOW_MS = 10 * 60 * 1000L
         private const val TAG = "KikiTrigger"
         private const val MAX_PENDING_DIAGNOSTICS = 20
         private val diagnosticLock = Any()

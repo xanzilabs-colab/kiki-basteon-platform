@@ -22,6 +22,8 @@ const EMPTY_CONFIG: UniversalTriggerConfig = {
   cancel: null,
 };
 
+const PRACTICE_WINDOW_MS = 10 * 60 * 1000;
+
 function clickWord(count: number) {
   return `${count} ${count === 1 ? "click" : "clicks"}`;
 }
@@ -52,6 +54,9 @@ export default function TriggerLab() {
   const [universal, setUniversal] = useState<UniversalTriggerConfig>(EMPTY_CONFIG);
   const [universalBusy, setUniversalBusy] = useState(false);
   const [tapCount, setTapCount] = useState(0);
+  const [lastSequence, setLastSequence] = useState<{ clicks: number; sequence: string; origin: string } | null>(null);
+  const [practiceExpiresAt, setPracticeExpiresAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const [captureTarget, setCaptureTarget] = useState<UniversalAction | null>(null);
   const [captureCandidate, setCaptureCandidate] = useState<{ action: UniversalAction; clicks: number } | null>(null);
   const [captureMessage, setCaptureMessage] = useState("");
@@ -72,6 +77,7 @@ export default function TriggerLab() {
         setArmed(status.armed);
         setPractice(status.practice);
         practiceActive.current = status.practice;
+        setPracticeExpiresAt(status.practiceExpiresAt ?? 0);
         setLogs(result.lines);
         setUniversal(config);
       }
@@ -91,8 +97,15 @@ export default function TriggerLab() {
 
       setTapCount(0);
       const clicks = event.presses ?? sequenceClickCount(event.sequence);
+      if (event.sequence) {
+        setLastSequence({
+          clicks,
+          sequence: event.sequence,
+          origin: event.origin ?? "unknown",
+        });
+      }
       setEvents((current) => [
-        `${event.sequence ?? "unknown"} · ${clickWord(clicks)} · ${actionName(event.pattern)}`,
+        `${event.sequence ?? "unknown"} · ${clickWord(clicks)} · ${actionName(event.pattern)} · ${event.origin === "media_button" ? "key event" : event.origin === "media_session" ? "media session" : "source unknown"}`,
         ...current,
       ].slice(0, 15));
 
@@ -107,7 +120,7 @@ export default function TriggerLab() {
       }
       if (clicks < 1 || clicks > 20) {
         setCaptureCandidate(null);
-        setCaptureMessage("That count is outside the supported range. Capture 1–20 clicks in one burst.");
+        setCaptureMessage("That count is outside the supported range. Capture a sequence containing 1–20 clicks.");
         return;
       }
       setCaptureCandidate({ action: target, clicks });
@@ -126,6 +139,23 @@ export default function TriggerLab() {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (!practice) return;
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+      void KikiTrigger.status().then((status) => {
+        if (!mounted.current) return;
+        setArmed(status.armed);
+        setPractice(status.practice);
+        practiceActive.current = status.practice;
+        setPracticeExpiresAt(status.practiceExpiresAt ?? 0);
+      }).catch((cause: unknown) => {
+        if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not refresh Practice status.");
+      });
+    }, 5_000);
+    return () => window.clearInterval(timer);
+  }, [practice]);
+
   async function setPracticeMode(on: boolean) {
     setBusy(true);
     setError("");
@@ -141,11 +171,14 @@ export default function TriggerLab() {
       }
       if (practiceTimeout.current !== null) window.clearTimeout(practiceTimeout.current);
       if (on) {
-        setEvents((current) => ["Practice mode started; real alerts are disabled for 2 minutes.", ...current].slice(0, 15));
+        const expiresAt = Date.now() + PRACTICE_WINDOW_MS;
+        setPracticeExpiresAt(expiresAt);
+        setEvents((current) => ["Practice mode started; real alerts are disabled for 10 minutes.", ...current].slice(0, 15));
         practiceTimeout.current = window.setTimeout(() => {
           practiceTimeout.current = null;
           if (mounted.current) {
             setPractice(false);
+            setPracticeExpiresAt(0);
             captureTargetRef.current = null;
             setCaptureTarget(null);
             setCaptureCandidate(null);
@@ -154,8 +187,11 @@ export default function TriggerLab() {
           }
           practiceActive.current = false;
           void refresh();
-        }, 120_000);
+        }, PRACTICE_WINDOW_MS);
+      } else {
+        setPracticeExpiresAt(0);
       }
+
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not update practice mode.");
@@ -232,11 +268,11 @@ export default function TriggerLab() {
         <h2 className="flex items-center gap-2 font-semibold"><Activity size={18} />Practice mode</h2>
         <p className="mt-2 text-sm text-[var(--muted)]">Practice recognises media-button patterns locally only. It never calls the trigger gateway and cannot create or send an alert.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button className="btn btn-primary" type="button" disabled={busy || practice} onClick={() => void setPracticeMode(true)}>Start practice</button>
+          <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void setPracticeMode(true)}>{practice ? "Extend practice by 10 min" : "Start practice · 10 min"}</button>
           <button className="btn" type="button" disabled={busy || !practice} onClick={() => void setPracticeMode(false)}><CircleStop size={16} />Stop practice</button>
           <button className="btn" type="button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />Refresh status</button>
         </div>
-        <p className="mt-2 text-sm" role="status">{practice ? "Practice mode is active. Real alerts are disabled." : armed ? "Alerts are armed. Start practice to safely verify an input." : "The trigger is not armed. Practice mode can still test media controls."}</p>
+        <p className="mt-2 text-sm" role="status">{practice ? `Practice mode is active · ${Math.max(0, Math.ceil((practiceExpiresAt - now) / 60_000))} min left. Real alerts are disabled.` : armed ? "Alerts are armed. Start practice to safely verify an input." : "The trigger is not armed. Practice mode can still test media controls."}</p>
       </section>
 
       <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
@@ -246,15 +282,20 @@ export default function TriggerLab() {
             <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">See how many media-button clicks your earbuds actually send, then assign a different click count to each action. The settings are saved securely on this phone.</p>
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" checked={universal.enabled} disabled={universalBusy || (!universal.enabled && (!practice || !ACTIONS.some(({ id }) => universal[id] !== null)))} onChange={(event) => void setUniversalMode(event.target.checked)} />
+            <input type="checkbox" checked={universal.enabled} disabled={universalBusy} onChange={(event) => void setUniversalMode(event.target.checked)} />
             Use my click counts
           </label>
         </div>
+        {!universal.enabled && <p className="mt-2 text-xs text-[var(--muted)]">To turn this on: start Practice, Capture and Set at least one action, then check this box.</p>}
 
         <div className="mt-4 rounded-xl bg-[var(--surface-2)] p-4 text-center" role="status" aria-live="polite">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Clicks detected in current sequence</p>
-          <p className="mt-1 text-3xl font-extrabold tabular-nums">{tapCount}</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">{tapCount ? `${clickWord(tapCount)} so far · count resets about one second after the last press` : "Waiting for an earbud media-button press"}</p>
+          <p className="mt-1 text-3xl font-extrabold tabular-nums">{tapCount || lastSequence?.clicks || 0}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{tapCount
+            ? `${clickWord(tapCount)} so far · count resets about one second after the last press`
+            : lastSequence
+              ? `Last: ${clickWord(lastSequence.clicks)} (${lastSequence.sequence}) · ${lastSequence.origin === "media_button" ? "key event" : lastSequence.origin === "media_session" ? "media session" : "source unknown"}`
+              : "Waiting for an earbud media-button press"}</p>
         </div>
 
         <div className="mt-4 space-y-2">
