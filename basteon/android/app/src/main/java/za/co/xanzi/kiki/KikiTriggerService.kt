@@ -282,8 +282,17 @@ class KikiTriggerService : Service() {
             } else {
                 intent.getParcelableExtra(EXTRA_KEY_EVENT)
             }
-            if (event != null && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && isTriggerKey(event.keyCode)) {
-                onPress("media_button", event.keyCode)
+            if (event != null) {
+                val keyCode = KeyEvent.keyCodeToString(event.keyCode)
+                val action = when (event.action) {
+                    KeyEvent.ACTION_DOWN -> "DOWN"
+                    KeyEvent.ACTION_UP -> "UP"
+                    else -> event.action.toString()
+                }
+                log("media button $action $keyCode repeat=${event.repeatCount}")
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && isTriggerKey(event.keyCode)) {
+                    onPress("media_button", event.keyCode)
+                }
             }
             return true
         }
@@ -361,6 +370,7 @@ class KikiTriggerService : Service() {
                     .put("type", "press")
                     .put("n", eventCount)
                     .put("origin", origin)
+                    .put("keyCode", KeyEvent.keyCodeToString(keyCode))
             )
             main.removeCallbacks(settle)
             main.postDelayed(settle, SETTLE_MS)
@@ -379,6 +389,7 @@ class KikiTriggerService : Service() {
         val result = recognizer.finish() ?: return
         val sequence = result.sequence
         val keys = JSONArray(sequenceKeys)
+        val keyCodes = JSONArray(sequenceKeys.map { KeyEvent.keyCodeToString(it) })
         val origin = lastOrigin
         sequenceKeys.clear()
 
@@ -400,8 +411,9 @@ class KikiTriggerService : Service() {
                 .put("presses", result.presses)
                 .put("pattern", pattern ?: JSONObject.NULL)
                 .put("origin", origin)
+                .put("keyCodes", keyCodes)
         )
-        log("button sequence recognized (${pattern ?: "practice"})")
+        log("button sequence recognized (${pattern ?: "no match"}; $sequence; ${result.presses} presses; ${keyCodes.join(",")}; $origin)")
         if (practice) return
         recordDiagnostic(
             this,

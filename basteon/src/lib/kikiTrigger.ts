@@ -50,7 +50,9 @@ export interface TriggerEvent {
   n?: number;
   presses?: number;
   origin?: string;
+  keyCode?: string;
   sequence?: string;
+  keyCodes?: string[];
   pattern?: "sos" | "medical" | "duress" | "cancel" | null;
 }
 

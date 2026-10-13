@@ -54,9 +54,11 @@ export default function TriggerLab() {
   const [universal, setUniversal] = useState<UniversalTriggerConfig>(EMPTY_CONFIG);
   const [universalBusy, setUniversalBusy] = useState(false);
   const [tapCount, setTapCount] = useState(0);
-  const [lastSequence, setLastSequence] = useState<{ clicks: number; sequence: string; origin: string } | null>(null);
+  const [currentKeyCode, setCurrentKeyCode] = useState("");
+  const [lastSequence, setLastSequence] = useState<{ clicks: number; sequence: string; origin: string; keyCodes: string[] } | null>(null);
   const [practiceExpiresAt, setPracticeExpiresAt] = useState(0);
   const [now, setNow] = useState(Date.now());
+  const [modeMessage, setModeMessage] = useState("");
   const [captureTarget, setCaptureTarget] = useState<UniversalAction | null>(null);
   const [captureCandidate, setCaptureCandidate] = useState<{ action: UniversalAction; clicks: number } | null>(null);
   const [captureMessage, setCaptureMessage] = useState("");
@@ -92,20 +94,23 @@ export default function TriggerLab() {
     const subscription = KikiTrigger.addListener("event", (event: TriggerEvent) => {
       if (event.type === "press") {
         setTapCount(event.n ?? 0);
+        setCurrentKeyCode(event.keyCode ?? "key unknown");
         return;
       }
 
       setTapCount(0);
       const clicks = event.presses ?? sequenceClickCount(event.sequence);
+      setCurrentKeyCode(event.keyCodes?.at(-1) ?? "key unknown");
       if (event.sequence) {
         setLastSequence({
           clicks,
           sequence: event.sequence,
           origin: event.origin ?? "unknown",
+          keyCodes: event.keyCodes ?? [],
         });
       }
       setEvents((current) => [
-        `${event.sequence ?? "unknown"} · ${clickWord(clicks)} · ${actionName(event.pattern)} · ${event.origin === "media_button" ? "key event" : event.origin === "media_session" ? "media session" : "source unknown"}`,
+        `${event.sequence ?? "unknown"} · ${clickWord(clicks)} · ${actionName(event.pattern)} · ${event.origin === "media_button" ? "key event" : event.origin === "media_session" ? "media session" : "source unknown"} · ${event.keyCodes?.join(", ") || "key unknown"}`,
         ...current,
       ].slice(0, 15));
 
@@ -143,14 +148,15 @@ export default function TriggerLab() {
     if (!practice) return;
     const timer = window.setInterval(() => {
       setNow(Date.now());
-      void KikiTrigger.status().then((status) => {
+      void Promise.all([KikiTrigger.status(), KikiTrigger.getLog()]).then(([status, result]) => {
         if (!mounted.current) return;
         setArmed(status.armed);
         setPractice(status.practice);
         practiceActive.current = status.practice;
         setPracticeExpiresAt(status.practiceExpiresAt ?? 0);
+        setLogs(result.lines);
       }).catch((cause: unknown) => {
-        if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not refresh Practice status.");
+        if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not refresh Practice status or input log.");
       });
     }, 5_000);
     return () => window.clearInterval(timer);
@@ -213,7 +219,7 @@ export default function TriggerLab() {
     }
     captureTargetRef.current = action;
     setCaptureTarget(action);
-    setCaptureMessage(`Tap your earbud control the desired number of times for ${actionName(action)}, then pause for about one second. Short pauses between clicks are okay.`);
+    setCaptureMessage(`Tap your earbud control the number of times for ${actionName(action)}, releasing between taps. Keep the taps in one quick sequence, then pause for about one second. The live count shows each key event Kiki receives.`);
   }
 
   async function saveConfig(next: UniversalTriggerConfig, message: string) {
@@ -224,8 +230,13 @@ export default function TriggerLab() {
       setUniversal(next);
       setCaptureCandidate(null);
       setCaptureMessage(message);
+      setModeMessage(next.enabled
+        ? "Universal click mode is on and saved on this phone."
+        : "Universal click mode is off. Standard patterns are active.");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save this phone’s custom click settings.");
+      const message = cause instanceof Error ? cause.message : "Could not save this phone’s custom click settings.";
+      setError(message);
+      setModeMessage(message);
     } finally {
       setUniversalBusy(false);
     }
@@ -233,13 +244,14 @@ export default function TriggerLab() {
 
   async function setUniversalMode(enabled: boolean) {
     if (enabled && !practice) {
-      setCaptureMessage("Start practice mode before changing custom trigger settings.");
+      setModeMessage("Not changed: start Practice mode first. It blocks real alerts while you configure click counts.");
       return;
     }
     if (enabled && !ACTIONS.some(({ id }) => universal[id] !== null)) {
-      setCaptureMessage("Capture and Set at least one action before turning on universal mode.");
+      setModeMessage("Not changed: Capture and Set at least one action first.");
       return;
     }
+    setModeMessage(enabled ? "Turning on universal click mode…" : "Switching back to standard patterns…");
     await saveConfig({ ...universal, enabled }, enabled
       ? "Universal click mode is saved on this phone."
       : "Standard fixed patterns are active again.");
@@ -281,20 +293,21 @@ export default function TriggerLab() {
             <h2 className="flex items-center gap-2 font-semibold"><Bluetooth size={18} />Universal click setup</h2>
             <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">See how many media-button clicks your earbuds actually send, then assign a different click count to each action. The settings are saved securely on this phone.</p>
           </div>
-          <label className="flex items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" checked={universal.enabled} disabled={universalBusy} onChange={(event) => void setUniversalMode(event.target.checked)} />
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold">
+            <input type="checkbox" checked={universal.enabled} disabled={universalBusy} aria-describedby="universal-mode-help universal-mode-status" onChange={(event) => void setUniversalMode(event.target.checked)} />
             Use my click counts
           </label>
         </div>
-        {!universal.enabled && <p className="mt-2 text-xs text-[var(--muted)]">To turn this on: start Practice, Capture and Set at least one action, then check this box.</p>}
+        {!universal.enabled && <p id="universal-mode-help" className="mt-2 text-xs text-[var(--muted)]">To turn this on: start Practice, Capture and Set at least one action, then check this box.</p>}
+        <p id="universal-mode-status" className="mt-2 text-sm" role="status" aria-live="polite">{modeMessage || (universal.enabled ? "Universal click mode is on." : "Universal click mode is off.")}</p>
 
         <div className="mt-4 rounded-xl bg-[var(--surface-2)] p-4 text-center" role="status" aria-live="polite">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Clicks detected in current sequence</p>
           <p className="mt-1 text-3xl font-extrabold tabular-nums">{tapCount || lastSequence?.clicks || 0}</p>
           <p className="mt-1 text-xs text-[var(--muted)]">{tapCount
-            ? `${clickWord(tapCount)} so far · count resets about one second after the last press`
+            ? `${clickWord(tapCount)} so far · last key: ${currentKeyCode}`
             : lastSequence
-              ? `Last: ${clickWord(lastSequence.clicks)} (${lastSequence.sequence}) · ${lastSequence.origin === "media_button" ? "key event" : lastSequence.origin === "media_session" ? "media session" : "source unknown"}`
+              ? `Last: ${clickWord(lastSequence.clicks)} (${lastSequence.sequence}) · ${lastSequence.origin === "media_button" ? "key event" : lastSequence.origin === "media_session" ? "media session" : "source unknown"} · ${lastSequence.keyCodes.join(", ") || "key unknown"}`
               : "Waiting for an earbud media-button press"}</p>
         </div>
 
@@ -323,7 +336,7 @@ export default function TriggerLab() {
           <button className="btn" type="button" disabled={universalBusy || !universal.enabled} onClick={() => void setUniversalMode(false)}>Use standard fixed patterns</button>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-          Clicks can be grouped by short pauses; the custom action uses the total count in the sequence. Pause about one second after the final click. Use a different count for each action. Universal mode replaces the standard rhythms; unassigned counts do nothing. Keep Practice active while configuring so no real alerts can be sent.
+          Tap the earbud control quickly enough that the clicks arrive within the same sequence, then pause about one second. The log shows each Android key down/up and its key code, so you can tell whether the earbud sent one event or two. The custom action uses the total count in the sequence. Use a different count for each action. Universal mode replaces the standard rhythms; unassigned counts do nothing. Keep Practice active while configuring so no real alerts can be sent.
         </p>
       </section>
 
