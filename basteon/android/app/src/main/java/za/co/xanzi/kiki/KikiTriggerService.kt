@@ -469,14 +469,21 @@ class KikiTriggerService : Service() {
                 if (result.status in 200..499) break
                 Thread.sleep(2_000L * attempt)
             }
-            log("trigger request completed (HTTP ${result.status})")
             if (result.status !in 200..299) {
+                log("trigger request failed (HTTP ${result.status}; ${result.body?.optString("error", "server rejected request") ?: "no response body"})")
                 vibrate(longArrayOf(0, 800))
                 if (result.status == 401) disarmForRevokedToken()
             } else {
+                val isTest = result.body?.optBoolean("test", false) == true
                 val pendingId = result.body?.optString("pending_id").orEmpty()
-                if (result.body?.optBoolean("test", false) != true && pendingId.isNotBlank()) {
-                    showCancelNotification(result.body?.optInt("countdown_s", 10) ?: 10)
+                when {
+                    isTest -> log("TEST MODE: $type press recorded; no active alert, countdown, or push notification was created")
+                    pendingId.isNotBlank() -> {
+                        val countdown = result.body?.optInt("countdown_s", 10) ?: 10
+                        log("LIVE ALERT: $type pending for ${countdown}s; server accepted the alert request")
+                        showCancelNotification(countdown)
+                    }
+                    else -> log("trigger request accepted without a test result or pending alert ID; check the server response")
                 }
                 if (!duress) vibrate(longArrayOf(0, 70, 80, 70, 80, 70))
             }

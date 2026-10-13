@@ -201,7 +201,11 @@ export default function EarbudTriggerCard() {
         <StatusRow
           ok={status.armed}
           icon={<Shield size={16} />}
-          label={status.armed ? (status.test ? "Armed in test mode — no real alert is created" : "Armed for alerts") : status.wantArmed ? "Trigger service stopped; tap Arm to restart it" : "Not armed"}
+          label={status.armed
+            ? status.test
+              ? "TEST MODE: button presses are recorded, but no responder alert, countdown, or push notification is created"
+              : "LIVE ALERTS: a recognized press creates a responder alert and starts its cancel countdown"
+            : status.wantArmed ? "Trigger service stopped; tap Arm to restart it" : "Not armed"}
         />
         <StatusRow
           ok={status.notifications}
@@ -222,7 +226,7 @@ export default function EarbudTriggerCard() {
 
       <label className="flex items-start gap-2 text-sm">
         <input className="mt-1" type="checkbox" checked={test} onChange={(event) => setTest(event.target.checked)} />
-        <span><b>Test mode first</b><br /><span className="text-[var(--muted)]">The server records a test press without dispatching a real alert.</span></span>
+        <span><b>Test mode — no real alert</b><br /><span className="text-[var(--muted)]">When checked, Kiki only records the press. It deliberately sends no responder alert, countdown, or push notification, even though the phone may vibrate.</span></span>
       </label>
 
       <div className="flex flex-wrap gap-2">
@@ -231,7 +235,7 @@ export default function EarbudTriggerCard() {
         </button>
         {status.armed && (
           <button className="btn" type="button" disabled={busy} onClick={() => void arm()}>
-            {test === status.test ? "Refresh trigger" : test ? "Apply test mode" : "Apply live mode"}
+            {test === status.test ? "Refresh trigger" : test ? "Apply test mode" : "Apply LIVE alerts"}
           </button>
         )}
         <Link className="btn" href="/account/profile/triggers/lab">Open Trigger Lab</Link>
@@ -259,7 +263,7 @@ export default function EarbudTriggerCard() {
           <li><b className="text-[var(--text)]">Cancel:</b> exactly 4 quick presses in one burst while an alert is counting down.</li>
         </ul>
         <p className="text-[var(--muted)]">Keep presses within each burst under about 650 ms apart; leave a longer pause between groups. Kiki waits about 900 ms after the final press before recognising the pattern. Accessories vary: their button must send a standard play/pause, headset, or next/previous media event. Verify your exact phone and accessory in Practice before considering live mode.</p>
-        <p className="text-[var(--muted)]">Adding an accessory under My devices is for connection tracking, disconnect notices and a guided practice check. It is not required to trigger an alert and does not itself arm this phone. Test mode records the recognized pattern without creating an alert; live mode can notify responders.</p>
+        <p className="text-[var(--muted)]">Adding an accessory under My devices is for connection tracking, disconnect notices and a guided practice check. It is not required to trigger an alert and does not itself arm this phone. For an actual alert, uncheck Test mode and tap “Apply LIVE alerts” (or “Arm phone”); confirm the safety prompt. Kiki should then show its countdown notification and the server will notify responders. A vibration alone is not proof an alert was created.</p>
       </div>
     </section>
   );
