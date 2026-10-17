@@ -120,6 +120,41 @@ export function recommend(gestures: GestureStat[]): Partial<Record<Action, strin
   return output;
 }
 
+export function quickPresetAssignments(gestures: GestureStat[]): Partial<Record<Action, string>> {
+  const assignments: Partial<Record<Action, string>> = {};
+  const used = new Set<string>();
+  const preferred: [Action, number][] = [
+    ["sos", 3],
+    ["cancel", 2],
+    ["medical", 4],
+    ["duress", 5],
+  ];
+
+  for (const [action, taps] of preferred) {
+    const gesture = gestures.find((item) => item.taps === taps && !used.has(item.sig));
+    if (gesture) {
+      assignments[action] = gesture.sig;
+      used.add(gesture.sig);
+    }
+  }
+
+  if (!assignments.sos) {
+    const gesture = [...gestures].sort((a, b) => b.taps - a.taps)
+      .find((item) => item.taps >= 3 && !used.has(item.sig));
+    if (gesture) {
+      assignments.sos = gesture.sig;
+      used.add(gesture.sig);
+    }
+  }
+  if (!assignments.cancel) {
+    const gesture = [...gestures].sort((a, b) => a.taps - b.taps)
+      .find((item) => !used.has(item.sig));
+    if (gesture) assignments.cancel = gesture.sig;
+  }
+
+  return assignments;
+}
+
 export function validateMapping(mapping: Partial<Record<Action, string>>, gestures: GestureStat[]): string[] {
   const errors: string[] = [];
   const assigned = new Map<string, Action>();

@@ -20,6 +20,7 @@ import android.os.Looper
 import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -39,6 +40,11 @@ object DeviceTracker {
         AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
         AudioDeviceInfo.TYPE_USB_HEADSET
     )
+    private val bluetoothTypes = buildSet {
+        add(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP)
+        add(AudioDeviceInfo.TYPE_BLUETOOTH_SCO)
+        if (Build.VERSION.SDK_INT >= 31) add(AudioDeviceInfo.TYPE_BLE_HEADSET)
+    }
 
     fun hasBluetoothPermission(context: Context) =
         Build.VERSION.SDK_INT < 31 ||
@@ -263,6 +269,7 @@ object DeviceTracker {
 
     fun snapshot(context: Context): JSONArray {
         val devices = registry(context)
+        val activeAudioAddresses = audioOutputAddresses(context)
         val paired = if (hasBluetoothPermission(context)) {
             try {
                 adapter(context)?.bondedDevices?.associateBy { it.address }
@@ -284,7 +291,7 @@ object DeviceTracker {
                 paired != null && !paired.containsKey(address) -> "unpaired"
                 else -> {
                     val device = paired?.get(address)
-                    if (connected.contains(address) || (device != null && isConnected(device))) "connected" else "disconnected"
+                    if (connected.contains(address) || address in activeAudioAddresses || (device != null && isConnected(device))) "connected" else "disconnected"
                 }
             }
             if (status == "connected" && item.optString("lastStatus") != "connected") {
@@ -298,6 +305,7 @@ object DeviceTracker {
             result.put(
                 JSONObject()
                     .put("ref", item.optString("ref"))
+                    .put("profileRef", bluetoothProfileRef(address) ?: item.optString("ref"))
                     .put("kind", kind)
                     .put("name", item.optString("name"))
                     .put("btName", item.optString("btName"))
@@ -314,12 +322,21 @@ object DeviceTracker {
 
     fun connectedRefs(context: Context): Set<String> {
         val state = snapshot(context)
-        return (0 until state.length()).mapNotNull { index ->
+        val refs = (0 until state.length()).mapNotNull { index ->
             state.optJSONObject(index)
                 ?.takeIf { it.optString("status") == "connected" }
-                ?.optString("ref")
-                ?.takeIf(String::isNotBlank)
-        }.toSet()
+                ?.let { item ->
+                    listOf(item.optString("ref"), item.optString("profileRef"))
+                        .filter(String::isNotBlank)
+                }
+                .orEmpty()
+        }.flatten().toMutableSet()
+        val outputs = audioOutputs(context)
+        for (index in 0 until outputs.length()) {
+            val profileRef = (outputs.optJSONObject(index)?.opt("profileRef") as? String)?.takeIf(String::isNotBlank)
+            if (profileRef != null) refs.add(profileRef)
+        }
+        return refs
     }
 
     fun syncPayload(context: Context): JSONArray {
@@ -346,13 +363,58 @@ object DeviceTracker {
         audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .filter { it.type in audioOutputTypes() }
             .forEach { device ->
+                val address = audioBluetoothAddress(context, device)
                 outputs.put(
                     JSONObject()
                         .put("name", device.productName.toString())
                         .put("type", device.type)
+                        .put("address", address)
+                        .put("profileRef", audioProfileRef(device.type, address) ?: JSONObject.NULL)
                 )
             }
         return outputs
+    }
+
+    private fun audioBluetoothAddress(context: Context, audioDevice: AudioDeviceInfo): String {
+        if (audioDevice.type !in bluetoothTypes) return ""
+        val reported = if (Build.VERSION.SDK_INT >= 28) audioDevice.address.trim() else ""
+        if (reported.isNotEmpty()) return reported
+        if (!hasBluetoothPermission(context)) return ""
+        return try {
+            val name = audioDevice.productName.toString().trim()
+            val matches = adapter(context)?.bondedDevices.orEmpty().filter { device ->
+                device.name?.trim()?.equals(name, ignoreCase = true) == true &&
+                    (connected.contains(device.address) || isConnected(device))
+            }
+            matches.singleOrNull()?.address.orEmpty()
+        } catch (_: SecurityException) {
+            ""
+        }
+    }
+
+    fun audioProfileRef(type: Int, address: String): String? {
+        if (type in bluetoothTypes) bluetoothProfileRef(address)?.let { return it }
+        return when (type) {
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_USB_HEADSET -> "wired:$type"
+            else -> null
+        }
+    }
+
+    private fun bluetoothProfileRef(address: String): String? {
+        val normalized = address.trim().uppercase(Locale.US)
+        if (normalized.isEmpty()) return null
+        val digest = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray(Charsets.UTF_8))
+        val stableSuffix = digest.take(16).joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        return "bt:$stableSuffix"
+    }
+
+    private fun audioOutputAddresses(context: Context): Set<String> {
+        val outputs = audioOutputs(context)
+        return (0 until outputs.length())
+            .mapNotNull { outputs.optJSONObject(it)?.optString("address")?.takeIf(String::isNotBlank) }
+            .toSet()
     }
 
     private fun audioOutputTypes(): Set<Int> = buildSet {

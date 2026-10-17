@@ -31,7 +31,11 @@ const Profile = z.object({
   appVersion: z.string().max(20).nullable().optional(),
   androidSdk: z.number().int().min(1).max(1000).nullable().optional(),
 }).strict();
-const Body = z.object({ profiles: z.array(Profile).max(20) }).strict();
+const ProfileId = z.string().regex(/^[A-Za-z0-9_-]{8,40}$/);
+const Body = z.object({
+  profiles: z.array(Profile).max(20),
+  deleteProfileIds: z.array(ProfileId).max(20).optional(),
+}).strict();
 
 function profileSchemaUnavailable(error: { code?: unknown } | null) {
   const code = typeof error?.code === "string" ? error.code : "";
@@ -122,26 +126,15 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: code }, { status, headers: noStore });
     }
   }
-  const { data: existing, error: existingError } = await db
-    .from("trigger_profiles")
-    .select("local_id")
-    .eq("user_id", user.id)
-    .eq("token_id", token.id)
-    .limit(25);
-  if (existingError) {
-    const code = profileSchemaUnavailable(existingError) ? "profile_backup_not_ready" : "profiles_sync_failed";
-    const status = code === "profile_backup_not_ready" ? 503 : 500;
-    return NextResponse.json({ error: code }, { status, headers: noStore });
-  }
   const currentIds = new Set(parsed.data.profiles.map(({ id }) => id));
-  const staleIds = (existing ?? []).map((row) => row.local_id).filter((id) => !currentIds.has(id));
-  if (staleIds.length) {
+  const deleteIds = [...new Set(parsed.data.deleteProfileIds ?? [])].filter((id) => !currentIds.has(id));
+  if (deleteIds.length) {
     const { error } = await db
       .from("trigger_profiles")
       .delete()
       .eq("user_id", user.id)
       .eq("token_id", token.id)
-      .in("local_id", staleIds);
+      .in("local_id", deleteIds);
     if (error) return NextResponse.json({ error: "profiles_sync_failed" }, { status: 500, headers: noStore });
   }
   return NextResponse.json({ ok: true }, { headers: noStore });

@@ -32,6 +32,7 @@ export interface KikiStatus {
 
 export interface EverydayDevice {
   ref: string;
+  profileRef?: string;
   kind: EverydayDeviceKind;
   name: string;
   btName: string;

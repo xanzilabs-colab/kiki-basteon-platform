@@ -68,6 +68,41 @@ describe("trigger profile backup routes", () => {
     expect(JSON.stringify(saved?.payload)).not.toContain("ktk_");
   });
 
+  it("does not delete other device profiles when syncing a new or edited profile", async () => {
+    const db = fakeSupabase((call) => {
+      if (call.table === "trigger_tokens") return { data: { id: "token-id" } };
+      return {};
+    });
+    mocks.admin.mockReturnValue(db.client);
+    const response = await PUT(new Request("http://localhost/api/trigger/profiles", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ profiles: [profile] }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(db.calls.some((call) => call.action === "delete")).toBe(false);
+  });
+
+  it("deletes only explicitly removed profile IDs", async () => {
+    const db = fakeSupabase((call) => {
+      if (call.table === "trigger_tokens") return { data: { id: "token-id" } };
+      return {};
+    });
+    mocks.admin.mockReturnValue(db.client);
+    const response = await PUT(new Request("http://localhost/api/trigger/profiles", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ profiles: [], deleteProfileIds: ["profile-removed"] }),
+    }));
+    const deletion = db.calls.find((call) => call.action === "delete");
+
+    expect(response.status).toBe(200);
+    expect(deletion?.filters).toContainEqual(["in", "local_id", ["profile-removed"]]);
+    expect(deletion?.filters).toContainEqual(["eq", "user_id", "user-1"]);
+    expect(deletion?.filters).toContainEqual(["eq", "token_id", "token-id"]);
+  });
+
   it("reports a missing profile table during save as service unavailable", async () => {
     const db = fakeSupabase((call) => {
       if (call.table === "trigger_tokens") return { data: { id: "token-id" } };

@@ -1,10 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { analyze, profileTrust, recommend, validateMapping, type Sample } from "./analyze";
+import { analyze, profileTrust, quickPresetAssignments, recommend, validateMapping, type Sample } from "./analyze";
 
 const repeated = (prompted: number, signature: string, gaps = [100, 120]): Sample[] =>
   Array.from({ length: 3 }, () => ({ prompted, sig: signature, presses: signature.length, gaps }));
 
 describe("trigger gesture analysis", () => {
+  it("maps the captured 3-tap and 2-tap sequences without changing their event types", () => {
+    const gestures = analyze([
+      { prompted: 1, sig: "D", presses: 1, gaps: [] },
+      { prompted: 2, sig: "UU", presses: 2, gaps: [100] },
+      { prompted: 3, sig: "TTT", presses: 3, gaps: [100, 100] },
+    ]).gestures;
+
+    expect(quickPresetAssignments(gestures)).toEqual({ sos: "TTT", cancel: "UU" });
+  });
+
+  it("keeps single-tap gestures assignable for a device that only offers that distinct fallback", () => {
+    const gestures = analyze([
+      { prompted: 1, sig: "D", presses: 1, gaps: [] },
+      { prompted: 3, sig: "UUU", presses: 3, gaps: [100, 100] },
+    ]).gestures;
+    const mapping = quickPresetAssignments(gestures);
+
+    expect(mapping).toEqual({ sos: "UUU", cancel: "D" });
+    expect(validateMapping(mapping, gestures)).toEqual([]);
+  });
+
   it("grades a Volkano-like stable toggle gesture and flags volume as avoid", () => {
     const result = analyze([
       ...repeated(1, "T"),

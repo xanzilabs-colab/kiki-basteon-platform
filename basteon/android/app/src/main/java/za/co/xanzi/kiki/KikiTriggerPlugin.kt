@@ -290,14 +290,21 @@ class KikiTriggerPlugin : Plugin() {
     fun connectedAccessories(call: PluginCall) {
         val devices = JSArray()
         val snapshot = DeviceTracker.snapshot(context)
-        val seen = mutableSetOf<String>()
+        val seenRefs = mutableSetOf<String>()
+        val seenNames = mutableSetOf<String>()
+        var connectedWiredDevice = false
         for (index in 0 until snapshot.length()) {
             val item = snapshot.optJSONObject(index) ?: continue
             if (item.optString("status") != "connected") continue
-            seen.add(item.optString("btName"))
+            seenNames.add(item.optString("name").trim())
+            seenNames.add(item.optString("btName").trim())
+            if (item.optString("kind") == "wired") connectedWiredDevice = true
+            val profileRef = (item.opt("profileRef") as? String)?.takeIf(String::isNotBlank)
+                ?: (item.opt("ref") as? String)?.takeIf(String::isNotBlank)
+            if (profileRef != null) seenRefs.add(profileRef)
             devices.put(
                 JSObject()
-                    .put("ref", item.optString("ref"))
+                    .put("ref", profileRef ?: JSONObject.NULL)
                     .put("label", item.optString("name"))
                     .put("kind", item.optString("kind"))
             )
@@ -306,8 +313,15 @@ class KikiTriggerPlugin : Plugin() {
         for (index in 0 until outputs.length()) {
             val output = outputs.optJSONObject(index) ?: continue
             val name = output.optString("name").trim()
-            if (name.isBlank() || name in seen) continue
-            devices.put(JSObject().put("ref", JSONObject.NULL).put("label", name.take(80)).put("kind", "other"))
+            val profileRef = (output.opt("profileRef") as? String)?.takeIf(String::isNotBlank)
+            if (name.isBlank() ||
+                (profileRef != null && profileRef in seenRefs) ||
+                (profileRef == null && name in seenNames) ||
+                (profileRef?.startsWith("wired:") == true && connectedWiredDevice)
+            ) continue
+            if (profileRef != null) seenRefs.add(profileRef)
+            seenNames.add(name)
+            devices.put(JSObject().put("ref", profileRef ?: JSONObject.NULL).put("label", name.take(80)).put("kind", "other"))
         }
         call.resolve(JSObject().put("devices", devices))
     }

@@ -50,6 +50,19 @@ class GestureEngineTest {
     }
 
     @Test
+    fun sequencerPreservesPlayPauseAndDistinctVolumeEventsUpToSixPresses() {
+        val mixed = Sequencer(650)
+        listOf(Tok.TOGGLE, Tok.VOL_UP, Tok.VOL_DOWN).forEachIndexed { index, token ->
+            mixed.add(RawInput(index * 100L, Src.KEY, token))
+        }
+        assertEquals("TUD", mixed.finish()?.signature())
+
+        val repeated = Sequencer(650)
+        repeat(6) { index -> repeated.add(RawInput(index * 100L, Src.KEY, Tok.VOL_UP)) }
+        assertEquals("UUUUUU", repeated.finish()?.signature())
+    }
+
+    @Test
     fun truncatesLongSignaturesToTwentyCharacters() {
         val sequencer = Sequencer()
         repeat(25) { sequencer.add(RawInput(it.toLong(), Src.KEY, Tok.TOGGLE)) }
@@ -66,6 +79,43 @@ class GestureEngineTest {
         val a = profile("a", mapOf("TTT" to "sos"), 1L)
         val b = profile("b", mapOf("TTT" to "medical"), 1L)
         assertEquals(setOf("sos", "medical"), (matchGesture("TTT", listOf(a, b)) as MatchResult.Ambiguous).actions)
+    }
+
+    @Test
+    fun autoOnlyUsesProfilesAssignedToConnectedDevicesOrAnUnassignedAccessory() {
+        val connected = profile("connected", mapOf("TTT" to "sos"), 1L).copy(deviceRef = "bt:AA:BB")
+        val disconnected = profile("disconnected", mapOf("UUU" to "sos"), 1L).copy(deviceRef = "bt:CC:DD")
+        val shared = profile("shared", mapOf("PPP" to "sos"), 1L)
+
+        assertEquals(
+            listOf(connected, shared),
+            connectedProfiles(listOf(connected, disconnected, shared), "auto", setOf("bt:AA:BB"))
+        )
+    }
+
+    @Test
+    fun selectedProfileCannotFallBackToAnUnrelatedVerifiedAccessory() {
+        val selected = profile("selected", mapOf("TTT" to "sos"), 1L).copy(deviceRef = "bt:AA:BB")
+        val other = profile("other", mapOf("UUU" to "sos"), 1L).copy(deviceRef = "bt:CC:DD")
+
+        assertTrue(connectedProfiles(listOf(selected, other), "selected", setOf("bt:CC:DD")).isEmpty())
+    }
+
+    @Test
+    fun duplicateDisplayNamesRemainIndependentByStableDeviceReference() {
+        val left = profile("left-profile", mapOf("TTT" to "sos"), 1L).copy(
+            name = "Wireless earbuds",
+            deviceRef = "bt:device-left"
+        )
+        val right = profile("right-profile", mapOf("UUU" to "sos"), 1L).copy(
+            name = "Wireless earbuds",
+            deviceRef = "bt:device-right"
+        )
+
+        assertEquals(
+            listOf(left),
+            connectedProfiles(listOf(left, right), "auto", setOf("bt:device-left"))
+        )
     }
 
     @Test

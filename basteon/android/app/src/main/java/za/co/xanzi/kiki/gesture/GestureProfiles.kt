@@ -34,19 +34,20 @@ object GestureProfiles {
     }
 
     fun save(context: Context, profile: Profile) {
-        validate(profile)
+        val normalizedProfile = profile.copy(name = profile.name.trim())
+        validate(normalizedProfile)
         val saved = all(context)
-        val previous = saved.firstOrNull { it.id == profile.id }
+        val previous = saved.firstOrNull { it.id == normalizedProfile.id }
         val sameConfiguration = previous != null &&
-            previous.kind == profile.kind &&
-            previous.deviceRef == profile.deviceRef &&
-            previous.gapMs == profile.gapMs &&
-            previous.settleMs == profile.settleMs &&
-            previous.mapping == profile.mapping &&
-            previous.appVersion == profile.appVersion &&
-            previous.androidSdk == profile.androidSdk
-        val effectiveProfile = profile.copy(verifiedAt = previous?.verifiedAt.takeIf { sameConfiguration })
-        val profiles = saved.filterNot { it.id == profile.id }.toMutableList()
+            previous.kind == normalizedProfile.kind &&
+            previous.deviceRef == normalizedProfile.deviceRef &&
+            previous.gapMs == normalizedProfile.gapMs &&
+            previous.settleMs == normalizedProfile.settleMs &&
+            previous.mapping == normalizedProfile.mapping &&
+            previous.appVersion == normalizedProfile.appVersion &&
+            previous.androidSdk == normalizedProfile.androidSdk
+        val effectiveProfile = normalizedProfile.copy(verifiedAt = previous?.verifiedAt.takeIf { sameConfiguration })
+        val profiles = saved.filterNot { it.id == normalizedProfile.id }.toMutableList()
         require(profiles.size < 20) { "You can save up to 20 gesture profiles." }
         profiles.add(effectiveProfile)
         write(context, profiles)
@@ -113,16 +114,7 @@ object GestureProfiles {
     fun connectedCandidates(context: Context): List<Profile> {
         val profiles = all(context)
         val connectedRefs = DeviceTracker.connectedRefs(context)
-        val mode = mode(context)
-        val usable = if (mode != "auto") {
-            profiles.filter { it.id == mode && (it.deviceRef == null || it.deviceRef in connectedRefs) }
-        } else {
-            profiles.filter { it.deviceRef == null || it.deviceRef in connectedRefs }
-        }
-        if (mode != "auto") return usable
-        if (usable.any { it.deviceRef == null } || usable.any { it.deviceRef in connectedRefs }) return usable
-        KikiTriggerService.log("gesture device unknown; falling back to verified profiles")
-        return profiles.filter { it.verifiedAt != null }
+        return connectedProfiles(profiles, mode(context), connectedRefs)
     }
 
     fun liveBlockReason(context: Context): String? {
@@ -135,7 +127,7 @@ object GestureProfiles {
         val candidates = connectedCandidates(context)
         if (candidates.isEmpty()) {
             return if (mode(context) == "auto") {
-                "No saved profile matches a connected accessory. Connect its accessory or select Auto in Trigger Lab."
+                "No saved profile matches the connected accessory. Select or create its profile in Trigger Lab."
             } else {
                 "The selected profile's accessory is not connected. Connect it or select Auto in Trigger Lab."
             }
@@ -224,7 +216,7 @@ object GestureProfiles {
         }
         return Profile(
             id = value.optString("id"),
-            name = value.optString("name"),
+            name = value.optString("name").trim(),
             kind = value.optString("kind"),
             deviceRef = value.optString("deviceRef").takeIf { it.isNotBlank() && it != "null" },
             gapMs = value.optLong("gapMs", 650L),

@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Check, ChevronDown, ChevronRight, CircleHelp, RotateCcw, ShieldCheck, Trash2, X } from "lucide-react";
-import { KikiTrigger, type GestureProfile, type TriggerEvent } from "@/lib/kikiTrigger";
+import { KikiTrigger, type EverydayDevice, type GestureProfile, type TriggerEvent } from "@/lib/kikiTrigger";
 import styles from "@/app/account/profile/triggers/lab/triggerLab.module.css";
 import {
   analyze,
-  recommend,
+  quickPresetAssignments,
   validateMapping,
   type Action,
   type Sample,
 } from "@/lib/triggerGestures/analyze";
+import { resolveGestureProfileName } from "@/lib/triggerGestures/profileSetup";
 
 const ACTIONS: { id: Action; label: string }[] = [
   { id: "sos", label: "SOS" },
@@ -23,6 +24,7 @@ const ACTIONS: { id: Action; label: string }[] = [
 type Step = "preflight" | "warmup" | "calibrate" | "review" | "verify" | "done";
 type WaitKind = "warmup" | "sample" | "verify" | null;
 type Accessory = { ref: string | null; label: string; kind: string };
+type DeviceConfiguration = { ref: string | null; label: string; kind: string; connected: boolean; profiles: GestureProfile[] };
 
 function id() {
   return globalThis.crypto?.randomUUID?.() ?? `gesture-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
@@ -97,17 +99,20 @@ export default function GestureCalibrationPanel({
 }) {
   const [profiles, setProfiles] = useState<GestureProfile[]>([]);
   const [accessories, setAccessories] = useState<Accessory[]>([]);
+  const [registeredDevices, setRegisteredDevices] = useState<EverydayDevice[]>([]);
   const [selectedAccessory, setSelectedAccessory] = useState("");
   const [profileName, setProfileName] = useState("");
+  const [profileNameEdited, setProfileNameEdited] = useState(false);
   const [kind, setKind] = useState<GestureProfile["kind"]>("earbuds");
   const [activeMode, setActiveMode] = useState("auto");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingAction, setEditingAction] = useState<Action | null>(null);
   const [savedSetupsOpen, setSavedSetupsOpen] = useState(false);
-  const [profileId, setProfileId] = useState("");
+  const [profileId, setProfileId] = useState(() => id());
   const [step, setStep] = useState<Step>("preflight");
   const [samples, setSamples] = useState<Sample[]>([]);
   const [tapCount, setTapCount] = useState(1);
+  const [maxTapCount, setMaxTapCount] = useState(3);
   const [sampleNumber, setSampleNumber] = useState(1);
   const [waiting, setWaiting] = useState(false);
   const [waitKind, setWaitKind] = useState<WaitKind>(null);
@@ -130,29 +135,70 @@ export default function GestureCalibrationPanel({
   const verifyActionIndexRef = useRef(0);
   const verifyHitsRef = useRef(0);
   const tapCountRef = useRef(1);
-  const profileIdRef = useRef("");
+  const profileIdRef = useRef(profileId);
+  const mappingRef = useRef(mapping);
   const waitingRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const finalizeVerificationRef = useRef<() => Promise<void>>(async () => undefined);
   const finalizingRef = useRef(false);
   tapCountRef.current = tapCount;
+  mappingRef.current = mapping;
   verifyActionsRef.current = verifyActions;
   verifyActionIndexRef.current = verifyActionIndex;
   verifyHitsRef.current = verifyHits;
 
   const analysis = useMemo(() => analyze(samples), [samples]);
-  const recommendations = useMemo(() => recommend(analysis.gestures), [analysis.gestures]);
   const mappedErrors = useMemo(() => validateMapping(mapping, analysis.gestures), [mapping, analysis.gestures]);
-  const connected = accessories.find((item) => item.ref === selectedAccessory);
+  const connected = accessories.find((item) => (item.ref ?? "") === selectedAccessory);
+  const generatedProfileName = connected?.label.trim() || "Bluetooth accessory";
+  const profileNameForSave = resolveGestureProfileName(profileName, profileNameEdited, generatedProfileName);
 
-  const syncProfiles = useCallback(async (next: GestureProfile[]) => {
+  const deviceConfigurations = useMemo(() => {
+    const byRef = new Map<string, DeviceConfiguration>();
+    const canonicalRef = (ref: string) => {
+      const device = registeredDevices.find((item) => item.ref === ref || item.profileRef === ref);
+      return device?.profileRef || ref;
+    };
+    const addDevice = (ref: string | null, label: string, deviceKind: string, isConnected: boolean) => {
+      const key = ref ?? "unassigned";
+      const existing = byRef.get(key);
+      if (existing) {
+        existing.connected ||= isConnected;
+        if (existing.label === "Configured accessory" && label) existing.label = label;
+        return;
+      }
+      byRef.set(key, { ref, label, kind: deviceKind, connected: isConnected, profiles: [] });
+    };
+
+    registeredDevices.forEach((device) => addDevice(
+      device.profileRef || device.ref,
+      device.name || device.btName || "Bluetooth accessory",
+      device.kind,
+      device.status === "connected",
+    ));
+    accessories.forEach((device) => addDevice(device.ref, device.label, device.kind, true));
+    profiles.forEach((profile) => {
+      const ref = profile.deviceRef ? canonicalRef(profile.deviceRef) : null;
+      const key = ref ?? "unassigned";
+      const group = byRef.get(key);
+      if (group) {
+        group.profiles.push(profile);
+      } else {
+        addDevice(ref, profile.name || "Configured accessory", profile.kind, false);
+        byRef.get(key)?.profiles.push(profile);
+      }
+    });
+    return [...byRef.values()].sort((a, b) => Number(b.connected) - Number(a.connected) || a.label.localeCompare(b.label));
+  }, [accessories, profiles, registeredDevices]);
+
+  const syncProfiles = useCallback(async (next: GestureProfile[], deleteProfileIds: string[] = []) => {
     setError("");
     setBackupBusy(true);
     try {
       const response = await fetch("/api/trigger/profiles", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profiles: next }),
+        body: JSON.stringify({ profiles: next, deleteProfileIds }),
       });
       const payload = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) {
@@ -182,11 +228,14 @@ export default function GestureCalibrationPanel({
 
   const loadAccessories = useCallback(async () => {
     try {
-      const { devices } = await KikiTrigger.connectedAccessories();
+      const [{ devices }, { devices: savedDevices }] = await Promise.all([
+        KikiTrigger.connectedAccessories(),
+        KikiTrigger.devices(),
+      ]);
       setAccessories(devices);
+      setRegisteredDevices(savedDevices);
       if (devices[0]) {
         setSelectedAccessory((current) => current || devices[0].ref || "");
-        setProfileName((current) => current || devices[0].label);
         if (devices[0].kind in { earbuds: true, wired: true, car: true, speaker: true, watch: true, ring: true, other: true }) {
           setKind((current) => current === "earbuds" ? devices[0].kind as GestureProfile["kind"] : current);
         }
@@ -214,20 +263,41 @@ export default function GestureCalibrationPanel({
       return;
     }
     const payload = await response.json() as { profiles?: GestureProfile[] };
-    const merged = new Map(local.profiles.map((profile) => [profile.id, profile]));
-    for (const profile of payload.profiles ?? []) {
-      if (!merged.has(profile.id)) merged.set(profile.id, profile);
-    }
+    const remoteProfiles = payload.profiles ?? [];
+    const merged = new Map<string, GestureProfile>();
+    for (const profile of remoteProfiles) merged.set(profile.id, { ...profile, verifiedAt: null });
+    for (const profile of local.profiles) merged.set(profile.id, profile);
     const result = [...merged.values()].slice(0, 20);
-    if (local.profiles.length === 0 && result.length > 0 && practice) {
-      const imported = await KikiTrigger.importProfiles({ json: JSON.stringify(result) });
-      setProfiles(imported.profiles);
+    const remoteOnly = remoteProfiles.filter((profile) => !local.profiles.some((localProfile) => localProfile.id === profile.id));
+    if (practice && remoteOnly.length > 0) {
+      if (local.profiles.length === 0) {
+        const imported = await KikiTrigger.importProfiles({ json: JSON.stringify(result) });
+        setProfiles(imported.profiles);
+      } else {
+        for (const profile of remoteOnly) {
+          await KikiTrigger.saveProfile({ profile: { ...profile, verifiedAt: null } });
+        }
+        const refreshed = await KikiTrigger.getProfiles();
+        setProfiles(refreshed.profiles);
+      }
     } else {
-      setProfiles(local.profiles);
+      setProfiles(result);
     }
   }, [practice]);
 
-  useEffect(() => { void loadAccessories(); }, [loadAccessories]);
+  useEffect(() => {
+    void loadAccessories();
+    let handle: { remove: () => void } | null = null;
+    let active = true;
+    void KikiTrigger.addListener("devices", () => { void loadAccessories(); }).then((subscription) => {
+      if (active) handle = subscription;
+      else void subscription.remove();
+    }).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not listen for accessory changes."));
+    return () => {
+      active = false;
+      if (handle) void handle.remove();
+    };
+  }, [loadAccessories]);
 
   useEffect(() => {
     void loadProfiles().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not load saved gesture profiles."));
@@ -268,23 +338,14 @@ export default function GestureCalibrationPanel({
         event.pattern === action
       );
       if (!hit) {
-        verifyHitsRef.current = 0;
+        const expected = action ? mappingRef.current[action] : undefined;
         setVerifyHits(0);
-        verifyActionIndexRef.current = 0;
-        setVerifyActionIndex(0);
-        verifyActionRef.current = verifyActionsRef.current[0] ?? null;
-        setVerifyResult("That attempt did not match the selected action. All verification progress reset; start again with the first assigned action.");
+        verifyHitsRef.current = 0;
+        setVerifyResult(`Expected ${humanize(expected ?? "")}; received ${humanize(signature)}. Retry this pattern or adjust its assignment.`);
         return;
       }
-      const next = verifyHitsRef.current + 1;
-      if (next < 3) {
-        verifyHitsRef.current = next;
-        setVerifyHits(next);
-        setVerifyResult(`Verified ${next} of 3 consecutive ${action} gestures.`);
-        return;
-      }
-      verifyHitsRef.current = 0;
-      setVerifyHits(0);
+      verifyHitsRef.current = 1;
+      setVerifyHits(1);
       const nextActionIndex = verifyActionIndexRef.current + 1;
       if (nextActionIndex < verifyActionsRef.current.length) {
         verifyActionIndexRef.current = nextActionIndex;
@@ -292,7 +353,7 @@ export default function GestureCalibrationPanel({
         setVerifyActionIndex(nextActionIndex);
         setVerifyResult(`${action} passed. Now verify ${verifyActionsRef.current[nextActionIndex]}.`);
       } else {
-        setVerifyResult("Every assigned action passed three consecutive tests.");
+        setVerifyResult("Every assigned action passed its check.");
         if (finalizingRef.current) return;
         finalizingRef.current = true;
         void finalizeVerificationRef.current();
@@ -335,6 +396,7 @@ export default function GestureCalibrationPanel({
     setStep("preflight");
     setSamples([]);
     setTapCount(1);
+    setMaxTapCount(3);
     setSampleNumber(1);
     setPendingSample(null);
     setMapping({});
@@ -397,14 +459,12 @@ export default function GestureCalibrationPanel({
     setPendingSample(null);
     setNoSignal(false);
     setMessage(sample.sig ? `Recorded sample ${sampleNumber} for ${tapCount} tap(s).` : `Recorded no signal for ${tapCount} tap(s).`);
-    if (sampleNumber < 3) {
-      setSampleNumber(sampleNumber + 1);
-    } else if (tapCount < 6) {
+    if (tapCount < maxTapCount) {
       setTapCount(tapCount + 1);
       setSampleNumber(1);
     } else {
       setStep("review");
-      setMessage("Calibration samples complete. Review stability and choose distinct gestures.");
+      setMessage("Quick capture complete. Review the received event sequences and assign each action.");
     }
   }
 
@@ -415,17 +475,17 @@ export default function GestureCalibrationPanel({
 
   async function saveDraftForVerification() {
     if (!practice) return setError("Start Practice before saving or verifying a gesture profile.");
-    if (!profileName.trim() || !profileId) return setError("Enter a name for this profile.");
+    if (!profileNameForSave || !profileId) return setError("Enter a name for this profile.");
     if (!mapping.sos || !mapping.cancel) return setError("Assign both SOS and Cancel before verification.");
     if (mappedErrors.length) return setError(mappedErrors.join(" "));
-    const deviceRef = connected?.ref ?? profiles.find((profile) => profile.id === profileId)?.deviceRef ?? null;
-    const draft = asNativeProfile(profileId, profileName, kind, deviceRef, mapping, samples, analysis.timing, status, null);
+    const existingProfile = profiles.find((profile) => profile.id === profileId);
+    const deviceRef = connected ? connected.ref : existingProfile?.deviceRef ?? (selectedAccessory || null);
+    const draft = asNativeProfile(profileId, profileNameForSave, kind, deviceRef, mapping, samples, analysis.timing, status, null);
     setBusy(true);
     setError("");
     try {
-      await KikiTrigger.saveProfile({ profile: draft });
-      await KikiTrigger.setActiveMode({ mode: "auto" });
-      setProfiles((previous) => [...previous.filter((profile) => profile.id !== draft.id), draft]);
+      const { profile: savedDraft } = await KikiTrigger.saveProfile({ profile: draft });
+      setProfiles((previous) => [...previous.filter((profile) => profile.id !== savedDraft.id), savedDraft]);
       const actions = ACTIONS.map(({ id: action }) => action).filter((action) => mapping[action]);
       setVerifyActions(actions);
       verifyActionsRef.current = actions;
@@ -438,7 +498,7 @@ export default function GestureCalibrationPanel({
       finalizingRef.current = false;
       setVerifyResult("");
       setStep("verify");
-      await syncProfiles([...profiles.filter((profile) => profile.id !== draft.id), draft]);
+      await syncProfiles([...profiles.filter((profile) => profile.id !== savedDraft.id), savedDraft]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save the draft profile for verification.");
     } finally {
@@ -447,8 +507,9 @@ export default function GestureCalibrationPanel({
   }
 
   async function finalizeVerification() {
-    const deviceRef = connected?.ref ?? profiles.find((profile) => profile.id === profileId)?.deviceRef ?? null;
-    const verified = asNativeProfile(profileId, profileName, kind, deviceRef, mapping, samples, analysis.timing, status, Date.now());
+    const existingProfile = profiles.find((profile) => profile.id === profileId);
+    const deviceRef = connected ? connected.ref : existingProfile?.deviceRef ?? (selectedAccessory || null);
+    const verified = asNativeProfile(profileId, profileNameForSave, kind, deviceRef, mapping, samples, analysis.timing, status, Date.now());
     try {
       await KikiTrigger.saveProfile({ profile: verified });
       const next = [...profiles.filter((profile) => profile.id !== verified.id), verified];
@@ -477,7 +538,7 @@ export default function GestureCalibrationPanel({
       await KikiTrigger.deleteProfile({ id: profile.id });
       const next = profiles.filter(({ id: savedId }) => savedId !== profile.id);
       setProfiles(next);
-      await syncProfiles(next);
+      await syncProfiles(next, [profile.id]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not delete that profile.");
     } finally {
@@ -487,7 +548,10 @@ export default function GestureCalibrationPanel({
 
   async function renameSavedProfile(profile: GestureProfile, name: string) {
     const updated = { ...profile, name: name.trim() };
-    if (!updated.name || updated.name.length > 40) return;
+    if (!updated.name || updated.name.length > 40) {
+      setError("Enter a profile name between 1 and 40 characters.");
+      return;
+    }
     try {
       await KikiTrigger.saveProfile({ profile: updated });
       const next = profiles.map((item) => item.id === updated.id ? updated : item);
@@ -499,8 +563,38 @@ export default function GestureCalibrationPanel({
   }
 
   async function acceptRecommendations() {
-    setMapping(recommendations);
-    setMessage("Suggested gestures selected. Review each action and its warning before verification.");
+    setMapping(quickPresetAssignments(analysis.gestures));
+    setMessage("Suggested 3-tap SOS and 2-tap Cancel patterns use the exact events your accessory sent. You can change any assignment.");
+  }
+
+  function editSavedProfile(profile: GestureProfile) {
+    const assigned: Partial<Record<Action, string>> = {};
+    Object.entries(profile.mapping).forEach(([signature, action]) => { assigned[action as Action] = signature; });
+    const device = registeredDevices.find((item) => item.ref === profile.deviceRef || item.profileRef === profile.deviceRef);
+    setProfileId(profile.id);
+    profileIdRef.current = profile.id;
+    setProfileName(profile.name);
+    setProfileNameEdited(true);
+    setKind(profile.kind);
+    setSelectedAccessory(device?.profileRef || device?.ref || profile.deviceRef || "");
+    setMapping(assigned);
+    setSamples(profile.library.map((sample) => ({ prompted: sample.prompted, sig: sample.sig, presses: sample.presses, gaps: sample.gaps })));
+    setTapCount(1);
+    setMaxTapCount(3);
+    setStep("review");
+    setMessage(`Edit the SOS and other event assignments for ${profile.name}. Each assigned pattern is checked once.`);
+  }
+
+  function startDeviceConfiguration(device: DeviceConfiguration) {
+    resetWizard();
+    setSelectedAccessory(device.ref ?? "");
+    setProfileName(device.label || "Bluetooth accessory");
+    setProfileNameEdited(false);
+    setKind(device.kind in { earbuds: true, wired: true, car: true, speaker: true, watch: true, ring: true, other: true }
+      ? device.kind as GestureProfile["kind"]
+      : "other");
+    setSettingsOpen(false);
+    setMessage(device.connected ? "Device selected. Check its button event to begin." : "Device configuration retained. Connect the accessory to capture its events.");
   }
 
   const activeVerifyAction = verifyActions[verifyActionIndex];
@@ -536,20 +630,21 @@ export default function GestureCalibrationPanel({
       {(step === "preflight" || step === "warmup") && <section className={styles.card} aria-labelledby="trigger-connect-title">
         <h2 className={styles.cardTitle} id="trigger-connect-title">1 · Check connection</h2>
         <p className={styles.cardCopy}>Press your accessory once so Kiki can check that it receives the button signal.</p>
+        {selectedAccessory && !connected && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />The selected accessory is not connected. Connect it or choose a connected device in settings before capturing.</p>}
         {waiting && waitKind === "warmup" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <>
           {warmupSignature
             ? <div className={`${styles.message} ${styles.messageSuccess}`} role="status"><Check size={17} />Button detected. Continue to capture the patterns you want to use.</div>
-            : <button className={styles.primaryButton} type="button" disabled={!practice || accessories.length === 0 || waiting} onClick={() => void beginCapture("warmup")}>Check button</button>}
+            : <button className={styles.primaryButton} type="button" disabled={!practice || !connected || waiting} onClick={() => void beginCapture("warmup")}>Check button</button>}
         </>}
         {noSignal && !warmupSignature && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />Kiki did not receive a signal. Try again with music apps closed. Some controls may not be sent to Android.</p>}
       </section>}
 
       {step === "calibrate" && <section className={styles.card} aria-labelledby="trigger-capture-title">
         <h2 className={styles.cardTitle} id="trigger-capture-title">2 · Capture patterns</h2>
-        <p className={styles.cardCopy}>Press <b>{tapCount} time{tapCount === 1 ? "" : "s"}</b>, then pause. Sample {Math.min(sampleNumber, 3)} of 3.</p>
+        <p className={styles.cardCopy}>Press <b>{tapCount} time{tapCount === 1 ? "" : "s"}</b>, then pause. One short sample per pattern.</p>
         <div className={styles.pips} aria-label={`Tap count ${tapCount} of 6`}>
           {Array.from({ length: 6 }, (_, index) => {
-            const width = index < tapCount - 1 ? 100 : index === tapCount - 1 ? ((sampleNumber - 1) / 3) * 100 : 0;
+            const width = index < tapCount - 1 ? 100 : 0;
             return <span className={styles.pip} key={index}><i className={styles.pipFill} style={{ width: `${width}%` }} /></span>;
           })}
         </div>
@@ -569,15 +664,24 @@ export default function GestureCalibrationPanel({
 
       {step === "review" && <section className={styles.card} aria-labelledby="trigger-choose-title">
         <h2 className={styles.cardTitle} id="trigger-choose-title">3 · Choose actions</h2>
-        <p className={styles.cardCopy}>Your accessory sent these patterns reliably.</p>
+        <p className={styles.cardCopy}>Choose from the exact ordered events your accessory sent. Play/Pause and volume sequences stay distinct.</p>
+        <label className={styles.field}>Profile name
+          <input
+            maxLength={40}
+            value={resolveGestureProfileName(profileName, profileNameEdited, generatedProfileName)}
+            onChange={(event) => { setProfileName(event.target.value); setProfileNameEdited(true); }}
+            placeholder="Name this setup"
+          />
+        </label>
+        {profileNameEdited && !profileName.trim() && <p className={`${styles.message} ${styles.messageError}`} role="alert">Enter a profile name between 1 and 40 characters.</p>}
         {analysis.gestures.length === 0 ? <p className={styles.messageWarning}>No complete gesture samples were detected yet.</p> : <div className={styles.tableWrap}>
           <table className={styles.table}>
-            <thead><tr><th>Presses</th><th>Detected as</th><th>Repeatable</th></tr></thead>
+            <thead><tr><th>Requested taps</th><th>Actual event sequence</th><th>Capture</th></tr></thead>
             <tbody>
               {analysis.gestures.map((gesture) => <tr key={`${gesture.taps}-${gesture.sig}`}>
                 <td>{gesture.taps} tap{gesture.taps === 1 ? "" : "s"}</td>
                 <td>{humanize(gesture.sig)}</td>
-                <td><span className={styles.repeatable}>{Math.round(gesture.reliability * 100)}%</span></td>
+                <td><span className={styles.repeatable}>{gesture.total > 1 ? `${gesture.samples}/${gesture.total} matched` : "Captured once"}</span></td>
               </tr>)}
               {analysis.unseen.map((count) => <tr key={`unseen-${count}`}>
                 <td className={styles.dimmed}>{count} taps</td><td className={styles.dimmed}>No signal</td><td className={styles.dimmed}>—</td>
@@ -592,7 +696,6 @@ export default function GestureCalibrationPanel({
           {ACTIONS.map(({ id: action, label }) => {
             const signature = mapping[action];
             const gesture = analysis.gestures.find((item) => item.sig === signature);
-            const easyToTrigger = Boolean(gesture && gesture.grade === "C");
             return <button
               className={`${styles.actionButton} ${signature ? styles.actionButtonSelected : ""}`}
               type="button"
@@ -603,18 +706,24 @@ export default function GestureCalibrationPanel({
               <span className={styles.actionBody}>
                 <small className={styles.actionLabel}>{label}</small>
                 <b className={styles.actionValue}>{gesture ? `${gesture.taps} tap${gesture.taps === 1 ? "" : "s"} · ${humanize(gesture.sig)}` : "Not assigned"}</b>
-                {easyToTrigger && <span className={styles.actionHint}>Single taps can trigger easily by accident. Choose another if available.</span>}
               </span>
               <ChevronRight size={18} className={styles.actionChevron} />
             </button>;
           })}
         </div>
         {mappedErrors.map((item) => <p className={`${styles.message} ${styles.messageError}`} key={item}><AlertCircle size={17} />{item}</p>)}
+        {maxTapCount === 3 && <button className={styles.secondaryButton} type="button" disabled={!practice || waiting || busy} onClick={() => {
+          setTapCount(4);
+          setSampleNumber(1);
+          setMaxTapCount(6);
+          setStep("calibrate");
+          setMessage("Capture extra 4–6 tap patterns only if this accessory supports them.");
+        }}>Capture optional 4–6 tap patterns</button>}
       </section>}
 
       {step === "verify" && <section className={styles.card} aria-labelledby="trigger-verify-title">
         <h2 className={styles.cardTitle} id="trigger-verify-title">4 · Safety check</h2>
-        <p className={styles.cardCopy}>Perform each action three times so Kiki can confirm it reliably.</p>
+        <p className={styles.cardCopy}>Perform each assigned event pattern once. Kiki checks the exact event sequence for this action.</p>
         <div className={styles.verificationList}>
           {verifyActions.map((action, index) => {
             const done = index < verifyActionIndex;
@@ -626,8 +735,8 @@ export default function GestureCalibrationPanel({
                 {done ? <Check size={17} /> : index + 1}
               </span>
               <span className={styles.verificationBody}><b>{ACTIONS.find((item) => item.id === action)?.label}</b><span>{gesture ? `${gesture.taps} tap${gesture.taps === 1 ? "" : "s"} · ${humanize(gesture.sig)}` : "Assigned gesture"}</span></span>
-              <span className={styles.verificationPips} aria-label={current ? `${verifyHits} of 3 confirmed` : done ? "Complete" : "Not started"}>
-                {[0, 1, 2].map((indexInProgress) => <i className={done || (current && indexInProgress < verifyHits) ? styles.pipPassed : ""} key={indexInProgress} />)}
+              <span className={styles.verificationPips} aria-label={current ? `${verifyHits} of 1 confirmed` : done ? "Complete" : "Not started"}>
+                <i className={done || (current && verifyHits > 0) ? styles.pipPassed : ""} />
               </span>
             </div>;
           })}
@@ -635,8 +744,9 @@ export default function GestureCalibrationPanel({
         {verifyResult && <p className={`${styles.message} ${verifyResult.startsWith("That attempt") || verifyResult.startsWith("No matching") ? styles.messageWarning : styles.messageInfo}`} role="status">
           {verifyResult.startsWith("That attempt") || verifyResult.startsWith("No matching") ? <AlertCircle size={17} /> : <CircleHelp size={17} />}{verifyResult}
         </p>}
-        {activeVerifyAction && <p className={styles.verifyPrompt}>Safety check {verifyActionIndex + 1}/{verifyActions.length}: perform <b>{ACTIONS.find((item) => item.id === activeVerifyAction)?.label}</b> three times.</p>}
+        {activeVerifyAction && <p className={styles.verifyPrompt}>Safety check {verifyActionIndex + 1}/{verifyActions.length}: perform <b>{ACTIONS.find((item) => item.id === activeVerifyAction)?.label}</b> once.</p>}
         {waiting && waitKind === "verify" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <button className={styles.primaryButton} type="button" disabled={!practice || busy || !activeVerifyAction} onClick={() => void retryFailedVerification()}><ShieldCheck size={18} />Check {ACTIONS.find((item) => item.id === activeVerifyAction)?.label ?? "button"} pattern</button>}
+        {verifyResult.startsWith("Expected ") && <button className={styles.secondaryButton} type="button" disabled={busy || waiting} onClick={() => setStep("review")}>Adjust event assignments</button>}
         {noSignal && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />No signal arrived. Try again.</p>}
       </section>}
 
@@ -649,25 +759,13 @@ export default function GestureCalibrationPanel({
       {profiles.length > 0 && <details className={`${styles.card} ${styles.savedCard}`} open={savedSetupsOpen} onToggle={(event) => setSavedSetupsOpen(event.currentTarget.open)}>
         <summary className={styles.savedHeader}><span className={styles.savedTitle}>Saved button setups ({profiles.length})</span><ChevronDown size={17} /></summary>
         {profiles.map((profile) => {
-          const assigned: Partial<Record<Action, string>> = {};
-          Object.entries(profile.mapping).forEach(([signature, action]) => { assigned[action as Action] = signature; });
           const verified = isProfileCurrent(profile, status);
           return <div className={styles.savedRow} key={profile.id}>
             <label className={styles.savedName}><input defaultValue={profile.name} maxLength={40} disabled={!practice || busy} aria-label={`Name for ${profile.name}`} onBlur={(event) => {
               if (event.target.value !== profile.name) void renameSavedProfile(profile, event.target.value);
             }} /></label>
             <span className={`${styles.badge} ${verified ? "" : styles.badgeNeedsCheck}`}>{verified ? "Ready" : "Needs re-check"}</span>
-            <button className={styles.secondaryButton} type="button" disabled={!practice || busy} onClick={() => {
-              setProfileId(profile.id);
-              profileIdRef.current = profile.id;
-              setProfileName(profile.name);
-              setKind(profile.kind);
-              setSelectedAccessory(profile.deviceRef ?? "");
-              setMapping(assigned);
-              setSamples(profile.library.map((sample) => ({ prompted: sample.prompted, sig: sample.sig, presses: sample.presses, gaps: sample.gaps })));
-              setStep("review");
-              setMessage(`Check the ${profile.name} buttons three times to enable Live mode.`);
-            }}>{verified ? "Edit" : "Re-check"}</button>
+            <button className={styles.secondaryButton} type="button" disabled={!practice || busy} onClick={() => editSavedProfile(profile)}>{verified ? "Edit" : "Re-check"}</button>
             <button className={`${styles.iconButton} ${styles.iconButtonDanger}`} type="button" disabled={!practice || busy} aria-label={`Delete ${profile.name}`} onClick={() => void deleteSavedProfile(profile)}><Trash2 size={15} /></button>
           </div>;
         })}
@@ -683,7 +781,7 @@ export default function GestureCalibrationPanel({
 
       <div className={styles.footer}>
         {(step === "preflight" || step === "warmup") && <button className={styles.primaryButton} type="button" disabled={!warmupSignature || !practice || busy} onClick={() => { setStep("calibrate"); setNoSignal(false); setMessage(""); }}>Continue</button>}
-        {step === "review" && <button className={styles.primaryButton} type="button" disabled={!practice || busy || !mappedReady} onClick={() => void saveDraftForVerification()}><ShieldCheck size={18} />Continue to safety check</button>}
+        {step === "review" && <button className={styles.primaryButton} type="button" disabled={!practice || busy || !mappedReady || !profileNameForSave} onClick={() => void saveDraftForVerification()}><ShieldCheck size={18} />Continue to safety check</button>}
         {step === "done" && <Link className={styles.primaryButton} href="/account/profile/triggers">Done</Link>}
         {(step === "calibrate" || step === "verify") && <button className={styles.ghostButton} type="button" disabled={busy || waiting} onClick={resetWizard}><RotateCcw size={15} />Reset setup</button>}
       </div>
@@ -694,14 +792,23 @@ export default function GestureCalibrationPanel({
           <header className={styles.sheetHeader}><h2 className={styles.sheetTitle} id="trigger-settings-title">Accessory and profile</h2><button className={styles.sheetClose} type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings"><X size={19} /></button></header>
           <div className={styles.formGrid}>
             <label className={styles.field}>Connected accessory
-              <select disabled={!practice || accessories.length === 0} value={selectedAccessory} onChange={(event) => setSelectedAccessory(event.target.value)}>
+              <select disabled={!practice || accessories.length === 0} value={selectedAccessory} onChange={(event) => {
+                const ref = event.target.value;
+                setSelectedAccessory(ref);
+                if (!profileNameEdited) {
+                  setProfileName(accessories.find((item) => (item.ref ?? "") === ref)?.label ?? "");
+                }
+              }}>
                 {accessories.length === 0 && <option value="">No accessory detected</option>}
                 {accessories.map((accessory, index) => <option key={`${accessory.ref ?? "any"}-${index}`} value={accessory.ref ?? ""}>{accessory.label} · {accessory.kind}</option>)}
               </select>
             </label>
             <button className={styles.ghostButton} type="button" disabled={!practice} onClick={() => void loadAccessories()}>Refresh accessories</button>
             <label className={styles.field}>Profile name
-              <input maxLength={40} value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder={connected?.label ?? "Name this setup"} />
+              <input maxLength={40} value={resolveGestureProfileName(profileName, profileNameEdited, generatedProfileName)} onChange={(event) => {
+                setProfileName(event.target.value);
+                setProfileNameEdited(true);
+              }} placeholder="Name this setup" />
             </label>
             <label className={styles.field}>Accessory type
               <select value={kind} onChange={(event) => setKind(event.target.value as GestureProfile["kind"])}>
@@ -723,6 +830,30 @@ export default function GestureCalibrationPanel({
             </label>
             <p className={styles.fieldHelp}>Close music apps before capturing button patterns. Practice mode cannot send real alerts.</p>
           </div>
+          <section className={styles.deviceConfigurations} aria-labelledby="trigger-device-configurations-title">
+            <h3 id="trigger-device-configurations-title">Connected Devices</h3>
+            {deviceConfigurations.length === 0 && <p className={styles.fieldHelp}>Connect an accessory or refresh the list. Previously configured devices stay available here.</p>}
+            {deviceConfigurations.map((device) => (
+              <details className={styles.deviceConfiguration} key={device.ref ?? "unassigned"}>
+                <summary>
+                  <span>{device.label}</span>
+                  <small>{device.connected ? "Connected" : "Not connected"} · {device.profiles.length} profile{device.profiles.length === 1 ? "" : "s"}</small>
+                </summary>
+                {device.profiles.map((profile) => (
+                  <div className={styles.deviceProfile} key={profile.id}>
+                    <b>{profile.name}</b>
+                    <span>{Object.entries(profile.mapping).map(([signature, action]) => `${ACTIONS.find((item) => item.id === action)?.label ?? action}: ${humanize(signature)}`).join(" · ") || "No actions assigned"}</span>
+                    <button className={styles.secondaryButton} type="button" disabled={!practice || busy} onClick={() => { editSavedProfile(profile); setSettingsOpen(false); }}>
+                      Edit this profile
+                    </button>
+                  </div>
+                ))}
+                <button className={styles.ghostButton} type="button" disabled={!practice || busy} onClick={() => startDeviceConfiguration(device)}>
+                  {device.profiles.length ? "Add another profile" : "Create device profile"}
+                </button>
+              </details>
+            ))}
+          </section>
           <div className={styles.sheetButtons}><button className={styles.primaryButton} type="button" onClick={() => setSettingsOpen(false)}>Save settings</button></div>
         </section>
       </div>}

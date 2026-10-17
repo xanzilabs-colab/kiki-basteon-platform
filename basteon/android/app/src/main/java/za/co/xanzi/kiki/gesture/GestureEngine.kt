@@ -127,6 +127,13 @@ fun matchGesture(signature: String, candidates: List<Profile>, requireVerified: 
     else MatchResult.Ambiguous(actions)
 }
 
+fun connectedProfiles(profiles: List<Profile>, mode: String, connectedRefs: Set<String>): List<Profile> =
+    if (mode == "auto") {
+        profiles.filter { it.deviceRef == null || it.deviceRef in connectedRefs }
+    } else {
+        profiles.filter { it.id == mode && (it.deviceRef == null || it.deviceRef in connectedRefs) }
+    }
+
 fun settleMsFor(candidates: List<Profile>, default: Long = 900L): Long =
     candidates.maxOfOrNull(Profile::settleMs) ?: default
 
