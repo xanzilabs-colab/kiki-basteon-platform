@@ -215,7 +215,9 @@
   font-size: 19px;
   font-weight: 800;
   letter-spacing: -.02em;
+  scroll-margin-top: max(16px, env(safe-area-inset-top));
 }
+.cardTitle:focus-visible { outline: 2px solid var(--tl-plum); outline-offset: 4px; border-radius: 3px; }
 
 .cardCopy {
   margin: 6px 0 14px;
@@ -389,6 +391,7 @@ a.primaryButton { text-decoration: none; }
 .verificationPips .pipPassed { background: var(--tl-ok); }
 .verifyPrompt { margin-bottom: 10px; color: var(--tl-muted); font-size: 13px; line-height: 1.45; }
 .savedCard { display: grid; gap: 10px; }
+.savedRows { display: grid; gap: 12px; }
 .savedHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .savedCard > summary { cursor: pointer; list-style: none; }
 .savedCard > summary::-webkit-details-marker { display: none; }
@@ -413,12 +416,28 @@ a.primaryButton { text-decoration: none; }
 }
 
 .settingsOverlay {
+  --tl-bg: #f6f1fc;
+  --tl-card: #fff;
+  --tl-ink: #2a1536;
+  --tl-muted: #6e5a7c;
+  --tl-line: #e6dcf0;
+  --tl-deep: var(--kiki-plum, #522868);
+  --tl-plum: var(--kiki-plum-light, #7a4f9a);
+  --tl-lav: var(--kiki-lavender, #e9dcf0);
+  --tl-ok: #2f7a4a;
+  --tl-ok-bg: #e6f3ea;
+  --tl-warn: #a8680c;
+  --tl-warn-bg: #fff5e0;
+  --tl-warn-line: #f0cf8a;
+  --tl-error: #c0293f;
+  --tl-error-bg: #fdeaee;
   position: fixed;
   z-index: 100;
   inset: 0;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  overscroll-behavior: contain;
   background: rgb(42 21 54 / 40%);
 }
 
@@ -426,7 +445,10 @@ a.primaryButton { text-decoration: none; }
   position: relative;
   width: min(100%, 470px);
   max-height: min(88vh, 760px);
+  max-height: min(88dvh, 760px);
   overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 14px;
   padding: 10px 20px max(24px, env(safe-area-inset-bottom));
   border-radius: 28px 28px 0 0;
   background: #fff;

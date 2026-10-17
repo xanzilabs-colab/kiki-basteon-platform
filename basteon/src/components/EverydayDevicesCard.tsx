@@ -328,6 +328,7 @@ export default function EverydayDevicesCard() {
                   <Link
                     className="everyday-action-button"
                     href={`/account/profile/triggers/lab?deviceRef=${encodeURIComponent(device.profileRef || device.ref)}`}
+                    onClick={() => setFlowStep(0)}
                   >
                     Gesture setup
                   </Link>

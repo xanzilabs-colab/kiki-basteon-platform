@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertCircle, Check, ChevronDown, ChevronRight, CircleHelp, RotateCcw, ShieldCheck, Trash2, X } from "lucide-react";
 import { KikiTrigger, type EverydayDevice, type GestureProfile, type TriggerEvent } from "@/lib/kikiTrigger";
 import styles from "@/app/account/profile/triggers/lab/triggerLab.module.css";
@@ -131,6 +132,14 @@ export default function GestureCalibrationPanel({
   const [verifyActionIndex, setVerifyActionIndex] = useState(0);
   const [verifyHits, setVerifyHits] = useState(0);
   const [verifyResult, setVerifyResult] = useState("");
+  const savedSetupsRef = useRef<HTMLDetailsElement>(null);
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const settingsSheetRef = useRef<HTMLElement>(null);
+  const actionSheetRef = useRef<HTMLElement>(null);
+  const returnScrollPositionRef = useRef<number | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const autoFocusedDeviceRef = useRef("");
+  const previousStepRef = useRef(step);
   const waitKindRef = useRef<WaitKind>(null);
   const verifyActionRef = useRef<Action | null>(null);
   const verifyActionsRef = useRef<Action[]>([]);
@@ -158,7 +167,6 @@ export default function GestureCalibrationPanel({
   useEffect(() => {
     if (!requestedDeviceRef) return;
     setSelectedAccessory(requestedDeviceRef);
-    setSettingsOpen(true);
   }, [requestedDeviceRef]);
 
   const deviceConfigurations = useMemo(() => {
@@ -198,6 +206,52 @@ export default function GestureCalibrationPanel({
     });
     return [...byRef.values()].sort((a, b) => Number(b.connected) - Number(a.connected) || a.label.localeCompare(b.label));
   }, [accessories, profiles, registeredDevices]);
+
+  useEffect(() => {
+    if (!requestedDeviceRef || autoFocusedDeviceRef.current === requestedDeviceRef) return;
+    const device = registeredDevices.find((item) =>
+      item.ref === requestedDeviceRef || item.profileRef === requestedDeviceRef
+    );
+    const canonicalRef = device?.profileRef || device?.ref || requestedDeviceRef;
+    const profile = profiles.find((item) => {
+      if (item.deviceRef === canonicalRef || item.deviceRef === requestedDeviceRef) return true;
+      const assignedDevice = registeredDevices.find((candidate) =>
+        candidate.ref === item.deviceRef || candidate.profileRef === item.deviceRef
+      );
+      return assignedDevice?.profileRef === canonicalRef || assignedDevice?.ref === requestedDeviceRef;
+    });
+    if (!profile) return;
+    autoFocusedDeviceRef.current = requestedDeviceRef;
+    setSavedSetupsOpen(true);
+    const frame = requestAnimationFrame(() => {
+      const row = [...(savedSetupsRef.current?.querySelectorAll<HTMLElement>("[data-profile-id]") ?? [])]
+        .find((element) => element.dataset.profileId === profile.id);
+      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [profiles, registeredDevices, requestedDeviceRef]);
+
+  useEffect(() => {
+    if (previousStepRef.current === step) return;
+    previousStepRef.current = step;
+    const frame = requestAnimationFrame(() => {
+      stepHeadingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      stepHeadingRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [step]);
+
+  useEffect(() => {
+    const sheet = editingAction ? actionSheetRef.current : settingsOpen ? settingsSheetRef.current : null;
+    if (!sheet) return;
+    const frame = requestAnimationFrame(() => {
+      const target = editingAction
+        ? sheet.querySelector<HTMLButtonElement>(".option:not(:disabled)")
+        : sheet;
+      target?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editingAction, settingsOpen]);
 
   const syncProfiles = useCallback(async (next: GestureProfile[], deleteProfileIds: string[] = []) => {
     setError("");
@@ -388,18 +442,6 @@ export default function GestureCalibrationPanel({
     if (needsRecheck) setSavedSetupsOpen(true);
   }, [profiles, status.appVersion, status.androidSdk]);
 
-  useEffect(() => {
-    if (!settingsOpen && !editingAction) return;
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setSettingsOpen(false);
-        setEditingAction(null);
-      }
-    };
-    window.addEventListener("keydown", keydown);
-    return () => window.removeEventListener("keydown", keydown);
-  }, [editingAction, settingsOpen]);
-
   function resetWizard() {
     setStep("preflight");
     setSamples([]);
@@ -422,6 +464,32 @@ export default function GestureCalibrationPanel({
     const newId = id();
     setProfileId(newId);
     profileIdRef.current = newId;
+  }
+
+  function rememberPagePosition() {
+    returnScrollPositionRef.current = window.scrollY;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+
+  function restorePagePosition() {
+    const position = returnScrollPositionRef.current;
+    const focusTarget = returnFocusRef.current;
+    returnScrollPositionRef.current = null;
+    returnFocusRef.current = null;
+    requestAnimationFrame(() => {
+      focusTarget?.focus({ preventScroll: true });
+      if (position !== null) window.scrollTo({ top: position, behavior: "auto" });
+    });
+  }
+
+  function closeSettings() {
+    setSettingsOpen(false);
+    restorePagePosition();
+  }
+
+  function closeActionPicker() {
+    setEditingAction(null);
+    restorePagePosition();
   }
 
   async function beginCapture(kind: Exclude<WaitKind, null>) {
@@ -621,7 +689,7 @@ export default function GestureCalibrationPanel({
       else delete next[action];
       return next;
     });
-    setEditingAction(null);
+    closeActionPicker();
   }
 
   return (
@@ -636,13 +704,16 @@ export default function GestureCalibrationPanel({
         })}
       </ol>
 
-      <button className={styles.settingsButton} type="button" onClick={() => setSettingsOpen(true)}>
+      <button className={styles.settingsButton} type="button" onClick={() => {
+        rememberPagePosition();
+        setSettingsOpen(true);
+      }}>
         <span>Accessory and profile settings</span><ChevronDown size={18} />
       </button>
       {practice && accessories.length === 0 && <p className={`${styles.message} ${styles.messageWarning}`}><AlertCircle size={17} />Connect your accessory, then refresh the accessory list in settings.</p>}
 
       {(step === "preflight" || step === "warmup") && <section className={styles.card} aria-labelledby="trigger-connect-title">
-        <h2 className={styles.cardTitle} id="trigger-connect-title">1 · Check connection</h2>
+        <h2 className={styles.cardTitle} id="trigger-connect-title" ref={stepHeadingRef} tabIndex={-1}>1 · Check connection</h2>
         <p className={styles.cardCopy}>Press your accessory once so Kiki can check that it receives the button signal.</p>
         {selectedAccessory && !connected && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />The selected accessory is not connected. Connect it or choose a connected device in settings before capturing.</p>}
         {waiting && waitKind === "warmup" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <>
@@ -654,7 +725,7 @@ export default function GestureCalibrationPanel({
       </section>}
 
       {step === "calibrate" && <section className={styles.card} aria-labelledby="trigger-capture-title">
-        <h2 className={styles.cardTitle} id="trigger-capture-title">2 · Capture patterns</h2>
+        <h2 className={styles.cardTitle} id="trigger-capture-title" ref={stepHeadingRef} tabIndex={-1}>2 · Capture patterns</h2>
         <p className={styles.cardCopy}>Press <b>{tapCount} time{tapCount === 1 ? "" : "s"}</b>, then pause. One short sample per pattern.</p>
         <div className={styles.pips} aria-label={`Tap count ${tapCount} of 6`}>
           {Array.from({ length: 6 }, (_, index) => {
@@ -677,7 +748,7 @@ export default function GestureCalibrationPanel({
       </section>}
 
       {step === "review" && <section className={styles.card} aria-labelledby="trigger-choose-title">
-        <h2 className={styles.cardTitle} id="trigger-choose-title">3 · Choose actions</h2>
+        <h2 className={styles.cardTitle} id="trigger-choose-title" ref={stepHeadingRef} tabIndex={-1}>3 · Choose actions</h2>
         <p className={styles.cardCopy}>Choose from the exact ordered events your accessory sent. Play/Pause and volume sequences stay distinct.</p>
         <label className={`${styles.field} ${styles.profileNameField}`}>Profile name
           <input
@@ -714,7 +785,10 @@ export default function GestureCalibrationPanel({
               className={`${styles.actionButton} ${signature ? styles.actionButtonSelected : ""}`}
               type="button"
               key={action}
-              onClick={() => setEditingAction(action)}
+              onClick={() => {
+                rememberPagePosition();
+                setEditingAction(action);
+              }}
               aria-label={`Choose gesture for ${label}. Current: ${gesture ? `${gesture.taps} taps, ${humanize(gesture.sig)}` : "Not assigned"}`}
             >
               <span className={styles.actionBody}>
@@ -736,7 +810,7 @@ export default function GestureCalibrationPanel({
       </section>}
 
       {step === "verify" && <section className={styles.card} aria-labelledby="trigger-verify-title">
-        <h2 className={styles.cardTitle} id="trigger-verify-title">4 · Safety check</h2>
+        <h2 className={styles.cardTitle} id="trigger-verify-title" ref={stepHeadingRef} tabIndex={-1}>4 · Safety check</h2>
         <p className={styles.cardCopy}>Perform each assigned event pattern once. Kiki checks the exact event sequence for this action.</p>
         <div className={styles.verificationList}>
           {verifyActions.map((action, index) => {
@@ -766,23 +840,25 @@ export default function GestureCalibrationPanel({
 
       {step === "done" && <section className={styles.card} aria-labelledby="trigger-done-title">
         <div className={styles.verificationIcon + " " + styles.verificationIconDone} style={{ width: 64, height: 64, margin: "4px auto 14px" }}><Check size={30} /></div>
-        <h2 className={styles.cardTitle} id="trigger-done-title" style={{ textAlign: "center" }}>Setup complete</h2>
+        <h2 className={styles.cardTitle} id="trigger-done-title" ref={stepHeadingRef} tabIndex={-1} style={{ textAlign: "center" }}>Setup complete</h2>
         <p className={styles.cardCopy} style={{ textAlign: "center" }}>SOS and Cancel are verified for this phone and accessory.</p>
       </section>}
 
-      {profiles.length > 0 && <details className={`${styles.card} ${styles.savedCard}`} open={savedSetupsOpen} onToggle={(event) => setSavedSetupsOpen(event.currentTarget.open)}>
+      {profiles.length > 0 && <details ref={savedSetupsRef} className={`${styles.card} ${styles.savedCard}`} open={savedSetupsOpen} onToggle={(event) => setSavedSetupsOpen(event.currentTarget.open)}>
         <summary className={styles.savedHeader}><span className={styles.savedTitle}>Saved button setups ({profiles.length})</span><ChevronDown size={17} /></summary>
-        {profiles.map((profile) => {
-          const verified = isProfileCurrent(profile, status);
-          return <div className={styles.savedRow} key={profile.id}>
-            <label className={styles.savedName}><input defaultValue={profile.name} maxLength={40} disabled={!practice || busy} aria-label={`Name for ${profile.name}`} onBlur={(event) => {
-              if (event.target.value !== profile.name) void renameSavedProfile(profile, event.target.value);
-            }} /></label>
-            <span className={`${styles.badge} ${verified ? "" : styles.badgeNeedsCheck}`}>{verified ? "Ready" : "Needs re-check"}</span>
-            <button className={styles.secondaryButton} type="button" disabled={!practice || busy} onClick={() => editSavedProfile(profile)}>{verified ? "Edit" : "Re-check"}</button>
-            <button className={`${styles.iconButton} ${styles.iconButtonDanger}`} type="button" disabled={!practice || busy} aria-label={`Delete ${profile.name}`} onClick={() => void deleteSavedProfile(profile)}><Trash2 size={15} /></button>
-          </div>;
-        })}
+        <div className={styles.savedRows}>
+          {profiles.map((profile) => {
+            const verified = isProfileCurrent(profile, status);
+            return <div className={styles.savedRow} key={profile.id} data-profile-id={profile.id}>
+              <label className={styles.savedName}><input defaultValue={profile.name} maxLength={40} disabled={!practice || busy} aria-label={`Name for ${profile.name}`} onBlur={(event) => {
+                if (event.target.value !== profile.name) void renameSavedProfile(profile, event.target.value);
+              }} /></label>
+              <span className={`${styles.badge} ${verified ? "" : styles.badgeNeedsCheck}`}>{verified ? "Ready" : "Needs re-check"}</span>
+              <button className={styles.secondaryButton} type="button" disabled={!practice || busy} onClick={() => editSavedProfile(profile)}>{verified ? "Edit" : "Re-check"}</button>
+              <button className={`${styles.iconButton} ${styles.iconButtonDanger}`} type="button" disabled={!practice || busy} aria-label={`Delete ${profile.name}`} onClick={() => void deleteSavedProfile(profile)}><Trash2 size={15} /></button>
+            </div>;
+          })}
+        </div>
         <p className={styles.phoneSaved}>Your button setups are saved on this phone.</p>
       </details>}
 
@@ -800,10 +876,10 @@ export default function GestureCalibrationPanel({
         {(step === "calibrate" || step === "verify") && <button className={styles.ghostButton} type="button" disabled={busy || waiting} onClick={resetWizard}><RotateCcw size={15} />Reset setup</button>}
       </div>
 
-      {settingsOpen && <div className={styles.settingsOverlay} role="presentation" onClick={() => setSettingsOpen(false)} onKeyDown={(event) => { if (event.key === "Escape") setSettingsOpen(false); }} tabIndex={-1}>
-        <section className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby="trigger-settings-title" onClick={(event) => event.stopPropagation()}>
+      {settingsOpen && typeof document !== "undefined" && createPortal(<div className={styles.settingsOverlay} role="presentation" onClick={closeSettings} onKeyDown={(event) => { if (event.key === "Escape") closeSettings(); }}>
+        <section className={styles.sheet} ref={settingsSheetRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="trigger-settings-title" onClick={(event) => event.stopPropagation()}>
           <div className={styles.grabber} />
-          <header className={styles.sheetHeader}><h2 className={styles.sheetTitle} id="trigger-settings-title">Accessory and profile</h2><button className={styles.sheetClose} type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings"><X size={19} /></button></header>
+          <header className={styles.sheetHeader}><h2 className={styles.sheetTitle} id="trigger-settings-title">Accessory and profile</h2><button className={styles.sheetClose} type="button" onClick={closeSettings} aria-label="Close settings"><X size={19} /></button></header>
           <div className={styles.formGrid}>
             <label className={styles.field}>Connected accessory
               <select disabled={!practice || accessories.length === 0} value={selectedAccessory} onChange={(event) => {
@@ -868,14 +944,14 @@ export default function GestureCalibrationPanel({
               </details>
             ))}
           </section>
-          <div className={styles.sheetButtons}><button className={styles.primaryButton} type="button" onClick={() => setSettingsOpen(false)}>Save settings</button></div>
+          <div className={styles.sheetButtons}><button className={styles.primaryButton} type="button" onClick={closeSettings}>Save settings</button></div>
         </section>
-      </div>}
+      </div>, document.body)}
 
-      {editingAction && <div className={styles.settingsOverlay} role="presentation" onClick={() => setEditingAction(null)} onKeyDown={(event) => { if (event.key === "Escape") setEditingAction(null); }} tabIndex={-1}>
-        <section className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby="trigger-action-title" onClick={(event) => event.stopPropagation()}>
+      {editingAction && typeof document !== "undefined" && createPortal(<div className={styles.settingsOverlay} role="presentation" onClick={closeActionPicker} onKeyDown={(event) => { if (event.key === "Escape") closeActionPicker(); }}>
+        <section className={styles.sheet} ref={actionSheetRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="trigger-action-title" onClick={(event) => event.stopPropagation()}>
           <div className={styles.grabber} />
-          <header className={styles.sheetHeader}><h2 className={styles.sheetTitle} id="trigger-action-title">{ACTIONS.find((item) => item.id === editingAction)?.label}</h2><button className={styles.sheetClose} type="button" onClick={() => setEditingAction(null)} aria-label="Close gesture options"><X size={19} /></button></header>
+          <header className={styles.sheetHeader}><h2 className={styles.sheetTitle} id="trigger-action-title">{ACTIONS.find((item) => item.id === editingAction)?.label}</h2><button className={styles.sheetClose} type="button" onClick={closeActionPicker} aria-label="Close gesture options"><X size={19} /></button></header>
           <div className={styles.options}>
             <button className={`${styles.option} ${!mapping[editingAction] ? styles.optionActive : ""}`} type="button" onClick={() => assignGesture(editingAction, undefined)}>
               <span className={styles.optionBody}><b>Not assigned</b></span><i className={styles.radio} />
@@ -898,7 +974,7 @@ export default function GestureCalibrationPanel({
             })}
           </div>
         </section>
-      </div>}
+      </div>, document.body)}
     </section>
   );
 }
