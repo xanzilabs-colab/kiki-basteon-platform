@@ -9,7 +9,7 @@ import styles from "@/app/account/profile/triggers/lab/triggerLab.module.css";
 
 const PRACTICE_WINDOW_MS = 10 * 60 * 1000;
 
-export default function TriggerLab() {
+export default function TriggerLab({ requestedDeviceRef = "" }: { requestedDeviceRef?: string }) {
   const native = Capacitor.isNativePlatform();
   const [status, setStatus] = useState<KikiStatus | null>(null);
   const [practice, setPractice] = useState(false);
@@ -122,7 +122,12 @@ export default function TriggerLab() {
         </div>
       </section>
 
-      <GestureCalibrationPanel practice={practice} onStartPractice={() => void setPracticeMode(true)} status={status ?? {}} />
+      <GestureCalibrationPanel
+        practice={practice}
+        onStartPractice={() => void setPracticeMode(true)}
+        status={status ?? {}}
+        requestedDeviceRef={requestedDeviceRef}
+      />
       {error && <p className={styles.message + " " + styles.messageError} role="alert">{error}</p>}
     </div>
   );

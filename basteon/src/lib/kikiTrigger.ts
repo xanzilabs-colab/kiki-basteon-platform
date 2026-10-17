@@ -120,7 +120,7 @@ interface KikiTriggerPlugin {
   setPractice(options: { on: boolean }): Promise<void>;
   getTriggerConfig(): Promise<UniversalTriggerConfig>;
   setTriggerConfig(config: UniversalTriggerConfig): Promise<void>;
-  startCapture(options?: { gapMs?: number; settleMs?: number; verification?: boolean }): Promise<{ capturing: boolean }>;
+  startCapture(options?: { gapMs?: number; settleMs?: number; verification?: boolean; profileId?: string }): Promise<{ capturing: boolean }>;
   stopCapture(): Promise<{ capturing: boolean }>;
   getProfiles(): Promise<{ profiles: GestureProfile[]; mode: string }>;
   saveProfile(options: { profile: GestureProfile }): Promise<{ profile: GestureProfile }>;

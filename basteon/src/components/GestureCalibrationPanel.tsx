@@ -92,10 +92,12 @@ export default function GestureCalibrationPanel({
   practice,
   onStartPractice,
   status,
+  requestedDeviceRef = "",
 }: {
   practice: boolean;
   onStartPractice: () => void;
   status: { appVersion?: string | null; androidSdk?: number };
+  requestedDeviceRef?: string;
 }) {
   const [profiles, setProfiles] = useState<GestureProfile[]>([]);
   const [accessories, setAccessories] = useState<Accessory[]>([]);
@@ -152,6 +154,12 @@ export default function GestureCalibrationPanel({
   const connected = accessories.find((item) => (item.ref ?? "") === selectedAccessory);
   const generatedProfileName = connected?.label.trim() || "Bluetooth accessory";
   const profileNameForSave = resolveGestureProfileName(profileName, profileNameEdited, generatedProfileName);
+
+  useEffect(() => {
+    if (!requestedDeviceRef) return;
+    setSelectedAccessory(requestedDeviceRef);
+    setSettingsOpen(true);
+  }, [requestedDeviceRef]);
 
   const deviceConfigurations = useMemo(() => {
     const byRef = new Map<string, DeviceConfiguration>();
@@ -433,6 +441,7 @@ export default function GestureCalibrationPanel({
         gapMs: analysis.timing.gapMs,
         settleMs: analysis.timing.settleMs,
         verification: kind === "verify",
+        profileId: kind === "verify" ? profileIdRef.current : undefined,
       });
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       timerRef.current = window.setTimeout(() => {
@@ -659,13 +668,13 @@ export default function GestureCalibrationPanel({
           {noSignal && <button className={styles.warningButton} type="button" onClick={() => void acceptNoSignal()}>Record no signal</button>}
         </div>}
         {noSignal && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />No button signal arrived. Try again, or record it as unavailable.</p>}
-        <p className={styles.fieldHelp}>Kiki checks common 1–6 press patterns three times each so it can avoid confusing one action with another.</p>
+        <p className={styles.fieldHelp}>Kiki records the event sequence your accessory sends for each tap pattern.</p>
       </section>}
 
       {step === "review" && <section className={styles.card} aria-labelledby="trigger-choose-title">
         <h2 className={styles.cardTitle} id="trigger-choose-title">3 · Choose actions</h2>
         <p className={styles.cardCopy}>Choose from the exact ordered events your accessory sent. Play/Pause and volume sequences stay distinct.</p>
-        <label className={styles.field}>Profile name
+        <label className={`${styles.field} ${styles.profileNameField}`}>Profile name
           <input
             maxLength={40}
             value={resolveGestureProfileName(profileName, profileNameEdited, generatedProfileName)}
@@ -691,7 +700,7 @@ export default function GestureCalibrationPanel({
         </div>}
         {analysis.unseen.length > 0 && <p className={`${styles.message} ${styles.messageWarning}`}><AlertCircle size={17} />No events were received for {analysis.unseen.join(", ")} taps. Those gestures cannot be assigned.</p>}
         {analysis.indistinguishable.map(({ sig, taps }) => <p className={`${styles.message} ${styles.messageWarning}`} key={sig}><AlertCircle size={17} />Tap counts {taps.join(" and ")} produced the same signal ({humanize(sig)}), so Kiki cannot distinguish them.</p>)}
-        <button className={styles.secondaryButton} type="button" onClick={() => void acceptRecommendations()} disabled={!analysis.gestures.length}>Suggest actions</button>
+        <button className={`${styles.secondaryButton} ${styles.suggestActionsButton}`} type="button" onClick={() => void acceptRecommendations()} disabled={!analysis.gestures.length}>Suggest actions</button>
         <div className={styles.actionList}>
           {ACTIONS.map(({ id: action, label }) => {
             const signature = mapping[action];
@@ -712,7 +721,7 @@ export default function GestureCalibrationPanel({
           })}
         </div>
         {mappedErrors.map((item) => <p className={`${styles.message} ${styles.messageError}`} key={item}><AlertCircle size={17} />{item}</p>)}
-        {maxTapCount === 3 && <button className={styles.secondaryButton} type="button" disabled={!practice || waiting || busy} onClick={() => {
+        {maxTapCount === 3 && <button className={`${styles.secondaryButton} ${styles.captureMoreButton}`} type="button" disabled={!practice || waiting || busy} onClick={() => {
           setTapCount(4);
           setSampleNumber(1);
           setMaxTapCount(6);
@@ -746,7 +755,7 @@ export default function GestureCalibrationPanel({
         </p>}
         {activeVerifyAction && <p className={styles.verifyPrompt}>Safety check {verifyActionIndex + 1}/{verifyActions.length}: perform <b>{ACTIONS.find((item) => item.id === activeVerifyAction)?.label}</b> once.</p>}
         {waiting && waitKind === "verify" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <button className={styles.primaryButton} type="button" disabled={!practice || busy || !activeVerifyAction} onClick={() => void retryFailedVerification()}><ShieldCheck size={18} />Check {ACTIONS.find((item) => item.id === activeVerifyAction)?.label ?? "button"} pattern</button>}
-        {verifyResult.startsWith("Expected ") && <button className={styles.secondaryButton} type="button" disabled={busy || waiting} onClick={() => setStep("review")}>Adjust event assignments</button>}
+        {verifyResult.startsWith("Expected ") && <button className={`${styles.secondaryButton} ${styles.adjustAssignmentsButton}`} type="button" disabled={busy || waiting} onClick={() => setStep("review")}>Adjust event assignments</button>}
         {noSignal && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />No signal arrived. Try again.</p>}
       </section>}
 
@@ -834,7 +843,7 @@ export default function GestureCalibrationPanel({
             <h3 id="trigger-device-configurations-title">Connected Devices</h3>
             {deviceConfigurations.length === 0 && <p className={styles.fieldHelp}>Connect an accessory or refresh the list. Previously configured devices stay available here.</p>}
             {deviceConfigurations.map((device) => (
-              <details className={styles.deviceConfiguration} key={device.ref ?? "unassigned"}>
+              <details className={styles.deviceConfiguration} key={device.ref ?? "unassigned"} open={Boolean(requestedDeviceRef && device.ref === requestedDeviceRef)}>
                 <summary>
                   <span>{device.label}</span>
                   <small>{device.connected ? "Connected" : "Not connected"} · {device.profiles.length} profile{device.profiles.length === 1 ? "" : "s"}</small>

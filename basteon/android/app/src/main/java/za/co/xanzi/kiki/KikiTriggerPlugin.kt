@@ -44,6 +44,7 @@ class KikiTriggerPlugin : Plugin() {
     override fun handleOnDestroy() {
         KikiTriggerService.captureEnabled = false
         KikiTriggerService.captureVerificationEnabled = false
+        KikiTriggerService.captureProfileId = null
         KikiTriggerService.listener = null
         DeviceTracker.onChange = null
     }
@@ -179,9 +180,16 @@ class KikiTriggerPlugin : Plugin() {
             call.reject("Capture timing must use a 200–1500 ms gap and 300–2500 ms settle window.")
             return
         }
+        val verification = call.getBoolean("verification", false) ?: false
+        val profileId = call.getString("profileId")?.trim()
+        if (verification && (profileId == null || !Regex("[A-Za-z0-9_-]{8,40}").matches(profileId))) {
+            call.reject("Choose a saved profile before checking its gesture.")
+            return
+        }
         KikiTriggerService.captureGapMs = gapMs
         KikiTriggerService.captureSettleMs = settleMs
-        KikiTriggerService.captureVerificationEnabled = call.getBoolean("verification", false) ?: false
+        KikiTriggerService.captureProfileId = profileId.takeIf { verification }
+        KikiTriggerService.captureVerificationEnabled = verification
         KikiTriggerService.captureEnabled = true
         call.resolve(JSObject().put("capturing", true))
     }
@@ -190,6 +198,7 @@ class KikiTriggerPlugin : Plugin() {
     fun stopCapture(call: PluginCall) {
         KikiTriggerService.captureEnabled = false
         KikiTriggerService.captureVerificationEnabled = false
+        KikiTriggerService.captureProfileId = null
         KikiTriggerService.captureGapMs = KikiTriggerService.GAP_MS
         KikiTriggerService.captureSettleMs = KikiTriggerService.SETTLE_MS
         call.resolve(JSObject().put("capturing", false))
@@ -391,6 +400,7 @@ class KikiTriggerPlugin : Plugin() {
         if (!on) {
             KikiTriggerService.captureEnabled = false
             KikiTriggerService.captureVerificationEnabled = false
+            KikiTriggerService.captureProfileId = null
         }
         val prefs = Store.prefs(context)
         val wasArmed = prefs.getBoolean("wantArmed", false)

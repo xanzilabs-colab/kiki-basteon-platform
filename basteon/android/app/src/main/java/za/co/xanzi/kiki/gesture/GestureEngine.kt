@@ -134,6 +134,15 @@ fun connectedProfiles(profiles: List<Profile>, mode: String, connectedRefs: Set<
         profiles.filter { it.id == mode && (it.deviceRef == null || it.deviceRef in connectedRefs) }
     }
 
+fun verificationProfiles(
+    profiles: List<Profile>,
+    profileId: String,
+    connectedRefs: Set<String>,
+    hasConnectedAudio: Boolean
+): List<Profile> = profiles.filter { profile ->
+    profile.id == profileId && (profile.deviceRef?.let { it in connectedRefs } ?: hasConnectedAudio)
+}
+
 fun settleMsFor(candidates: List<Profile>, default: Long = 900L): Long =
     candidates.maxOfOrNull(Profile::settleMs) ?: default
 

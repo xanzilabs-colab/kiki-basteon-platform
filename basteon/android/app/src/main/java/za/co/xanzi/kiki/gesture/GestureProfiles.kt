@@ -120,6 +120,12 @@ object GestureProfiles {
         return connectedProfiles(profiles, mode(context), connectedRefs)
     }
 
+    fun verificationCandidates(context: Context, profileId: String): List<Profile> {
+        val connectedRefs = DeviceTracker.connectedRefs(context)
+        val hasConnectedAudio = connectedRefs.isNotEmpty() || DeviceTracker.audioOutputs(context).length() > 0
+        return verificationProfiles(all(context), profileId, connectedRefs, hasConnectedAudio)
+    }
+
     fun liveBlockReason(context: Context): String? {
         val connectedRefs = DeviceTracker.connectedRefs(context)
         val hasConnectedAudio = connectedRefs.isNotEmpty() || DeviceTracker.audioOutputs(context).length() > 0

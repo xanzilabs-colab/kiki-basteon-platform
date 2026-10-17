@@ -102,6 +102,29 @@ class GestureEngineTest {
     }
 
     @Test
+    fun verificationUsesTheRequestedProfileEvenWhenAnotherDeviceHasAnAmbiguousMapping() {
+        val target = profile("target-profile", mapOf("T" to "cancel"), null).copy(deviceRef = "bt:AA:BB")
+        val conflicting = profile("other-profile", mapOf("T" to "sos"), 1L).copy(deviceRef = "bt:AA:BB")
+
+        val candidates = verificationProfiles(
+            listOf(target, conflicting),
+            target.id,
+            setOf("bt:AA:BB"),
+            hasConnectedAudio = true
+        )
+
+        assertEquals(listOf(target), candidates)
+        assertEquals(MatchResult.Hit("cancel", target.id), matchGesture("T", candidates, requireVerified = false))
+    }
+
+    @Test
+    fun verificationCannotSelectAProfileForADisconnectedDevice() {
+        val target = profile("target-profile", mapOf("T" to "cancel"), null).copy(deviceRef = "bt:AA:BB")
+
+        assertTrue(verificationProfiles(listOf(target), target.id, emptySet(), hasConnectedAudio = false).isEmpty())
+    }
+
+    @Test
     fun duplicateDisplayNamesRemainIndependentByStableDeviceReference() {
         val left = profile("left-profile", mapOf("TTT" to "sos"), 1L).copy(
             name = "Wireless earbuds",

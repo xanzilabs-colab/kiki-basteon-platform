@@ -83,6 +83,7 @@ class KikiTriggerService : Service() {
         @Volatile var listener: ((JSONObject) -> Unit)? = null
         @Volatile var captureEnabled = false
         @Volatile var captureVerificationEnabled = false
+        @Volatile var captureProfileId: String? = null
         @Volatile var captureGapMs = GAP_MS
         @Volatile var captureSettleMs = SETTLE_MS
         @Volatile var pendingCountdown = false
@@ -340,6 +341,7 @@ class KikiTriggerService : Service() {
         audioRunning = false
         captureEnabled = false
         captureVerificationEnabled = false
+        captureProfileId = null
         main.removeCallbacks(settle)
         main.removeCallbacks(countdownExpired)
         main.removeCallbacks(heartbeat)
@@ -582,7 +584,12 @@ class KikiTriggerService : Service() {
         sequenceCandidates = emptyList()
 
         val prefs = Store.prefs(this)
-        val match = matchGesture(sequence, GestureProfiles.connectedCandidates(this), requireVerified = !practice)
+        val candidates = if (practice && captureEnabled && captureVerificationEnabled) {
+            captureProfileId?.let { GestureProfiles.verificationCandidates(this, it) }.orEmpty()
+        } else {
+            GestureProfiles.connectedCandidates(this)
+        }
+        val match = matchGesture(sequence, candidates, requireVerified = !practice)
         if (practice && captureEnabled && captureVerificationEnabled) {
             GestureProfiles.recordPracticeResult(this, match)
         }

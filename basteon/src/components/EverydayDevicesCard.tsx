@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { Capacitor } from "@capacitor/core";
 import { Bluetooth, CheckCircle2, ChevronRight, Headphones, Plus, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
 import {
@@ -324,6 +325,12 @@ export default function EverydayDevicesCard() {
                   {device.verifiedAt ? "Practiced" : statusChipText(device.status)}
                 </span>
                 <div className="everyday-device-actions">
+                  <Link
+                    className="everyday-action-button"
+                    href={`/account/profile/triggers/lab?deviceRef=${encodeURIComponent(device.profileRef || device.ref)}`}
+                  >
+                    Gesture setup
+                  </Link>
                   <button className="everyday-action-button primary" type="button" disabled={busy || practiceRef !== null} onClick={() => void startPractice(device)}>
                     {practiceRef === device.ref ? "Listening…" : "Practice"}
                   </button>
