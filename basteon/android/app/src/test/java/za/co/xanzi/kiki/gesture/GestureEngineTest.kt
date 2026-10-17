@@ -119,6 +119,15 @@ class GestureEngineTest {
     }
 
     @Test
+    fun profileVerificationCompletesAfterOneConfirmedHitPerRequiredAction() {
+        val required = setOf("sos", "cancel")
+
+        assertFalse(isVerificationComplete(required, mapOf("sos" to 1)))
+        assertTrue(isVerificationComplete(required, mapOf("sos" to 1, "cancel" to 1)))
+        assertFalse(isVerificationComplete(emptySet(), emptyMap()))
+    }
+
+    @Test
     fun timingUsesTheMostConservativeCandidate() {
         assertEquals(900L, settleMsFor(emptyList()))
         assertEquals(650L, gapMsFor(emptyList()))

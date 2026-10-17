@@ -8,6 +8,9 @@ import za.co.xanzi.kiki.DeviceTracker
 import za.co.xanzi.kiki.KikiTriggerService
 import za.co.xanzi.kiki.Store
 
+internal fun isVerificationComplete(requiredActions: Set<String>, progress: Map<String, Int>): Boolean =
+    requiredActions.isNotEmpty() && requiredActions.all { (progress[it] ?: 0) >= 1 }
+
 object GestureProfiles {
     private const val PREFS_KEY = "gestureProfiles"
     private const val ACTIVE_MODE_KEY = "gestureProfileMode"
@@ -82,11 +85,11 @@ object GestureProfiles {
         } else {
             val profile = profiles.firstOrNull { it.id == hit.profileId } ?: return
             val actionProgress = progress.optJSONObject(profile.id) ?: JSONObject()
-            val count = (actionProgress.optInt(hit.action, 0) + 1).coerceAtMost(3)
+            val count = (actionProgress.optInt(hit.action, 0) + 1).coerceAtMost(1)
             actionProgress.put(hit.action, count)
             progress.put(profile.id, actionProgress)
             val requiredActions = profile.mapping.values.toSet()
-            if (requiredActions.isNotEmpty() && requiredActions.all { actionProgress.optInt(it, 0) >= 3 }) {
+            if (isVerificationComplete(requiredActions, requiredActions.associateWith { actionProgress.optInt(it, 0) })) {
                 write(
                     context,
                     profiles.map { item ->
