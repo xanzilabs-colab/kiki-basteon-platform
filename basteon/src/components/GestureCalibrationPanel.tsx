@@ -615,7 +615,12 @@ export default function GestureCalibrationPanel({
         : 3;
 
   function assignGesture(action: Action, signature: string | undefined) {
-    setMapping((previous) => ({ ...previous, [action]: signature }));
+    setMapping((previous) => {
+      const next = { ...previous };
+      if (signature) next[action] = signature;
+      else delete next[action];
+      return next;
+    });
     setEditingAction(null);
   }
 

@@ -84,4 +84,12 @@ describe("trigger gesture analysis", () => {
     expect(profileTrust(gestures, { sos: "NNN", cancel: "NNNN" }, false)).toBe("unverified");
     expect(profileTrust(gestures, { sos: "NNN", cancel: "NNNN" }, true)).toBe("ready");
   });
+
+  it("ignores unassigned actions after a gesture is removed", () => {
+    const gestures = analyze([...repeated(3, "NNN"), ...repeated(4, "NNNN")]).gestures;
+    const mapping = { sos: "NNN", cancel: "NNNN", duress: undefined };
+
+    expect(validateMapping(mapping, gestures)).toEqual([]);
+    expect(profileTrust(gestures, mapping, true)).toBe("ready");
+  });
 });

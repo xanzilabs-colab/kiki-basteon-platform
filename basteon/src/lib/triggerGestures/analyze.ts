@@ -158,7 +158,8 @@ export function quickPresetAssignments(gestures: GestureStat[]): Partial<Record<
 export function validateMapping(mapping: Partial<Record<Action, string>>, gestures: GestureStat[]): string[] {
   const errors: string[] = [];
   const assigned = new Map<string, Action>();
-  for (const [action, signature] of Object.entries(mapping) as [Action, string][]) {
+  for (const [action, signature] of Object.entries(mapping) as [Action, string | undefined][]) {
+    if (!signature) continue;
     if (!gestures.some(({ sig }) => sig === signature)) errors.push(`${action}: that gesture was not detected during testing.`);
     const previous = assigned.get(signature);
     if (previous) errors.push(`${action} and ${previous} use the same gesture.`);
@@ -173,7 +174,7 @@ export function profileTrust(
   verified: boolean,
 ) {
   if (!mapping.sos || !mapping.cancel) return "incomplete" as const;
-  const grades = Object.values(mapping).map((signature) =>
+  const grades = Object.values(mapping).filter((signature): signature is string => Boolean(signature)).map((signature) =>
     gestures.find(({ sig }) => sig === signature)?.grade ?? "C"
   );
   const worst = grades.sort().pop();
