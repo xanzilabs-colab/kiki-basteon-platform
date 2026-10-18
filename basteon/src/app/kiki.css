@@ -474,8 +474,8 @@
 .safety-call-answer svg { background: #4fa77a; }
 .safety-call-active { justify-content: space-between; }
 .safety-call-active .safety-call-decline { position: relative; z-index: 1; }
-.auth-shell { display:grid;min-height:100vh;min-height:100dvh;width:100%;place-items:center;padding:clamp(16px,4vw,48px);background:radial-gradient(circle at 12% 10%,#f4eafa 0,transparent 28rem),#f8f6f0; }
-.auth-card { width:min(100%,480px);border:1px solid #e8e1ed;border-radius:28px;background:#fff;padding:clamp(22px,5vw,38px);box-shadow:0 20px 50px -24px rgba(58,24,95,.22),0 2px 8px rgba(58,24,95,.04); }
+.auth-shell { display:grid;min-height:100vh;min-height:100dvh;width:100%;place-items:stretch;padding:0;background:#fff; }
+.auth-card { display:flex;width:100%;min-height:100vh;min-height:100dvh;flex-direction:column;border:0;border-radius:0;background:#fff;padding:max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));box-shadow:none; }
 .auth-brand { display:flex;align-items:center;gap:12px;margin-bottom:25px; }
 .auth-brand > span { flex:none; }
 .auth-brand b { display:block;color:#3a185f;font-size:12px;font-weight:900;letter-spacing:.08em; }
@@ -526,7 +526,7 @@
 .auth-recovery .auth-copy { margin-top:24px; }
 .auth-page-transition { animation:auth-content-in .22s ease both; }
 @keyframes auth-content-in { from { opacity:0;transform:translateY(5px); } to { opacity:1;transform:translateY(0); } }
-@media(max-width:420px) { .auth-shell { padding:12px; }.auth-card { border-radius:23px;padding:22px 19px; }.auth-brand { margin-bottom:20px; }.auth-mode-switch { margin-bottom:22px; } }
+@media(max-width:420px) { .auth-shell { padding:0; }.auth-card { border-radius:0;padding:max(20px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left)); }.auth-brand { margin-bottom:20px; }.auth-mode-switch { margin-bottom:22px; } }
 @media(prefers-reduced-motion:reduce) { .auth-mode-switch button,.auth-mode-indicator,.auth-copy,.auth-body,.auth-submit { transition:none;animation:none; } }
 .ops-login { display: grid; min-height: 100vh; place-items: center; padding: 24px; background: #121314; color: #f1f2f3; }
 .ops-login-card { width: min(100%, 460px); border-top: 4px solid #f1f2f3; background: #1b1d1f; box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }

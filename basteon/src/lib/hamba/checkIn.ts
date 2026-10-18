@@ -10,3 +10,17 @@ export function nextCheckInAt(now: Date, expectedArrival: Date) {
   );
   return new Date(now.getTime() + intervalMs);
 }
+
+export function stableNextCheckInAt(
+  currentNextCheckInAt: string | null,
+  now: Date,
+  expectedArrival: Date,
+) {
+  const suggested = nextCheckInAt(now, expectedArrival);
+  if (!currentNextCheckInAt) return suggested;
+
+  const current = new Date(currentNextCheckInAt);
+  if (Number.isNaN(current.getTime())) return suggested;
+
+  return current.getTime() <= suggested.getTime() ? current : suggested;
+}
