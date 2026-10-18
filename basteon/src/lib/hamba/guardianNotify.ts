@@ -39,3 +39,42 @@ export async function notifyGuardians(db: Db, ownerId: string, reason: string) {
   }
   return { buddies: items.length, sms };
 }
+
+export async function notifyTripGuardians(db: Db, tripId: string, ownerId: string, title: string, detail: string) {
+  const { data: owner, error: ownerError } = await db.from("profiles").select("full_name").eq("id", ownerId).maybeSingle();
+  const { data: shares, error: sharesError } = await db.from("trip_guardians")
+    .select("guardian_id").eq("trip_id", tripId).eq("owner_id", ownerId).eq("status", "accepted");
+  if (ownerError || sharesError) {
+    console.error("Trip guardian alert recipients could not be loaded", { ownerError, sharesError });
+    throw ownerError ?? sharesError;
+  }
+  const guardianIds = [...new Set((shares ?? []).map((share) => share.guardian_id as string))];
+  if (guardianIds.length === 0) return 0;
+  const [{ data: ownerContacts, error: ownerContactsError }, { data: guardianContacts, error: guardianContactsError }, { data: ownerBlocks, error: ownerBlocksError }, { data: guardianBlocks, error: guardianBlocksError }] = await Promise.all([
+    db.from("buddy_contacts").select("contact_user_id").eq("user_id", ownerId).in("contact_user_id", guardianIds),
+    db.from("buddy_contacts").select("user_id").eq("contact_user_id", ownerId).in("user_id", guardianIds),
+    db.from("buddy_blocks").select("blocked_user_id").eq("user_id", ownerId).in("blocked_user_id", guardianIds),
+    db.from("buddy_blocks").select("user_id").eq("blocked_user_id", ownerId).in("user_id", guardianIds),
+  ]);
+  if (ownerContactsError || guardianContactsError || ownerBlocksError || guardianBlocksError) {
+    console.error("Trip guardian alert permissions could not be checked", { ownerContactsError, guardianContactsError, ownerBlocksError, guardianBlocksError });
+    throw ownerContactsError ?? guardianContactsError ?? ownerBlocksError ?? guardianBlocksError;
+  }
+  const mutual = new Set((ownerContacts ?? []).map((row) => row.contact_user_id as string));
+  const reciprocal = new Set((guardianContacts ?? []).map((row) => row.user_id as string));
+  const blocked = new Set([
+    ...(ownerBlocks ?? []).map((row) => row.blocked_user_id as string),
+    ...(guardianBlocks ?? []).map((row) => row.user_id as string),
+  ]);
+  const name = (owner as { full_name?: string | null } | null)?.full_name?.trim() || "Your buddy";
+  const items = guardianIds.filter((id) => mutual.has(id) && reciprocal.has(id) && !blocked.has(id)).map((userId) => ({
+    userId,
+    type: "walk_alert" as const,
+    title,
+    body: `${name} ${detail}`,
+    href: `/account/guardian-walks?trip=${encodeURIComponent(tripId)}`,
+    payload: { tripId },
+  }));
+  if (items.length) await createNotifications(items, db);
+  return items.length;
+}

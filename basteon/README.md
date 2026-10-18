@@ -145,6 +145,18 @@ The non-audio features require migration `20261024000000_buddy_safe_places_and_m
 
 Focused checks: `npm test -- src/lib/buddies/meeting/__tests__` and `npx tsc --noEmit --incremental false`. Database integration must be verified in a controlled environment after the migration is deployed.
 
+## Buddy Connections And Shared Walks
+
+Apply `supabase/migrations/20261113000500_social_buddies.sql` after the earlier buddy, notification, and Hamba trip migrations. Migrations are not applied automatically by the web deployment.
+
+- Members find their stable Kiki ID and manage requests, accepted buddies, removals, and blocks under **Profile → My Buddies**. Accepted buddies are selectable for multiplayer game invitations and direct Travel Together invitations.
+- Travel Together invitations disclose no route or live location before acceptance. Both people need an active Travel Together trip to join the same bubble; accepting routes through the existing bubble flow.
+- During an active Hamba trip, the owner can invite one or more accepted buddies as guardians. The guardian must accept before seeing the live route and latest location. Access is checked against current buddy/block state, ends when the trip ends, and can be revoked by either person.
+- **Profile → Shared Walks** lists guardian invitations and accepted active walks. Missed-check-in, delayed-trip, route-watch, and stopped-location-update alerts are delivered only to accepted guardians and include the missed checkpoint label when available.
+- The guardian API returns precise coordinates only for the trip owner, a currently accepted guardian, and an active trip. No route or location is included in an invitation notification.
+
+Focused checks: `npx vitest run "src/app/api/trips/guardian-shares/[id]/route.test.ts" src/lib/buddyIds.test.ts` and `npx tsc --noEmit`. Verify the migration against the linked Supabase project before enabling these flows in production.
+
 ## User Accounts And Device Linking
 
 Apply `supabase/migrations/20261005000000_accounts_and_device_linking.sql`, then redeploy the Edge Function. In Vercel, configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` for the Production environment. Add the Vercel production URL and local development URL to Supabase Auth redirect URLs.

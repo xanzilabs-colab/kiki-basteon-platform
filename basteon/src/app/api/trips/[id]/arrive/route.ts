@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildPatternStats } from "@/lib/intelligence/patterns";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyTripGuardians } from "@/lib/hamba/guardianNotify";
 import { requireTripUser } from "../../_shared";
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,11 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       .eq("owner_id", access.user.id)
       .in("status", ["active", "concern", "alert"]);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    try {
+      await notifyTripGuardians(db, id, access.user.id, "Walk complete", "has arrived safely. Live location sharing has ended.");
+    } catch (error) {
+      console.error("Walk arrival notification to guardians failed", error);
+    }
   }
 
   if (trip.intelligence_pattern_key) {

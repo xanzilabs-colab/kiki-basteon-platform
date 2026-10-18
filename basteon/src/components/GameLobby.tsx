@@ -8,10 +8,15 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { createClient } from "@/lib/supabase/client";
 import styles from "@/app/games/games.module.css";
 
-type NearbyBuddy = {
+type InviteBuddy = {
   userId: string;
   avatar: string;
   label: string;
+  distanceKm?: number;
+  avatarUrl?: string | null;
+  isSaved?: boolean;
+};
+type NearbyBuddy = InviteBuddy & {
   lat: number;
   lng: number;
   distanceKm: number;
@@ -60,7 +65,8 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   const [invitationError, setInvitationError] = useState("");
   const [presenceError, setPresenceError] = useState("");
   const [buddies, setBuddies] = useState<NearbyBuddy[]>([]);
-  const [selected, setSelected] = useState<NearbyBuddy | null>(null);
+  const [savedBuddies, setSavedBuddies] = useState<InviteBuddy[]>([]);
+  const [selected, setSelected] = useState<InviteBuddy | null>(null);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [incomingInvite, setIncomingInvite] = useState<IncomingInvite | null>(null);
   const [outgoingInvite, setOutgoingInvite] = useState<OutgoingInvite | null>(null);
@@ -69,6 +75,30 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   const [leavingRoomId, setLeavingRoomId] = useState<string | null>(null);
   const positionRef = useRef(position);
   positionRef.current = position;
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/account/buddies", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error("buddy_list_unavailable");
+        return data as { buddies?: Array<{ id: string; name: string; avatarUrl: string | null }> };
+      })
+      .then((data) => {
+        if (!active) return;
+        setSavedBuddies((data.buddies ?? []).map((buddy) => ({
+          userId: buddy.id,
+          avatar: buddy.name.charAt(0).toUpperCase() || "K",
+          avatarUrl: buddy.avatarUrl,
+          label: buddy.name,
+          isSaved: true,
+        })));
+      })
+      .catch(() => {
+        if (active) setInvitationError("Your saved buddy list could not be loaded. Nearby invitations are still available.");
+      });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -166,7 +196,11 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             setInvitationError("");
           }
           setBuddies(nextBuddies);
-          setSelected((current) => current && nextBuddies.some((buddy) => buddy.userId === current.userId) ? current : null);
+          setSelected((current) => current && (
+            current.isSaved
+              ? savedBuddies.some((buddy) => buddy.userId === current.userId)
+              : nextBuddies.some((buddy) => buddy.userId === current.userId)
+          ) ? current : null);
           setIncomingInvite(pendingInvites[0] ?? null);
           setActiveRooms(openRooms);
         }
@@ -192,9 +226,9 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       void db.rpc("game_clear_presence");
     };
-  }, [Boolean(position), game, router]);
+  }, [Boolean(position), game, router, savedBuddies]);
 
-  async function createRoom(selectedBuddy?: NearbyBuddy) {
+  async function createRoom(selectedBuddy?: InviteBuddy) {
     setBusy(true);
     setMessage("");
     const db = createClient();
@@ -306,6 +340,14 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
 
     const room = data as { id: string; invite_expires_at: string | null };
     if (selectedBuddy) {
+      const notificationResponse = await fetch("/api/games/invites/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId: room.id }),
+      }).catch(() => null);
+      if (!notificationResponse?.ok) {
+        setInvitationError("The room is ready, but the buddy notification could not be delivered. They can still accept from their game lobby.");
+      }
       setOutgoingInvite({ id: room.id, buddy: selectedBuddy.label, expiresAt: room.invite_expires_at });
       setBusy(false);
       return;
@@ -450,14 +492,34 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
           <div className={styles.gardenSelection} aria-live="polite">
             <span className={styles.selectionMark}>{selected ? selected.avatar : <UsersRound size={20} />}</span>
             <span className={styles.selectionCopy}>
-              <strong>{selected ? selected.label : buddies.length ? "Choose a nearby Buddy" : "Your garden is quiet"}</strong>
-              <small>{presenceError || (locationError ? "Enable location to see nearby players." : selected ? `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length ? "Tap a Buddy to invite them to play." : game === "teach_one" || game === "read_room" ? "Choose a nearby Buddy to send a private invitation." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
+              <strong>{selected ? selected.label : buddies.length || savedBuddies.length ? "Choose a Buddy" : "Your garden is quiet"}</strong>
+              <small>{presenceError || (locationError && !savedBuddies.length ? "Enable location to see nearby players." : selected ? selected.distanceKm === undefined ? "From your buddy list · private game invite" : `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length || savedBuddies.length ? "Choose a nearby player or someone from your buddy list." : game === "teach_one" || game === "read_room" ? "Choose a Buddy to send a private invitation." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
             </span>
             {selected && <button type="button" className={styles.clearSelection} aria-label="Clear selected Buddy" onClick={() => setSelected(null)}><X size={18} /></button>}
           </div>
         </section>
 
         <footer className={styles.gardenFooter}>
+          {savedBuddies.length > 0 && (
+            <section className={styles.gardenOpenRooms} aria-label="Your saved Kiki buddies">
+              <h3>Your Kiki buddies</h3>
+              <ul>
+                {savedBuddies.map((buddy) => (
+                  <li key={buddy.userId} className={styles.gardenOpenRoomItem}>
+                    <div>
+                      <strong>{buddy.label}</strong>
+                      <small>Saved buddy</small>
+                    </div>
+                    <span className={styles.gardenOpenRoomActions}>
+                      <button type="button" disabled={busy || Boolean(outgoingInvite) || Boolean(incomingInvite)} onClick={() => setSelected(buddy)}>
+                        {selected?.userId === buddy.userId ? "Selected" : "Invite"}
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <Link href={soloPath} className={styles.createGardenRoom}>
             <Flower2 size={19} />
             <span>{game === "teach_one" ? "Teach with Kiki" : game === "read_room" ? "Read the Room with Kiki" : "Play solo against Kiki AI"}</span>
@@ -500,7 +562,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             <section className={styles.gardenInviteDialog} role="dialog" aria-modal="true" aria-labelledby="garden-invite-title">
               <span className={styles.gardenInviteIcon}><Flower2 size={26} /></span>
               <p>{gameLabels[incomingInvite.game]} invitation</p>
-              <h2 id="garden-invite-title">A nearby Buddy wants to play.</h2>
+              <h2 id="garden-invite-title">A Buddy wants to play.</h2>
               <small>Accept to join their private room. You can decline without sharing your exact location.</small>
               <div className={styles.gardenInviteActions}>
                 <button type="button" onClick={() => void respondToInvite(false)} disabled={inviteBusy}>Decline</button>

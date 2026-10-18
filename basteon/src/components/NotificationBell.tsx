@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Bell, CheckCheck, Handshake } from "lucide-react";
+import { Bell, CheckCheck, Gamepad2, Handshake, Route } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -137,7 +137,7 @@ export function NotificationBell() {
               {items.map((item) => (
                 <li key={item.id}>
                   <button type="button" className={item.read ? undefined : "unread"} onClick={() => openItem(item)}>
-                    {item.type === "buddy_bubble" ? <Handshake size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}
+                    {item.type.startsWith("buddy_") ? <Handshake size={16} aria-hidden="true" /> : item.type.includes("walk") || item.type === "trip_checkpoint" ? <Route size={16} aria-hidden="true" /> : item.type === "game_invite" ? <Gamepad2 size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}
                     <span>
                       <b>{item.title}</b>
                       {item.body && <small>{item.body}</small>}

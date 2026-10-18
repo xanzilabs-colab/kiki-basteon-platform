@@ -1174,3 +1174,34 @@
 .kiki-link-search-status { margin: 0; border-radius: 12px; background: #eaf3ec; padding: 10px 12px; color: #244b3c; font-size: 12px; font-weight: 700; line-height: 1.45; }
 .account-header-action:hover { background: #e5eee6; color: #244b3c; }
 .account-header-action:focus-visible { outline: 2px solid #39734f; outline-offset: 2px; }
+
+.kiki-buddy-manager { display:grid;gap:14px; }
+.kiki-buddy-manager > header > p { max-width:560px; }
+.kiki-buddy-manager > section { margin:0; }
+.kiki-buddy-manager section h2 { display:flex;align-items:center;gap:8px; }
+.kiki-buddy-manager section h2 svg { color:#5c1d5e; }
+.kiki-buddy-share-id { display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #e7ccf0;border-radius:16px;background:#faf8fc;padding:10px 12px; }
+.kiki-buddy-share-id code { color:#4a154b;font-size:16px;font-weight:900;letter-spacing:.06em;overflow-wrap:anywhere; }
+.kiki-buddy-share-id button,.kiki-buddy-result button,.kiki-buddy-actions button { display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:6px;white-space:nowrap; }
+.kiki-buddy-search { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px; }
+.kiki-buddy-search label { grid-column:1/-1; }
+.kiki-buddy-search input { min-width:0;min-height:42px; }
+.kiki-buddy-result { display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #e7ccf0;border-radius:16px;background:#faf8fc;padding:12px; }
+.kiki-buddy-identity { display:flex;min-width:0;align-items:center;gap:10px; }
+.kiki-buddy-identity > img,.kiki-buddy-identity > span:first-child { display:grid;width:44px;height:44px;flex:0 0 auto;place-items:center;overflow:hidden;border:1px solid #e7ccf0;border-radius:14px;background:#f4e6f8;color:#4a154b;font-size:17px;font-weight:900;object-fit:cover; }
+.kiki-buddy-identity > span:last-child { display:grid;min-width:0;gap:3px; }
+.kiki-buddy-identity b { overflow:hidden;color:#29212f;font-size:13px;font-weight:900;text-overflow:ellipsis;white-space:nowrap; }
+.kiki-buddy-identity small,.kiki-buddy-list > li > small { color:#756b7d;font-size:11px;font-weight:700; }
+.kiki-buddy-list { display:grid;gap:8px;margin:0;padding:0;list-style:none; }
+.kiki-buddy-list > li { display:flex;min-width:0;align-items:center;justify-content:space-between;gap:10px;border:1px solid #f1edf5;border-radius:16px;background:#faf8fc;padding:10px; }
+.kiki-buddy-actions { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px; }
+.kiki-buddy-actions .kiki-buddy-danger { color:#b42346; }
+.kiki-buddy-count { display:inline-grid;min-width:22px;height:22px;place-items:center;border-radius:99px;background:#f4e6f8;padding:0 6px;color:#4a154b;font-size:11px; }
+.kiki-setting-page .kiki-buddy-message { margin:0;border-radius:12px;background:#e7f5ed;padding:10px 12px;color:#258257;font-size:12px;font-weight:700; }
+.kiki-setting-page .kiki-buddy-error { margin:0;border-radius:12px;background:#fff1f3;padding:10px 12px;color:#b42346;font-size:12px;font-weight:700; }
+@media (max-width:520px) {
+  .kiki-buddy-list > li { align-items:flex-start;flex-wrap:wrap; }
+  .kiki-buddy-actions { width:100%;justify-content:flex-start; }
+  .kiki-buddy-result { align-items:flex-start;flex-direction:column; }
+  .kiki-buddy-share-id { align-items:flex-start;flex-direction:column; }
+}

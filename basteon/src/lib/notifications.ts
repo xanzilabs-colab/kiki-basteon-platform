@@ -3,7 +3,17 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotificationsToUser } from "@/lib/push";
 
-export type NotificationType = "buddy_bubble" | "system" | "safety_intel" | "trip_checkpoint";
+export type NotificationType =
+  | "buddy_bubble"
+  | "system"
+  | "safety_intel"
+  | "trip_checkpoint"
+  | "buddy_request"
+  | "buddy_request_accepted"
+  | "game_invite"
+  | "walk_invite"
+  | "walk_guardian"
+  | "walk_alert";
 
 export type NewNotification = {
   userId: string;

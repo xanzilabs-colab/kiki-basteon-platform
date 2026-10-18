@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotificationsToUser } from "@/lib/push";
+import { notifyTripGuardians } from "@/lib/hamba/guardianNotify";
 import { requireTripUser } from "../../_shared";
 
 const inputSchema = z.object({
@@ -33,6 +34,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         tripId: id,
         actions: [{ action: "check-in", title: "I'm OK" }],
       });
+      await notifyTripGuardians(
+        db,
+        id,
+        access.user.id,
+        input.data.state === "alert" ? "Walk safety alert" : "Walk needs a check-in",
+        input.data.state === "alert" ? "has triggered a safety alert during their walk. Please check in." : "may need a check-in during their walk.",
+      );
     }
   }
   return NextResponse.json({ ok: true });

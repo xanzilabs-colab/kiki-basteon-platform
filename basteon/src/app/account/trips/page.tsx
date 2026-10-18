@@ -22,6 +22,8 @@ type CheckpointView = { id: string; lat: number; lng: number; label: string | nu
 type Route = { points: Place[]; distanceM: number; durationS: number };
 type ActiveTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; planned_route: Route; route_distance_m: number; route_duration_s: number; started_at: string; expected_arrival_at: string; next_check_in_at: string | null; status: string };
 type RecentTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; status: string; created_at: string; ended_at: string | null };
+type Buddy = { id: string; kikiId: string; name: string; avatarUrl: string | null };
+type TripGuardian = { id: string; guardianId: string; status: "pending" | "accepted" | "declined" | "revoked"; buddy: Buddy | null; createdAt: string; respondedAt: string | null };
 const transitModes = [
   { value: "taxi", label: "Taxi", icon: Bus },
   { value: "walk", label: "Walk", icon: Footprints },
@@ -54,10 +56,37 @@ export default function TripsPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [estimated, setEstimated] = useState(false);
   const [checkpoints, setCheckpoints] = useState<CheckpointView[]>([]);
+  const [buddyContacts, setBuddyContacts] = useState<Buddy[]>([]);
+  const [tripGuardians, setTripGuardians] = useState<TripGuardian[]>([]);
+  const [selectedGuardianIds, setSelectedGuardianIds] = useState<string[]>([]);
+  const [guardianBusy, setGuardianBusy] = useState(false);
+  const [guardianMessage, setGuardianMessage] = useState("");
   const nextStop = checkpoints.find((cp) => cp.status !== "checked_in" && cp.status !== "skipped" && cp.status !== "escalated") ?? null;
   const [tripTab, setTripTab] = useState<"route" | "travel">("route");
   const fixes = useRef<GeoPoint[]>([]);
   const previousWatchState = useRef<RouteWatchState>("normal");
+
+  const loadTripGuardians = useCallback(async (tripId: string) => {
+    try {
+      const [buddiesResponse, guardiansResponse] = await Promise.all([
+        fetch("/api/account/buddies", { cache: "no-store" }),
+        fetch(`/api/trips/${tripId}/guardians`, { cache: "no-store" }),
+      ]);
+      const [buddiesData, guardiansData] = await Promise.all([
+        buddiesResponse.json().catch(() => ({})),
+        guardiansResponse.json().catch(() => ({})),
+      ]);
+      if (!buddiesResponse.ok || !guardiansResponse.ok) {
+        setGuardianMessage("Buddy sharing settings could not be loaded. Please refresh.");
+        return;
+      }
+      setBuddyContacts(Array.isArray(buddiesData.buddies) ? buddiesData.buddies : []);
+      setTripGuardians(Array.isArray(guardiansData.guardians) ? guardiansData.guardians : []);
+      setGuardianMessage("");
+    } catch {
+      setGuardianMessage("Buddy sharing settings could not be loaded. Check your connection.");
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/trips").then((response) => response.json()).then((data) => {
@@ -75,6 +104,15 @@ export default function TripsPage() {
       }
     }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!activeTrip) {
+      setTripGuardians([]);
+      setSelectedGuardianIds([]);
+      return;
+    }
+    void loadTripGuardians(activeTrip.id);
+  }, [activeTrip?.id, loadTripGuardians]);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mode") === "travel-together") setTripTab("travel");
@@ -222,6 +260,57 @@ export default function TripsPage() {
     finally { setBusy(false); }
   }
 
+  async function inviteGuardians() {
+    if (!activeTrip || selectedGuardianIds.length === 0 || guardianBusy) return;
+    setGuardianBusy(true);
+    try {
+      const response = await fetch(`/api/trips/${activeTrip.id}/guardians`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guardianIds: selectedGuardianIds }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setGuardianMessage(data.error === "guardian_must_be_an_unblocked_buddy"
+          ? "Only buddies who are still connected and unblocked can be invited."
+          : "The walk guardian invitation could not be sent.");
+        return;
+      }
+      const sentCount = Array.isArray(data.pending) ? data.pending.length : 0;
+      setGuardianMessage(sentCount
+        ? `${sentCount} invitation${sentCount === 1 ? "" : "s"} sent. Your location stays private until each buddy accepts.`
+        : "Those buddies already have an invitation or accepted access.");
+      setSelectedGuardianIds([]);
+      await loadTripGuardians(activeTrip.id);
+    } catch {
+      setGuardianMessage("The walk guardian invitation could not be sent. Check your connection.");
+    } finally {
+      setGuardianBusy(false);
+    }
+  }
+
+  async function revokeGuardian(guardianId: string) {
+    if (!activeTrip || guardianBusy) return;
+    setGuardianBusy(true);
+    try {
+      const response = await fetch(`/api/trips/${activeTrip.id}/guardians`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guardianId }),
+      });
+      if (!response.ok) {
+        setGuardianMessage("This buddy's access could not be revoked. Please try again.");
+        return;
+      }
+      setGuardianMessage("Location sharing with this buddy has stopped.");
+      await loadTripGuardians(activeTrip.id);
+    } catch {
+      setGuardianMessage("This buddy's access could not be revoked. Check your connection.");
+    } finally {
+      setGuardianBusy(false);
+    }
+  }
+
   const checkInSeconds = activeTrip?.next_check_in_at ? Math.max(0, Math.ceil((new Date(activeTrip.next_check_in_at).getTime() - now) / 1_000)) : null;
   const countdown = checkInSeconds === null ? "Not scheduled" : `${String(Math.floor(checkInSeconds / 60)).padStart(2, "0")}:${String(checkInSeconds % 60).padStart(2, "0")}`;
   const destinations = recentTrips.filter((trip, index, items) => items.findIndex((item) => item.destination_label === trip.destination_label) === index);
@@ -250,6 +339,29 @@ export default function TripsPage() {
             <div className="hamba-control-stats"><div><span>Next check-in</span><b><Timer size={20} />{countdown}</b></div><div><span>Planned distance</span><b>{formatDistance(activeTrip.route_distance_m / 1000)}</b></div></div>
             {nextStop && <div className="hamba-stop-card"><div><span>Next stop</span><b>{nextStop.label ?? "Stop"}{nextStop.expected_at ? ` · ${new Date(nextStop.expected_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</b>{nextStop.status === "missed" && <small>We haven't heard from you. Tap to confirm you're OK.</small>}</div><button className="btn" disabled={busy} onClick={() => void checkIn(nextStop.id)}><CheckCircle2 size={16} />I'm here</button></div>}
             <div className="hamba-actions"><button className="btn" disabled={busy} onClick={() => void checkIn()}><CheckCircle2 size={16} />Check in now</button><button className="btn hamba-arrive" disabled={busy} onClick={() => void arrive()}><Flag size={16} />I've arrived</button></div>
+            <section className="mt-5 rounded-2xl border border-[#e8deed] bg-white p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div><h2 className="flex items-center gap-2 font-semibold"><UsersRound size={18} />Share this active walk</h2><p className="mt-1 text-sm text-[#756583]">Invite a saved buddy as a guardian. They see your live route only after accepting, and access ends when this trip ends or you revoke it.</p></div>
+                <Link href="/account/guardian-walks" className="btn">Shared walks</Link>
+              </div>
+              {tripGuardians.length > 0 && <div className="mt-4 grid gap-2">
+                {tripGuardians.map((guardian) => <div key={guardian.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#f8f5fa] px-3 py-2">
+                  <span><b>{guardian.buddy?.name ?? "Buddy"}</b><small className="ml-2 text-[#756583]">{guardian.status === "accepted" ? "Live location shared" : guardian.status === "pending" ? "Waiting for acceptance" : guardian.status}</small></span>
+                  {(guardian.status === "accepted" || guardian.status === "pending") && <button type="button" className="btn" disabled={guardianBusy} onClick={() => void revokeGuardian(guardian.guardianId)}>Stop sharing</button>}
+                </div>)}
+              </div>}
+              {buddyContacts.filter((buddy) => !tripGuardians.some((guardian) => guardian.guardianId === buddy.id && (guardian.status === "pending" || guardian.status === "accepted"))).length > 0 ? <div className="mt-4">
+                <h3 className="mb-2 text-sm font-semibold">Invite from your buddy list</h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {buddyContacts.filter((buddy) => !tripGuardians.some((guardian) => guardian.guardianId === buddy.id && (guardian.status === "pending" || guardian.status === "accepted"))).map((buddy) => <label key={buddy.id} className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e8deed] px-3 py-2">
+                    <input type="checkbox" checked={selectedGuardianIds.includes(buddy.id)} onChange={(event) => setSelectedGuardianIds((current) => event.target.checked ? [...current, buddy.id] : current.filter((id) => id !== buddy.id))} />
+                    <span><b>{buddy.name}</b><small className="ml-2 text-[#756583]">{buddy.kikiId}</small></span>
+                  </label>)}
+                </div>
+                <button type="button" className="btn btn-primary mt-3" disabled={guardianBusy || selectedGuardianIds.length === 0} onClick={() => void inviteGuardians()}><UsersRound size={16} />{guardianBusy ? "Please wait..." : "Send guardian invite"}</button>
+              </div> : buddyContacts.length === 0 && <p className="mt-3 text-sm text-[#756583]">Add buddies in your <Link href="/account/profile/buddies" className="underline">buddy list</Link> to invite them here.</p>}
+              {guardianMessage && <p className="mt-3 text-sm" role="status">{guardianMessage}</p>}
+            </section>
             {!position && <p className="hamba-note"><LocateFixed size={16} />{locationError ?? "Waiting for your phone location."}</p>}
           </div>
         </section>

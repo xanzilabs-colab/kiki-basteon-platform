@@ -1,6 +1,6 @@
 "use client";
 
-import { Bluetooth, Building2, ChevronRight, FileText, Lock, Moon, Shield, Volume2 } from "lucide-react";
+import { Bluetooth, Building2, ChevronRight, FileText, Lock, Moon, Route, Shield, Users, Volume2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -31,6 +31,8 @@ export default function ProfilePage() {
         <Link href="/account/profile/security"><span><Lock size={17} />Security &amp; PIN Code</span><ChevronRight size={17} /></Link>
         <Link href="/account/profile/ringtones"><span><Volume2 size={17} />Ringtones</span><ChevronRight size={17} /></Link>
         <Link href="/account/profile/triggers"><span><Bluetooth size={17} />Bluetooth Triggers</span><ChevronRight size={17} /></Link>
+        <Link href="/account/profile/buddies"><span><Users size={17} />My Buddies</span><ChevronRight size={17} /></Link>
+        <Link href="/account/guardian-walks"><span><Route size={17} />Shared Walks</span><ChevronRight size={17} /></Link>
         <button type="button" onClick={() => void toggleTheme()}><span><Moon size={17} />Dark Theme Mode</span><b>{profile?.dark_theme ? "On" : "Off"}</b></button>
         <Link href="/account/guardians"><span><Shield size={17} />Guardian Circle</span><ChevronRight size={17} /></Link>
       </nav>
