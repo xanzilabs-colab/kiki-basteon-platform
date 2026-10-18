@@ -276,6 +276,11 @@ export default function AccountOrganisationsPage() {
     }
   }
 
+  function confirmUnlink(item: LinkedOrganisation) {
+    setSheet({ type: "manage", stage: "confirm", organisation: item });
+    setError("");
+  }
+
   function openManage(item: LinkedOrganisation) {
     setEditRelationship(item.label);
     setEditAddress(item.place_address ?? "");
@@ -399,60 +404,92 @@ export default function AccountOrganisationsPage() {
     <>
       <div className="org-screen">
         <div className="org-page">
-          <Link className="org-back" href="/account/profile"><ArrowLeft size={22} />Profile</Link>
-          <h1>Organisations</h1>
-          <p className="org-lede">Link your school, work or home so alerts reach the right branch.</p>
+          <header className="org-page-header">
+            <Link className="org-back" href="/account/profile"><ArrowLeft size={18} />Profile</Link>
+            <span className="org-eyebrow">PROFILE</span>
+            <h1><Building2 size={25} aria-hidden="true" />My organisations</h1>
+            <p className="org-lede">Link school, work or home to route alerts to the right branch.</p>
+          </header>
 
-          <div className={`org-search${searchTerm ? " has-value" : ""}`}>
-            <Search size={20} aria-hidden="true" />
-            <input ref={queryInput} type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find an organisation" autoComplete="off" aria-label="Find an organisation" />
-            {searchTerm && <button type="button" aria-label="Clear search" onClick={() => { setQuery(""); setResults([]); queryInput.current?.focus(); }}><X size={16} /></button>}
-          </div>
-          {searchTerm.length > 0 && searchTerm.length < 2 && <p className="org-search-note">Type at least 2 characters to search.</p>}
-          {searchTerm.length >= 2 && (
-            <div className="org-results org-group" role="listbox" aria-label="Organisation search results">
-              {results.length > 0 ? results.map((organisation) => {
-                const alreadyLinked = linked.some((item) => item.organisation_id === organisation.id && item.status === "active");
-                return <button className="org-row" key={organisation.id} type="button" role="option" aria-selected={false} disabled={alreadyLinked} onClick={() => openLink(organisation)}>
-                  <span className="org-avatar">{initials(organisation.name)}</span>
-                  <span className="org-row-copy"><b>{organisation.name}</b><span>{organisation.organisation_type} · {(organisation.organisation_branches ?? []).length} {(organisation.organisation_branches ?? []).length === 1 ? "branch" : "branches"}</span></span>
-                  {alreadyLinked ? <span className="org-tag">Linked</span> : <ChevronRight className="org-chevron" size={19} />}
-                </button>;
-              }) : <p className="org-no-results">No match for “{searchTerm}”.<br />Check the spelling or contact your organisation.</p>}
+          <section className="org-add-card" aria-labelledby="org-add-title">
+            <div className="org-card-heading">
+              <h2 id="org-add-title"><Search size={16} aria-hidden="true" />Add organisation</h2>
+              <span>Quick link</span>
             </div>
-          )}
-
-          <section className="org-section" ref={linkedSection} aria-labelledby="org-linked-title">
-            {linked.length === 0 && !loading ? (
-              <div className="org-empty">
-                <span className="org-empty-icon"><Building2 size={30} /></span>
-                <h2>No organisations yet</h2>
-                <p>Search above to link a school, workplace or home. Alerts will route to the right branch.</p>
-                <button className="org-button org-primary org-find-button" type="button" onClick={() => { queryInput.current?.focus(); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Search size={17} />Find organisation</button>
+            <div className={`org-search${searchTerm ? " has-value" : ""}`}>
+              <Search size={18} aria-hidden="true" />
+              <input ref={queryInput} type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find organisation by name…" autoComplete="off" aria-label="Find an organisation" />
+              {searchTerm && <button type="button" aria-label="Clear search" onClick={() => { setQuery(""); setResults([]); queryInput.current?.focus(); }}><X size={16} /></button>}
+            </div>
+            {searchTerm.length > 0 && searchTerm.length < 2 && <p className="org-search-note">Type at least 2 characters to search.</p>}
+            {searchTerm.length >= 2 && (
+              <div className="org-results org-group" role="listbox" aria-label="Organisation search results">
+                {results.length > 0 ? results.map((organisation) => {
+                  const alreadyLinked = linked.some((item) => item.organisation_id === organisation.id && item.status === "active");
+                  return <button className="org-row" key={organisation.id} type="button" role="option" aria-selected={false} disabled={alreadyLinked} onClick={() => openLink(organisation)}>
+                    <span className="org-avatar">{initials(organisation.name)}</span>
+                    <span className="org-row-copy"><b>{organisation.name}</b><span>{organisation.organisation_type} · {(organisation.organisation_branches ?? []).length} {(organisation.organisation_branches ?? []).length === 1 ? "branch" : "branches"}</span></span>
+                    {alreadyLinked ? <span className="org-tag">Linked</span> : <ChevronRight className="org-chevron" size={19} />}
+                  </button>;
+                }) : <p className="org-no-results">No match for “{searchTerm}”.<br />Check the spelling or contact your organisation.</p>}
               </div>
-            ) : (
-              <>
-                <div className="org-section-heading"><h2 id="org-linked-title">Your organisations</h2><span>{linked.length}</span></div>
-                <div className="org-group">
-                  {loading && <p className="org-no-results">Loading your organisations…</p>}
-                  {linked.map((item) => {
-                    const status = getLinkStatus(item);
-                    return <button className="org-row org-linked-row" key={item.id} type="button" onClick={() => openManage(item)}>
-                      <span className="org-avatar">{initials(item.organisations?.name ?? "Organisation")}</span>
-                      <span className="org-row-copy">
-                        <b>{item.organisations?.name ?? "Organisation"}</b>
-                        <span>{item.label} · {item.membership_type}{item.organisation_branches?.name ? ` · ${item.organisation_branches.name}` : ""}</span>
-                        <span className={`org-chip ${status.tone}`}><i />{status.label}</span>
-                        {status.tone !== "ok" && <span className="org-hint">{status.detail}</span>}
-                      </span>
-                      <ChevronRight className="org-chevron" size={19} />
-                    </button>;
-                  })}
-                </div>
-              </>
             )}
           </section>
 
+          <section className="org-section" ref={linkedSection} aria-labelledby="org-linked-title">
+            <div className="org-section-heading">
+              <h2 id="org-linked-title">Linked organisations</h2>
+              <span className="org-count">{linked.length} linked</span>
+            </div>
+            {loading && <div className="org-empty org-loading" role="status">Loading your organisations…</div>}
+            {!loading && linked.length === 0 && (
+              <div className="org-empty">
+                <span className="org-empty-icon"><Building2 size={27} /></span>
+                <h3>No organisations linked yet</h3>
+                <p>Search above to link your university, campus or workplace and start routing alerts.</p>
+                <button className="org-button org-primary org-find-button" type="button" onClick={() => { queryInput.current?.focus(); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Search size={16} />Find organisation</button>
+              </div>
+            )}
+            <div className="org-linked-list">
+              {linked.map((item) => {
+                const status = getLinkStatus(item);
+                const RelationIcon = item.label === "school" ? GraduationCap : item.label === "work" ? Briefcase : item.label === "home" ? Home : Building2;
+                const organisationName = item.organisations?.name ?? "Organisation";
+                return <article className="org-linked-card" key={item.id}>
+                  <div className="org-linked-top">
+                    <div className="org-linked-title">
+                      <h3>{organisationName}</h3>
+                      <span className={`org-chip ${status.tone}`}><i />{status.tone === "ok" ? "Verified" : status.label}</span>
+                    </div>
+                    <span className="org-linked-icon"><RelationIcon size={19} aria-hidden="true" /></span>
+                  </div>
+                  <p className="org-linked-meta">
+                    <span>{item.label === "home" ? "Home / residence" : item.label.charAt(0).toUpperCase() + item.label.slice(1)}</span>
+                    {item.organisation_branches?.name && <><span aria-hidden="true">·</span><span>{item.organisation_branches.name}</span></>}
+                    <span aria-hidden="true">·</span>
+                    <span>{item.membership_type}</span>
+                  </p>
+                  <dl className="org-details">
+                    <div><dt>Identifier</dt><dd className="org-identifier">{item.identifier}</dd></div>
+                    <div><dt>Place address</dt><dd>{item.place_address || "Add a campus, office or residence"}</dd></div>
+                  </dl>
+                  {status.tone !== "ok" && <div className={`org-verification ${status.tone}${item.status === "pending" ? " pending" : ""}`}>
+                    <AlertTriangle size={17} aria-hidden="true" />
+                    <div><b>{item.status === "pending" ? "Verification pending" : status.label}</b><p>{status.detail}</p>
+                      <div className="org-support-actions">
+                        {contactLink(item.organisations, "email") && <a href={contactLink(item.organisations, "email") ?? undefined}><Mail size={14} />Contact organisation</a>}
+                        {contactLink(item.organisations, "phone") && <a href={contactLink(item.organisations, "phone") ?? undefined}><Phone size={14} />Call</a>}
+                      </div>
+                    </div>
+                  </div>}
+                  <div className="org-card-actions">
+                    <button type="button" className="org-edit-button" onClick={() => openManage(item)}><span><Building2 size={15} />Edit details</span></button>
+                    <button type="button" className="org-unlink-button" onClick={() => confirmUnlink(item)}><Unlink size={15} />Unlink</button>
+                  </div>
+                </article>;
+              })}
+            </div>
+          </section>
         </div>
       </div>
 
