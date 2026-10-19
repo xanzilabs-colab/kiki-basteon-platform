@@ -7,6 +7,7 @@ const inputSchema = z.object({
   alert_id: z.string().uuid(),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
+  accuracy_m: z.number().min(0).max(100000).optional(),
   speed_kmh: z.number().min(0).max(400).optional(),
   heading_deg: z.number().int().min(0).max(359).optional(),
   motion_state: z.enum(["unknown", "still", "walking", "vehicle"]).optional(),
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
     p_activity_mg: null,
     p_sats: input.data.sats ?? null,
     p_hdop: input.data.hdop ?? null,
+    p_accuracy_m: input.data.accuracy_m ?? null,
   });
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
   if (outcome === "stop") return NextResponse.json({ error: "closed_alert" }, { status: 409 });

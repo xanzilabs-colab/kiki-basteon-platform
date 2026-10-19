@@ -19,7 +19,7 @@ export interface Alert {
   assignee?: { full_name: string | null } | null;
 }
 export interface AlertLocation {
-  id: number; alert_id: string; device_id: string; lat: number | null; lng: number | null;
+  id: number; alert_id: string; device_id: string; lat: number | null; lng: number | null; accuracy_m?: number | null;
   loc_source: LocationSource; fix_age_s: number | null; battery: number | null; ctr: number; recorded_at: string;
   source?: "band" | "phone"; speed_kmh?: number | null; heading_deg?: number | null; motion_state?: MotionState | null; is_moving?: boolean | null;
   motion_src?: string | null; activity_mg?: number | null; sats?: number | null; hdop?: number | null;

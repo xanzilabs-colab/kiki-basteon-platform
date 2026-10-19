@@ -1,4 +1,4 @@
-export interface Position { lat: number; lng: number; accuracy?: number; capturedAt?: number; }
+export interface Position { lat: number; lng: number; accuracy?: number; capturedAt?: number; speed?: number | null; heading?: number | null; }
 export const LOCATION_FIX_MAX_AGE_MS = 60_000;
 export function isFreshPosition(position: Position | null, now = Date.now()): position is Position & { capturedAt: number } {
   const capturedAt = position?.capturedAt;

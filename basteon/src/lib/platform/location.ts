@@ -13,10 +13,17 @@ type BrowserPositionOptions = {
 };
 
 function fromCoordinates(
-  coords: { latitude: number; longitude: number; accuracy: number },
+  coords: { latitude: number; longitude: number; accuracy: number; speed?: number | null; heading?: number | null },
   capturedAt: number,
 ): Position {
-  return { lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy, capturedAt };
+  return {
+    lat: coords.latitude,
+    lng: coords.longitude,
+    accuracy: coords.accuracy,
+    capturedAt,
+    speed: coords.speed,
+    heading: coords.heading,
+  };
 }
 
 function nativeOptions(options: BrowserPositionOptions): PositionOptions {

@@ -181,7 +181,7 @@ export function AlertDetailPanel({
         )}
         {alert.accuracy_m != null && (
           <div className="kv">
-            <span className="muted text-[12px]">Reported GPS accuracy</span>
+            <span className="muted text-[12px]">Phone-reported horizontal accuracy</span>
             <span className="data text-[12px]">±{Math.round(alert.accuracy_m)} m</span>
           </div>
         )}

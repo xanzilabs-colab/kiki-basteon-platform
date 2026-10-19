@@ -7,6 +7,7 @@ const schema = z.object({
   organisationId: z.string().uuid(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
+  accuracyM: z.number().min(0).max(100000).nullable().optional(),
 }).refine(({ lat, lng }) => (lat == null) === (lng == null));
 
 /** Heartbeat for the responder's own position. Never changes availability and is ignored while off duty. */
@@ -21,12 +22,13 @@ export async function POST(request: Request) {
 
   const db = createAdminClient();
   const seenAt = new Date().toISOString();
-  const update: { last_seen_at: string; last_location_at?: string; last_lat?: number; last_lng?: number } = {
+  const update: { last_seen_at: string; last_location_at?: string; last_lat?: number; last_lng?: number; last_accuracy_m?: number | null } = {
     last_seen_at: seenAt,
   };
   if (payload.data.lat != null && payload.data.lng != null) {
     update.last_lat = payload.data.lat;
     update.last_lng = payload.data.lng;
+    update.last_accuracy_m = payload.data.accuracyM ?? null;
     update.last_location_at = seenAt;
   }
   const { data, error } = await db.from("responder_presence")

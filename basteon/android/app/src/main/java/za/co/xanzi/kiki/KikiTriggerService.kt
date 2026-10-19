@@ -880,10 +880,16 @@ class KikiTriggerService : Service() {
         val coarse = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!fine && !coarse) return null
         return try {
+            val now = System.currentTimeMillis()
             val manager = getSystemService(LOCATION_SERVICE) as LocationManager
             listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
                 .mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }
-                .maxByOrNull { it.time }
+                .filter { it.time <= now && now - it.time <= 60_000L }
+                .minWithOrNull(
+                    compareBy<android.location.Location> { location ->
+                        if (location.hasAccuracy()) location.accuracy else Float.MAX_VALUE
+                    }.thenByDescending { location -> location.time },
+                )
         } catch (_: SecurityException) {
             null
         }

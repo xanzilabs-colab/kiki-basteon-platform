@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const db = createAdminClient();
   const { data: alert, error: alertError } = await db
     .from("alerts")
-    .select("id,status,type_code,lat,lng,triggered_at,updated_at,device_id")
+    .select("id,status,type_code,lat,lng,accuracy_m,loc_at,last_location_at,triggered_at,updated_at,device_id")
     .eq("id", alertId)
     .maybeSingle();
   if (alertError) return NextResponse.json({ error: alertError.message }, { status: 500 });
@@ -37,6 +37,9 @@ export async function GET(request: Request) {
         typeCode: alert.type_code,
         lat: alert.lat,
         lng: alert.lng,
+        accuracyM: alert.accuracy_m,
+        locAt: alert.loc_at,
+        lastLocationAt: alert.last_location_at,
         triggeredAt: alert.triggered_at,
         updatedAt: alert.updated_at,
       },
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
   const responderIds = [...new Set((assignments ?? []).map((row) => row.responder_user_id).filter((id): id is string => Boolean(id)))];
   const [{ data: presence, error: presenceError }, { data: profiles, error: profilesError }] = responderIds.length
     ? await Promise.all([
-        db.from("responder_presence").select("user_id,organisation_id,last_lat,last_lng,last_seen_at,last_location_at").in("user_id", responderIds),
+        db.from("responder_presence").select("user_id,organisation_id,last_lat,last_lng,last_accuracy_m,last_seen_at,last_location_at").in("user_id", responderIds),
         db.from("profiles").select("id,full_name").in("id", responderIds),
       ])
     : [{ data: [], error: null }, { data: [], error: null }];
@@ -93,7 +96,12 @@ export async function GET(request: Request) {
       role: latest?.organisation_id ? roleByKey.get(`${latest.organisation_id}:${assignment.responder_user_id}`) ?? null : null,
       acceptedAt: assignment.acknowledged_at ?? assignment.assigned_at,
       location: locationIsFresh
-        ? { lat: latest.last_lat, lng: latest.last_lng, seenAt: latest.last_seen_at }
+        ? {
+            lat: latest.last_lat,
+            lng: latest.last_lng,
+            accuracyM: latest.last_accuracy_m,
+            seenAt: latest.last_location_at ?? latest.last_seen_at,
+          }
         : null,
     };
   });
@@ -105,6 +113,9 @@ export async function GET(request: Request) {
       typeCode: alert.type_code,
       lat: alert.lat,
       lng: alert.lng,
+      accuracyM: alert.accuracy_m,
+      locAt: alert.loc_at,
+      lastLocationAt: alert.last_location_at,
       triggeredAt: alert.triggered_at,
       updatedAt: alert.updated_at,
     },

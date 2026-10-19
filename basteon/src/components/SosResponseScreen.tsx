@@ -8,6 +8,8 @@ import type { SosType } from "@/lib/sos/sosGesture";
 import { estimateResponseRoute, formatResponseEta } from "@/lib/sos/responseRoute";
 import type { MapPoint, MapResponder, ResponseRoute } from "./SosResponseMap";
 import { useAppDialog } from "@/components/AppDialogProvider";
+import type { Position } from "@/lib/geo";
+import { watchLocation } from "@/lib/platform/location";
 
 const ResponseMap = dynamic(() => import("./SosResponseMap"), {
   ssr: false,
@@ -15,7 +17,7 @@ const ResponseMap = dynamic(() => import("./SosResponseMap"), {
 });
 
 type ResponseData = {
-  alert: { id: string; status: string; typeCode: string | null; lat: number | null; lng: number | null; triggeredAt: string; updatedAt: string };
+  alert: { id: string; status: string; typeCode: string | null; lat: number | null; lng: number | null; accuracyM: number | null; locAt: string | null; lastLocationAt: string | null; triggeredAt: string; updatedAt: string };
   responders: Array<{ id: string; name: string; status: string; organisation?: string | null; role?: string | null; acceptedAt: string; location: (MapPoint & { seenAt: string }) | null }>;
 };
 type RouteCacheEntry = { route: ResponseRoute; origin: MapPoint; responder: MapPoint; checkedAt: number };
@@ -45,41 +47,37 @@ function directEstimate(origin: MapPoint, destination: MapPoint): ResponseRoute 
   return estimateResponseRoute(origin, destination);
 }
 
-async function responderLocationUpdate(alertId: string): Promise<string | null> {
-  if (!navigator.geolocation) return "Location is unavailable on this device.";
-  return new Promise((resolve) => navigator.geolocation.getCurrentPosition(async (position) => {
-    const speed = Number.isFinite(position.coords.speed ?? NaN) ? position.coords.speed : null;
-    const speedKmh = speed == null ? null : speed * 3.6;
-    const motion = speedKmh == null
-      ? { motion_state: "unknown", is_moving: false }
-      : speedKmh >= 15
-        ? { motion_state: "vehicle", is_moving: true }
-        : speedKmh >= 2
-          ? { motion_state: "walking", is_moving: true }
-          : { motion_state: "still", is_moving: false };
-    try {
-      const response = await fetch("/api/account/sos/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          alert_id: alertId,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          speed_kmh: speedKmh == null ? undefined : Number(speedKmh.toFixed(1)),
-          heading_deg: Number.isFinite(position.coords.heading ?? NaN) ? Math.round((position.coords.heading! + 360) % 360) : undefined,
-          motion_state: motion.motion_state,
-          is_moving: motion.is_moving,
-          hdop: Number.isFinite(position.coords.accuracy) ? Number(Math.max(0, Math.min(99, position.coords.accuracy / 5)).toFixed(1)) : undefined,
-          fix_age_s: 0,
-        }),
-      });
-      if (response.ok) return resolve(null);
-      const result = await response.json().catch(() => ({}));
-      resolve(result.error === "closed_alert" ? null : "Live location is delayed; updates will retry.");
-    } catch {
-      resolve("Live location is delayed; updates will retry.");
-    }
-  }, () => resolve("Could not read your location. Check device location permission."), { enableHighAccuracy: true, timeout: 10_000, maximumAge: 2_000 }));
+async function callerLocationUpdate(alertId: string, position: Position): Promise<string | null> {
+  const speedKmh = Number.isFinite(position.speed ?? NaN) ? position.speed! * 3.6 : null;
+  const motion = speedKmh == null
+    ? { motion_state: "unknown", is_moving: false }
+    : speedKmh >= 15
+      ? { motion_state: "vehicle", is_moving: true }
+      : speedKmh >= 2
+        ? { motion_state: "walking", is_moving: true }
+        : { motion_state: "still", is_moving: false };
+  try {
+    const response = await fetch("/api/account/sos/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        alert_id: alertId,
+        lat: position.lat,
+        lng: position.lng,
+        accuracy_m: Number.isFinite(position.accuracy) ? position.accuracy : undefined,
+        speed_kmh: speedKmh == null ? undefined : Number(speedKmh.toFixed(1)),
+        heading_deg: Number.isFinite(position.heading ?? NaN) ? Math.round((position.heading! + 360) % 360) : undefined,
+        motion_state: motion.motion_state,
+        is_moving: motion.is_moving,
+        fix_age_s: typeof position.capturedAt === "number" ? Math.max(0, Math.floor((Date.now() - position.capturedAt) / 1000)) : 0,
+      }),
+    });
+    if (response.ok) return null;
+    const result = await response.json().catch(() => ({}));
+    return result.error === "closed_alert" ? null : "Live location is delayed; updates will retry.";
+  } catch {
+    return "Live location is delayed; updates will retry.";
+  }
 }
 
 export function SosResponseScreen({
@@ -137,23 +135,31 @@ export function SosResponseScreen({
   useEffect(() => {
     if (closed) return;
     let active = true;
-    const updateLocation = () => {
-      void responderLocationUpdate(alertId).then((message) => {
-        if (active) setTrackingError(message ?? "");
-      });
+    let inFlight = false;
+    let lastSentAt = 0;
+    const publishLocation = (position: Position) => {
+      if (!active || inFlight || Date.now() - lastSentAt < 4_000) return;
+      inFlight = true;
+      lastSentAt = Date.now();
+      void callerLocationUpdate(alertId, position)
+        .then((message) => { if (active) setTrackingError(message ?? ""); })
+        .finally(() => { inFlight = false; });
     };
-    updateLocation();
-    const locationTimer = window.setInterval(updateLocation, 5_000);
+    const stopWatching = watchLocation(
+      publishLocation,
+      () => { if (active) setTrackingError("Could not read your location. Check device location permission."); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
+    );
     return () => {
       active = false;
-      window.clearInterval(locationTimer);
+      stopWatching();
     };
   }, [alertId, closed]);
 
   const caller = useMemo<MapPoint | null>(() => {
     if (data?.alert.lat == null || data.alert.lng == null) return null;
-    return { lat: data.alert.lat, lng: data.alert.lng };
-  }, [data?.alert.lat, data?.alert.lng]);
+    return { lat: data.alert.lat, lng: data.alert.lng, accuracyM: data.alert.accuracyM };
+  }, [data?.alert.accuracyM, data?.alert.lat, data?.alert.lng]);
 
   useEffect(() => {
     if (!caller || !data?.responders.length) return;
@@ -210,6 +216,10 @@ export function SosResponseScreen({
   const onTheWay = data?.responders.filter((responder) => responder.status === "en_route").length ?? 0;
   const onScene = data?.responders.some((responder) => responder.status === "on_scene") ?? false;
   const accepted = data?.responders.length ?? 0;
+  const locationCapturedAt = data?.alert.lastLocationAt ?? data?.alert.locAt;
+  const callerLocationAgeSeconds = locationCapturedAt
+    ? Math.max(0, Math.floor((Date.now() - Date.parse(locationCapturedAt)) / 1000))
+    : null;
 
   async function cancelAlert() {
     if (!(await confirm("Cancel this alert as a false alarm? Responders will be notified immediately.", {
@@ -304,6 +314,14 @@ export function SosResponseScreen({
             </p>
             {loadError && <p className="mt-3 flex items-center gap-2 rounded-xl bg-[#fdeaee] px-3 py-2 text-xs text-[#7d3341]" role="status"><RefreshCw size={14} />{loadError}</p>}
             {trackingError && <p className="mt-2 text-xs text-[#7d3341]" role="status">{trackingError}</p>}
+            {!closed && (
+              <p className="mt-2 text-xs text-[#6e5a7c]" role="status">
+                {data?.alert.accuracyM != null
+                  ? `Your GPS reports an accuracy radius of about ±${Math.round(data.alert.accuracyM)} m.`
+                  : "Waiting for a GPS accuracy reading."}
+                {callerLocationAgeSeconds != null && ` Updated ${callerLocationAgeSeconds}s ago.`}
+              </p>
+            )}
             {loading && !data && <p className="mt-2 text-xs text-[#6e5a7c]">Connecting to your responders…</p>}
             <ol className="mt-3 list-none p-0">
               {progressSteps.map((step, index) => (

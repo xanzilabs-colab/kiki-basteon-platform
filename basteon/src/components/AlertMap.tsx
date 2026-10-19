@@ -8,6 +8,7 @@ import { hasLocation } from "@/lib/geo";
 import { deadReckon, headingToCompass, isMovingAlert } from "@/lib/motion";
 import { locationHealth } from "@/lib/locationTracking";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
+import { installMapBaseLayers } from "@/lib/mapLayers";
 
 const icon = (color: string, selected: boolean) =>
   L.divIcon({
@@ -65,9 +66,7 @@ export default function AlertMap({
     );
     mapRef.current = map;
 
-    L.tileLayer(process.env.NEXT_PUBLIC_MAP_TILE_URL!, {
-      attribution: process.env.NEXT_PUBLIC_MAP_ATTRIBUTION,
-    }).addTo(map);
+    const removeBaseLayers = installMapBaseLayers(map);
 
     const resize = () => map.invalidateSize({ animate: false, pan: false });
     const observer = new ResizeObserver(resize);
@@ -85,6 +84,7 @@ export default function AlertMap({
       observer.disconnect();
       map.off("dragstart", onUserMove);
       map.off("zoomstart", onUserMove);
+      removeBaseLayers();
       map.remove();
       mapRef.current = null;
     };
@@ -105,6 +105,12 @@ export default function AlertMap({
       if (ownerName) {
         popup.append(document.createElement("br"), document.createTextNode(ownerName));
       }
+      if (alert.accuracy_m != null && alert.accuracy_m > 0) {
+        popup.append(
+          document.createElement("br"),
+          document.createTextNode(`Phone-reported accuracy ±${Math.round(alert.accuracy_m)} m`),
+        );
+      }
       const marker = L.marker([alert.lat!, alert.lng!], {
         icon: icon(alert.status === "new" ? "#ff4d5a" : "#28d5c0", selected?.id === alert.id),
       }).bindPopup(popup);
@@ -113,15 +119,22 @@ export default function AlertMap({
     }
 
     if (me) {
+      const accuracy = me.accuracy != null && Number.isFinite(me.accuracy) && me.accuracy > 0
+        ? ` · reported accuracy ±${Math.round(me.accuracy)} m`
+        : "";
       layers.addLayer(
-        L.marker([me.lat, me.lng], { icon: icon("#3b9cff", false) }).bindPopup("Your location"),
+        L.marker([me.lat, me.lng], { icon: icon("#3b9cff", false) }).bindPopup(`Your location${accuracy}`),
       );
-      layers.addLayer(
-        L.circle([me.lat, me.lng], {
-          radius: me.accuracy ?? 20,
-          color: "#3b9cff",
-        }),
-      );
+      if (accuracy && me.accuracy != null) {
+        layers.addLayer(
+          L.circle([me.lat, me.lng], {
+            radius: me.accuracy,
+            color: "#3b9cff",
+            fillColor: "#3b9cff",
+            fillOpacity: 0.12,
+          }),
+        );
+      }
     }
 
     const trailPoints = trail
@@ -170,11 +183,27 @@ export default function AlertMap({
     }
     animatedMarkerRef.current.setIcon(icon(selected.is_simulated_loc ? "#9CA3AF" : "#ff4d5a", true));
 
-    if (!accuracyCircleRef.current) {
-      accuracyCircleRef.current = L.circle([selected.lat!, selected.lng!], { radius: 20, color: "#6ee7b7", opacity: 0.25, fillOpacity: 0.06 }).addTo(map);
+    const latestAccuracy = [...trail].reverse().find(
+      (point) => point.lat != null && point.lng != null && point.accuracy_m != null,
+    )?.accuracy_m ?? selected.accuracy_m;
+    if (latestAccuracy != null && Number.isFinite(latestAccuracy) && latestAccuracy > 0) {
+      if (!accuracyCircleRef.current) {
+        accuracyCircleRef.current = L.circle([selected.lat!, selected.lng!], {
+          radius: latestAccuracy,
+          color: "#6ee7b7",
+          opacity: 0.25,
+          fillColor: "#6ee7b7",
+          fillOpacity: 0.06,
+        }).addTo(map);
+      } else {
+        accuracyCircleRef.current.setRadius(latestAccuracy);
+      }
+    } else {
+      if (accuracyCircleRef.current) {
+        map.removeLayer(accuracyCircleRef.current);
+        accuracyCircleRef.current = null;
+      }
     }
-    const haloMeters = Math.max(5, Math.min(100, Math.round((selected.last_hdop ?? 4) * 5)));
-    accuracyCircleRef.current.setRadius(haloMeters);
 
     const animate = () => {
       if (!animatedMarkerRef.current || !animFromRef.current || !animToRef.current) return;

@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment, useEffect, useMemo } from "react";
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { Circle, CircleMarker, LayersControl, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
 
-export type MapPoint = { lat: number; lng: number };
+export type MapPoint = { lat: number; lng: number; accuracyM?: number | null };
 export type ResponseRoute = {
   points: MapPoint[];
   distanceM: number;
@@ -16,7 +17,7 @@ export type MapResponder = {
   status: string;
   organisation?: string | null;
   role?: string | null;
-  location: MapPoint | null;
+  location: (MapPoint & { seenAt: string }) | null;
   route?: ResponseRoute;
 };
 
@@ -49,15 +50,23 @@ export default function SosResponseMap({
 
   return (
     <MapContainer center={center} zoom={caller ? 14 : 5} scrollWheelZoom className="h-full min-h-[300px] w-full">
-      <TileLayer
-        url={process.env.NEXT_PUBLIC_MAP_TILE_URL || "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
-        attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || "© OpenStreetMap contributors"}
-      />
+      <LayersControl position="topright" collapsed={false}>
+        {MAP_BASE_LAYERS.map((layer, index) => (
+          <LayersControl.BaseLayer key={layer.name} checked={index === 0} name={layer.name}>
+            <TileLayer url={layer.url} attribution={layer.attribution} maxZoom={layer.maxZoom} />
+          </LayersControl.BaseLayer>
+        ))}
+      </LayersControl>
       <FitResponse points={mapPoints} />
       {caller && (
-        <CircleMarker center={[caller.lat, caller.lng]} radius={12} pathOptions={{ color: "#fff", weight: 3, fillColor: "#ef4444", fillOpacity: 1 }}>
-          <Popup>Your location · emergency alert</Popup>
-        </CircleMarker>
+        <>
+          {caller.accuracyM != null && caller.accuracyM > 0 && (
+            <Circle center={[caller.lat, caller.lng]} radius={caller.accuracyM} pathOptions={{ color: "#ef4444", weight: 1, fillColor: "#ef4444", fillOpacity: 0.12 }} />
+          )}
+          <CircleMarker center={[caller.lat, caller.lng]} radius={12} pathOptions={{ color: "#fff", weight: 3, fillColor: "#ef4444", fillOpacity: 1 }}>
+            <Popup>Your location{caller.accuracyM != null ? ` · reported accuracy ±${Math.round(caller.accuracyM)} m` : ""}</Popup>
+          </CircleMarker>
+        </>
       )}
       {responders.map((responder, index) => (
         <Fragment key={responder.id}>
@@ -68,9 +77,14 @@ export default function SosResponseMap({
             />
           )}
           {responder.location && (
-            <CircleMarker center={[responder.location.lat, responder.location.lng]} radius={9} pathOptions={{ color: "#fff", weight: 3, fillColor: "#0f766e", fillOpacity: 1 }}>
-              <Popup>{responder.name} · {responder.status.replaceAll("_", " ")}</Popup>
-            </CircleMarker>
+            <>
+              {responder.location.accuracyM != null && responder.location.accuracyM > 0 && (
+                <Circle center={[responder.location.lat, responder.location.lng]} radius={responder.location.accuracyM} pathOptions={{ color: "#0f766e", weight: 1, fillColor: "#0f766e", fillOpacity: 0.12 }} />
+              )}
+              <CircleMarker center={[responder.location.lat, responder.location.lng]} radius={9} pathOptions={{ color: "#fff", weight: 3, fillColor: "#0f766e", fillOpacity: 1 }}>
+                <Popup>{responder.name} · {responder.status.replaceAll("_", " ")}{responder.location.accuracyM != null ? ` · reported accuracy ±${Math.round(responder.location.accuracyM)} m` : ""}</Popup>
+              </CircleMarker>
+            </>
           )}
         </Fragment>
       ))}

@@ -37,6 +37,7 @@ describe("POST responder presence heartbeat", () => {
       organisationId,
       lat: -26.2,
       lng: 28,
+      accuracyM: 6.8,
     }));
 
     const update = db.calls.find((call) => call.table === "responder_presence" && call.action === "update");
@@ -44,6 +45,7 @@ describe("POST responder presence heartbeat", () => {
     expect(update?.payload).toMatchObject({
       last_lat: -26.2,
       last_lng: 28,
+      last_accuracy_m: 6.8,
     });
     expect(update?.payload).toHaveProperty("last_location_at");
     expect(update?.payload).toHaveProperty("last_seen_at");

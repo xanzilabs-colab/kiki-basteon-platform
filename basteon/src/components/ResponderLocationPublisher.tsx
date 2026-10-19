@@ -24,8 +24,8 @@ export function ResponderLocationPublisher({
     const client = createClient();
     const readCurrentPosition = () => getCurrentLocation({
       enableHighAccuracy: true,
-      maximumAge: 10_000,
-      timeout: 8_000,
+      maximumAge: 0,
+      timeout: 15_000,
     }).catch(() => null);
     const publish = async () => {
       if (!active || running) return;
@@ -39,7 +39,12 @@ export function ResponderLocationPublisher({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(freshPosition
-            ? { organisationId, lat: freshPosition.lat, lng: freshPosition.lng }
+            ? {
+                organisationId,
+                lat: freshPosition.lat,
+                lng: freshPosition.lng,
+                accuracyM: Number.isFinite(freshPosition.accuracy) ? freshPosition.accuracy : null,
+              }
             : { organisationId }),
         });
         if (!heartbeat.ok) throw new Error("Responder presence heartbeat failed.");

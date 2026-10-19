@@ -21,7 +21,7 @@ export function useGeolocation() {
       setError(null);
     },
     (failure) => setError(locationErrorMessage(failure)),
-    { enableHighAccuracy: true, maximumAge: 10_000, timeout: 15_000 },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
   ), []);
 
   return { position, error };
