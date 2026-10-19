@@ -82,6 +82,10 @@ class KikiTriggerPlugin : Plugin() {
         }
         val testMode = call.getBoolean("test", true) ?: true
         if (!testMode) {
+            KikiTriggerService.countdownNotificationBlockReason(context)?.let { reason ->
+                call.reject(reason)
+                return
+            }
             GestureProfiles.liveBlockReason(context)?.let { reason ->
                 call.reject(reason)
                 return
@@ -143,6 +147,7 @@ class KikiTriggerPlugin : Plugin() {
         val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         fun granted(permission: String) =
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        val notificationBlockReason = KikiTriggerService.countdownNotificationBlockReason(context)
 
         call.resolve(
             JSObject()
@@ -157,6 +162,8 @@ class KikiTriggerPlugin : Plugin() {
                 .put("fineLocation", granted(Manifest.permission.ACCESS_FINE_LOCATION))
                 .put("bgLocation", Build.VERSION.SDK_INT < 29 || granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
                 .put("notifications", androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled())
+                .put("countdownNotifications", notificationBlockReason == null)
+                .put("liveAlertBlockReason", notificationBlockReason)
                 .put("bluetooth", DeviceTracker.hasBluetoothPermission(context))
                 .put("notifyDrop", prefs.getBoolean("notifyDrop", true))
                 .put("liveGestureReady", GestureProfiles.hasLiveReadyProfile(context))

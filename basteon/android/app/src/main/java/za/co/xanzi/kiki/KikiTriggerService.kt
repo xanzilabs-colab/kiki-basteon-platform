@@ -27,6 +27,7 @@ import android.os.Vibrator
 import android.util.Log
 import android.view.InputDevice
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import android.view.KeyEvent
@@ -120,6 +121,19 @@ class KikiTriggerService : Service() {
         fun logLines(): List<String> = synchronized(logBuffer) { logBuffer.toList() }
 
         fun traceEntries(): List<JSONObject> = synchronized(traceLock) { traceBuffer.map { JSONObject(it.toString()) } }
+
+        fun countdownNotificationBlockReason(context: Context): String? {
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+                return "Enable Kiki notifications before using live Bluetooth alerts; the cancel countdown must be visible."
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                if (manager.getNotificationChannel(COUNTDOWN_CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE) {
+                    return "Enable the Kiki alert countdown notification channel before using live Bluetooth alerts."
+                }
+            }
+            return null
+        }
 
         fun clearPendingCountdown() {
             pendingCountdown = false
@@ -248,6 +262,15 @@ class KikiTriggerService : Service() {
             cancelTrigger()
             return START_STICKY
         }
+        if (running) {
+            showArmedNotification(
+                when {
+                    practice -> "Practice mode is on. No real alerts will be sent."
+                    prefs.getBoolean("test", true) -> "TEST ONLY. Button presses are recorded; no alert or countdown is sent."
+                    else -> "Live alerts are enabled. A recognized gesture sends an alert and starts its countdown."
+                }
+            )
+        }
         return START_STICKY
     }
 
@@ -315,8 +338,20 @@ class KikiTriggerService : Service() {
         }
         val notification: Notification = NotificationCompat.Builder(this, channel)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(if (prefs.getBoolean("test", true)) "Kiki trigger · test mode" else "Kiki trigger is armed")
-            .setContentText("Bluetooth button patterns are being monitored")
+            .setContentTitle(
+                when {
+                    practice -> "Kiki trigger · Practice"
+                    prefs.getBoolean("test", true) -> "Kiki trigger · TEST ONLY"
+                    else -> "Kiki trigger is armed"
+                }
+            )
+            .setContentText(
+                when {
+                    practice -> "No real alerts will be sent while Practice is on."
+                    prefs.getBoolean("test", true) -> "TEST ONLY — no alert, countdown, or responder notification will be sent."
+                    else -> "Bluetooth button patterns are being monitored for live alerts."
+                }
+            )
             .setOngoing(true)
             .setContentIntent(pendingIntent)
             .setStyle(MediaStyle().setMediaSession(mediaSession.sessionToken))
@@ -639,6 +674,13 @@ class KikiTriggerService : Service() {
         vibrate(if (duress) longArrayOf(0, 350, 180, 350) else longArrayOf(0, 80, 100, 80))
         val location = lastKnownLocation()
         Thread({
+            if (!testMode) {
+                countdownNotificationBlockReason(this)?.let { reason ->
+                    log("live trigger blocked before server request: $reason")
+                    vibrate(longArrayOf(0, 800))
+                    return@Thread
+                }
+            }
             val payload = JSONObject()
                 .put("type", type)
                 .put("duress", duress)
@@ -771,6 +813,10 @@ class KikiTriggerService : Service() {
     }
 
     private fun showCancelNotification(countdownSeconds: Int) {
+        countdownNotificationBlockReason(this)?.let { reason ->
+            log("cannot display the alert countdown notification: $reason")
+            return
+        }
         pendingCountdown = true
         main.removeCallbacks(countdownExpired)
         main.postDelayed(countdownExpired, countdownSeconds.coerceAtLeast(0) * 1_000L)
@@ -806,7 +852,13 @@ class KikiTriggerService : Service() {
         val prefs = Store.prefs(this)
         val notification = NotificationCompat.Builder(this, "kiki_trigger_armed")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(if (prefs.getBoolean("test", true)) "Kiki trigger · test mode" else "Kiki trigger is armed")
+            .setContentTitle(
+                when {
+                    practice -> "Kiki trigger · Practice"
+                    prefs.getBoolean("test", true) -> "Kiki trigger · TEST ONLY"
+                    else -> "Kiki trigger is armed"
+                }
+            )
             .setContentText(message)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

@@ -48,7 +48,7 @@ export default function EarbudTriggerCard() {
     };
   }, [refresh]);
 
-  async function requestDevicePermissions() {
+  async function requestDevicePermissions(): Promise<KikiStatus> {
     const bluetooth = await KikiTrigger.requestBluetooth();
     if (!bluetooth.granted) setNotice("Allow Nearby devices in Android settings to monitor Bluetooth media controls.");
     try {
@@ -61,6 +61,9 @@ export default function EarbudTriggerCard() {
     } catch {
       setNotice("Location permission was not granted; alerts can still be sent without a location.");
     }
+    const current = await KikiTrigger.status();
+    setStatus(current);
+    return current;
   }
 
   async function arm() {
@@ -81,7 +84,15 @@ export default function EarbudTriggerCard() {
     setError("");
     setNotice("");
     try {
-      await requestDevicePermissions();
+      const currentStatus = await requestDevicePermissions();
+      if (!test && currentStatus.liveAlertBlockReason) {
+        setNotice(currentStatus.liveAlertBlockReason);
+        return;
+      }
+      if (!test && !currentStatus.liveGestureReady) {
+        setNotice(currentStatus.liveGestureBlockReason ?? "Live alerts are locked. Open Trigger Lab to re-check the connected profile.");
+        return;
+      }
       let token: string | undefined;
       let tokenId: string | undefined;
       if (!status.hasToken) {
@@ -212,9 +223,13 @@ export default function EarbudTriggerCard() {
             : status.wantArmed ? "Trigger service stopped; tap Arm to restart it" : "Not armed"}
         />
         <StatusRow
-          ok={status.notifications}
+          ok={status.notifications && status.countdownNotifications}
           icon={<Smartphone size={16} />}
-          label={status.notifications ? "Android notifications are enabled" : "Notifications are off; Android may hide service status"}
+          label={!status.notifications
+            ? "Notifications are off; live alerts are unavailable until Kiki notifications are enabled"
+            : status.countdownNotifications
+              ? "Android notifications and the alert countdown are enabled"
+              : "The alert countdown channel is blocked; live alerts are unavailable"}
         />
         <StatusRow
           ok={status.fineLocation && status.bgLocation}
@@ -246,6 +261,9 @@ export default function EarbudTriggerCard() {
         {!status.batteryUnrestricted && (
           <button className="btn" type="button" onClick={() => void KikiTrigger.requestBatteryExemption()}>Battery settings</button>
         )}
+        {(!status.notifications || !status.countdownNotifications) && (
+          <button className="btn" type="button" onClick={() => void KikiTrigger.openAppSettings()}>Notification settings</button>
+        )}
         {status.fineLocation && !status.bgLocation && (
           <button className="btn" type="button" onClick={() => void KikiTrigger.openAppSettings()}>Location permissions</button>
         )}
@@ -258,9 +276,9 @@ export default function EarbudTriggerCard() {
       )}
       {notice && <p className="text-sm text-[var(--warn)]" role="status">{notice}</p>}
       {error && <p className="text-sm text-[var(--crit)]" role="alert">{error}</p>}
-      {!test && !status.liveGestureReady && (
+      {!test && (!status.liveGestureReady || status.liveAlertBlockReason) && (
         <p className="rounded-xl bg-[var(--surface-2)] p-3 text-sm text-[var(--warn)]">
-          <b>Live mode is unavailable.</b> {status.liveGestureBlockReason ?? "A connected accessory needs a fresh, verified profile with SOS and Cancel."} You can still arm Test mode while fixing this.
+          <b>Live mode is unavailable.</b> {status.liveAlertBlockReason ?? status.liveGestureBlockReason ?? "A connected accessory needs a fresh, verified profile with SOS and Cancel."} You can still arm Test mode while fixing this.
         </p>
       )}
       <div className="space-y-2 rounded-xl bg-[var(--surface-2)] p-3 text-xs leading-relaxed">

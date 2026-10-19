@@ -60,7 +60,7 @@ export default function TriggerLab({ requestedDeviceRef = "" }: { requestedDevic
     return () => window.clearInterval(timer);
   }, [practice, refresh]);
 
-  async function setPracticeMode(on: boolean) {
+  async function setPracticeMode(on: boolean): Promise<boolean> {
     setBusy(true);
     setError("");
     try {
@@ -81,8 +81,10 @@ export default function TriggerLab({ requestedDeviceRef = "" }: { requestedDevic
         setPracticeExpiresAt(0);
       }
       await refresh();
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not update Practice mode.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -124,7 +126,7 @@ export default function TriggerLab({ requestedDeviceRef = "" }: { requestedDevic
 
       <GestureCalibrationPanel
         practice={practice}
-        onStartPractice={() => void setPracticeMode(true)}
+        onStartPractice={() => setPracticeMode(true)}
         status={status ?? {}}
         requestedDeviceRef={requestedDeviceRef}
       />

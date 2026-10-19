@@ -22,10 +22,12 @@ export interface KikiStatus {
   fineLocation: boolean;
   bgLocation: boolean;
   notifications: boolean;
+  countdownNotifications: boolean;
   bluetooth: boolean;
   notifyDrop: boolean;
   liveGestureReady: boolean;
   liveGestureBlockReason?: string | null;
+  liveAlertBlockReason?: string | null;
   androidSdk: number;
   appVersion: string | null;
 }

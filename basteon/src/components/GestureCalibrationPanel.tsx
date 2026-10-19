@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, Check, ChevronDown, ChevronRight, CircleHelp, RotateCcw, ShieldCheck, Trash2, X } from "lucide-react";
+import { useAppDialog } from "@/components/AppDialogProvider";
 import { KikiTrigger, type EverydayDevice, type GestureProfile, type TriggerEvent } from "@/lib/kikiTrigger";
 import styles from "@/app/account/profile/triggers/lab/triggerLab.module.css";
 import {
@@ -96,10 +97,11 @@ export default function GestureCalibrationPanel({
   requestedDeviceRef = "",
 }: {
   practice: boolean;
-  onStartPractice: () => void;
+  onStartPractice: () => Promise<boolean>;
   status: { appVersion?: string | null; androidSdk?: number };
   requestedDeviceRef?: string;
 }) {
+  const { confirm, prompt } = useAppDialog();
   const [profiles, setProfiles] = useState<GestureProfile[]>([]);
   const [accessories, setAccessories] = useState<Accessory[]>([]);
   const [registeredDevices, setRegisteredDevices] = useState<EverydayDevice[]>([]);
@@ -608,7 +610,12 @@ export default function GestureCalibrationPanel({
   }
 
   async function deleteSavedProfile(profile: GestureProfile) {
-    if (!practice) return setError("Start Practice before changing profiles.");
+    if (busy) return;
+    const approved = await confirm(
+      `Delete the saved gesture profile "${profile.name}" from this phone and its account backup?`,
+      { title: "Delete gesture profile?", confirmLabel: "Delete profile", danger: true },
+    );
+    if (!approved || !await enablePracticeForProfileAction("delete this profile")) return;
     setBusy(true);
     setError("");
     try {
@@ -623,12 +630,27 @@ export default function GestureCalibrationPanel({
     }
   }
 
-  async function renameSavedProfile(profile: GestureProfile, name: string) {
-    const updated = { ...profile, name: name.trim() };
+  async function renameSavedProfile(profile: GestureProfile) {
+    if (busy) return;
+    const requestedName = await prompt(
+      "Choose a name for this saved gesture profile.",
+      profile.name,
+      { title: "Rename gesture profile", inputLabel: "Profile name", submitLabel: "Save name" },
+    );
+    if (requestedName === null) return;
+    const name = requestedName.trim();
+    if (!name || name.length > 40) {
+      setError("Enter a profile name between 1 and 40 characters.");
+      return;
+    }
+    if (!await enablePracticeForProfileAction("rename this profile")) return;
+    const updated = { ...profile, name };
     if (!updated.name || updated.name.length > 40) {
       setError("Enter a profile name between 1 and 40 characters.");
       return;
     }
+    setBusy(true);
+    setError("");
     try {
       await KikiTrigger.saveProfile({ profile: updated });
       const next = profiles.map((item) => item.id === updated.id ? updated : item);
@@ -636,6 +658,8 @@ export default function GestureCalibrationPanel({
       await syncProfiles(next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not rename the profile.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -672,6 +696,27 @@ export default function GestureCalibrationPanel({
       : "other");
     setSettingsOpen(false);
     setMessage(device.connected ? "Device selected. Check its button event to begin." : "Device configuration retained. Connect the accessory to capture its events.");
+  }
+
+  async function enablePracticeForProfileAction(action: string) {
+    if (practice) return true;
+    const approved = await confirm(
+      `Practice mode pauses live alerts for 10 minutes. Start Practice before you ${action}?`,
+      { title: "Start Practice to manage profiles?", confirmLabel: "Start Practice" },
+    );
+    return approved ? onStartPractice() : false;
+  }
+
+  async function beginEditingSavedProfile(profile: GestureProfile) {
+    if (!await enablePracticeForProfileAction("edit this profile")) return false;
+    editSavedProfile(profile);
+    return true;
+  }
+
+  async function beginDeviceConfiguration(device: DeviceConfiguration) {
+    if (!await enablePracticeForProfileAction("configure this device")) return false;
+    startDeviceConfiguration(device);
+    return true;
   }
 
   const activeVerifyAction = verifyActions[verifyActionIndex];
@@ -850,12 +895,11 @@ export default function GestureCalibrationPanel({
           {profiles.map((profile) => {
             const verified = isProfileCurrent(profile, status);
             return <div className={styles.savedRow} key={profile.id} data-profile-id={profile.id}>
-              <label className={styles.savedName}><input defaultValue={profile.name} maxLength={40} disabled={!practice || busy} aria-label={`Name for ${profile.name}`} onBlur={(event) => {
-                if (event.target.value !== profile.name) void renameSavedProfile(profile, event.target.value);
-              }} /></label>
+              <div className={styles.savedName}><b>{profile.name}</b></div>
               <span className={`${styles.badge} ${verified ? "" : styles.badgeNeedsCheck}`}>{verified ? "Ready" : "Needs re-check"}</span>
-              <button className={styles.secondaryButton} type="button" disabled={!practice || busy} onClick={() => editSavedProfile(profile)}>{verified ? "Edit" : "Re-check"}</button>
-              <button className={`${styles.iconButton} ${styles.iconButtonDanger}`} type="button" disabled={!practice || busy} aria-label={`Delete ${profile.name}`} onClick={() => void deleteSavedProfile(profile)}><Trash2 size={15} /></button>
+              <button className={styles.secondaryButton} type="button" disabled={busy} onClick={() => void renameSavedProfile(profile)}>Rename</button>
+              <button className={styles.secondaryButton} type="button" disabled={busy} onClick={() => void beginEditingSavedProfile(profile)}>{verified ? "Edit" : "Re-check"}</button>
+              <button className={`${styles.iconButton} ${styles.iconButtonDanger}`} type="button" disabled={busy} aria-label={`Delete ${profile.name}`} onClick={() => void deleteSavedProfile(profile)}><Trash2 size={15} /></button>
             </div>;
           })}
         </div>
@@ -933,13 +977,15 @@ export default function GestureCalibrationPanel({
                   <div className={styles.deviceProfile} key={profile.id}>
                     <b>{profile.name}</b>
                     <span>{Object.entries(profile.mapping).map(([signature, action]) => `${ACTIONS.find((item) => item.id === action)?.label ?? action}: ${humanize(signature)}`).join(" · ") || "No actions assigned"}</span>
-                    <button className={styles.secondaryButton} type="button" disabled={!practice || busy} onClick={() => { editSavedProfile(profile); setSettingsOpen(false); }}>
-                      Edit this profile
+                    <button className={styles.secondaryButton} type="button" disabled={busy} onClick={() => void beginEditingSavedProfile(profile).then((started) => {
+                      if (started) setSettingsOpen(false);
+                    })}>
+                      {practice ? "Edit this profile" : "Start Practice to edit"}
                     </button>
                   </div>
                 ))}
-                <button className={styles.ghostButton} type="button" disabled={!practice || busy} onClick={() => startDeviceConfiguration(device)}>
-                  {device.profiles.length ? "Add another profile" : "Create device profile"}
+                <button className={styles.ghostButton} type="button" disabled={busy} onClick={() => void beginDeviceConfiguration(device)}>
+                  {device.profiles.length ? (practice ? "Add another profile" : "Start Practice to add a profile") : (practice ? "Create device profile" : "Start Practice to create a profile")}
                 </button>
               </details>
             ))}

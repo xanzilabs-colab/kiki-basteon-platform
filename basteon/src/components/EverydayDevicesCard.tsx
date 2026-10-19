@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Capacitor } from "@capacitor/core";
 import { Bluetooth, CheckCircle2, ChevronRight, Headphones, Plus, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
+import { useAppDialog } from "@/components/AppDialogProvider";
 import {
   KikiTrigger,
   type EverydayDevice,
@@ -39,6 +40,7 @@ function statusChipText(status: EverydayDevice["status"]) {
 }
 
 export default function EverydayDevicesCard() {
+  const { prompt } = useAppDialog();
   const native = Capacitor.isNativePlatform();
   const [devices, setDevices] = useState<EverydayDevice[]>([]);
   const [paired, setPaired] = useState<PairedBluetoothDevice[]>([]);
@@ -193,6 +195,31 @@ export default function EverydayDevicesCard() {
     }
   }
 
+  async function renameDevice(device: EverydayDevice) {
+    const requestedName = await prompt(
+      "Choose a friendly name for this accessory. This changes its name in Kiki, not its Bluetooth system name.",
+      device.name,
+      { title: "Rename device", inputLabel: "Device name", submitLabel: "Save name" },
+    );
+    if (requestedName === null) return;
+    const nextName = requestedName.trim();
+    if (!nextName || nextName.length > 40) {
+      setError("Enter a device name between 1 and 40 characters.");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      await KikiTrigger.renameDevice({ ref: device.ref, name: nextName });
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not rename this device.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function startPractice(device: EverydayDevice) {
     if (device.status !== "connected" && device.status !== "untracked") {
       setError("Connect or enable this device first, then run its practice check.");
@@ -340,10 +367,7 @@ export default function EverydayDevicesCard() {
                   <details className="everyday-more">
                     <summary aria-label={`More actions for ${device.name}`}>More<ChevronRight size={15} /></summary>
                     <div>
-                      <button type="button" onClick={() => {
-                        const next = window.prompt("Choose a name for this device.", device.name)?.trim();
-                        if (next) void KikiTrigger.renameDevice({ ref: device.ref, name: next }).then(refresh).catch(() => setError("Could not rename this device."));
-                      }}>Rename</button>
+                      <button type="button" disabled={busy} onClick={() => void renameDevice(device)}>Rename</button>
                       <button type="button" onClick={() => setReconnectDevice(device)}>Reconnect</button>
                       <button type="button" onClick={() => void removeDevice(device)}>Remove</button>
                     </div>
