@@ -33,6 +33,8 @@ export const MAP_BASE_LAYERS = [
   },
 ] as const;
 
+export type MapBaseLayerName = (typeof MAP_BASE_LAYERS)[number]["name"];
+
 export function installMapBaseLayers(map: L.Map) {
   const layers = MAP_BASE_LAYERS.map((config) => ({
     config,
@@ -42,17 +44,22 @@ export function installMapBaseLayers(map: L.Map) {
     }),
   }));
   const defaultLayer = layers[0];
-  if (!defaultLayer) return () => {};
+  if (!defaultLayer) throw new Error("At least one base map layer must be configured.");
 
   defaultLayer.layer.addTo(map);
-  const control = L.control.layers(
-    Object.fromEntries(layers.map(({ config, layer }) => [config.name, layer])),
-    undefined,
-    { collapsed: false, position: "topright" },
-  ).addTo(map);
+  let activeLayer = defaultLayer;
 
-  return () => {
-    control.remove();
-    layers.forEach(({ layer }) => layer.remove());
+  return {
+    select(name: MapBaseLayerName) {
+      const nextLayer = layers.find(({ config }) => config.name === name);
+      if (!nextLayer) throw new Error(`Unknown base map layer: ${name}`);
+      if (nextLayer === activeLayer) return;
+      activeLayer.layer.remove();
+      nextLayer.layer.addTo(map);
+      activeLayer = nextLayer;
+    },
+    remove() {
+      layers.forEach(({ layer }) => layer.remove());
+    },
   };
 }

@@ -19,6 +19,7 @@ import type { Alert, ProfileContact } from "@/lib/types";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { createClient } from "@/lib/supabase/client";
 import { isMovingAlert } from "@/lib/motion";
+import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
 
 const AlertMap = dynamic(() => import("@/components/AlertMap"), {
   ssr: false,
@@ -48,6 +49,7 @@ export default function ResponderPage() {
   const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [movingOnly, setMovingOnly] = useState(false);
+  const [mapBaseLayer, setMapBaseLayer] = useState<(typeof MAP_BASE_LAYERS)[number]["name"]>("Street");
   const [selfAvailability, setSelfAvailability] = useState("off_duty");
   const [availabilityError, setAvailabilityError] = useState("");
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
@@ -229,6 +231,20 @@ export default function ResponderPage() {
               ? <img src={organisationLogo} alt="" className="h-7 w-7 rounded-lg bg-white object-contain" />
               : null}Organisation: {organisationName}</span>}
             {operatorName && <span className="muted">Operator: {operatorName}</span>}
+            <label className="inline-flex items-center gap-2 text-[11px] muted">
+              <span>Map tiles</span>
+              <select
+                aria-label="Map tiles"
+                className="input h-7 w-[132px] text-[11px]"
+                value={mapBaseLayer}
+                onChange={(event) => {
+                  const nextLayer = MAP_BASE_LAYERS.find(({ name }) => name === event.target.value)?.name;
+                  if (nextLayer) setMapBaseLayer(nextLayer);
+                }}
+              >
+                {MAP_BASE_LAYERS.map(({ name }) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
             <div className="ml-auto inline-flex gap-1 rounded border border-[var(--line)] bg-[var(--surface-2)] p-1">
               <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "alerts"} onClick={() => setResponderView("alerts")}>Alerts</button>
               <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "overview"} onClick={() => setResponderView("overview")}>Overview</button>
@@ -256,6 +272,7 @@ export default function ResponderPage() {
             selected={selected}
             me={position}
             trail={trail}
+            baseLayer={mapBaseLayer}
             onSelect={selectAlert}
           />
         </div>

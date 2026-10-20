@@ -8,7 +8,7 @@ import { hasLocation } from "@/lib/geo";
 import { deadReckon, headingToCompass, isMovingAlert } from "@/lib/motion";
 import { locationHealth } from "@/lib/locationTracking";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
-import { installMapBaseLayers } from "@/lib/mapLayers";
+import { installMapBaseLayers, type MapBaseLayerName } from "@/lib/mapLayers";
 
 const icon = (color: string, selected: boolean) =>
   L.divIcon({
@@ -23,16 +23,19 @@ export default function AlertMap({
   selected,
   me,
   trail = [],
+  baseLayer = "Street",
   onSelect,
 }: {
   alerts: Alert[];
   selected: Alert | null;
   me: Position | null;
   trail?: AlertLocation[];
+  baseLayer?: MapBaseLayerName;
   onSelect?: (alert: Alert) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const baseLayersRef = useRef<ReturnType<typeof installMapBaseLayers> | null>(null);
   const initialView = useRef({
     center:
       selected && hasLocation(selected)
@@ -66,7 +69,8 @@ export default function AlertMap({
     );
     mapRef.current = map;
 
-    const removeBaseLayers = installMapBaseLayers(map);
+    const baseLayers = installMapBaseLayers(map);
+    baseLayersRef.current = baseLayers;
 
     const resize = () => map.invalidateSize({ animate: false, pan: false });
     const observer = new ResizeObserver(resize);
@@ -84,11 +88,16 @@ export default function AlertMap({
       observer.disconnect();
       map.off("dragstart", onUserMove);
       map.off("zoomstart", onUserMove);
-      removeBaseLayers();
+      baseLayers.remove();
+      baseLayersRef.current = null;
       map.remove();
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    baseLayersRef.current?.select(baseLayer);
+  }, [baseLayer]);
 
   useEffect(() => {
     const map = mapRef.current;

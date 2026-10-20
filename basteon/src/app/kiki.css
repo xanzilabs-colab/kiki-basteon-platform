@@ -488,6 +488,7 @@
 .auth-recovery .auth-submit { color:#fff;text-decoration:none; }
 .auth-recovery-login { display:flex;justify-content:center;margin-top:18px;color:#542082;font-size:13px;font-weight:800;text-decoration:none; }
 .auth-mode-switch { position:relative;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:25px;border:1px solid #ebe5f0;border-radius:17px;background:#f6f3f8;padding:4px;isolation:isolate; }
+.alert-map .leaflet-tile-pane { filter: none !important; }
 .auth-mode-switch button { z-index:1;display:flex;min-height:48px;align-items:center;justify-content:center;gap:8px;border:0;border-radius:13px;background:transparent;padding:8px 10px;color:#71647c;font-size:13px;font-weight:750;transition:color .2s ease; }
 .auth-mode-switch button.selected { color:#3a185f; }
 .auth-mode-indicator { position:absolute;z-index:0;top:4px;bottom:4px;left:4px;width:calc(50% - 6px);border:1px solid rgba(84,32,130,.08);border-radius:13px;background:#fff;box-shadow:0 2px 8px rgba(58,24,95,.1);transition:transform .26s cubic-bezier(.2,.8,.2,1); }
