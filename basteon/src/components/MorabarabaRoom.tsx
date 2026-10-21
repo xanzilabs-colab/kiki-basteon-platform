@@ -114,6 +114,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const audioContextRef = useRef<AudioContext | null>(null);
   const chatChannelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const chatSheetRef = useRef<HTMLElement | null>(null);
   const chatOpenRef = useRef(false);
   const reactionIdRef = useRef(0);
   const longPressedReactionsRef = useRef(new Set<string>());
@@ -127,6 +128,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   const [message, setMessage] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatKeyboardOpen, setChatKeyboardOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
 
@@ -168,9 +170,42 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   }, []);
 
   useEffect(() => {
+    if (!chatOpen) {
+      setChatKeyboardOpen(false);
+      return;
+    }
+    const sheet = chatSheetRef.current;
+    const viewport = window.visualViewport;
+    const syncViewport = () => {
+      const visibleHeight = viewport?.height ?? window.innerHeight;
+      const viewportOffset = viewport?.offsetTop ?? 0;
+      const keyboardGap = Math.max(0, window.innerHeight - viewportOffset - visibleHeight);
+      sheet?.style.setProperty("--morabaraba-visual-height", `${visibleHeight}px`);
+      sheet?.style.setProperty("--morabaraba-keyboard-gap", `${keyboardGap}px`);
+      const focusedInput = document.activeElement instanceof HTMLInputElement
+        && document.activeElement.getAttribute("aria-label") === "Write a message";
+      const keyboardOpen = focusedInput && window.innerHeight - visibleHeight > 100;
+      setChatKeyboardOpen((current) => current === keyboardOpen ? current : keyboardOpen);
+    };
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    viewport?.addEventListener("resize", syncViewport);
+    viewport?.addEventListener("scroll", syncViewport);
+    return () => {
+      window.removeEventListener("resize", syncViewport);
+      viewport?.removeEventListener("resize", syncViewport);
+      viewport?.removeEventListener("scroll", syncViewport);
+      sheet?.style.removeProperty("--morabaraba-visual-height");
+      sheet?.style.removeProperty("--morabaraba-keyboard-gap");
+    };
+  }, [chatOpen]);
+
+  useEffect(() => {
     let active = true;
     const db = createClient();
     let channel: ReturnType<typeof db.channel> | null = null;
+    let fallbackRefresh: number | null = null;
+    let refreshVisibleRoom: (() => void) | null = null;
     void (async () => {
       const { data: { user } } = await db.auth.getUser();
       if (!user) {
@@ -192,13 +227,37 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
       if (!active) return;
       setRoom({ ...joined, state: normalizeSnapshot(joined.state) });
       const { data: initialMessages } = await db.from("game_messages").select("id,author_id,body,created_at").eq("room_id", roomId).order("created_at");
-      if (active) setMessages((initialMessages ?? []) as GameMessage[]);
+      if (!active) return;
+      setMessages((initialMessages ?? []) as GameMessage[]);
+      const refreshRoom = async () => {
+        const { data: latest, error: refreshError } = await db.from("game_rooms").select("*").eq("id", roomId).maybeSingle();
+        if (!active) return;
+        if (refreshError) {
+          console.error("Morabaraba live board refresh failed", refreshError);
+          return;
+        }
+        if (latest) {
+          const updated = latest as GameRoom;
+          setRoom((current) => current && current.version > updated.version
+            ? current
+            : { ...updated, state: normalizeSnapshot(updated.state) });
+        }
+      };
+      const applyRoomUpdate = (updated: GameRoom) => {
+        setRoom((current) => current && current.version > updated.version
+          ? current
+          : { ...updated, state: normalizeSnapshot(updated.state) });
+      };
+      refreshVisibleRoom = () => {
+        if (document.visibilityState === "visible") void refreshRoom();
+      };
+      document.addEventListener("visibilitychange", refreshVisibleRoom);
       channel = db.channel(`morabaraba-${roomId}`)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_rooms", filter: `id=eq.${roomId}` }, (payload) => {
-          if (active) {
-            const updated = payload.new as GameRoom;
-            setRoom({ ...updated, state: normalizeSnapshot(updated.state) });
-          }
+          if (active) applyRoomUpdate(payload.new as GameRoom);
+        })
+        .on("broadcast", { event: "room-state" }, () => {
+          void refreshRoom();
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_messages", filter: `room_id=eq.${roomId}` }, (payload) => {
           if (active) {
@@ -211,12 +270,22 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
           const emoji = (payload as { emoji?: unknown } | null)?.emoji;
           if (active && typeof emoji === "string" && QUICK_REACTIONS.includes(emoji as (typeof QUICK_REACTIONS)[number])) showReactionBurst(emoji);
         })
-        .subscribe();
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            if (fallbackRefresh !== null) window.clearInterval(fallbackRefresh);
+            fallbackRefresh = null;
+            void refreshRoom();
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            if (fallbackRefresh === null) fallbackRefresh = window.setInterval(() => void refreshRoom(), 1500);
+          }
+        });
       chatChannelRef.current = channel;
     })().catch(() => { if (active) setMessage("Could not connect to this game room."); }).finally(() => { if (active) setLoading(false); });
     return () => {
       active = false;
       chatChannelRef.current = null;
+      if (refreshVisibleRoom) document.removeEventListener("visibilitychange", refreshVisibleRoom);
+      if (fallbackRefresh !== null) window.clearInterval(fallbackRefresh);
       if (channel) void db.removeChannel(channel);
     };
   }, [roomId, router, showReactionBurst]);
@@ -241,7 +310,20 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
       setMessage(details[error.message] ?? "That move was not accepted. The board has not changed.");
     } else {
       const nextRoom = data as GameRoom;
-      setRoom({ ...nextRoom, state: normalizeSnapshot(nextRoom.state) });
+      setRoom((current) => current && current.version > nextRoom.version
+        ? current
+        : { ...nextRoom, state: normalizeSnapshot(nextRoom.state) });
+      const channel = chatChannelRef.current;
+      if (channel) {
+        void channel.send({ type: "broadcast", event: "room-state", payload: { version: nextRoom.version } })
+          .then((status) => {
+            if (status !== "ok") setMessage("Move saved. Live board sync is reconnecting.");
+          })
+          .catch((error: unknown) => {
+            console.error("Morabaraba live move notification failed", error);
+            setMessage("Move saved. Live board sync is reconnecting.");
+          });
+      }
       if (audio) {
         const localPlayer: Player = userId === room.host_id ? 1 : 2;
         const madeMill = room.state.pendingRemoval === null && nextRoom.state.pendingRemoval === localPlayer;
@@ -295,6 +377,7 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
   function closeChat() {
     chatOpenRef.current = false;
     setChatOpen(false);
+    if (document.activeElement instanceof HTMLInputElement) document.activeElement.blur();
   }
 
   function beginReactionHold(emoji: string) {
@@ -456,7 +539,11 @@ export function MorabarabaRoom({ roomId }: { roomId: string }) {
                 onAnimationEnd={() => setFloatingReactions((current) => current.filter((item) => item.id !== reaction.id))}
               >{reaction.emoji}</span>)}
             </div>
-            <section className={`${styles.chatPanel} ${styles.morabarabaChat} ${styles.morabarabaChatSheet} ${chatOpen ? styles.morabarabaChatSheetOpen : ""}`} aria-label="Game chat">
+            <section
+              ref={chatSheetRef}
+              className={`${styles.chatPanel} ${styles.morabarabaChat} ${styles.morabarabaChatSheet} ${chatOpen ? styles.morabarabaChatSheetOpen : ""} ${chatKeyboardOpen ? styles.morabarabaChatSheetKeyboardOpen : ""}`}
+              aria-label="Game chat"
+            >
               <div className={styles.chatHeading}>
                 <h2>Room chat</h2>
                 <div className={styles.actionRow}>

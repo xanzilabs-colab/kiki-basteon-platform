@@ -1432,17 +1432,31 @@
   position: fixed;
   left: max(8px, env(safe-area-inset-left));
   right: max(8px, env(safe-area-inset-right));
-  bottom: calc(8px + env(safe-area-inset-bottom));
+  bottom: calc(var(--morabaraba-keyboard-gap, 0px) + max(12px, env(safe-area-inset-bottom)));
   z-index: 9;
   min-height: min(66dvh, 540px);
   max-height: min(66dvh, 540px);
   transform: translateY(108%);
   transition: transform .24s ease;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
   border-radius: 22px;
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
 }
 .morabarabaChatSheetOpen {
   transform: translateY(0);
+}
+.morabarabaChatSheetKeyboardOpen {
+  height: calc(var(--morabaraba-visual-height, 100dvh) - 24px);
+  min-height: 0;
+  max-height: calc(var(--morabaraba-visual-height, 100dvh) - 24px);
+  grid-template-rows: auto minmax(48px, 1fr) auto auto;
+  gap: 8px;
+  padding: 12px 14px max(20px, env(safe-area-inset-bottom));
+  transition: transform .24s ease, height .18s ease, max-height .18s ease, bottom .18s ease;
+}
+.morabarabaChatSheet .chatForm input {
+  min-height: 46px;
 }
 
 @keyframes morabaraba-float-reaction {
@@ -1479,15 +1493,15 @@
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.56));
 }
 .roomBoard .movingPiece .tokenFace {
-  animation: morabaraba-glide .48s cubic-bezier(.18,.86,.2,1) both;
+  animation: morabaraba-glide .68s cubic-bezier(.2,.72,.24,1) both;
 }
 .roomBoard .tokenDrop {
   animation-duration: .42s;
 }
 
 @keyframes morabaraba-glide {
-  0% { transform: scale(0.9) rotate(-3deg); opacity: 0.82; }
-  60% { transform: scale(1.06) rotate(1deg); opacity: 1; }
+  0% { transform: scale(0.94) rotate(-2deg); opacity: 0.9; }
+  48% { transform: scale(1.035) rotate(.6deg); opacity: 1; }
   100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 @keyframes morabaraba-bloom {

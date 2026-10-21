@@ -17,9 +17,12 @@ describe("meeting input validation", () => {
     expect(lookForSchema.safeParse({ topColor: null, carryingBag: null }).success).toBe(true);
     expect(lookForSchema.safeParse({ topColor: "address", carryingBag: true }).success).toBe(false);
   });
-  it("requires an address for community alerts and rejects client-supplied coordinates", () => {
+  it("accepts an address or validated map location for community alerts", () => {
     expect(alertSchema.safeParse({ kind: "harassment", address: "12 Main Road, Johannesburg", detail: "Street harassment" }).success).toBe(true);
-    expect(alertSchema.safeParse({ kind: "harassment", lat: -26, lng: 28, locationLabel: "somewhere", detail: "Street harassment" }).success).toBe(false);
+    expect(alertSchema.safeParse({ kind: "harassment", lat: -26, lng: 28, detail: "Street harassment" }).success).toBe(true);
+    expect(alertSchema.safeParse({ kind: "harassment", lat: -26, detail: "Street harassment" }).success).toBe(false);
+    expect(alertSchema.safeParse({ kind: "harassment", lat: -26, lng: 28, region: { type: "Polygon", coordinates: [[[28, -26], [28.1, -26], [28.1, -26.1], [28.001, -26]]] }, detail: "Street harassment" }).success).toBe(false);
+    expect(alertSchema.safeParse({ kind: "harassment", lat: -26, lng: 28, region: { type: "Polygon", coordinates: [[[28, -26], [28.1, -26], [28.1, -26.1], [28, -26]]] }, detail: "Street harassment" }).success).toBe(true);
     expect(alertSchema.safeParse({ kind: "harassment", address: "12 Main Road, Johannesburg", detail: "Street harassment", reporterId: "other" }).success).toBe(false);
     expect(adminActionSchema.safeParse({ action: "review", id: "bad", quality: 6, status: "approved", active: true, open24h: true }).success).toBe(false);
   });

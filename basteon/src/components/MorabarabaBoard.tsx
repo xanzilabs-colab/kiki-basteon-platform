@@ -89,7 +89,7 @@ export function MorabarabaBoard({
     previousBoard.current = [...after];
     if (!nextMotion) return;
     setMotion(nextMotion);
-    const timer = window.setTimeout(() => setMotion((current) => current?.id === nextMotion?.id ? null : current), nextMotion.kind === "move" ? 420 : 360);
+    const timer = window.setTimeout(() => setMotion((current) => current?.id === nextMotion?.id ? null : current), nextMotion.kind === "move" ? 720 : 420);
     return () => window.clearTimeout(timer);
   }, [board]);
 
@@ -302,7 +302,7 @@ export function MorabarabaBoard({
               type="translate"
               from={`${POINTS[motion.from][0]} ${POINTS[motion.from][1]}`}
               to={`${POINTS[motion.to][0]} ${POINTS[motion.to][1]}`}
-              dur=".48s"
+              dur=".68s"
               calcMode="spline"
               keyTimes="0;1"
               keySplines=".18 .86 .2 1"
@@ -323,4 +323,3 @@ export function MorabarabaBoard({
     </div>
   );
 }
-
