@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Building2,
@@ -202,6 +202,7 @@ function parseRosterText(text: string, defaultType: "email" | "member_id" | "acc
 export function OrganisationConsole() {
   const { confirm } = useAppDialog();
   const [state, setState] = useState<MeResponse | null>(null);
+  const contentRef = useRef<HTMLElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -302,6 +303,9 @@ export function OrganisationConsole() {
   }
 
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, [activeTab]);
   useEffect(() => {
     if (!organisationId) return;
     const client = createClient();
@@ -1266,7 +1270,12 @@ export function OrganisationConsole() {
             <a className="btn btn-primary org-console-response-link" href="/responder"><ExternalLink size={15} /><span>Response console</span></a>
           </div>
         </header>
-      <div className={`org-console-content space-y-6 ${blockedNow ? "org-console-locked" : ""}`}>
+      <main
+        ref={contentRef}
+        className={`org-console-content space-y-6 ${blockedNow ? "org-console-locked" : ""}`}
+        aria-label="Organisation dashboard content"
+        tabIndex={0}
+      >
       {error && <p role="alert" className="ops-login-error">{error}</p>}
       {message && <p role="status" className="ops-login-status">{message}</p>}
       {blockedNow && (
@@ -2120,7 +2129,7 @@ export function OrganisationConsole() {
         </div>
       </section>
       )}
-    </div>
+      </main>
     </div>
     </div>
     <style jsx global>{`
@@ -2151,6 +2160,8 @@ export function OrganisationConsole() {
         display: grid;
         grid-template-columns: 256px minmax(0, 1fr);
         width: 100%;
+        position: fixed;
+        inset: 0;
         height: 100dvh;
         min-height: 0;
         overflow: hidden;
@@ -2293,6 +2304,7 @@ export function OrganisationConsole() {
         min-height: 0;
         height: 100%;
         flex-direction: column;
+        overflow: hidden;
       }
       .org-console-topbar {
         display: flex;
@@ -2348,16 +2360,26 @@ export function OrganisationConsole() {
       .org-console-content {
         width: 100%;
         max-width: 1236px;
+        height: calc(100dvh - 60px);
         min-height: 0;
-        flex: 1 1 0;
+        flex: 1 1 auto;
         overflow-x: hidden;
-        overflow-y: auto;
+        overflow-y: scroll;
         margin: 0 auto;
         padding: 28px;
         overscroll-behavior-y: contain;
         scrollbar-gutter: stable;
         touch-action: pan-y;
         -webkit-overflow-scrolling: touch;
+      }
+      .org-console .tbl-wrap {
+        width: 100%;
+        max-width: 100%;
+        overflow: auto;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
       }
       .org-console-locked > :not(.org-console-lock-message):not(.ops-login-error):not(.ops-login-status) {
         pointer-events: none;
@@ -3287,7 +3309,7 @@ export function OrganisationConsole() {
         .org-console-sync,
         .org-console-refresh span,
         .org-console-response-link span { display: none; }
-        .org-console .org-console-content { padding: 16px 12px; }
+        .org-console .org-console-content { height: calc(100dvh - 56px); padding: 16px 12px; }
         .org-console .org-console-page-heading h1 { font-size: 26px; }
         .org-console .org-console-metric { min-height: 104px; padding: 16px; }
         .org-console .org-console-metric > div:first-child > p:nth-child(2) { font-size: 34px; }
