@@ -76,13 +76,33 @@ export async function GET() {
   }
   assignmentRows = (alertAssignments.data ?? []) as any[];
   const currentAssignments = await db.from("alert_assignments")
-    .select("responder_user_id,status,assigned_at")
+    .select("id,responder_user_id,status,assigned_at")
     .eq("organisation_id", organisationId)
     .in("status", ["assigned", "acknowledged", "en_route", "on_scene"]);
   if (currentAssignments.error) {
     return NextResponse.json({ error: `Could not load current responder statuses: ${currentAssignments.error.message}` }, { status: 500 });
   }
-  const currentResponseStatus = currentResponderStatusByUser(currentAssignments.data ?? []);
+  const activeAssignments = currentAssignments.data ?? [];
+  const activeAssignmentIds = activeAssignments.map((assignment: any) => assignment.id).filter(Boolean);
+  const currentStatusEvents = activeAssignmentIds.length
+    ? await db.from("alert_assignment_events")
+      .select("assignment_id,created_at")
+      .in("assignment_id", activeAssignmentIds)
+      .order("created_at", { ascending: false })
+    : { data: [], error: null };
+  if (currentStatusEvents.error) {
+    return NextResponse.json({ error: `Could not load current responder status events: ${currentStatusEvents.error.message}` }, { status: 500 });
+  }
+  const statusUpdatedAtByAssignment = new Map<string, string>();
+  for (const event of currentStatusEvents.data ?? []) {
+    if (event.assignment_id && event.created_at && !statusUpdatedAtByAssignment.has(event.assignment_id)) {
+      statusUpdatedAtByAssignment.set(event.assignment_id, event.created_at);
+    }
+  }
+  const currentResponseStatus = currentResponderStatusByUser(activeAssignments.map((assignment: any) => ({
+    ...assignment,
+    status_updated_at: statusUpdatedAtByAssignment.get(assignment.id) ?? assignment.assigned_at,
+  })));
   const alertIds = [...new Set(assignmentRows.map((row) => row.alert_id).filter(Boolean))];
 
   const alertQueries = alertIds.length

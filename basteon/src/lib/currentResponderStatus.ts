@@ -2,30 +2,27 @@ export type ResponderAssignmentStatus = {
   responder_user_id: string | null;
   status: string | null;
   assigned_at: string | null;
+  status_updated_at?: string | null;
 };
 
-const ACTIVE_STATUS_PRIORITY: Record<string, number> = {
-  assigned: 1,
-  acknowledged: 2,
-  en_route: 3,
-  on_scene: 4,
-};
+const ACTIVE_STATUSES = new Set(["assigned", "acknowledged", "en_route", "on_scene"]);
 
 export function currentResponderStatusByUser(
   assignments: readonly ResponderAssignmentStatus[],
 ): Map<string, string> {
-  const statuses = new Map<string, { status: string; priority: number; assignedAt: number }>();
+  const statuses = new Map<string, { status: string; statusUpdatedAt: number; assignedAt: number }>();
 
   for (const assignment of assignments) {
     const userId = assignment.responder_user_id;
     const status = assignment.status;
-    const priority = status ? ACTIVE_STATUS_PRIORITY[status] : undefined;
-    if (!userId || !status || priority === undefined) continue;
+    if (!userId || !status || !ACTIVE_STATUSES.has(status)) continue;
 
-    const assignedAt = assignment.assigned_at ? Date.parse(assignment.assigned_at) : 0;
+    const assignedAt = Date.parse(assignment.assigned_at ?? "") || 0;
+    const statusUpdatedAt = Date.parse(assignment.status_updated_at ?? "") || assignedAt;
     const current = statuses.get(userId);
-    if (!current || priority > current.priority || (priority === current.priority && assignedAt > current.assignedAt)) {
-      statuses.set(userId, { status, priority, assignedAt });
+    if (!current || statusUpdatedAt > current.statusUpdatedAt ||
+      (statusUpdatedAt === current.statusUpdatedAt && assignedAt > current.assignedAt)) {
+      statuses.set(userId, { status, statusUpdatedAt, assignedAt });
     }
   }
 

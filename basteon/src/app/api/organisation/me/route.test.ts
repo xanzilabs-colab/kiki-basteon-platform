@@ -185,4 +185,50 @@ describe("GET /api/organisation/me roster membership reconciliation", () => {
       actorName: "Responder",
     });
   });
+
+  it("returns the status from the latest active assignment event", async () => {
+    const db = setup("active", (call) => {
+      if (call.table === "alert_assignments" && call.selection === "id,responder_user_id,status,assigned_at") {
+        return {
+          data: [
+            {
+              id: "assignment-en-route",
+              responder_user_id: userId,
+              status: "en_route",
+              assigned_at: "2026-10-22T08:00:00.000Z",
+            },
+            {
+              id: "assignment-acknowledged",
+              responder_user_id: userId,
+              status: "acknowledged",
+              assigned_at: "2026-10-22T08:30:00.000Z",
+            },
+          ],
+        };
+      }
+      if (call.table === "alert_assignment_events" && call.filters.some(([op, column]) => op === "in" && column === "assignment_id")) {
+        return {
+          data: [
+            { assignment_id: "assignment-acknowledged", created_at: "2026-10-22T08:35:00.000Z" },
+            { assignment_id: "assignment-en-route", created_at: "2026-10-22T08:10:00.000Z" },
+          ],
+        };
+      }
+      if (call.table === "responder_presence") {
+        return { data: [{ user_id: userId, availability: "available" }] };
+      }
+      return {};
+    });
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.currentResponseStatus).toBe("acknowledged");
+    expect(body.responderPresence[0].response_status).toBe("acknowledged");
+    expect(db.calls.some((call) =>
+      call.table === "alert_assignment_events" &&
+      call.filters.some(([op, column]) => op === "in" && column === "assignment_id"),
+    )).toBe(true);
+  });
 });

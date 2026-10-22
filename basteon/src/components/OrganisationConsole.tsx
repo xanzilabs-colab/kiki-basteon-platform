@@ -3,13 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
-  Bolt,
   Building2,
   CircleCheck,
   ExternalLink,
   House,
   List,
-  LayoutDashboard,
   RefreshCw,
   SlidersHorizontal,
   Settings2,
@@ -209,11 +207,14 @@ export function OrganisationConsole() {
   const [error, setError] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState("");
   const [branchName, setBranchName] = useState("");
+  const [branchCode, setBranchCode] = useState("");
   const [branchAddress, setBranchAddress] = useState("");
   const [branchCity, setBranchCity] = useState("");
   const [branchLat, setBranchLat] = useState("");
   const [branchLng, setBranchLng] = useState("");
   const [branchGeofence, setBranchGeofence] = useState("");
+  const [branchIsHq, setBranchIsHq] = useState(false);
+  const [editingBranchId, setEditingBranchId] = useState("");
   const [responderName, setResponderName] = useState("");
   const [responderEmail, setResponderEmail] = useState("");
   const [responderPhone, setResponderPhone] = useState("");
@@ -237,6 +238,7 @@ export function OrganisationConsole() {
   const [unitName, setUnitName] = useState("");
   const [unitBranchId, setUnitBranchId] = useState("");
   const [unitType, setUnitType] = useState("other");
+  const [editingUnitId, setEditingUnitId] = useState("");
   const [domainValue, setDomainValue] = useState("");
   const [domainMembershipType, setDomainMembershipType] = useState("staff");
   const [domainPriority, setDomainPriority] = useState("100");
@@ -585,6 +587,13 @@ export function OrganisationConsole() {
   async function createBranch(event: React.FormEvent) {
     event.preventDefault();
     if (!organisationId) return;
+    const lat = branchLat.trim() ? Number(branchLat) : null;
+    const lng = branchLng.trim() ? Number(branchLng) : null;
+    if ((lat !== null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) ||
+      (lng !== null && (!Number.isFinite(lng) || lng < -180 || lng > 180))) {
+      setError("Enter a valid latitude and longitude.");
+      return;
+    }
     let geofence: unknown = null;
     if (branchGeofence.trim()) {
       try {
@@ -597,33 +606,70 @@ export function OrganisationConsole() {
     setBusy(true);
     setMessage("");
     setError("");
-    const response = await fetch("/api/organisation/branches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        organisationId,
-        name: branchName,
-        address: branchAddress || null,
-        city: branchCity || null,
-        lat: branchLat ? Number(branchLat) : null,
-        lng: branchLng ? Number(branchLng) : null,
-        geofenceGeojson: geofence,
-      }),
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      setError((body as any)?.error ?? "Could not create branch.");
+    const wasEditing = Boolean(editingBranchId);
+    try {
+      const response = await fetch("/api/organisation/branches", {
+        method: wasEditing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organisationId,
+          ...(editingBranchId ? { branchId: editingBranchId } : {}),
+          name: branchName,
+          code: branchCode || null,
+          address: branchAddress || null,
+          city: branchCity || null,
+          lat,
+          lng,
+          geofenceGeojson: geofence,
+          isHq: branchIsHq,
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? (wasEditing ? "Could not update branch." : "Could not create branch."));
+      setBranchName("");
+      setBranchCode("");
+      setBranchAddress("");
+      setBranchCity("");
+      setBranchLat("");
+      setBranchLng("");
+      setBranchGeofence("");
+      setBranchIsHq(false);
+      setEditingBranchId("");
+      setMessage(wasEditing ? "Branch updated." : "Branch added.");
+      await refresh();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : (wasEditing ? "Could not update branch." : "Could not create branch."));
+    } finally {
       setBusy(false);
-      return;
     }
+  }
+
+  function editBranch(branch: any) {
+    setEditingBranchId(branch.id);
+    setBranchName(branch.name ?? "");
+    setBranchCode(branch.code ?? "");
+    setBranchAddress(branch.address ?? "");
+    setBranchCity(branch.city ?? "");
+    setBranchLat(branch.lat == null ? "" : String(branch.lat));
+    setBranchLng(branch.lng == null ? "" : String(branch.lng));
+    setBranchGeofence(branch.geofence_geojson ? JSON.stringify(branch.geofence_geojson, null, 2) : "");
+    setBranchIsHq(Boolean(branch.is_hq));
+    setError("");
+    setMessage("");
+    requestAnimationFrame(() => document.getElementById("org-branches-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  function cancelBranchEdit() {
+    setEditingBranchId("");
     setBranchName("");
+    setBranchCode("");
     setBranchAddress("");
     setBranchCity("");
     setBranchLat("");
     setBranchLng("");
     setBranchGeofence("");
-    setMessage("Branch added.");
-    await refresh();
+    setBranchIsHq(false);
+    setError("");
   }
 
   async function addResponder(event: React.FormEvent) {
@@ -674,31 +720,68 @@ export function OrganisationConsole() {
   async function createUnit(event: React.FormEvent) {
     event.preventDefault();
     if (!organisationId) return;
-    if (!unitBranchId) {
+    if (!editingUnitId && !unitBranchId) {
       setError("Unit branch is required.");
       return;
     }
     setBusy(true);
     setError("");
     setMessage("");
-    const response = await fetch("/api/organisation/units", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organisationId, branchId: unitBranchId, name: unitName, unitType }),
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      setError((body as any)?.error ?? "Could not create unit.");
+    const wasEditing = Boolean(editingUnitId);
+    try {
+      const response = await fetch("/api/organisation/units", {
+        method: wasEditing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingUnitId
+          ? { organisationId, unitId: editingUnitId, name: unitName, unitType }
+          : { organisationId, branchId: unitBranchId, name: unitName, unitType }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? (wasEditing ? "Could not update unit." : "Could not create unit."));
+      setUnitName("");
+      setUnitBranchId("");
+      setUnitType("other");
+      setEditingUnitId("");
+      setMessage(wasEditing ? "Unit updated." : "Unit created.");
+      await refresh();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : (wasEditing ? "Could not update unit." : "Could not create unit."));
+    } finally {
       setBusy(false);
-      return;
     }
-    setUnitName("");
-    setUnitBranchId("");
-    setUnitType("other");
-    setMessage("Unit created.");
-    await refresh();
   }
 
+  function editUnit(unit: any) {
+    setEditingUnitId(unit.id);
+    setUnitName(unit.name ?? "");
+    setUnitBranchId(unit.branch_id ?? "");
+    setUnitType(unit.unit_type ?? "other");
+    setError("");
+    setMessage("");
+    requestAnimationFrame(() => document.getElementById("org-units-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  async function setUnitActive(unitId: string, active: boolean) {
+    if (!organisationId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/organisation/units", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organisationId, unitId, active }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Could not update unit status.");
+      setMessage(active ? "Unit activated." : "Unit deactivated.");
+      await refresh();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not update unit status.");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function setAvailability(userId: string, availability: string) {
     if (!organisationId) return;
     setBusy(true);
@@ -1098,10 +1181,6 @@ export function OrganisationConsole() {
   const showConfigurationsPanel = inOnboardingMode || activeTab === "configurations";
   const availableResponderCount = responders.filter((presence) => presence.availability === "available").length;
   const blockedNow = Boolean(state?.blocked?.isBlocked);
-  const recentPresence = [...responders]
-    .filter((presence) => presence.last_seen_at)
-    .sort((a, b) => +new Date(b.last_seen_at) - +new Date(a.last_seen_at))
-    .slice(0, 4);
   const responderHistory = state?.responderHistory ?? [];
   const responderPerformance = state?.responderPerformance ?? [];
   const alertAuditTrail = state?.alertAuditTrail ?? [];
@@ -1246,7 +1325,6 @@ export function OrganisationConsole() {
                 <p className="text-2xl font-semibold">{branchOptions.length}</p>
                 <p className="muted text-xs mt-1">Operational structure</p>
               </div>
-              <div className="org-metric-icon branch"><Building2 size={20} /></div>
             </div>
             <div className="org-console-metric">
               <div>
@@ -1254,7 +1332,6 @@ export function OrganisationConsole() {
                 <p className="text-2xl font-semibold">{units.length}</p>
                 <p className="muted text-xs mt-1">Configured zones</p>
               </div>
-              <div className="org-metric-icon unit"><LayoutDashboard size={20} /></div>
             </div>
             <div className="org-console-metric">
               <div>
@@ -1262,7 +1339,6 @@ export function OrganisationConsole() {
                 <p className="text-2xl font-semibold">{responderMembers.length + presenceOnlyResponders.length}</p>
                 <p className="org-on-duty mt-1"><i />{availableResponderCount} On Duty</p>
               </div>
-              <div className="org-metric-icon responder"><Shield size={20} /></div>
             </div>
             <div className="org-console-metric">
               <div>
@@ -1270,106 +1346,147 @@ export function OrganisationConsole() {
                 <p className="text-2xl font-semibold">{beneficiaryMembers.length}</p>
                 <p className="muted text-xs mt-1">Linked protected users</p>
               </div>
-              <div className="org-metric-icon beneficiary"><Users size={20} /></div>
             </div>
           </div>
-          <section className="panel p-6 space-y-4 org-home-quick-actions">
-            <h3 className="org-home-title"><Bolt size={14} />Organisation Quick Actions</h3>
-            <div className="org-console-quick-actions">
-              <button className="org-console-action" type="button" onClick={() => setActiveTab("responders")}><span><UserPlus size={16} className="org-action-icon responders" />Manage Responders</span><ArrowRight size={14} /></button>
-              <button className="org-console-action" type="button" onClick={() => setActiveTab("members")}><span><Users size={16} className="org-action-icon staff" />Manage Staff</span><ArrowRight size={14} /></button>
-              <button className="org-console-action" type="button" onClick={() => setActiveTab("beneficiaries")}><span><Users size={16} className="org-action-icon beneficiaries" />View Beneficiaries</span><ArrowRight size={14} /></button>
-              <button className="org-console-action" type="button" onClick={() => setActiveTab("settings")}><span><Settings2 size={16} className="org-action-icon rules" />Linking Rules</span><ArrowRight size={14} /></button>
-            </div>
-          </section>
-
-          <section className="panel p-6 space-y-4 org-home-performance">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="org-home-title"><Shield size={14} />Responder history & performance</h3>
-                <p className="muted text-xs mt-1">Recent assignments, audit trail, and response outcomes.</p>
-              </div>
-              <button className="btn" type="button" onClick={() => setActiveTab("responders")}>Open responder roster</button>
-            </div>
-            <div className="org-history-metrics">
-              {topResponders.length > 0 ? topResponders.map((row) => (
-                <div key={row.userId} className="org-history-metric-card">
-                  <div className="org-history-metric-header">
-                    <strong>{row.name}</strong>
-                    <span>{row.successRate}% success</span>
-                  </div>
-                  <p className="muted text-xs">{row.totalAssignments} assignments</p>
-                  <dl className="org-history-metric-stats">
-                    <div><dt>Accepted</dt><dd>{row.acceptedAssignments}</dd></div>
-                    <div><dt>On scene</dt><dd>{row.onSceneAssignments}</dd></div>
-                    <div><dt>Avg ack</dt><dd>{formatResponseDuration(row.avgAcknowledgeSeconds)}</dd></div>
-                    <div><dt>Avg complete</dt><dd>{formatResponseDuration(row.avgCompletionSeconds)}</dd></div>
-                  </dl>
-                </div>
-              )) : (
-                <div className="org-history-empty">No responder activity has been recorded yet.</div>
-              )}
-            </div>
-            <div className="grid gap-4 xl:grid-cols-2">
-              <div className="org-history-column">
-                <h4 className="org-history-column-title">Recent dispatches</h4>
-                {responderHistory.length > 0 ? responderHistory.slice(0, 5).map((entry) => (
-                  <div key={entry.id} className="org-history-item">
-                    <div>
-                      <strong>{entry.responderName ?? "Unassigned responder"}</strong>
-                      <p className="muted text-[11px]">{entry.alertStatus ?? "Alert"} • {entry.status ?? "pending"}</p>
-                    </div>
-                    <div className="org-history-item-meta">
-                      <span>{entry.assignedAt ? new Date(entry.assignedAt).toLocaleString() : "No time"}</span>
-                      <small>{entry.responseSeconds == null ? "—" : `${Math.round(entry.responseSeconds / 60)} min ack`}</small>
-                    </div>
-                  </div>
-                )) : <p className="muted text-xs">No recent response history for this organisation yet.</p>}
-              </div>
-              <div className="org-history-column">
-                <h4 className="org-history-column-title">Audit trail</h4>
-                {alertAuditTrail.length > 0 ? alertAuditTrail.slice(0, 5).map((entry) => (
-                  <div key={entry.id} className="org-history-item">
-                    <div>
-                      <strong>{entry.action}</strong>
-                      <p className="muted text-[11px]">{entry.actorName ?? "System"} → {entry.alertStatus ?? "unknown"}</p>
-                    </div>
-                    <div className="org-history-item-meta">
-                      <span>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "No time"}</span>
-                      <small>{entry.note ?? entry.category}</small>
-                    </div>
-                  </div>
-                )) : <p className="muted text-xs">No audit activity yet.</p>}
-              </div>
-            </div>
-          </section>
-          <div className="org-home-side-panels">
-            <div className="panel p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-white">Onboarding Checklist</h4>
-                <span className="org-progress-badge">{onboardingProgress}/5 Complete</span>
-              </div>
-              <div className="org-progress-track"><div className="org-progress-fill" style={{ width: `${Math.min(100, (onboardingProgress / 5) * 100)}%` }} /></div>
-              <ul className="org-checklist">
-                <li><span><CircleCheck size={14} />Organisation profile</span><small>{onboarding.organisation_profile_done ? "Done" : "Pending"}</small></li>
-                <li><span><CircleCheck size={14} />Branches & Units</span><small>{onboarding.branches_done ? "Done" : "Pending"}</small></li>
-                <li><span><CircleCheck size={14} />Linking Rules</span><small>{onboarding.linking_rules_done ? "Done" : "Pending"}</small></li>
-                <li><span><CircleCheck size={14} />Emergency Coverage</span><small>{onboarding.coverage_done ? "Done" : "Pending"}</small></li>
-                <li><span><CircleCheck size={14} />Responders Onboarded</span><small>{onboarding.responders_done ? "Done" : "Pending"}</small></li>
-              </ul>
-            </div>
-            <div className="panel p-6 space-y-3 lg:col-span-2">
-              <h4 className="text-sm font-bold text-white">Recent Operations Log</h4>
-              {recentPresence.length > 0 ? recentPresence.map((presence) => (
-                <div key={`presence-log-${presence.user_id}-${presence.last_seen_at}`} className="org-console-log-row">
-                  <div className="org-log-icon"><UserCheck size={14} /></div>
+          <div className="org-home-columns">
+            <div className="org-home-main-column">
+              <section className="panel org-home-panel">
+                <header className="org-home-panel-header">
                   <div>
-                    <p className="text-xs font-semibold">{presence.profiles?.full_name ?? presence.user_id} set {presence.availability}</p>
-                    <p className="muted text-[11px]">{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "No branch"}</p>
+                    <h3 className="org-home-title">Responder performance</h3>
+                    <p>Recent assignments and response outcomes</p>
                   </div>
-                  <span className="muted text-[10px]">{presence.last_seen_at ? new Date(presence.last_seen_at).toLocaleTimeString() : "—"}</span>
+                  <button className="btn org-home-small-button" type="button" onClick={() => setActiveTab("responders")}>Open responders</button>
+                </header>
+                <div className="org-home-panel-body">
+                  {topResponders[0] ? (
+                    <>
+                      <div className="org-home-featured-responder">
+                        <div className="who">
+                          <span className="org-home-avatar">{topResponders[0].name.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</span>
+                          <div>
+                            <b>{topResponders[0].name}</b>
+                            <small>{topResponders[0].totalAssignments} assignments</small>
+                          </div>
+                        </div>
+                        <span className="org-home-success">{topResponders[0].successRate}% success</span>
+                      </div>
+                      <div className="org-home-mini-stats">
+                        <div><small>Accepted</small><b>{topResponders[0].acceptedAssignments}</b></div>
+                        <div><small>On scene</small><b>{topResponders[0].onSceneAssignments}</b></div>
+                        <div><small>Avg ack</small><b>{formatResponseDuration(topResponders[0].avgAcknowledgeSeconds)}</b></div>
+                        <div><small>Avg complete</small><b>{formatResponseDuration(topResponders[0].avgCompletionSeconds)}</b></div>
+                      </div>
+                    </>
+                  ) : <p className="muted text-sm">No responder activity has been recorded yet.</p>}
                 </div>
-              )) : <p className="muted text-xs">No recent responder activity yet.</p>}
+              </section>
+
+              <section className="panel org-home-panel">
+                <header className="org-home-panel-header">
+                  <h3 className="org-home-title">Recent dispatches</h3>
+                  <button className="btn org-home-small-button" type="button" onClick={() => setActiveTab("responders")}>View all</button>
+                </header>
+                <div className="tbl-wrap">
+                  <table className="tbl org-home-table">
+                    <thead><tr><th>Responder</th><th>Outcome</th><th>When</th><th>Ack</th></tr></thead>
+                    <tbody>
+                      {responderHistory.slice(0, 5).map((entry) => (
+                        <tr key={entry.id}>
+                          <td>{entry.responderName ?? "Unassigned responder"}</td>
+                          <td><span className="org-status-pill">{formatCurrentResponderStatus(entry.status) ?? entry.status ?? "Pending"}</span></td>
+                          <td>{entry.assignedAt ? new Date(entry.assignedAt).toLocaleString() : "—"}</td>
+                          <td>{formatResponseDuration(entry.responseSeconds)}</td>
+                        </tr>
+                      ))}
+                      {responderHistory.length === 0 && <tr><td colSpan={4} className="muted text-center">No recent response history for this organisation yet.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="panel org-home-panel">
+                <header className="org-home-panel-header">
+                  <div>
+                    <h3 className="org-home-title">Audit trail</h3>
+                    <p>Every status change and assignment, in order</p>
+                  </div>
+                </header>
+                <div className="tbl-wrap">
+                  <table className="tbl org-home-table">
+                    <thead><tr><th>Event</th><th>Detail</th><th>When</th><th>Type</th></tr></thead>
+                    <tbody>
+                      {alertAuditTrail.slice(0, 5).map((entry) => (
+                        <tr key={entry.id}>
+                          <td><b>{entry.action.replaceAll("_", " ")}</b></td>
+                          <td>{entry.actorName ?? "System"}{entry.toStatus ? ` → ${formatCurrentResponderStatus(entry.toStatus)}` : entry.note ? ` · ${entry.note}` : ""}</td>
+                          <td>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "—"}</td>
+                          <td>{entry.category}</td>
+                        </tr>
+                      ))}
+                      {alertAuditTrail.length === 0 && <tr><td colSpan={4} className="muted text-center">No audit activity yet.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+
+            <div className="org-home-side-panels">
+              <section className="panel org-home-panel">
+                <header className="org-home-panel-header">
+                  <div>
+                    <h3 className="org-home-title">Setup</h3>
+                    <p>{onboardingProgress} of 5 steps complete</p>
+                  </div>
+                  <span className="org-progress-badge">{onboardingProgress === 5 ? "Complete" : `${onboardingProgress}/5`}</span>
+                </header>
+                <div className="org-home-panel-body">
+                  <div className="org-progress-track"><div className="org-progress-fill" style={{ width: `${Math.min(100, (onboardingProgress / 5) * 100)}%` }} /></div>
+                  <ul className="org-checklist">
+                    <li><span>{onboarding.organisation_profile_done && <CircleCheck size={14} />}Organisation profile</span><small>{onboarding.organisation_profile_done ? "Done" : "Pending"}</small></li>
+                    <li><span>{onboarding.branches_done && <CircleCheck size={14} />}Branches and units</span><small>{onboarding.branches_done ? "Done" : "Pending"}</small></li>
+                    <li><span>{onboarding.linking_rules_done && <CircleCheck size={14} />}Linking rules</span><small>{onboarding.linking_rules_done ? "Done" : "Pending"}</small></li>
+                    <li><span>{onboarding.coverage_done && <CircleCheck size={14} />}Emergency coverage</span><small>{onboarding.coverage_done ? "Done" : "Pending"}</small></li>
+                    <li><span>{onboarding.responders_done && <CircleCheck size={14} />}Responders onboarded</span><small>{onboarding.responders_done ? "Done" : "Pending"}</small></li>
+                  </ul>
+                </div>
+              </section>
+
+              <section className="panel org-home-panel">
+                <header className="org-home-panel-header"><h3 className="org-home-title">Quick actions</h3></header>
+                <div className="org-console-quick-actions">
+                  <button className="org-console-action" type="button" onClick={() => setActiveTab("responders")}><span><UserPlus size={16} className="org-action-icon responders" />Manage responders</span><ArrowRight size={14} /></button>
+                  <button className="org-console-action" type="button" onClick={() => setActiveTab("members")}><span><Users size={16} className="org-action-icon staff" />Manage staff</span><ArrowRight size={14} /></button>
+                  <button className="org-console-action" type="button" onClick={() => setActiveTab("beneficiaries")}><span><Users size={16} className="org-action-icon beneficiaries" />View beneficiaries</span><ArrowRight size={14} /></button>
+                  <button className="org-console-action" type="button" onClick={() => setActiveTab("settings")}><span><Settings2 size={16} className="org-action-icon rules" />Linking rules</span><ArrowRight size={14} /></button>
+                </div>
+              </section>
+
+              <section className="panel org-home-panel">
+                <header className="org-home-panel-header"><h3 className="org-home-title">Recent operations</h3></header>
+                <div className="org-home-panel-body org-home-operations">
+                  {alertAuditTrail.slice(0, 4).map((entry) => {
+                    const relatedAssignment = responderHistory.find((assignment) =>
+                      assignment.alertId === entry.alertId &&
+                      (!entry.actorId || assignment.responderUserId === entry.actorId),
+                    );
+                    const operationStatus = entry.toStatus
+                      ? formatCurrentResponderStatus(entry.toStatus)
+                      : entry.action.replaceAll("_", " ");
+                    return (
+                      <div key={`operation-${entry.id}`} className="org-console-log-row">
+                        <div className="org-log-icon"><CircleCheck size={14} /></div>
+                        <div>
+                          <p>{entry.actorName ?? "System"} {entry.toStatus ? "set" : "performed"} {operationStatus}</p>
+                          <small>{branchOptions.find((branch) => branch.id === relatedAssignment?.branchId)?.name ?? entry.category}</small>
+                        </div>
+                        <time>{entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}</time>
+                      </div>
+                    );
+                  })}
+                  {alertAuditTrail.length === 0 && <p className="muted text-sm">No recent operations yet.</p>}
+                </div>
+              </section>
             </div>
           </div>
         </section>
@@ -1708,24 +1825,39 @@ export function OrganisationConsole() {
       )}
 
       {showConfigurationsPanel && (
+      <header className="org-console-page-heading">
+        <div>
+          <h1>Organisation hierarchy</h1>
+          <p>Branches, security zones, and response hardware mapping.</p>
+        </div>
+      </header>
+      )}
+
+      {showConfigurationsPanel && (
       <section className="panel p-6 space-y-4">
-        <h2 className="org-tab-title flex items-center gap-2"><Building2 size={18} />Organisation Hierarchy</h2>
-        <p className="muted text-xs">Manage branches, security zones, and response hardware mapping.</p>
-        <h3 className="text-sm font-bold text-white">Branches / Stations</h3>
-        <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void createBranch(event)}>
+        <h3 className="text-sm font-bold">Branches / Stations</h3>
+        <form id="org-branches-form" className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void createBranch(event)}>
           <label className="field">Branch name<input required value={branchName} onChange={(event) => setBranchName(event.target.value)} /></label>
+          <label className="field">Branch code<input value={branchCode} onChange={(event) => setBranchCode(event.target.value)} /></label>
           <label className="field">Address<input value={branchAddress} onChange={(event) => setBranchAddress(event.target.value)} /></label>
           <label className="field">City<input value={branchCity} onChange={(event) => setBranchCity(event.target.value)} /></label>
-          <label className="field">Latitude<input value={branchLat} onChange={(event) => setBranchLat(event.target.value)} placeholder="-25.7461" /></label>
-          <label className="field">Longitude<input value={branchLng} onChange={(event) => setBranchLng(event.target.value)} placeholder="28.1881" /></label>
+          <label className="field">Latitude<input type="number" min="-90" max="90" step="any" value={branchLat} onChange={(event) => setBranchLat(event.target.value)} placeholder="-25.7461" /></label>
+          <label className="field">Longitude<input type="number" min="-180" max="180" step="any" value={branchLng} onChange={(event) => setBranchLng(event.target.value)} placeholder="28.1881" /></label>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm font-medium">
+            <input className="org-console-checkbox" type="checkbox" checked={branchIsHq} onChange={(event) => setBranchIsHq(event.target.checked)} />
+            Headquarters
+          </label>
           <label className="field md:col-span-2">Geofence GeoJSON (Polygon)
             <textarea value={branchGeofence} onChange={(event) => setBranchGeofence(event.target.value)} placeholder='{"type":"Polygon","coordinates":[[[28.1,-25.7],[28.2,-25.7],[28.2,-25.8],[28.1,-25.8],[28.1,-25.7]]]}' />
           </label>
-          <button className="btn btn-primary self-end" disabled={busy}>Add branch</button>
+          <div className="flex flex-wrap items-end gap-2">
+            <button className="btn btn-primary" disabled={busy}>{editingBranchId ? "Save branch" : "Add branch"}</button>
+            {editingBranchId && <button className="btn" type="button" disabled={busy} onClick={cancelBranchEdit}>Cancel</button>}
+          </div>
         </form>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Name</th><th>Address</th><th>City</th><th>HQ</th></tr></thead>
+            <thead><tr><th>Name</th><th>Address</th><th>City</th><th>HQ</th><th>Actions</th></tr></thead>
             <tbody>
               {branchOptions.map((branch) => (
                 <tr key={branch.id}>
@@ -1733,8 +1865,10 @@ export function OrganisationConsole() {
                   <td>{branch.address || "—"}</td>
                   <td>{branch.city || "—"}</td>
                   <td>{branch.is_hq ? "Yes" : "No"}</td>
+                  <td><button className="btn" type="button" disabled={busy} onClick={() => editBranch(branch)}>Edit</button></td>
                 </tr>
               ))}
+              {branchOptions.length === 0 && <tr><td colSpan={5} className="muted text-center">No branches configured yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1744,7 +1878,7 @@ export function OrganisationConsole() {
       {showConfigurationsPanel && (
       <section className="panel p-6 space-y-4">
         <h2 className="org-tab-title">Units</h2>
-        <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void createUnit(event)}>
+        <form id="org-units-form" className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void createUnit(event)}>
           <label className="field">Unit name<input required value={unitName} onChange={(event) => setUnitName(event.target.value)} /></label>
           <label className="field">Unit type
             <select value={unitType} onChange={(event) => setUnitType(event.target.value)}>
@@ -1756,16 +1890,19 @@ export function OrganisationConsole() {
             </select>
           </label>
           <label className="field">Branch
-            <select required value={unitBranchId} onChange={(event) => setUnitBranchId(event.target.value)}>
+            <select required disabled={Boolean(editingUnitId)} value={unitBranchId} onChange={(event) => setUnitBranchId(event.target.value)}>
               <option value="">Select branch</option>
               {branchOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
             </select>
           </label>
-          <button className="btn btn-primary self-end" disabled={busy}>Add unit</button>
+          <div className="flex flex-wrap items-end gap-2">
+            <button className="btn btn-primary" disabled={busy}>{editingUnitId ? "Save unit" : "Add unit"}</button>
+            {editingUnitId && <button className="btn" type="button" disabled={busy} onClick={() => { setEditingUnitId(""); setUnitName(""); setUnitBranchId(""); setUnitType("other"); }}>Cancel</button>}
+          </div>
         </form>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Name</th><th>Type</th><th>Branch</th><th>Status</th></tr></thead>
+            <thead><tr><th>Name</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
               {units.map((unit) => (
                 <tr key={unit.id}>
@@ -1773,9 +1910,15 @@ export function OrganisationConsole() {
                   <td>{unit.unit_type}</td>
                   <td>{branchOptions.find((branch) => branch.id === unit.branch_id)?.name ?? "—"}</td>
                   <td>{unit.active ? "Active" : "Inactive"}</td>
+                  <td>
+                    <div className="flex flex-wrap gap-2">
+                      <button className="btn" type="button" disabled={busy} onClick={() => editUnit(unit)}>Edit</button>
+                      <button className="btn" type="button" disabled={busy} onClick={() => void setUnitActive(unit.id, !unit.active)}>{unit.active ? "Deactivate" : "Activate"}</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
-              {units.length === 0 && <tr><td colSpan={4} className="muted text-center">No units configured yet.</td></tr>}
+              {units.length === 0 && <tr><td colSpan={5} className="muted text-center">No units configured yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -2148,6 +2291,7 @@ export function OrganisationConsole() {
         display: flex;
         min-width: 0;
         min-height: 0;
+        height: 100%;
         flex-direction: column;
       }
       .org-console-topbar {
@@ -2205,10 +2349,15 @@ export function OrganisationConsole() {
         width: 100%;
         max-width: 1236px;
         min-height: 0;
-        flex: 1;
-        overflow: auto;
+        flex: 1 1 0;
+        overflow-x: hidden;
+        overflow-y: auto;
         margin: 0 auto;
         padding: 28px;
+        overscroll-behavior-y: contain;
+        scrollbar-gutter: stable;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
       }
       .org-console-locked > :not(.org-console-lock-message):not(.ops-login-error):not(.ops-login-status) {
         pointer-events: none;
@@ -2748,7 +2897,7 @@ export function OrganisationConsole() {
       .org-console .org-console-page-heading p { margin: 4px 0 0; color: var(--muted); }
       .org-console .org-console-home {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
+        grid-template-columns: minmax(0, 1fr);
         align-items: start;
         gap: 20px;
       }
@@ -2758,19 +2907,17 @@ export function OrganisationConsole() {
       }
       .org-console .org-console-home > .org-console-page-heading { grid-row: 1; }
       .org-console .org-console-home > .org-console-metrics { grid-row: 2; }
-      .org-console .org-console-home > .org-home-performance {
-        grid-column: 1;
-        grid-row: 3 / span 2;
-      }
-      .org-console .org-console-home > .org-home-quick-actions {
-        grid-column: 2;
-        grid-row: 3;
-      }
-      .org-console .org-console-home > .org-home-side-panels {
-        grid-column: 2;
-        grid-row: 4;
+      .org-home-columns {
         display: grid;
-        align-content: start;
+        grid-column: 1 / -1;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        align-items: start;
+        gap: 20px;
+      }
+      .org-home-main-column,
+      .org-home-side-panels {
+        display: grid;
+        min-width: 0;
         gap: 20px;
       }
       .org-console .org-console-metrics {
@@ -2809,11 +2956,157 @@ export function OrganisationConsole() {
         font-size: 13px;
       }
       .org-console .org-metric-icon { display: none; }
-      .org-console .org-home-performance,
-      .org-console .org-home-quick-actions,
-      .org-console .org-home-side-panels > .panel {
+      .org-console .org-home-panel {
+        min-width: 0;
+        padding: 0;
         border-radius: 10px;
+        border: 1px solid var(--line);
         background: #fff;
+        box-shadow: none;
+      }
+      .org-home-panel-header {
+        display: flex;
+        min-height: 62px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--line);
+      }
+      .org-home-panel-header p {
+        margin: 1px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .org-home-panel-body { padding: 22px; }
+      .org-home-small-button {
+        min-height: 32px !important;
+        padding: 0 11px !important;
+        font-size: 13px;
+      }
+      .org-home-featured-responder {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+      .org-home-avatar {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        flex: none;
+        place-items: center;
+        border-radius: 50%;
+        background: #e8ecf0;
+        color: #27313d;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .org-home-featured-responder .who b { font-weight: 500; }
+      .org-home-featured-responder .who small { color: var(--muted); font-size: 12.5px; }
+      .org-home-success {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 9px;
+        border-radius: 20px;
+        background: var(--ok-bg);
+        color: var(--ok);
+        font-size: 12.5px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .org-home-mini-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-top: 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .org-home-mini-stats > div { min-width: 0; padding: 12px 16px; }
+      .org-home-mini-stats > div + div { border-left: 1px solid var(--line); }
+      .org-home-mini-stats small { color: var(--muted); }
+      .org-home-mini-stats b {
+        display: block;
+        overflow: hidden;
+        font: 700 22px "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .org-home-table { min-width: 680px; }
+      .org-console .org-home-table th {
+        padding: 10px 22px;
+        background: #fafbfc;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .org-console .org-home-table td {
+        padding: 13px 22px;
+        border-top: 1px solid var(--line);
+        color: var(--text-2);
+        vertical-align: middle;
+      }
+      .org-console .org-home-table tbody tr:first-child td { border-top: 0; }
+      .org-console .org-home-table tbody tr:hover { background: #fafbfc; }
+      .org-console .org-home-table td[colspan] { padding: 36px; text-align: center; }
+      .org-home-panel .org-console-quick-actions { gap: 0; }
+      .org-console .org-home-panel .org-console-action {
+        min-height: 46px;
+        padding: 13px 22px;
+      }
+      .org-console .org-home-panel .org-console-action:first-child { border-top: 0; }
+      .org-console .org-progress-badge {
+        flex: none;
+        padding: 2px 9px;
+        border: 0;
+        border-radius: 20px;
+        background: var(--ok-bg);
+        color: var(--ok);
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+      .org-console .org-home-panel .org-checklist {
+        gap: 0;
+        margin-top: 14px;
+      }
+      .org-console .org-home-panel .org-checklist li {
+        min-height: 37px;
+        padding: 9px 0;
+        border-top: 1px solid var(--line);
+        color: var(--text-2);
+        font-size: 13px;
+      }
+      .org-console .org-home-panel .org-checklist li span { gap: 10px; }
+      .org-console .org-home-panel .org-checklist li svg { width: 17px; flex: none; }
+      .org-console .org-home-panel .org-checklist li small {
+        color: var(--dim);
+        font-size: 12.5px;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+      .org-home-operations { display: grid; gap: 0; }
+      .org-console .org-home-operations .org-console-log-row {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        padding: 12px 0;
+        border: 0;
+        border-top: 1px solid var(--line);
+        border-radius: 0;
+      }
+      .org-console .org-home-operations .org-console-log-row:first-child { padding-top: 0; border-top: 0; }
+      .org-console .org-home-operations .org-console-log-row:last-child { padding-bottom: 0; }
+      .org-home-operations .org-console-log-row p { margin: 0; font-size: 13px; font-weight: 500; }
+      .org-home-operations .org-console-log-row small,
+      .org-home-operations .org-console-log-row time {
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .org-console .org-home-operations .org-log-icon {
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: 50%;
       }
       .org-console .panel {
         border-radius: 10px;
@@ -2891,9 +3184,15 @@ export function OrganisationConsole() {
       .org-console .field select:focus,
       .org-console .field textarea:focus,
       .org-console .org-list-search:focus { outline: 2px solid #e3f4f1; border-color: #0b7a6c; }
+      .org-console .org-console-checkbox {
+        width: 16px;
+        height: 16px;
+        accent-color: #0b7a6c;
+      }
       .org-console .org-setting-row { border-radius: 8px; background: #fff; }
       .org-console .org-switch { background: #c5ccd4; }
       .org-console .org-switch.is-on { border-color: #0b7a6c; background: #0b7a6c; }
+      .org-console .org-switch span { box-shadow: none; }
       .org-console .tbl th,
       .org-console .tbl thead th {
         background: #fafbfc;
@@ -2976,13 +3275,7 @@ export function OrganisationConsole() {
         .org-console-nav-item { justify-content: center; padding-right: 0; padding-left: 0; }
         .org-console-topbar { padding-right: 18px; padding-left: 18px; }
         .org-console-content { padding: 22px; }
-        .org-console .org-console-home { grid-template-columns: minmax(0, 1fr); }
-        .org-console .org-console-home > .org-home-performance,
-        .org-console .org-console-home > .org-home-quick-actions,
-        .org-console .org-console-home > .org-home-side-panels {
-          grid-column: 1;
-          grid-row: auto;
-        }
+        .org-home-columns { grid-template-columns: minmax(0, 1fr); }
         .org-console .org-console-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .org-console .org-console-metric:nth-child(3) { border-left: 0; }
         .org-console .org-console-metric:nth-child(n + 3) { border-top: 1px solid var(--line); }
@@ -2998,6 +3291,14 @@ export function OrganisationConsole() {
         .org-console .org-console-page-heading h1 { font-size: 26px; }
         .org-console .org-console-metric { min-height: 104px; padding: 16px; }
         .org-console .org-console-metric > div:first-child > p:nth-child(2) { font-size: 34px; }
+        .org-home-mini-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .org-home-mini-stats > div:nth-child(3) { border-left: 0; }
+        .org-home-mini-stats > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
+        .org-home-panel-header { align-items: flex-start; padding: 16px; }
+        .org-home-panel-body { padding: 16px; }
+        .org-console .org-home-panel .org-console-action { padding-right: 16px; padding-left: 16px; }
+        .org-console .org-home-table th,
+        .org-console .org-home-table td { padding-right: 14px; padding-left: 14px; }
       }
     `}</style>
     </>
