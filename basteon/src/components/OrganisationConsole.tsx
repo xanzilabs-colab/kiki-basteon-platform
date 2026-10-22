@@ -6,9 +6,12 @@ import {
   Bolt,
   Building2,
   CircleCheck,
+  ExternalLink,
   House,
+  List,
   LayoutDashboard,
   RefreshCw,
+  SlidersHorizontal,
   Settings2,
   Shield,
   UserCheck,
@@ -17,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { membershipTypeOptionsForOrganisation, roleHintForMembershipType } from "@/lib/organisationCategories";
+import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
 import { useAppDialog } from "@/components/AppDialogProvider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -1074,10 +1078,15 @@ export function OrganisationConsole() {
     { key: "home", label: "Home", icon: House },
     { key: "beneficiaries", label: "Beneficiaries", icon: Users },
     { key: "responders", label: "Responders", icon: Shield },
-    { key: "members", label: "Staff / Members", icon: Users },
-    { key: "roster", label: "Roster", icon: Users },
-    { key: "settings", label: "Settings", icon: Settings2 },
+    { key: "members", label: "Staff and members", icon: UserCheck },
+    { key: "roster", label: "Roster", icon: List },
+    { key: "settings", label: "Settings", icon: SlidersHorizontal },
     { key: "configurations", label: "Configurations", icon: Building2 },
+  ];
+  const dashboardNavGroups: Array<{ label: string | null; tabs: typeof dashboardTabs }> = [
+    { label: null, tabs: dashboardTabs.filter((tab) => tab.key === "home") },
+    { label: "People", tabs: dashboardTabs.filter((tab) => ["beneficiaries", "responders", "members", "roster"].includes(tab.key)) },
+    { label: "Organisation", tabs: dashboardTabs.filter((tab) => ["settings", "configurations"].includes(tab.key)) },
   ];
 
   const showHomePanel = !inOnboardingMode && activeTab === "home";
@@ -1099,6 +1108,10 @@ export function OrganisationConsole() {
   const topResponders = [...responderPerformance].sort((a, b) => (b.completedAssignments + b.onSceneAssignments) - (a.completedAssignments + a.onSceneAssignments)).slice(0, 3);
   const roleLabel = String(state?.memberships?.[0]?.role ?? "owner").toLowerCase();
   const orgTypeLabel = String(state?.organisation?.organisation_type ?? "business").toLowerCase();
+  const currentUser = members.find((member) => member.user_id === state?.userId);
+  const currentUserName = currentUser?.profiles?.full_name?.trim() || currentUser?.profiles?.email || "Organisation account";
+  const currentUserInitials = currentUserName.split(/\s+/).map((part: string) => part[0]).slice(0, 2).join("").toUpperCase();
+  const activeTabLabel = dashboardTabs.find((tab) => tab.key === activeTab)?.label ?? "Configurations";
 
   if (!state) return error
     ? <div className="panel m-4 p-5"><p role="alert">{error}</p><button className="btn mt-3" onClick={() => void refresh()}>Try again</button></div>
@@ -1106,27 +1119,74 @@ export function OrganisationConsole() {
 
   return (
     <>
-    <div className="org-console w-full">
-      <header className="org-console-header">
-        <div className="org-console-heading">
-          <div className="org-console-mark">{state.organisation.logo_url
-            ? <img src={state.organisation.logo_url} alt="" className="h-full w-full rounded-[inherit] object-contain" />
-            : String(state.organisation.name ?? "O").trim().charAt(0).toUpperCase()}</div>
-          <div>
-            <div className="org-console-title-row">
-              <h1 className="page-title"><span className="org-console-hash">#</span>{state.organisation.name}</h1>
-              <span className="org-console-pill">{orgTypeLabel}</span>
-            </div>
-            <p className="muted text-xs mt-1">Organisation operations • {roleLabel} access</p>
+    <div className="org-console">
+      <aside className="org-console-sidebar">
+        <div className="org-console-brand">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M5 3h22v17l-11 9-11-9z" />
+            <path d="M12 10h5a3 3 0 0 1 0 6h-5zm0 6h6a3 3 0 0 1 0 6h-6z" />
+          </svg>
+          <b>BASTEON</b>
+        </div>
+        <div className="org-console-org-card">
+          <div className="org-console-org-mark">
+            {state.organisation.logo_url
+              ? <img src={state.organisation.logo_url} alt="" />
+              : String(state.organisation.name ?? "O").trim().slice(0, 2).toUpperCase()}
+          </div>
+          <div className="org-console-org-details">
+            <b>{state.organisation.name}</b>
+            <small>{orgTypeLabel} · {roleLabel} access</small>
           </div>
         </div>
-        <div className="org-console-header-actions">
-          <button className="btn" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />Refresh</button>
-          <div className="org-console-avatar">{state.organisation.logo_url
-            ? <img src={state.organisation.logo_url} alt={`${state.organisation.name} logo`} className="h-full w-full rounded-[inherit] object-contain" />
-            : String(state.organisation.name ?? "TH").trim().slice(0, 2).toUpperCase()}</div>
+        {!inOnboardingMode && (
+          <nav className="org-console-nav" aria-label="Organisation dashboard">
+            {dashboardNavGroups.map((group) => (
+              <div className="org-console-nav-group" key={group.label ?? "home"}>
+                {group.label && <p className="org-console-nav-label">{group.label}</p>}
+                {group.tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const selected = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`org-console-nav-item ${selected ? "is-active" : ""}`}
+                      onClick={() => setActiveTab(tab.key)}
+                      aria-current={selected ? "page" : undefined}
+                      aria-label={tab.label}
+                      title={tab.label}
+                    >
+                      <Icon size={18} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+        )}
+        <div className="org-console-account">
+          <div className="org-console-account-avatar">{currentUserInitials}</div>
+          <div className="org-console-account-details">
+            <b>{currentUserName}</b>
+            <small>{roleLabel}</small>
+          </div>
         </div>
-      </header>
+      </aside>
+      <div className="org-console-main">
+        <header className="org-console-topbar">
+          <div className="org-console-breadcrumb">
+            <span>{state.organisation.name}</span>
+            <span aria-hidden="true">/</span>
+            <b>{inOnboardingMode ? "Onboarding" : activeTabLabel}</b>
+          </div>
+          <div className="org-console-topbar-actions">
+            <span className="org-console-sync">{lastSyncedAt ? `Synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Sync pending"}</span>
+            <button className="btn org-console-refresh" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} /><span>Refresh</span></button>
+            <a className="btn btn-primary org-console-response-link" href="/responder"><ExternalLink size={15} /><span>Response console</span></a>
+          </div>
+        </header>
       <div className={`org-console-content space-y-6 ${blockedNow ? "org-console-locked" : ""}`}>
       {error && <p role="alert" className="ops-login-error">{error}</p>}
       {message && <p role="status" className="ops-login-status">{message}</p>}
@@ -1163,29 +1223,6 @@ export function OrganisationConsole() {
         </section>
       )}
 
-      {!inOnboardingMode && (
-        <section className="org-console-tabs-shell">
-          <nav className="org-console-tabs" aria-label="Organisation dashboard tabs">
-            {dashboardTabs.map((tab) => {
-              const Icon = tab.icon;
-              const selected = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  className={`org-console-tab ${selected ? "is-active" : ""}`}
-                  onClick={() => setActiveTab(tab.key)}
-                  aria-pressed={selected}
-                >
-                  <Icon size={16} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
-        </section>
-      )}
-
       {generatedCredentials && (
         <section className="org-console-surface panel p-4 space-y-2">
           <h2 className="pane-head">Generated credentials</h2>
@@ -1197,13 +1234,11 @@ export function OrganisationConsole() {
       )}
 
       {showHomePanel && (
-        <section className="org-console-surface space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="muted text-xs">
-              Last synced: <span className="font-semibold text-[var(--text)]">{lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Not synced yet"}</span>
-            </p>
+        <section className="org-console-surface org-console-home">
+          <header className="org-console-page-heading">
+            <div><h1>Operations overview</h1><p>Last synced {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "not synced yet"}</p></div>
             <button className="btn" type="button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />Reload org data</button>
-          </div>
+          </header>
           <div className="org-console-metrics">
             <div className="org-console-metric">
               <div>
@@ -1238,7 +1273,7 @@ export function OrganisationConsole() {
               <div className="org-metric-icon beneficiary"><Users size={20} /></div>
             </div>
           </div>
-          <section className="panel p-6 space-y-4">
+          <section className="panel p-6 space-y-4 org-home-quick-actions">
             <h3 className="org-home-title"><Bolt size={14} />Organisation Quick Actions</h3>
             <div className="org-console-quick-actions">
               <button className="org-console-action" type="button" onClick={() => setActiveTab("responders")}><span><UserPlus size={16} className="org-action-icon responders" />Manage Responders</span><ArrowRight size={14} /></button>
@@ -1248,7 +1283,7 @@ export function OrganisationConsole() {
             </div>
           </section>
 
-          <section className="panel p-6 space-y-4">
+          <section className="panel p-6 space-y-4 org-home-performance">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="org-home-title"><Shield size={14} />Responder history & performance</h3>
@@ -1308,7 +1343,7 @@ export function OrganisationConsole() {
               </div>
             </div>
           </section>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="org-home-side-panels">
             <div className="panel p-6 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-white">Onboarding Checklist</h4>
@@ -1898,7 +1933,7 @@ export function OrganisationConsole() {
                   <td>responder</td>
                   <td>responder</td>
                   <td>{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "—"}</td>
-                  <td>{presence.response_status ?? presence.availability ?? "Not reported"}</td>
+                  <td><span className={`org-status-pill status-${(presence.response_status ?? presence.availability ?? "unknown").replaceAll("_", "-")}`}>{formatCurrentResponderStatus(presence.response_status ?? presence.availability) ?? "Not reported"}</span></td>
                   <td className="muted text-xs">Managed from responder roster</td>
                 </tr>
               ))}
@@ -1923,14 +1958,14 @@ export function OrganisationConsole() {
                 <tr key={presence.user_id}>
                   <td>{presence.profiles?.full_name ?? presence.user_id}</td>
                   <td>{presence.profiles?.email ?? emailByUser.get(presence.user_id) ?? "—"}</td>
-                  <td>{presence.response_status ?? presence.availability}</td>
+                  <td><span className={`org-status-pill status-${(presence.response_status ?? presence.availability ?? "unknown").replaceAll("_", "-")}`}>{formatCurrentResponderStatus(presence.response_status ?? presence.availability) ?? "Not reported"}</span></td>
                   <td>{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "—"}</td>
                   <td>{units.find((unit) => unit.id === presence.unit_id)?.name ?? "—"}</td>
                   <td>{presence.last_seen_at ? new Date(presence.last_seen_at).toLocaleString() : "—"}</td>
                   <td>
-                    <div className="flex flex-wrap gap-1">
+                    <div className="org-availability-actions">
                       {["available", "busy", "off_duty", "unavailable"].map((value) => (
-                        <button key={value} className="btn" disabled={busy || presence.availability === value} onClick={() => void setAvailability(presence.user_id, value)}>{value}</button>
+                        <button key={value} type="button" aria-pressed={presence.availability === value && !presence.response_status} disabled={busy || Boolean(presence.response_status) || presence.availability === value} onClick={() => void setAvailability(presence.user_id, value)}>{formatCurrentResponderStatus(value)}</button>
                       ))}
                     </div>
                   </td>
@@ -1944,21 +1979,236 @@ export function OrganisationConsole() {
       )}
     </div>
     </div>
+    </div>
     <style jsx global>{`
       .org-console {
-        font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --ink: #0d1117;
+        --ink-2: #161b22;
+        --sidebar-line: #262c36;
+        --bg: #f3f4f6;
+        --chrome: #ffffff;
+        --surface-1: #ffffff;
+        --surface-2: #fafbfc;
+        --surface-3: #f3f5f7;
+        --well: #ffffff;
+        --line: #e3e6ea;
+        --line-strong: #d0d5db;
+        --text: #14181f;
+        --text-2: #323b46;
+        --muted: #5d6673;
+        --dim: #8a93a0;
+        --ok: #15803d;
+        --ok-bg: #e6f5ec;
+        --warn: #9a5b00;
+        --warn-bg: #fff4df;
+        --crit: #d62f3b;
+        --line-focus: #0b7a6c;
+        --kiki-control-speed: 180ms;
+        --kiki-ease: ease;
+        display: grid;
+        grid-template-columns: 256px minmax(0, 1fr);
+        width: 100%;
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+        font-family: "Barlow", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         color: var(--text);
         background: var(--bg);
-        width: 100%;
-        max-width: none;
-        min-height: 100dvh;
-        margin: 0;
-        padding: 0 0 28px;
       }
+      .org-console-sidebar {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+        overflow: auto;
+        padding: 16px 12px;
+        background: var(--ink);
+        color: #9aa4b2;
+      }
+      .org-console-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 8px 18px;
+        color: #fff;
+        font: 700 16px "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+        letter-spacing: .22em;
+      }
+      .org-console-brand svg {
+        width: 26px;
+        height: 26px;
+        flex: none;
+        fill: #fff;
+        stroke: none;
+      }
+      .org-console-brand svg path + path { fill: var(--ink); }
+      .org-console-org-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        margin-bottom: 8px;
+        padding: 10px;
+        border: 1px solid var(--sidebar-line);
+        border-radius: 10px;
+        background: var(--ink-2);
+      }
+      .org-console-org-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        flex: none;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 8px;
+        background: #f7c600;
+        color: #111;
+        font: 700 11px "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+      }
+      .org-console-org-mark img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .org-console-org-details,
+      .org-console-account-details {
+        min-width: 0;
+      }
+      .org-console-org-details b,
+      .org-console-account-details b {
+        display: block;
+        overflow: hidden;
+        color: #fff;
+        font-weight: 600;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .org-console-org-details small,
+      .org-console-account-details small {
+        display: block;
+        overflow: hidden;
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .org-console-nav {
+        display: grid;
+        align-content: start;
+        gap: 4px;
+      }
+      .org-console-nav-group { display: grid; gap: 2px; }
+      .org-console-nav-label {
+        margin: 0;
+        padding: 16px 10px 6px;
+        color: #6b7482;
+        font-size: 12px;
+      }
+      .org-console-nav-item {
+        display: flex;
+        width: 100%;
+        min-height: 38px;
+        align-items: center;
+        gap: 11px;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #9aa4b2;
+        font-weight: 500;
+        text-align: left;
+      }
+      .org-console-nav-item:hover,
+      .org-console-nav-item.is-active {
+        background: #161b22;
+        color: #fff;
+      }
+      .org-console-nav-item.is-active { background: #222a35; }
+      .org-console-nav-item svg { flex: none; }
+      .org-console-account {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: auto;
+        padding: 14px 8px 0;
+        border-top: 1px solid var(--sidebar-line);
+      }
+      .org-console-account-avatar {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        flex: none;
+        place-items: center;
+        border-radius: 50%;
+        background: #2a3340;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .org-console-main {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        flex-direction: column;
+      }
+      .org-console-topbar {
+        display: flex;
+        height: 60px;
+        flex: none;
+        align-items: center;
+        gap: 14px;
+        padding: 0 28px;
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+      }
+      .org-console-breadcrumb {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .org-console-breadcrumb span:first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .org-console-breadcrumb b { color: var(--text); font-weight: 500; }
+      .org-console-topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+      }
+      .org-console-sync {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .org-console-sync::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--ok);
+        content: "";
+      }
+      .org-console .org-console-response-link {
+        border-color: #0b7a6c;
+        background: #0b7a6c;
+        color: #fff;
+        text-decoration: none;
+      }
+      .org-console .org-console-response-link:hover { background: #096659; }
       .org-console-content {
-        width: min(100%, 1560px);
+        width: 100%;
+        max-width: 1236px;
+        min-height: 0;
+        flex: 1;
+        overflow: auto;
         margin: 0 auto;
-        padding: 18px clamp(12px, 1.6vw, 22px) 0;
+        padding: 28px;
       }
       .org-console-locked > :not(.org-console-lock-message):not(.ops-login-error):not(.ops-login-status) {
         pointer-events: none;
@@ -1968,7 +2218,7 @@ export function OrganisationConsole() {
         border-color: var(--warn);
         background: var(--warn-bg);
       }
-      .org-console .page-title { color: #ffffff; font-size: 1.125rem; font-weight: 800; line-height: 1.25; }
+      .org-console .page-title { color: var(--text); font-size: 1.125rem; font-weight: 800; line-height: 1.25; }
       .org-console-hash { margin-right: 7px; color: var(--muted); }
       .org-console .eyebrow { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
       .org-console .muted { color: var(--muted); }
@@ -2477,6 +2727,278 @@ export function OrganisationConsole() {
       .org-list-search:focus { outline: 2px solid #a855f7; outline-offset: 1px; }
       .org-console .btn-danger { border-color: transparent; background: var(--crit); color: #fff; }
       .org-console .panel { padding-inline: clamp(14px, 2vw, 24px); }
+      .org-console .org-console-content {
+        display: grid;
+        align-content: start;
+        gap: 20px;
+      }
+      .org-console .org-console-content.space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0; }
+      .org-console .org-console-page-heading {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .org-console .org-console-page-heading h1 {
+        margin: 0;
+        color: var(--text);
+        font: 700 30px/1.1 "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+      }
+      .org-console .org-console-page-heading p { margin: 4px 0 0; color: var(--muted); }
+      .org-console .org-console-home {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        align-items: start;
+        gap: 20px;
+      }
+      .org-console .org-console-home > .org-console-page-heading,
+      .org-console .org-console-home > .org-console-metrics {
+        grid-column: 1 / -1;
+      }
+      .org-console .org-console-home > .org-console-page-heading { grid-row: 1; }
+      .org-console .org-console-home > .org-console-metrics { grid-row: 2; }
+      .org-console .org-console-home > .org-home-performance {
+        grid-column: 1;
+        grid-row: 3 / span 2;
+      }
+      .org-console .org-console-home > .org-home-quick-actions {
+        grid-column: 2;
+        grid-row: 3;
+      }
+      .org-console .org-console-home > .org-home-side-panels {
+        grid-column: 2;
+        grid-row: 4;
+        display: grid;
+        align-content: start;
+        gap: 20px;
+      }
+      .org-console .org-console-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+      }
+      .org-console .org-console-metric {
+        min-height: 120px;
+        align-items: flex-start;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        padding: 20px 24px;
+      }
+      .org-console .org-console-metric + .org-console-metric { border-left: 1px solid var(--line); }
+      .org-console .org-console-metric > div:first-child { min-width: 0; }
+      .org-console .org-console-metric > div:first-child > p:first-child {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .org-console .org-console-metric > div:first-child > p:nth-child(2) {
+        margin: 4px 0 2px;
+        color: var(--text);
+        font: 700 40px/1.1 "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+      }
+      .org-console .org-console-metric > div:first-child > p:last-child {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .org-console .org-metric-icon { display: none; }
+      .org-console .org-home-performance,
+      .org-console .org-home-quick-actions,
+      .org-console .org-home-side-panels > .panel {
+        border-radius: 10px;
+        background: #fff;
+      }
+      .org-console .panel {
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: none;
+      }
+      .org-console .pane-head,
+      .org-console .org-tab-title { color: var(--text); }
+      .org-console .org-home-title {
+        color: var(--text);
+        font: 600 18px "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+      .org-console .org-console-quick-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+      }
+      .org-console .org-console-action {
+        min-height: 46px;
+        padding: 12px 0;
+        border: 0;
+        border-top: 1px solid var(--line);
+        border-radius: 0;
+        background: transparent;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .org-console .org-console-action:hover { background: var(--surface-2); }
+      .org-console .org-action-icon.responders,
+      .org-console .org-action-icon.staff,
+      .org-console .org-action-icon.beneficiaries,
+      .org-console .org-action-icon.rules { color: var(--muted); }
+      .org-console .org-history-metric-card,
+      .org-console .org-history-item,
+      .org-console .org-console-log-row {
+        border-color: var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+      .org-console .org-history-metric-stats div {
+        border-color: var(--line);
+        border-radius: 8px;
+        background: var(--surface-2);
+      }
+      .org-console .org-progress-track { background: #e6eaee; }
+      .org-console .org-progress-fill { background: #0b7a6c; }
+      .org-console .org-checklist li { color: var(--text-2); }
+      .org-console .org-checklist li svg { color: var(--ok); }
+      .org-console .org-checklist li small { color: var(--dim); }
+      .org-console .org-console-log-row { background: #fff; }
+      .org-console .org-log-icon {
+        border-color: var(--ok-bg);
+        background: var(--ok-bg);
+        color: var(--ok);
+      }
+      .org-console .org-console-surface-block {
+        border-color: var(--line);
+        border-radius: 10px;
+        background: #fff;
+      }
+      .org-console .org-console-surface-block h3 { color: var(--text); }
+      .org-console .field { color: var(--text); }
+      .org-console .field input,
+      .org-console .field select,
+      .org-console .field textarea {
+        border-color: var(--line-strong);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text);
+      }
+      .org-console .field input:focus,
+      .org-console .field select:focus,
+      .org-console .field textarea:focus,
+      .org-console .org-list-search:focus { outline: 2px solid #e3f4f1; border-color: #0b7a6c; }
+      .org-console .org-setting-row { border-radius: 8px; background: #fff; }
+      .org-console .org-switch { background: #c5ccd4; }
+      .org-console .org-switch.is-on { border-color: #0b7a6c; background: #0b7a6c; }
+      .org-console .tbl th,
+      .org-console .tbl thead th {
+        background: #fafbfc;
+        color: var(--muted);
+        border-bottom-color: var(--line);
+      }
+      .org-console .tbl tbody td { color: var(--text-2); border-bottom-color: var(--line); }
+      .org-console .tbl tbody tr:hover { background: #fafbfc; }
+      .org-console .org-status-pill {
+        display: inline-flex;
+        min-height: 24px;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 9px;
+        border-radius: 20px;
+        background: #eceff2;
+        color: #3f4955;
+        font-size: 12.5px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .org-console .org-status-pill::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+      }
+      .org-console .org-status-pill.status-available { background: #e6f5ec; color: #15803d; }
+      .org-console .org-status-pill.status-en-route,
+      .org-console .org-status-pill.status-assigned,
+      .org-console .org-status-pill.status-acknowledged { background: #fff4df; color: #9a5b00; }
+      .org-console .org-status-pill.status-on-scene { background: #e3f4f1; color: #0b7a6c; }
+      .org-console .org-status-pill.status-off-duty,
+      .org-console .org-status-pill.status-unavailable,
+      .org-console .org-status-pill.status-busy { background: #fdecee; color: #d62f3b; }
+      .org-console .org-availability-actions {
+        display: inline-flex;
+        overflow: hidden;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+      }
+      .org-console .org-availability-actions button {
+        min-height: 32px;
+        padding: 5px 10px;
+        border: 0;
+        border-right: 1px solid var(--line);
+        background: #fff;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .org-console .org-availability-actions button:last-child { border-right: 0; }
+      .org-console .org-availability-actions button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+      .org-console .org-availability-actions button:disabled { cursor: default; opacity: .6; }
+      .org-console .btn {
+        min-height: 38px;
+        border-color: var(--line-strong);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text);
+      }
+      .org-console .btn:hover { background: #f6f7f9; }
+      .org-console .btn-primary {
+        border-color: #0b7a6c;
+        background: #0b7a6c;
+        color: #fff;
+      }
+      .org-console .btn-primary:hover { background: #096659; }
+      .org-console .btn-danger { border-color: #f0c4c8; background: #fff; color: #d62f3b; }
+      @media (max-width: 1000px) {
+        .org-console { grid-template-columns: 64px minmax(0, 1fr); }
+        .org-console-brand { justify-content: center; padding: 4px 0 18px; }
+        .org-console-brand b,
+        .org-console-org-details,
+        .org-console-nav-label,
+        .org-console-nav-item span,
+        .org-console-account-details { display: none; }
+        .org-console-org-card,
+        .org-console-account { justify-content: center; padding-right: 0; padding-left: 0; }
+        .org-console-nav-item { justify-content: center; padding-right: 0; padding-left: 0; }
+        .org-console-topbar { padding-right: 18px; padding-left: 18px; }
+        .org-console-content { padding: 22px; }
+        .org-console .org-console-home { grid-template-columns: minmax(0, 1fr); }
+        .org-console .org-console-home > .org-home-performance,
+        .org-console .org-console-home > .org-home-quick-actions,
+        .org-console .org-console-home > .org-home-side-panels {
+          grid-column: 1;
+          grid-row: auto;
+        }
+        .org-console .org-console-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .org-console .org-console-metric:nth-child(3) { border-left: 0; }
+        .org-console .org-console-metric:nth-child(n + 3) { border-top: 1px solid var(--line); }
+      }
+      @media (max-width: 640px) {
+        .org-console-topbar { height: 56px; gap: 8px; padding-right: 12px; padding-left: 12px; }
+        .org-console-breadcrumb { font-size: 12px; }
+        .org-console-topbar-actions { gap: 6px; }
+        .org-console-sync,
+        .org-console-refresh span,
+        .org-console-response-link span { display: none; }
+        .org-console .org-console-content { padding: 16px 12px; }
+        .org-console .org-console-page-heading h1 { font-size: 26px; }
+        .org-console .org-console-metric { min-height: 104px; padding: 16px; }
+        .org-console .org-console-metric > div:first-child > p:nth-child(2) { font-size: 34px; }
+      }
     `}</style>
     </>
   );

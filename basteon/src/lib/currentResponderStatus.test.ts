@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentResponderStatusByUser } from "./currentResponderStatus";
+import { currentResponderStatusByUser, formatCurrentResponderStatus } from "./currentResponderStatus";
 
 describe("current responder status", () => {
   it("uses the furthest active response status instead of duty availability", () => {
@@ -28,5 +28,11 @@ describe("current responder status", () => {
     ]);
 
     expect(statuses.size).toBe(0);
+  });
+
+  it("formats the current response state for display without changing its meaning", () => {
+    expect(formatCurrentResponderStatus("en_route")).toBe("En route");
+    expect(formatCurrentResponderStatus("on_scene")).toBe("On scene");
+    expect(formatCurrentResponderStatus(null)).toBeNull();
   });
 });

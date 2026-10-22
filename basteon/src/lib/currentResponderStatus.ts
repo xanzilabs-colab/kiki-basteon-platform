@@ -31,3 +31,18 @@ export function currentResponderStatusByUser(
 
   return new Map([...statuses].map(([userId, value]) => [userId, value.status]));
 }
+
+export function formatCurrentResponderStatus(status: string | null | undefined): string | null {
+  if (!status) return null;
+  const labels: Record<string, string> = {
+    available: "Available",
+    assigned: "Assigned",
+    acknowledged: "Acknowledged",
+    en_route: "En route",
+    on_scene: "On scene",
+    busy: "Busy",
+    off_duty: "Off duty",
+    unavailable: "Unavailable",
+  };
+  return labels[status] ?? status.replaceAll("_", " ");
+}

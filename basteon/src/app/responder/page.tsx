@@ -20,6 +20,7 @@ import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { createClient } from "@/lib/supabase/client";
 import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
+import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
 import { AlertTriangle, LayoutDashboard, LocateFixed, Settings } from "lucide-react";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
@@ -423,7 +424,7 @@ export default function ResponderPage() {
                     </div>
                     {availabilityError && <p className={styles.settingsError} role="alert">{availabilityError}</p>}
                     <p className={styles.currentAvailability} role="status">
-                      Current status: <b>{(selfResponseStatus ?? selfAvailability)?.replaceAll("_", " ") ?? (organisationLoading ? "Loading…" : "Not reported")}</b>
+                      Current status: <b>{formatCurrentResponderStatus(selfResponseStatus ?? selfAvailability) ?? (organisationLoading ? "Loading…" : "Not reported")}</b>
                     </p>
                     {statusRefreshError && <p className={styles.settingsError} role="alert">{statusRefreshError}</p>}
                   </div>
