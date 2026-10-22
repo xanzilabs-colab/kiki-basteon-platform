@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { LogOut, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -23,20 +24,36 @@ function Clock() {
   );
 }
 
-export function Navbar({ children }: { children?: React.ReactNode }) {
+export function Navbar({
+  children,
+  beforeSpacer,
+  brandMark,
+  brandClassName,
+}: {
+  children?: ReactNode;
+  beforeSpacer?: ReactNode;
+  brandMark?: ReactNode;
+  brandClassName?: string;
+}) {
   const router = useRouter();
   return (
     <header className="appbar">
-      <div className="brand">
-        <span className="mark">B</span>
-        <span>BASTEON</span>
+      <div className={`brand ${brandClassName ?? ""}`}>
+        {brandMark ? <span className="brand-icon">{brandMark}</span> : (
+          <>
+            <span className="mark">B</span>
+            <span>BASTEON</span>
+          </>
+        )}
       </div>
+      {brandMark && <span className="wordmark">BASTEON</span>}
 
       <div className="context hidden sm:flex">
         <b>Response console</b>
         <span>Incident dispatch</span>
       </div>
 
+      {beforeSpacer}
       <div className="spacer" />
 
       <div className="slot gap-4">

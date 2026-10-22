@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
+import { formatDistanceToNow } from "date-fns";
 import { activeStatuses } from "@/lib/status";
 import { useRealtimeAlerts } from "@/hooks/useRealtimeAlerts";
 import { useAlertTrail } from "@/hooks/useAlertTrail";
@@ -19,7 +20,9 @@ import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { createClient } from "@/lib/supabase/client";
 import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
-import { AlertTriangle, Building2, LayoutDashboard, LocateFixed, Settings } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, LocateFixed, Settings } from "lucide-react";
+import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
+import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
 import styles from "./ResponderDashboard.module.css";
 
 const AlertMap = dynamic(() => import("@/components/AlertMap"), {
@@ -174,8 +177,8 @@ export default function ResponderPage() {
     () => alerts.filter((a) => activeStatuses.includes(a.status)),
     [alerts],
   );
-  const latestAlert = useMemo(
-    () => [...alerts].sort((a, b) => +new Date(b.triggered_at) - +new Date(a.triggered_at))[0] ?? null,
+  const recentAlerts = useMemo(
+    () => [...alerts].sort((a, b) => +new Date(b.triggered_at) - +new Date(a.triggered_at)).slice(0, 6),
     [alerts],
   );
   const unacked = useMemo(
@@ -212,21 +215,19 @@ export default function ResponderPage() {
   );
 
   return (
-    <div className="responder-console h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]">
-      <Navbar>
-        {organisationName && (
+    <div className={`responder-console ${styles.responderRoot} h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]`}>
+      <Navbar
+        brandClassName={styles.brandBox}
+        brandMark={<svg viewBox="0 0 32 32" aria-hidden="true" className={styles.brandMark}><path d="M5 3h22v17l-11 9-11-9z" /><path d="M12 10h5a3 3 0 0 1 0 6h-5zm0 6h6a3 3 0 0 1 0 6h-6z" className={styles.brandMarkCutout} /></svg>}
+        beforeSpacer={organisationName ? (
           <div className={styles.headerOrganisation}>
-            {organisationLogo
-              ? <img src={organisationLogo} alt="" />
-              : <span><Building2 size={14} /></span>}
-            <div>
-              <b>{organisationName}</b>
-              {operatorName && <small>Operator · {operatorName}</small>}
-            </div>
+            {organisationLogo ? <img src={organisationLogo} alt="" /> : <i>{organisationName.slice(0, 2).toUpperCase()}</i>}
+            <span>{organisationName}{operatorName && <> · Operator <b>{operatorName}</b></>}</span>
           </div>
-        )}
-        <NotificationBell />
+        ) : null}
+      >
         <ConnectionIndicator state={connection} />
+        <NotificationBell />
         <SoundToggle />
       </Navbar>
 
@@ -291,6 +292,7 @@ export default function ResponderPage() {
                     trail={trail}
                     baseLayer={mapBaseLayer}
                     recenterToken={mapRecenterToken}
+                    showFollowButton={false}
                     onSelect={selectAlert}
                   />
                 </div>
@@ -303,10 +305,6 @@ export default function ResponderPage() {
                   <button type="button" className={styles.recenterButton} onClick={() => setMapRecenterToken((token) => token + 1)}>
                     <LocateFixed size={16} />Re-center
                   </button>
-                </div>
-                <div className={styles.mapStatus} aria-live="polite">
-                  <i className={connection === "live" ? styles.liveDot : styles.waitingDot} />
-                  {connection === "live" ? "Live incident map" : connection === "reconnecting" ? "Reconnecting to live updates" : "Connecting to live updates"}
                 </div>
               </section>
 
@@ -339,12 +337,19 @@ export default function ResponderPage() {
                 <div className={styles.overviewGrid}>
                   <section className={styles.overviewBlock}>
                     <header><h2>Latest alert</h2><button type="button" onClick={() => setResponderView("alerts")}>View on map</button></header>
-                    {latestAlert ? (
-                      <button type="button" className={styles.latestAlert} onClick={() => { selectAlert(latestAlert); setResponderView("alerts"); }}>
-                        <span>{latestAlert.device?.device_name || "Safety alert"}</span>
-                        <span>{latestAlert.device?.owner?.full_name || "Caller"}</span>
-                        <span>{new Date(latestAlert.triggered_at).toLocaleString()}</span>
-                      </button>
+                    {recentAlerts.length > 0 ? (
+                      <div className={styles.overviewTableWrap}>
+                        <table className={styles.overviewTable}>
+                          <thead><tr><th>Alert</th><th>Person</th><th>Age</th></tr></thead>
+                          <tbody>{recentAlerts.map((alert) => (
+                            <tr key={alert.id}>
+                              <td><button type="button" onClick={() => { selectAlert(alert); setResponderView("alerts"); }}><AlertTypeBadge typeCode={alert.type_code} />{alertDeviceLabel(alert)}</button></td>
+                              <td>{alertOwnerName(alert) ?? "Unassigned"}</td>
+                              <td>{formatDistanceToNow(new Date(alert.triggered_at), { addSuffix: true })}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
                     ) : <p className={styles.emptyOverview}>No alerts have been reported.</p>}
                   </section>
                   <section className={styles.overviewBlock}>

@@ -25,6 +25,7 @@ export default function AlertMap({
   trail = [],
   baseLayer = "Street",
   recenterToken = 0,
+  showFollowButton = true,
   onSelect,
 }: {
   alerts: Alert[];
@@ -33,6 +34,7 @@ export default function AlertMap({
   trail?: AlertLocation[];
   baseLayer?: MapBaseLayerName;
   recenterToken?: number;
+  showFollowButton?: boolean;
   onSelect?: (alert: Alert) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -302,5 +304,5 @@ export default function AlertMap({
     return () => controller.abort();
   }, [me, selected]);
 
-  return <div className="relative h-full"><div ref={containerRef} className="alert-map leaflet-container" />{!followMode && <button className="btn absolute right-3 top-3 z-[1200]" onClick={() => { followRef.current = true; setFollowMode(true); if (selected && hasLocation(selected)) mapRef.current?.panTo([selected.lat!, selected.lng!], { animate: true }); }}>Re-center</button>}</div>;
+  return <div className="relative h-full"><div ref={containerRef} className="alert-map leaflet-container" />{showFollowButton && !followMode && <button className="btn absolute right-3 top-3 z-[1200]" onClick={() => { followRef.current = true; setFollowMode(true); if (selected && hasLocation(selected)) mapRef.current?.panTo([selected.lat!, selected.lng!], { animate: true }); }}>Re-center</button>}</div>;
 }
