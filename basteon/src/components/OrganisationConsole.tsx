@@ -2494,11 +2494,11 @@ export function OrganisationConsole() {
       }
       .org-console .org-config-panel-header {
         display: flex;
-        min-height: 64px;
+        min-height: 68px;
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        padding: 14px 22px;
+        padding: 15px 22px;
         border-bottom: 1px solid var(--line);
       }
       .org-console .org-config-panel-header p {
@@ -2515,6 +2515,18 @@ export function OrganisationConsole() {
       .org-console .org-config-panel .tbl td {
         padding-right: 22px;
         padding-left: 22px;
+      }
+      .org-console .org-config-panel .tbl tbody td {
+        height: auto;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        vertical-align: middle;
+      }
+      .org-console .org-config-panel .btn {
+        height: auto;
+        min-height: 36px;
+        padding: 8px 14px;
+        line-height: 1.2;
       }
       .org-console-config-drawer-layer {
         position: fixed;
@@ -3506,9 +3518,11 @@ export function OrganisationConsole() {
         .org-console-refresh span,
         .org-console-response-link span { display: none; }
         .org-console .org-console-content { padding: 16px 12px; }
-        .org-console .org-config-panel-header { align-items: flex-start; padding: 14px; }
+        .org-console .org-config-panel-header { align-items: center; padding: 14px; }
         .org-console .org-config-panel .tbl th,
         .org-console .org-config-panel .tbl td { padding-right: 14px; padding-left: 14px; }
+        .org-console .org-config-panel .tbl tbody td { padding-top: 10px; padding-bottom: 10px; }
+        .org-console .org-config-panel .btn { padding: 8px 12px; }
         .org-console-config-form { padding: 20px 16px; }
         .org-console-config-form footer { margin: auto -16px -20px; padding: 14px 16px; }
         .org-console .org-console-page-heading h1 { font-size: 26px; }
