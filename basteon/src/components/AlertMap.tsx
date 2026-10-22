@@ -24,6 +24,7 @@ export default function AlertMap({
   me,
   trail = [],
   baseLayer = "Street",
+  recenterToken = 0,
   onSelect,
 }: {
   alerts: Alert[];
@@ -31,11 +32,13 @@ export default function AlertMap({
   me: Position | null;
   trail?: AlertLocation[];
   baseLayer?: MapBaseLayerName;
+  recenterToken?: number;
   onSelect?: (alert: Alert) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseLayersRef = useRef<ReturnType<typeof installMapBaseLayers> | null>(null);
+  const lastRecenterTokenRef = useRef(0);
   const initialView = useRef({
     center:
       selected && hasLocation(selected)
@@ -98,6 +101,22 @@ export default function AlertMap({
   useEffect(() => {
     baseLayersRef.current?.select(baseLayer);
   }, [baseLayer]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || recenterToken === 0 || recenterToken === lastRecenterTokenRef.current) return;
+    lastRecenterTokenRef.current = recenterToken;
+
+    followRef.current = true;
+    setFollowMode(true);
+    if (selected && hasLocation(selected)) {
+      map.flyTo([selected.lat!, selected.lng!], 15, { duration: 0.7 });
+    } else if (me) {
+      map.flyTo([me.lat, me.lng], 14, { duration: 0.7 });
+    } else {
+      map.flyTo(initialView.current.center, initialView.current.zoom, { duration: 0.7 });
+    }
+  }, [me, recenterToken, selected]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -8,7 +8,6 @@ import { useAlertTrail } from "@/hooks/useAlertTrail";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { AlertList } from "@/components/AlertList";
 import { AlertDetailPanel } from "@/components/AlertDetailPanel";
-import { AlertBanner } from "@/components/AlertBanner";
 import { ResponderLocationPublisher } from "@/components/ResponderLocationPublisher";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { SoundToggle } from "@/components/SoundToggle";
@@ -20,6 +19,8 @@ import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { createClient } from "@/lib/supabase/client";
 import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
+import { AlertTriangle, Building2, LayoutDashboard, LocateFixed, Settings } from "lucide-react";
+import styles from "./ResponderDashboard.module.css";
 
 const AlertMap = dynamic(() => import("@/components/AlertMap"), {
   ssr: false,
@@ -50,6 +51,7 @@ export default function ResponderPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [movingOnly, setMovingOnly] = useState(false);
   const [mapBaseLayer, setMapBaseLayer] = useState<(typeof MAP_BASE_LAYERS)[number]["name"]>("Street");
+  const [mapRecenterToken, setMapRecenterToken] = useState(0);
   const [selfAvailability, setSelfAvailability] = useState("off_duty");
   const [availabilityError, setAvailabilityError] = useState("");
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
@@ -172,6 +174,10 @@ export default function ResponderPage() {
     () => alerts.filter((a) => activeStatuses.includes(a.status)),
     [alerts],
   );
+  const latestAlert = useMemo(
+    () => [...alerts].sort((a, b) => +new Date(b.triggered_at) - +new Date(a.triggered_at))[0] ?? null,
+    [alerts],
+  );
   const unacked = useMemo(
     () =>
       active
@@ -208,203 +214,189 @@ export default function ResponderPage() {
   return (
     <div className="responder-console h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]">
       <Navbar>
+        {organisationName && (
+          <div className={styles.headerOrganisation}>
+            {organisationLogo
+              ? <img src={organisationLogo} alt="" />
+              : <span><Building2 size={14} /></span>}
+            <div>
+              <b>{organisationName}</b>
+              {operatorName && <small>Operator · {operatorName}</small>}
+            </div>
+          </div>
+        )}
         <NotificationBell />
         <ConnectionIndicator state={connection} />
         <SoundToggle />
       </Navbar>
 
-      <main className="relative min-h-0 min-w-0">
-        <ResponderLocationPublisher position={position} organisationId={organisationId} />
-        {!organisationId && !organisationLoading && (
-          <div className="absolute z-[1200] left-3 right-3 top-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)] panel border-l-4 border-[var(--warn)] px-3 py-2 text-[12px] text-[var(--warn)]">
-            {organisationLoadError
-              ? <span role="alert">{organisationLoadError} <button className="underline font-semibold" onClick={() => setOrganisationLoadAttempt((attempt) => attempt + 1)}>Retry</button></span>
-              : organisationBlocked
-                ? "Your organisation is currently suspended. Alert and telemetry access is hidden."
-                : "This responder account is not linked to an active organisation. Alert and telemetry access is hidden until linked."}
-          </div>
-        )}
-        <div className={`absolute z-[1100] left-3 right-3 ${organisationId ? "top-3" : "top-16"} md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]`}>
-          <div className="panel px-3 py-2 text-[12px] flex flex-wrap items-center gap-2">
-            <span className="status status-blue">Responder Console</span>
-            {organisationName && <span className="inline-flex items-center gap-2 muted">{organisationLogo
-              ? <img src={organisationLogo} alt="" className="h-7 w-7 rounded-lg bg-white object-contain" />
-              : null}Organisation: {organisationName}</span>}
-            {operatorName && <span className="muted">Operator: {operatorName}</span>}
-            <label className="inline-flex items-center gap-2 text-[11px] muted">
-              <span>Map tiles</span>
-              <select
-                aria-label="Map tiles"
-                className="input h-7 w-[132px] text-[11px]"
-                value={mapBaseLayer}
-                onChange={(event) => {
-                  const nextLayer = MAP_BASE_LAYERS.find(({ name }) => name === event.target.value)?.name;
-                  if (nextLayer) setMapBaseLayer(nextLayer);
-                }}
-              >
-                {MAP_BASE_LAYERS.map(({ name }) => <option key={name} value={name}>{name}</option>)}
-              </select>
-            </label>
-            <div className="ml-auto inline-flex gap-1 rounded border border-[var(--line)] bg-[var(--surface-2)] p-1">
-              <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "alerts"} onClick={() => setResponderView("alerts")}>Alerts</button>
-              <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "overview"} onClick={() => setResponderView("overview")}>Overview</button>
-              <button className="btn h-7 px-2 text-[11px]" aria-pressed={responderView === "settings"} onClick={() => setResponderView("settings")}>Settings</button>
-            </div>
-          </div>
-        </div>
-        {alertError && (
-          <div
-            role="alert"
-            className="absolute z-[1100] top-3 left-3 right-3
-                       md:left-[calc(var(--rail-l)+12px)] md:right-3
-                       lg:right-[calc(var(--rail-r)+12px)]
-                       bg-[var(--surface-2)] border-l-4 border-[var(--crit)]
-                       px-3 py-2 text-[12px] text-[var(--crit)] font-medium"
-          >
-            Alert stream degraded — {alertError}
-          </div>
-        )}
-
-        {/* Base map fills the viewport behind everything */}
-        <div className="absolute inset-0">
-          <AlertMap
-            alerts={active}
-            selected={selected}
-            me={position}
-            trail={trail}
-            baseLayer={mapBaseLayer}
-            onSelect={selectAlert}
-          />
+      <main className={styles.shell}>
+        <div className={styles.navRail} role="tablist" aria-label="Responder console sections">
+          <button type="button" role="tab" aria-selected={responderView === "alerts"} className={styles.navButton} onClick={() => setResponderView("alerts")}>
+            <AlertTriangle size={19} /><span>Alerts</span>
+            {unacked.length > 0 && <b className={styles.navCount}>{unacked.length > 9 ? "9+" : unacked.length}</b>}
+          </button>
+          <button type="button" role="tab" aria-selected={responderView === "overview"} className={styles.navButton} onClick={() => setResponderView("overview")}>
+            <LayoutDashboard size={19} /><span>Overview</span>
+          </button>
+          <button type="button" role="tab" aria-selected={responderView === "settings"} className={styles.navButton} onClick={() => setResponderView("settings")}>
+            <Settings size={19} /><span>Settings</span>
+          </button>
         </div>
 
-        {responderView === "alerts" && (
-          <AlertBanner
-            count={unacked.length}
-            oldest={unacked[0] ?? null}
-            onJump={selectAlert}
-          />
-        )}
-
-        {/* ── Left rail: Incident queue ─────────────────────────── */}
-        {responderView === "alerts" && <aside
-          aria-label="Incident queue"
-          className="hidden md:flex absolute z-[1000] flex-col
-                     panel
-                     top-3 bottom-3 left-3 w-[var(--rail-l)]
-                     max-h-[calc(100vh-var(--appbar)-24px)]"
-        >
-          <div className="pane-head">
-            <span>Incident queue</span>
-            <span
-              className="data normal-case tracking-normal"
-              style={{ color: "var(--text-2)", letterSpacing: 0 }}
-            >
-              {active.length} active
-            </span>
-          </div>
-
-          <div className="tabs" role="tablist">
-            <button
-              className="tab"
-              role="tab"
-              aria-selected={tab === "active"}
-              onClick={() => setTab("active")}
-            >
-              Active ({active.length})
-            </button>
-            <button
-              className="tab"
-              role="tab"
-              aria-selected={tab === "all"}
-              onClick={() => setTab("all")}
-            >
-              All ({alerts.length})
-            </button>
-          </div>
-
-          <div className="px-3 pb-2 space-y-2"><label className="sr-only" htmlFor="responder-type-filter">Filter by alert type</label><select id="responder-type-filter" className="input h-8 text-[12px]" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All alert types</option>{emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}</select><label className="inline-flex items-center gap-2 text-[12px]"><input type="checkbox" checked={movingOnly} onChange={(event) => setMovingOnly(event.target.checked)} />Moving only</label></div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <AlertList
-              alerts={displayed}
-              selected={selected?.id ?? null}
-              me={position}
-              onSelect={selectAlert}
-            />
-          </div>
-
-          {error && (
-            <div className="px-3 py-2 border-t border-[var(--line)] text-[11px] data text-[var(--warn)]">
-              GPS · {error}
+        <div className={styles.mainContent}>
+          <ResponderLocationPublisher position={position} organisationId={organisationId} />
+          {!organisationId && !organisationLoading && (
+            <div className={styles.notice} role={organisationLoadError ? "alert" : "status"}>
+              {organisationLoadError
+                ? <>{organisationLoadError} <button type="button" onClick={() => setOrganisationLoadAttempt((attempt) => attempt + 1)}>Retry</button></>
+                : organisationBlocked
+                  ? "Your organisation is currently suspended. Alert and telemetry access is hidden."
+                  : "This responder account is not linked to an active organisation. Alert and telemetry access is hidden until linked."}
             </div>
           )}
-        </aside>}
+          {alertError && <div className={`${styles.notice} ${styles.errorNotice}`} role="alert">Alert stream degraded — {alertError}</div>}
 
-        {/* ── Right rail: Incident detail ──────────────────────── */}
-        {responderView === "alerts" && <aside
-          aria-label="Incident detail"
-          className="
-            absolute z-[1000] panel flex flex-col min-h-0 overflow-hidden
-            bottom-0 left-0 right-0 h-[52%] max-h-[52%]
-            rounded-b-none
-            lg:top-3 lg:bottom-3 lg:left-auto lg:right-3
-            lg:w-[var(--rail-r)] lg:h-auto lg:max-h-none lg:rounded-b-md
-          "
-        >
-          <AlertDetailPanel
-            alert={selected}
-            events={events}
-            refresh={refresh}
-            organisationId={organisationId}
-            canDispatch={canDispatch}
-            onViewProfile={(alert) => setProfile(alert.device?.owner ?? null)}
-            onClear={() => { setSelectedId(null); setDetailCleared(true); }}
-          />
-        </aside>}
+          {responderView === "alerts" && (
+            <section className={styles.alertsLayout} aria-label="Incident dispatch">
+              <aside className={styles.queue} aria-label="Incident queue">
+                <header className={styles.queueHeader}>
+                  <h1>Incident queue</h1>
+                  <span>{active.length} active</span>
+                </header>
+                <div className={styles.queueTabs} role="tablist" aria-label="Incident filter">
+                  <button type="button" role="tab" aria-selected={tab === "active"} onClick={() => setTab("active")}>Active <b>{active.length}</b></button>
+                  <button type="button" role="tab" aria-selected={tab === "all"} onClick={() => setTab("all")}>All <b>{alerts.length}</b></button>
+                </div>
+                <div className={styles.queueFilters}>
+                  <label className="sr-only" htmlFor="responder-type-filter">Filter by alert type</label>
+                  <select id="responder-type-filter" className="input" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                    <option value="all">All alert types</option>
+                    {emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}
+                  </select>
+                  <label><input type="checkbox" checked={movingOnly} onChange={(event) => setMovingOnly(event.target.checked)} /> Moving only</label>
+                </div>
+                <div className={styles.queueList}>
+                  <AlertList alerts={displayed} selected={selected?.id ?? null} me={position} onSelect={selectAlert} />
+                </div>
+                {error && <div className={styles.gpsNotice} role="status">GPS · {error}</div>}
+              </aside>
 
-        {responderView === "overview" && (
-          <section className="absolute z-[1000] left-3 right-3 top-24 panel p-4 space-y-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]">
-            <h2 className="pane-head">Responder overview</h2>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="panel p-3"><p className="muted text-xs">Active alerts</p><p className="text-xl font-bold">{active.length}</p></div>
-              <div className="panel p-3"><p className="muted text-xs">Unacknowledged</p><p className="text-xl font-bold">{unacked.length}</p></div>
-              <div className="panel p-3"><p className="muted text-xs">Total alerts</p><p className="text-xl font-bold">{alerts.length}</p></div>
-            </div>
-            <p className="muted text-xs">Timeline and response progress remain live in the Alerts tab.</p>
-          </section>
-        )}
+              <section className={styles.mapArea} aria-label="Incident map">
+                <div className={styles.mapCanvas}>
+                  <AlertMap
+                    alerts={active}
+                    selected={selected}
+                    me={position}
+                    trail={trail}
+                    baseLayer={mapBaseLayer}
+                    recenterToken={mapRecenterToken}
+                    onSelect={selectAlert}
+                  />
+                </div>
+                <div className={styles.mapControls}>
+                  <div className={styles.mapTiles} role="group" aria-label="Map tiles">
+                    {MAP_BASE_LAYERS.map(({ name }) => (
+                      <button key={name} type="button" aria-pressed={mapBaseLayer === name} onClick={() => setMapBaseLayer(name)}>{name}</button>
+                    ))}
+                  </div>
+                  <button type="button" className={styles.recenterButton} onClick={() => setMapRecenterToken((token) => token + 1)}>
+                    <LocateFixed size={16} />Re-center
+                  </button>
+                </div>
+                <div className={styles.mapStatus} aria-live="polite">
+                  <i className={connection === "live" ? styles.liveDot : styles.waitingDot} />
+                  {connection === "live" ? "Live incident map" : connection === "reconnecting" ? "Reconnecting to live updates" : "Connecting to live updates"}
+                </div>
+              </section>
 
-        {responderView === "settings" && (
-          <section className="absolute z-[1000] left-3 right-3 top-24 panel p-4 space-y-3 md:left-[calc(var(--rail-l)+12px)] md:right-[calc(var(--rail-r)+12px)]">
-            <h2 className="pane-head">Responder settings & support</h2>
-            <div>
-              <p className="muted text-xs mb-2">Your availability</p>
-              <div className="flex flex-wrap gap-2">
-                {["available", "busy", "off_duty", "unavailable"].map((value) => (
-                  <button key={value} className="btn" disabled={!organisationId || availabilityBusy || selfAvailability === value} onClick={() => void updateSelfAvailability(value)}>{value}</button>
-                ))}
+              <aside className={styles.detailPanel} aria-label="Incident detail">
+                <AlertDetailPanel
+                  alert={selected}
+                  events={events}
+                  refresh={refresh}
+                  organisationId={organisationId}
+                  canDispatch={canDispatch}
+                  onViewProfile={(alert) => setProfile(alert.device?.owner ?? null)}
+                  onClear={() => { setSelectedId(null); setDetailCleared(true); }}
+                />
+              </aside>
+            </section>
+          )}
+
+          {responderView === "overview" && (
+            <section className={styles.pageView}>
+              <div className={styles.pageViewInner}>
+                <header className={styles.pageTitle}>
+                  <div><h1>Responder overview</h1><p>{organisationName || "Response console"} · updated live</p></div>
+                  <button type="button" className={styles.actionButton} onClick={() => setResponderView("alerts")}>Open alerts</button>
+                </header>
+                <div className={styles.stats}>
+                  <article className={styles.statHot}><span>Needs a response now</span><b>{unacked.length}</b><small>{unacked.length} unacknowledged {unacked.length === 1 ? "alert" : "alerts"} in the queue</small></article>
+                  <article><span>Active alerts</span><b>{active.length}</b><small>Currently open</small></article>
+                  <article><span>Total alerts</span><b>{alerts.length}</b><small>All time</small></article>
+                </div>
+                <div className={styles.overviewGrid}>
+                  <section className={styles.overviewBlock}>
+                    <header><h2>Latest alert</h2><button type="button" onClick={() => setResponderView("alerts")}>View on map</button></header>
+                    {latestAlert ? (
+                      <button type="button" className={styles.latestAlert} onClick={() => { selectAlert(latestAlert); setResponderView("alerts"); }}>
+                        <span>{latestAlert.device?.device_name || "Safety alert"}</span>
+                        <span>{latestAlert.device?.owner?.full_name || "Caller"}</span>
+                        <span>{new Date(latestAlert.triggered_at).toLocaleString()}</span>
+                      </button>
+                    ) : <p className={styles.emptyOverview}>No alerts have been reported.</p>}
+                  </section>
+                  <section className={styles.overviewBlock}>
+                    <header><h2>Response progress</h2></header>
+                    <div className={styles.progressStats}>
+                      <div><b>{active.filter((alert) => ["acknowledged", "enroute", "on_scene"].includes(alert.status)).length}</b><span>Acknowledged</span></div>
+                      <div><b>{active.filter((alert) => ["enroute", "on_scene"].includes(alert.status)).length}</b><span>On the way</span></div>
+                      <div><b>{active.filter((alert) => alert.status === "on_scene").length}</b><span>On scene</span></div>
+                    </div>
+                    <p>Full incident timelines remain live in the Alerts view.</p>
+                  </section>
+                </div>
               </div>
-              {availabilityError && <p className="mt-2 text-xs text-[var(--crit)]" role="alert">{availabilityError}</p>}
-              <p className="muted mt-2 text-xs" role="status">Current status: <b>{selfAvailability.replaceAll("_", " ")}</b></p>
-            </div>
-            <div className="tbl-wrap">
-              <table className="tbl">
-                <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>Purpose</th></tr></thead>
-                <tbody>
-                  {supportContacts.map((contact) => (
-                    <tr key={contact.id}>
-                      <td>{contact.contact_name}</td>
-                      <td>{contact.contact_type}</td>
-                      <td>{contact.contact_value}</td>
-                      <td>{contact.purpose}</td>
-                    </tr>
-                  ))}
-                  {supportContacts.length === 0 && <tr><td colSpan={4} className="muted text-center">No support contacts available.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
+            </section>
+          )}
+
+          {responderView === "settings" && (
+            <section className={styles.pageView}>
+              <div className={styles.pageViewInner}>
+                <header className={styles.pageTitle}><div><h1>Responder settings &amp; support</h1><p>Manage your availability and support contacts.</p></div></header>
+                <section className={styles.settingsBlock}>
+                  <header><h2>Your availability</h2></header>
+                  <div className={styles.settingsBody}>
+                    <div className={styles.availabilityOptions}>
+                      {["available", "busy", "off_duty", "unavailable"].map((value) => (
+                        <button key={value} type="button" aria-pressed={selfAvailability === value} disabled={!organisationId || availabilityBusy || selfAvailability === value} onClick={() => void updateSelfAvailability(value)}>{value.replaceAll("_", " ")}</button>
+                      ))}
+                    </div>
+                    {availabilityError && <p className={styles.settingsError} role="alert">{availabilityError}</p>}
+                    <p className={styles.currentAvailability} role="status">Current status: <b>{selfAvailability.replaceAll("_", " ")}</b></p>
+                  </div>
+                </section>
+                <section className={styles.settingsBlock}>
+                  <header><h2>Support contacts</h2></header>
+                  <div className="tbl-wrap">
+                    <table className="tbl">
+                      <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>Purpose</th></tr></thead>
+                      <tbody>
+                        {supportContacts.map((contact) => (
+                          <tr key={contact.id}>
+                            <td>{contact.contact_name}</td><td>{contact.contact_type}</td><td>{contact.contact_value}</td><td>{contact.purpose}</td>
+                          </tr>
+                        ))}
+                        {supportContacts.length === 0 && <tr><td colSpan={4} className="muted text-center">No support contacts available.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
+            </section>
+          )}
+        </div>
 
         <UserProfileDrawer profile={profile} onClose={() => setProfile(null)} />
       </main>
