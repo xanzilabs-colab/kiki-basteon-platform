@@ -55,7 +55,10 @@ export default function ResponderPage() {
   const [movingOnly, setMovingOnly] = useState(false);
   const [mapBaseLayer, setMapBaseLayer] = useState<(typeof MAP_BASE_LAYERS)[number]["name"]>("Street");
   const [mapRecenterToken, setMapRecenterToken] = useState(0);
-  const [selfAvailability, setSelfAvailability] = useState("off_duty");
+  const [selfAvailability, setSelfAvailability] = useState<string | null>(null);
+  const [selfResponseStatus, setSelfResponseStatus] = useState<string | null>(null);
+  const [selfUserId, setSelfUserId] = useState("");
+  const [statusRefreshError, setStatusRefreshError] = useState("");
   const [availabilityError, setAvailabilityError] = useState("");
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const [supportContacts, setSupportContacts] = useState<Array<any>>([]);
@@ -70,6 +73,7 @@ export default function ResponderPage() {
         const client = createClient();
         const { data: { user } } = await client.auth.getUser();
         if (!user) throw new Error("Your session could not be verified.");
+        if (active) setSelfUserId(user.id);
         const { data: profileRow } = await client.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
         if (active) setOperatorName(profileRow?.full_name ?? user.email ?? "Responder");
         const response = await fetch("/api/organisation/me", { cache: "no-store" });
@@ -78,17 +82,22 @@ export default function ResponderPage() {
             setOrganisationId("");
             setOrganisationName("");
             setOrganisationBlocked(false);
+            setSelfAvailability(null);
+            setSelfResponseStatus(null);
           }
           return;
         }
         const body = await response.json().catch(() => null);
         if (!response.ok) throw new Error(body?.error ?? "Organisation details could not be loaded.");
         if (!active) return;
+        setStatusRefreshError("");
         setOrganisationBlocked(Boolean(body?.blocked?.isBlocked));
         if (body?.blocked?.isBlocked) {
           setOrganisationName(body?.organisation?.name ?? "");
           setOrganisationLogo(body?.organisation?.logo_url ?? null);
           setOrganisationId("");
+          setSelfAvailability(null);
+          setSelfResponseStatus(null);
           return;
         }
         setOrganisationName(body?.organisation?.name ?? "");
@@ -97,7 +106,8 @@ export default function ResponderPage() {
         setCanDispatch(["owner", "admin", "manager", "dispatcher"].includes(body?.memberships?.[0]?.role ?? ""));
         setSupportContacts([...(body?.supportContacts?.organisation ?? []), ...(body?.supportContacts?.global ?? [])]);
         const ownPresence = (body?.responderPresence ?? []).find((row: any) => row.user_id === user.id);
-        if (ownPresence?.availability) setSelfAvailability(ownPresence.availability);
+        setSelfAvailability(typeof ownPresence?.availability === "string" ? ownPresence.availability : null);
+        setSelfResponseStatus(typeof body?.currentResponseStatus === "string" ? body.currentResponseStatus : null);
       } catch (failure) {
         console.error("Responder organisation load failed", failure);
         if (active) setOrganisationLoadError("Organisation details couldn’t be loaded. Check your connection and retry.");
@@ -132,6 +142,39 @@ export default function ResponderPage() {
       if (channel) void client.removeChannel(channel);
     };
   }, [organisationId]);
+
+  useEffect(() => {
+    if (!organisationId || !selfUserId) return;
+    const client = createClient();
+    let active = true;
+    const channel = client.channel(`responder-current-response-${selfUserId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "alert_assignments",
+        filter: `organisation_id=eq.${organisationId}`,
+      }, () => {
+        void (async () => {
+          try {
+            const response = await fetch("/api/organisation/me", { cache: "no-store" });
+            const body = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(body?.error ?? "Current response status could not be refreshed.");
+            if (active) {
+              setSelfResponseStatus(typeof body?.currentResponseStatus === "string" ? body.currentResponseStatus : null);
+              setStatusRefreshError("");
+            }
+          } catch (failure) {
+            console.error("Responder current status refresh failed", failure);
+            if (active) setStatusRefreshError("Current status could not be refreshed.");
+          }
+        })();
+      })
+      .subscribe();
+    return () => {
+      active = false;
+      void client.removeChannel(channel);
+    };
+  }, [organisationId, selfUserId]);
 
   useEffect(() => {
     const selectFromNotification = (alertId: string) => {
@@ -379,7 +422,10 @@ export default function ResponderPage() {
                       ))}
                     </div>
                     {availabilityError && <p className={styles.settingsError} role="alert">{availabilityError}</p>}
-                    <p className={styles.currentAvailability} role="status">Current status: <b>{selfAvailability.replaceAll("_", " ")}</b></p>
+                    <p className={styles.currentAvailability} role="status">
+                      Current status: <b>{(selfResponseStatus ?? selfAvailability)?.replaceAll("_", " ") ?? (organisationLoading ? "Loading…" : "Not reported")}</b>
+                    </p>
+                    {statusRefreshError && <p className={styles.settingsError} role="alert">{statusRefreshError}</p>}
                   </div>
                 </section>
                 <section className={styles.settingsBlock}>

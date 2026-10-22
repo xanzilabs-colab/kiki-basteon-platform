@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrganisationAccess } from "@/lib/organisation";
 import { reconcileRosterMemberships } from "@/lib/orgRosterMemberships";
+import { currentResponderStatusByUser } from "@/lib/currentResponderStatus";
 
 const settingsSchema = z.object({
   organisationId: z.string().uuid(),
@@ -74,6 +75,14 @@ export async function GET() {
     return NextResponse.json({ error: `Could not load responder assignment history: ${alertAssignments.error.message}` }, { status: 500 });
   }
   assignmentRows = (alertAssignments.data ?? []) as any[];
+  const currentAssignments = await db.from("alert_assignments")
+    .select("responder_user_id,status,assigned_at")
+    .eq("organisation_id", organisationId)
+    .in("status", ["assigned", "acknowledged", "en_route", "on_scene"]);
+  if (currentAssignments.error) {
+    return NextResponse.json({ error: `Could not load current responder statuses: ${currentAssignments.error.message}` }, { status: 500 });
+  }
+  const currentResponseStatus = currentResponderStatusByUser(currentAssignments.data ?? []);
   const alertIds = [...new Set(assignmentRows.map((row) => row.alert_id).filter(Boolean))];
 
   const alertQueries = alertIds.length
@@ -215,7 +224,12 @@ export async function GET() {
     coverage: coverage ?? [],
     onboarding: onboarding ?? null,
     units: units ?? [],
-    responderPresence: (presence ?? []).map((row: any) => ({ ...row, profiles: { ...(row.profiles ?? {}), email: emailByUserId.get(row.user_id) ?? null } })),
+    currentResponseStatus: currentResponseStatus.get(userId) ?? null,
+    responderPresence: (presence ?? []).map((row: any) => ({
+      ...row,
+      response_status: currentResponseStatus.get(row.user_id) ?? null,
+      profiles: { ...(row.profiles ?? {}), email: emailByUserId.get(row.user_id) ?? null },
+    })),
     dispatchPolicy: policy ?? null,
     supportContacts: {
       global: globalSupport ?? [],

@@ -338,6 +338,14 @@ export function OrganisationConsole() {
           };
         });
       })
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "alert_assignments",
+        filter: `organisation_id=eq.${organisationId}`,
+      }, () => {
+        void refresh();
+      })
       .subscribe();
     return () => { void client.removeChannel(channel); };
   }, [organisationId]);
@@ -393,7 +401,7 @@ export function OrganisationConsole() {
   const filteredMembers = visibleMembers.filter((member) => (!memBranch || member.branch_id === memBranch) && matchesQuery(memSearch, member.profiles?.full_name, member.profiles?.email, member.role, member.membership_type, member.status));
   const filteredPresenceOnly = presenceOnlyResponders.filter((presence) => (!memBranch || presence.branch_id === memBranch) && matchesQuery(memSearch, presence.profiles?.full_name, presence.profiles?.email, presence.availability));
   const emailByUser = new Map(members.map((member) => [member.user_id, member.profiles?.email]));
-  const filteredResponders = responders.filter((presence) => (!respBranch || presence.branch_id === respBranch) && matchesQuery(respSearch, presence.profiles?.full_name, presence.profiles?.email ?? emailByUser.get(presence.user_id), presence.availability));
+  const filteredResponders = responders.filter((presence) => (!respBranch || presence.branch_id === respBranch) && matchesQuery(respSearch, presence.profiles?.full_name, presence.profiles?.email ?? emailByUser.get(presence.user_id), presence.response_status, presence.availability));
   const listToolbar = (query: string, setQuery: (value: string) => void, branch: string, setBranch: (value: string) => void, placeholder: string) => (
     <div className="flex flex-wrap items-center gap-2">
       <input className="org-list-search" aria-label={placeholder} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={placeholder} />
@@ -1890,7 +1898,7 @@ export function OrganisationConsole() {
                   <td>responder</td>
                   <td>responder</td>
                   <td>{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "—"}</td>
-                  <td>{presence.availability ?? "active"}</td>
+                  <td>{presence.response_status ?? presence.availability ?? "Not reported"}</td>
                   <td className="muted text-xs">Managed from responder roster</td>
                 </tr>
               ))}
@@ -1909,13 +1917,13 @@ export function OrganisationConsole() {
         {listToolbar(respSearch, setRespSearch, respBranch, setRespBranch, "Search responders")}
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Name</th><th>Email</th><th>Availability</th><th>Branch</th><th>Unit</th><th>Last seen</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Current status</th><th>Branch</th><th>Unit</th><th>Last seen</th><th>Actions</th></tr></thead>
             <tbody>
               {filteredResponders.map((presence) => (
                 <tr key={presence.user_id}>
                   <td>{presence.profiles?.full_name ?? presence.user_id}</td>
                   <td>{presence.profiles?.email ?? emailByUser.get(presence.user_id) ?? "—"}</td>
-                  <td>{presence.availability}</td>
+                  <td>{presence.response_status ?? presence.availability}</td>
                   <td>{branchOptions.find((branch) => branch.id === presence.branch_id)?.name ?? "—"}</td>
                   <td>{units.find((unit) => unit.id === presence.unit_id)?.name ?? "—"}</td>
                   <td>{presence.last_seen_at ? new Date(presence.last_seen_at).toLocaleString() : "—"}</td>
