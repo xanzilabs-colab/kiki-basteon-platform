@@ -8,10 +8,12 @@ import {
   ExternalLink,
   House,
   List,
+  Plus,
   RefreshCw,
   SlidersHorizontal,
   Settings2,
   Shield,
+  X,
   UserCheck,
   UserPlus,
   Users,
@@ -93,6 +95,7 @@ type MeResponse = {
 };
 
 type DashboardTab = "home" | "beneficiaries" | "responders" | "members" | "roster" | "settings" | "configurations";
+type ConfigurationDrawer = "branch" | "unit" | "coverage" | null;
 type RosterEntry = {
   id: string;
   membership_type: string;
@@ -216,6 +219,7 @@ export function OrganisationConsole() {
   const [branchGeofence, setBranchGeofence] = useState("");
   const [branchIsHq, setBranchIsHq] = useState(false);
   const [editingBranchId, setEditingBranchId] = useState("");
+  const [configurationDrawer, setConfigurationDrawer] = useState<ConfigurationDrawer>(null);
   const [responderName, setResponderName] = useState("");
   const [responderEmail, setResponderEmail] = useState("");
   const [responderPhone, setResponderPhone] = useState("");
@@ -306,6 +310,14 @@ export function OrganisationConsole() {
   useEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0;
   }, [activeTab]);
+  useEffect(() => {
+    if (!configurationDrawer) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") closeConfigurationDrawer();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [configurationDrawer]);
   useEffect(() => {
     if (!organisationId) return;
     const client = createClient();
@@ -639,6 +651,7 @@ export function OrganisationConsole() {
       setBranchGeofence("");
       setBranchIsHq(false);
       setEditingBranchId("");
+      setConfigurationDrawer(null);
       setMessage(wasEditing ? "Branch updated." : "Branch added.");
       await refresh();
     } catch (failure) {
@@ -658,9 +671,9 @@ export function OrganisationConsole() {
     setBranchLng(branch.lng == null ? "" : String(branch.lng));
     setBranchGeofence(branch.geofence_geojson ? JSON.stringify(branch.geofence_geojson, null, 2) : "");
     setBranchIsHq(Boolean(branch.is_hq));
+    setConfigurationDrawer("branch");
     setError("");
     setMessage("");
-    requestAnimationFrame(() => document.getElementById("org-branches-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function cancelBranchEdit() {
@@ -674,6 +687,39 @@ export function OrganisationConsole() {
     setBranchGeofence("");
     setBranchIsHq(false);
     setError("");
+    setConfigurationDrawer(null);
+  }
+
+  function openNewBranch() {
+    cancelBranchEdit();
+    setMessage("");
+    setConfigurationDrawer("branch");
+  }
+
+  function openNewUnit() {
+    setEditingUnitId("");
+    setUnitName("");
+    setUnitBranchId("");
+    setUnitType("other");
+    setError("");
+    setMessage("");
+    setConfigurationDrawer("unit");
+  }
+
+  function closeConfigurationDrawer() {
+    if (configurationDrawer === "branch") {
+      cancelBranchEdit();
+    } else if (configurationDrawer === "unit") {
+      setEditingUnitId("");
+      setUnitName("");
+      setUnitBranchId("");
+      setUnitType("other");
+      setError("");
+      setConfigurationDrawer(null);
+    } else {
+      setError("");
+      setConfigurationDrawer(null);
+    }
   }
 
   async function addResponder(event: React.FormEvent) {
@@ -746,6 +792,7 @@ export function OrganisationConsole() {
       setUnitBranchId("");
       setUnitType("other");
       setEditingUnitId("");
+      setConfigurationDrawer(null);
       setMessage(wasEditing ? "Unit updated." : "Unit created.");
       await refresh();
     } catch (failure) {
@@ -760,9 +807,9 @@ export function OrganisationConsole() {
     setUnitName(unit.name ?? "");
     setUnitBranchId(unit.branch_id ?? "");
     setUnitType(unit.unit_type ?? "other");
+    setConfigurationDrawer("unit");
     setError("");
     setMessage("");
-    requestAnimationFrame(() => document.getElementById("org-units-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   async function setUnitActive(unitId: string, active: boolean) {
@@ -958,6 +1005,7 @@ export function OrganisationConsole() {
       return;
     }
     setMessage("Coverage saved.");
+    setConfigurationDrawer(null);
     await refresh();
   }
 
@@ -1276,7 +1324,8 @@ export function OrganisationConsole() {
         aria-label="Organisation dashboard content"
         tabIndex={0}
       >
-      {error && <p role="alert" className="ops-login-error">{error}</p>}
+      <div className="org-console-content-inner space-y-6">
+      {error && !configurationDrawer && <p role="alert" className="ops-login-error">{error}</p>}
       {message && <p role="status" className="ops-login-status">{message}</p>}
       {blockedNow && (
         <section className="panel p-5 space-y-3 org-console-lock-message">
@@ -1843,27 +1892,11 @@ export function OrganisationConsole() {
       )}
 
       {showConfigurationsPanel && (
-      <section className="panel p-6 space-y-4">
-        <h3 className="text-sm font-bold">Branches / Stations</h3>
-        <form id="org-branches-form" className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void createBranch(event)}>
-          <label className="field">Branch name<input required value={branchName} onChange={(event) => setBranchName(event.target.value)} /></label>
-          <label className="field">Branch code<input value={branchCode} onChange={(event) => setBranchCode(event.target.value)} /></label>
-          <label className="field">Address<input value={branchAddress} onChange={(event) => setBranchAddress(event.target.value)} /></label>
-          <label className="field">City<input value={branchCity} onChange={(event) => setBranchCity(event.target.value)} /></label>
-          <label className="field">Latitude<input type="number" min="-90" max="90" step="any" value={branchLat} onChange={(event) => setBranchLat(event.target.value)} placeholder="-25.7461" /></label>
-          <label className="field">Longitude<input type="number" min="-180" max="180" step="any" value={branchLng} onChange={(event) => setBranchLng(event.target.value)} placeholder="28.1881" /></label>
-          <label className="flex items-center gap-2 self-end pb-2 text-sm font-medium">
-            <input className="org-console-checkbox" type="checkbox" checked={branchIsHq} onChange={(event) => setBranchIsHq(event.target.checked)} />
-            Headquarters
-          </label>
-          <label className="field md:col-span-2">Geofence GeoJSON (Polygon)
-            <textarea value={branchGeofence} onChange={(event) => setBranchGeofence(event.target.value)} placeholder='{"type":"Polygon","coordinates":[[[28.1,-25.7],[28.2,-25.7],[28.2,-25.8],[28.1,-25.8],[28.1,-25.7]]]}' />
-          </label>
-          <div className="flex flex-wrap items-end gap-2">
-            <button className="btn btn-primary" disabled={busy}>{editingBranchId ? "Save branch" : "Add branch"}</button>
-            {editingBranchId && <button className="btn" type="button" disabled={busy} onClick={cancelBranchEdit}>Cancel</button>}
-          </div>
-        </form>
+      <section className="panel org-config-panel">
+        <header className="org-config-panel-header">
+          <div><h2 className="org-config-panel-title">Branches and stations</h2></div>
+          <button className="btn btn-primary" type="button" onClick={openNewBranch}><Plus size={16} />Add branch</button>
+        </header>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>Name</th><th>Address</th><th>City</th><th>HQ</th><th>Actions</th></tr></thead>
@@ -1885,30 +1918,11 @@ export function OrganisationConsole() {
       )}
 
       {showConfigurationsPanel && (
-      <section className="panel p-6 space-y-4">
-        <h2 className="org-tab-title">Units</h2>
-        <form id="org-units-form" className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void createUnit(event)}>
-          <label className="field">Unit name<input required value={unitName} onChange={(event) => setUnitName(event.target.value)} /></label>
-          <label className="field">Unit type
-            <select value={unitType} onChange={(event) => setUnitType(event.target.value)}>
-              <option value="patrol_vehicle">Patrol vehicle</option>
-              <option value="ambulance">Ambulance</option>
-              <option value="response_team">Response team</option>
-              <option value="medical_team">Medical team</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label className="field">Branch
-            <select required disabled={Boolean(editingUnitId)} value={unitBranchId} onChange={(event) => setUnitBranchId(event.target.value)}>
-              <option value="">Select branch</option>
-              {branchOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-            </select>
-          </label>
-          <div className="flex flex-wrap items-end gap-2">
-            <button className="btn btn-primary" disabled={busy}>{editingUnitId ? "Save unit" : "Add unit"}</button>
-            {editingUnitId && <button className="btn" type="button" disabled={busy} onClick={() => { setEditingUnitId(""); setUnitName(""); setUnitBranchId(""); setUnitType("other"); }}>Cancel</button>}
-          </div>
-        </form>
+      <section className="panel org-config-panel">
+        <header className="org-config-panel-header">
+          <div><h2 className="org-config-panel-title">Units</h2></div>
+          <button className="btn btn-primary" type="button" onClick={openNewUnit}><Plus size={16} />Add unit</button>
+        </header>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>Name</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
@@ -1927,7 +1941,7 @@ export function OrganisationConsole() {
                   </td>
                 </tr>
               ))}
-              {units.length === 0 && <tr><td colSpan={5} className="muted text-center">No units configured yet.</td></tr>}
+              {units.length === 0 && <tr><td colSpan={5} className="muted text-center">No units configured yet. Add a unit to group responders by zone.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1935,22 +1949,14 @@ export function OrganisationConsole() {
       )}
 
       {showConfigurationsPanel && (
-      <section className="panel p-6 space-y-4">
-        <h2 className="org-tab-title">Emergency Coverage</h2>
-        <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void addCoverage(event)}>
-          <label className="field">Emergency type
-            <select value={coverageTypeCode} onChange={(event) => setCoverageTypeCode(event.target.value)}>
-              {emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}
-            </select>
-          </label>
-          <label className="field">Branch
-            <select value={coverageBranchId} onChange={(event) => setCoverageBranchId(event.target.value)}>
-              <option value="">All branches (org-wide)</option>
-              {branchOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-            </select>
-          </label>
-          <button className="btn btn-primary self-end" disabled={busy}>Save coverage</button>
-        </form>
+      <section className="panel org-config-panel">
+        <header className="org-config-panel-header">
+          <div>
+            <h2 className="org-config-panel-title">Emergency coverage</h2>
+            <p>Which emergency types each branch responds to.</p>
+          </div>
+          <button className="btn btn-primary" type="button" onClick={() => { setError(""); setMessage(""); setConfigurationDrawer("coverage"); }}><Plus size={16} />Add coverage</button>
+        </header>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>Type</th><th>Branch</th><th>Priority</th><th>Actions</th></tr></thead>
@@ -2129,7 +2135,102 @@ export function OrganisationConsole() {
         </div>
       </section>
       )}
+      </div>
       </main>
+      {configurationDrawer && (
+        <div className="org-console-config-drawer-layer">
+          <button
+            type="button"
+            className="org-console-config-backdrop"
+            aria-label="Close configuration form"
+            onClick={closeConfigurationDrawer}
+          />
+          <aside
+            className="org-console-config-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="org-console-config-drawer-title"
+          >
+            <header>
+              <h2 id="org-console-config-drawer-title">
+                {configurationDrawer === "branch"
+                  ? (editingBranchId ? "Edit branch" : "Add branch")
+                  : configurationDrawer === "unit"
+                    ? (editingUnitId ? "Edit unit" : "Add unit")
+                    : "Add emergency coverage"}
+              </h2>
+              <button type="button" className="org-console-config-close" onClick={closeConfigurationDrawer} aria-label="Close">
+                <X size={20} />
+              </button>
+            </header>
+            {error && <p role="alert" className="ops-login-error org-console-config-error">{error}</p>}
+            {configurationDrawer === "branch" && (
+              <form id="org-branches-form" className="org-console-config-form" onSubmit={(event) => void createBranch(event)}>
+                <label className="field">Branch name<input autoFocus required value={branchName} onChange={(event) => setBranchName(event.target.value)} /></label>
+                <label className="field">Branch code<input value={branchCode} onChange={(event) => setBranchCode(event.target.value)} /></label>
+                <label className="field">Address<input value={branchAddress} onChange={(event) => setBranchAddress(event.target.value)} /></label>
+                <label className="field">City<input value={branchCity} onChange={(event) => setBranchCity(event.target.value)} /></label>
+                <label className="field">Latitude<input type="number" min="-90" max="90" step="any" value={branchLat} onChange={(event) => setBranchLat(event.target.value)} placeholder="-25.7461" /></label>
+                <label className="field">Longitude<input type="number" min="-180" max="180" step="any" value={branchLng} onChange={(event) => setBranchLng(event.target.value)} placeholder="28.1881" /></label>
+                <label className="field">Geofence GeoJSON (Polygon)
+                  <textarea rows={5} value={branchGeofence} onChange={(event) => setBranchGeofence(event.target.value)} placeholder='{"type":"Polygon","coordinates":[[[28.1,-25.7],[28.2,-25.7],[28.2,-25.8],[28.1,-25.8],[28.1,-25.7]]]}' />
+                </label>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input className="org-console-checkbox" type="checkbox" checked={branchIsHq} onChange={(event) => setBranchIsHq(event.target.checked)} />
+                  Headquarters
+                </label>
+                <footer>
+                  <button className="btn" type="button" disabled={busy} onClick={closeConfigurationDrawer}>Cancel</button>
+                  <button className="btn btn-primary" disabled={busy}>{editingBranchId ? "Save branch" : "Add branch"}</button>
+                </footer>
+              </form>
+            )}
+            {configurationDrawer === "unit" && (
+              <form id="org-units-form" className="org-console-config-form" onSubmit={(event) => void createUnit(event)}>
+                <label className="field">Unit name<input autoFocus required value={unitName} onChange={(event) => setUnitName(event.target.value)} /></label>
+                <label className="field">Unit type
+                  <select value={unitType} onChange={(event) => setUnitType(event.target.value)}>
+                    <option value="patrol_vehicle">Patrol vehicle</option>
+                    <option value="ambulance">Ambulance</option>
+                    <option value="response_team">Response team</option>
+                    <option value="medical_team">Medical team</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label className="field">Branch
+                  <select required disabled={Boolean(editingUnitId)} value={unitBranchId} onChange={(event) => setUnitBranchId(event.target.value)}>
+                    <option value="">Select branch</option>
+                    {branchOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                  </select>
+                </label>
+                <footer>
+                  <button className="btn" type="button" disabled={busy} onClick={closeConfigurationDrawer}>Cancel</button>
+                  <button className="btn btn-primary" disabled={busy}>{editingUnitId ? "Save unit" : "Add unit"}</button>
+                </footer>
+              </form>
+            )}
+            {configurationDrawer === "coverage" && (
+              <form className="org-console-config-form" onSubmit={(event) => void addCoverage(event)}>
+                <label className="field">Emergency type
+                  <select autoFocus value={coverageTypeCode} onChange={(event) => setCoverageTypeCode(event.target.value)}>
+                    {emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}
+                  </select>
+                </label>
+                <label className="field">Branch
+                  <select value={coverageBranchId} onChange={(event) => setCoverageBranchId(event.target.value)}>
+                    <option value="">All branches (org-wide)</option>
+                    {branchOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                  </select>
+                </label>
+                <footer>
+                  <button className="btn" type="button" disabled={busy} onClick={closeConfigurationDrawer}>Cancel</button>
+                  <button className="btn btn-primary" disabled={busy}>Save coverage</button>
+                </footer>
+              </form>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
     </div>
     <style jsx global>{`
@@ -2359,18 +2460,23 @@ export function OrganisationConsole() {
       .org-console .org-console-response-link:hover { background: #096659; }
       .org-console-content {
         width: 100%;
-        max-width: 1236px;
-        height: calc(100dvh - 60px);
+        max-width: none;
         min-height: 0;
-        flex: 1 1 auto;
-        overflow-x: hidden;
-        overflow-y: scroll;
-        margin: 0 auto;
+        flex: 1 1 0;
+        overflow: auto;
+        margin: 0;
         padding: 28px;
         overscroll-behavior-y: contain;
-        scrollbar-gutter: stable;
         touch-action: pan-y;
         -webkit-overflow-scrolling: touch;
+      }
+      .org-console-content-inner {
+        display: grid;
+        width: 100%;
+        max-width: 1180px;
+        align-content: start;
+        gap: 20px;
+        margin: 0 auto;
       }
       .org-console .tbl-wrap {
         width: 100%;
@@ -2381,6 +2487,101 @@ export function OrganisationConsole() {
         background: transparent;
         box-shadow: none;
       }
+      .org-console .panel.org-config-panel {
+        padding: 0;
+        border-radius: 10px;
+        box-shadow: none;
+      }
+      .org-console .org-config-panel-header {
+        display: flex;
+        min-height: 64px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 22px;
+        border-bottom: 1px solid var(--line);
+      }
+      .org-console .org-config-panel-header p {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .org-console .org-config-panel-title {
+        margin: 0;
+        color: var(--text);
+        font: 600 18px "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+      }
+      .org-console .org-config-panel .tbl th,
+      .org-console .org-config-panel .tbl td {
+        padding-right: 22px;
+        padding-left: 22px;
+      }
+      .org-console-config-drawer-layer {
+        position: fixed;
+        z-index: 1000;
+        inset: 0;
+      }
+      .org-console-config-backdrop {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: rgba(13, 17, 23, .45);
+      }
+      .org-console-config-drawer {
+        position: absolute;
+        inset: 0 0 0 auto;
+        display: flex;
+        width: min(440px, 100%);
+        max-height: 100dvh;
+        flex-direction: column;
+        background: #fff;
+        box-shadow: -8px 0 30px rgba(0, 0, 0, .15);
+      }
+      .org-console-config-drawer > header {
+        display: flex;
+        min-height: 64px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      .org-console-config-drawer > header h2 {
+        margin: 0;
+        font: 600 20px "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+      }
+      .org-console-config-close {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        flex: none;
+        place-items: center;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+      }
+      .org-console-config-close:hover { background: var(--surface-3); color: var(--text); }
+      .org-console-config-form {
+        display: grid;
+        flex: 1;
+        align-content: start;
+        gap: 16px;
+        overflow: auto;
+        padding: 24px;
+      }
+      .org-console-config-form footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin: auto -24px -24px;
+        padding: 16px 24px;
+        border-top: 1px solid var(--line);
+        background: #fafbfc;
+      }
+      .org-console-config-error { margin: 16px 24px 0; }
       .org-console-locked > :not(.org-console-lock-message):not(.ops-login-error):not(.ops-login-status) {
         pointer-events: none;
         opacity: .45;
@@ -2898,12 +3099,7 @@ export function OrganisationConsole() {
       .org-list-search:focus { outline: 2px solid #a855f7; outline-offset: 1px; }
       .org-console .btn-danger { border-color: transparent; background: var(--crit); color: #fff; }
       .org-console .panel { padding-inline: clamp(14px, 2vw, 24px); }
-      .org-console .org-console-content {
-        display: grid;
-        align-content: start;
-        gap: 20px;
-      }
-      .org-console .org-console-content.space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0; }
+      .org-console .org-console-content-inner.space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0; }
       .org-console .org-console-page-heading {
         display: flex;
         align-items: flex-end;
@@ -3309,7 +3505,12 @@ export function OrganisationConsole() {
         .org-console-sync,
         .org-console-refresh span,
         .org-console-response-link span { display: none; }
-        .org-console .org-console-content { height: calc(100dvh - 56px); padding: 16px 12px; }
+        .org-console .org-console-content { padding: 16px 12px; }
+        .org-console .org-config-panel-header { align-items: flex-start; padding: 14px; }
+        .org-console .org-config-panel .tbl th,
+        .org-console .org-config-panel .tbl td { padding-right: 14px; padding-left: 14px; }
+        .org-console-config-form { padding: 20px 16px; }
+        .org-console-config-form footer { margin: auto -16px -20px; padding: 14px 16px; }
         .org-console .org-console-page-heading h1 { font-size: 26px; }
         .org-console .org-console-metric { min-height: 104px; padding: 16px; }
         .org-console .org-console-metric > div:first-child > p:nth-child(2) { font-size: 34px; }
