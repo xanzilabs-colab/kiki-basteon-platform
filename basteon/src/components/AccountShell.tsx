@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Flower2, Gamepad2, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Flower2, Gamepad2, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
@@ -353,7 +353,7 @@ export function AccountShell({ name, children, initialDarkTheme = false }: { nam
           </Link>
         ))}
         <SosActionButton className="account-mobile-sos" title="Send SOS" onSelect={openSos}>
-          <KikiMark size={108} />
+          <Zap size={30} fill="currentColor" strokeWidth={1.2} aria-hidden="true" />
         </SosActionButton>
         <button className="account-mobile-more nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px]" title="More options" aria-label="Open more options" onClick={() => setMoreOpen(true)}>
           <NavSigil><Menu size={20} strokeWidth={2.2} aria-hidden="true" /></NavSigil>

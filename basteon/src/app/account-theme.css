@@ -153,43 +153,59 @@
 
 .account-shell[data-theme="dark"] {
   color-scheme: dark;
-  --chrome: #211a28;
-  --bg: #18131d;
-  --surface-1: #241d2b;
-  --surface-2: #302638;
-  --surface-3: #3b3045;
-  --well: #17121b;
-  --divider: #44374d;
-  --text: #f4eef7;
-  --text-2: #d2c6db;
-  --muted: #aa9db4;
+  --chrome: #140c1e;
+  --bg: #0e0815;
+  --surface-1: #1a1126;
+  --surface-2: #221733;
+  --surface-3: #2a1d3b;
+  --well: #140c1e;
+  --divider: #2f2142;
+  --text: #f4eefc;
+  --text-2: #d6c9e5;
+  --muted: #9c8db4;
   --line: var(--divider);
-  --line-strong: #5b4a66;
-  --line-focus: #d9b9ec;
-  --accent: #cba6df;
-  --accent-ink: #24162d;
-  --accent-bg: #3a2b45;
-  --accent-line: #cba6df;
-  --crit-bg: #381c27;
-  --warn-bg: #352b1c;
-  --info-bg: #1b302e;
-  --violet-bg: #2b2440;
-  --ok-bg: #1d3328;
+  --line-strong: #443057;
+  --line-focus: #c4a7ff;
+  --accent: #a78bfa;
+  --accent2: #7c3aed;
+  --accent-ink: #140c1e;
+  --accent-bg: rgb(167 139 250 / 14%);
+  --accent-line: #7c3aed;
+  --crit: #fb7185;
+  --crit-bg: rgb(251 113 133 / 12%);
+  --crit-line: #fb7185;
+  --warn: #fbbf24;
+  --warn-bg: rgb(251 191 36 / 12%);
+  --warn-line: #fbbf24;
+  --info: #38bdf8;
+  --info-bg: #142638;
+  --info-line: #38bdf8;
+  --violet: #a78bfa;
+  --violet-bg: #211936;
+  --violet-line: #a78bfa;
+  --ok: #4ade80;
+  --ok-bg: rgb(74 222 128 / 12%);
+  --ok-line: #4ade80;
+  --dim: #6e6086;
+  --elev-float: 0 16px 40px rgb(0 0 0 / 32%);
   background: var(--bg);
   color: var(--text);
+  font-family: "Plus Jakarta Sans", "Manrope", sans-serif;
   transition: background-color 320ms ease, color 320ms ease;
 }
 
 .account-shell[data-theme="dark"] .sidebar {
-  background: #21172a;
+  border-right: 1px solid var(--divider);
+  background: #140c1e;
 }
 
 .account-shell[data-theme="dark"] .sidebar-head {
   border-bottom-color: var(--divider);
+  color: var(--text);
 }
 
 .account-shell[data-theme="dark"] .appbar {
-  background: rgb(33 26 40 / 92%);
+  background: rgb(20 12 30 / 94%);
   border-color: var(--divider);
 }
 
@@ -214,7 +230,7 @@
 .account-shell[data-theme="dark"] .kiki-reference-card {
   border-color: var(--divider);
   background: var(--surface-1);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 16%);
+  box-shadow: none;
 }
 
 .account-shell[data-theme="dark"] .page-title,
@@ -356,5 +372,995 @@
   .kiki-profile-switch,
   .kiki-profile-switch > i {
     transition: none;
+  }
+}
+
+.account-shell[data-theme="dark"] {
+  background: var(--bg) !important;
+  background-image: none !important;
+}
+
+.account-shell[data-theme="dark"] main {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] main :is(h1, h2, h3, h4, .page-title) {
+  color: var(--text);
+  font-family: "Plus Jakarta Sans", "Manrope", sans-serif;
+  letter-spacing: -.03em;
+}
+
+.account-shell[data-theme="dark"] main :is(.eyebrow, .muted) {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .account-mobile-appbar {
+  background: rgb(20 12 30 / 94%) !important;
+  border-bottom: 1px solid var(--divider);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .account-user-summary {
+  gap: 8px;
+  margin-left: 0;
+}
+
+.account-shell[data-theme="dark"] .account-user-avatar {
+  border-color: var(--divider);
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+}
+
+.account-shell[data-theme="dark"] .account-user-avatar i {
+  border-color: var(--chrome);
+  background: var(--ok);
+}
+
+.account-shell[data-theme="dark"] .account-user-name {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.account-shell[data-theme="dark"] .account-user-protected {
+  border-color: rgb(74 222 128 / 20%);
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell[data-theme="dark"] .account-header-action {
+  border: 1px solid var(--divider);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .account-header-action > i {
+  border-color: var(--chrome);
+  background: #f43f5e;
+}
+
+.account-shell[data-theme="dark"] .account-sign-out {
+  display: none;
+}
+
+.account-shell[data-theme="dark"] .account-mobile-nav {
+  height: 78px;
+  align-items: flex-start;
+  justify-content: space-around;
+  border-color: var(--divider);
+  background: rgb(20 12 30 / 96%);
+  padding: 10px 6px 0;
+  backdrop-filter: blur(14px);
+}
+
+.account-shell[data-theme="dark"] .account-mobile-nav .nav-link {
+  width: 60px;
+  flex: 0 1 60px;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 5px 0;
+}
+
+.account-shell[data-theme="dark"] .account-mobile-nav .nav-link[aria-current="page"] {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .account-mobile-nav .nav-sigil,
+.account-shell[data-theme="dark"] .account-mobile-nav .nav-link[aria-current="page"] .nav-sigil {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.account-shell[data-theme="dark"] .account-mobile-nav .nav-sigil::before {
+  content: none;
+}
+
+.account-shell[data-theme="dark"] .account-mobile-sos {
+  width: 68px;
+  min-width: 68px;
+  height: 68px;
+  flex: 0 0 68px;
+  margin: -30px 2px 0;
+  border: 5px solid var(--bg);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fb7185, #e11d48 70%);
+  box-shadow: 0 0 0 1px var(--divider), 0 12px 30px -4px rgb(244 63 94 / 65%);
+  color: #fff;
+}
+
+.account-shell[data-theme="dark"] .account-mobile-sos:hover {
+  background: radial-gradient(circle at 35% 30%, #fb7185, #e11d48 70%);
+}
+
+.account-shell[data-theme="dark"] .account-mobile-more {
+  color: var(--dim);
+}
+
+.account-shell[data-theme="dark"] .account-mobile-more:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .account-page-transition {
+  min-height: calc(100dvh - 154px);
+}
+
+.account-shell[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger) {
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger):hover {
+  background: var(--surface-3);
+}
+
+.account-shell[data-theme="dark"] .btn-primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+}
+
+.account-shell[data-theme="dark"] .btn-primary:hover {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+}
+
+.account-shell[data-theme="dark"] .btn-danger {
+  border-color: transparent;
+  background: #e11d48;
+  color: #fff;
+}
+
+.account-shell[data-theme="dark"] .input,
+.account-shell[data-theme="dark"] input,
+.account-shell[data-theme="dark"] textarea,
+.account-shell[data-theme="dark"] select {
+  border-color: var(--divider);
+  background: var(--well);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] input::placeholder,
+.account-shell[data-theme="dark"] textarea::placeholder {
+  color: var(--dim);
+}
+
+.account-shell[data-theme="dark"] .sidebar-link {
+  color: var(--text-2);
+}
+
+.account-shell[data-theme="dark"] .sidebar-link:hover,
+.account-shell[data-theme="dark"] .sidebar-link[aria-current="page"] {
+  background: var(--accent-bg);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .account-desktop-call,
+.account-shell[data-theme="dark"] .sidebar .btn {
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview {
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-title {
+  margin: 0 0 14px;
+  color: var(--text);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-hero {
+  border: 1px solid #1e5a3c;
+  border-radius: 26px;
+  background: linear-gradient(160deg, #143d2a 0%, #0b2018 100%);
+  box-shadow: 0 18px 40px -18px rgb(74 222 128 / 30%);
+  padding: 20px;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-hero-copy h2 {
+  color: var(--text);
+  font-size: 22px;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-hero-copy p {
+  margin: 6px 0 16px;
+  color: #a7d9bc;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-cta {
+  height: auto;
+  min-height: 48px;
+  margin-top: 0;
+  border-radius: 16px;
+  background: #6ee7a8;
+  color: #052e1a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-section {
+  margin-top: 22px;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-section-head {
+  margin: 0 4px 8px;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-section-head h2 {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-group {
+  border: 1px solid var(--divider);
+  border-radius: 22px;
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-status-row {
+  min-height: 66px;
+  gap: 12px;
+  padding: 12px;
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-status-row + .kiki-overview-status-row::before {
+  right: 12px;
+  left: 64px;
+  background: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-status-row:active {
+  background: var(--surface-2);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-tile-icon {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+  border-radius: 13px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-status-copy strong,
+.account-shell[data-theme="dark"] .kiki-overview-trip-copy strong {
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-status-copy > span,
+.account-shell[data-theme="dark"] .kiki-overview-trip-copy > span:not(.kiki-overview-arrived),
+.account-shell[data-theme="dark"] .kiki-overview-trip-row time {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-state {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-state.is-on {
+  color: var(--ok);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-state.is-on i {
+  background: var(--ok);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-chevron {
+  color: var(--dim);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-trip-row {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-trip-row + .kiki-overview-trip-row::before {
+  background: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-route i {
+  border-color: var(--accent);
+  background: var(--surface-1);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-route i:last-child {
+  background: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-arrived {
+  background: var(--ok-bg);
+  color: var(--ok) !important;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-empty {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-card,
+.account-shell[data-theme="dark"] .kiki-setting-page > section,
+.account-shell[data-theme="dark"] .smart-safety-card {
+  border: 1px solid var(--divider);
+  border-radius: 22px;
+  background: var(--surface-1);
+  box-shadow: none;
+  padding: 16px;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-hub > header h1,
+.account-shell[data-theme="dark"] .kiki-setting-page h1 {
+  margin: 4px 0;
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-hub > header > span,
+.account-shell[data-theme="dark"] .kiki-setting-page header > span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-identity {
+  gap: 12px;
+  border-bottom-color: var(--divider);
+  padding-bottom: 14px;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-identity > img,
+.account-shell[data-theme="dark"] .kiki-profile-identity > span {
+  border-color: var(--divider);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-identity h2 {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-identity p {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-identity b {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-menu {
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-menu a,
+.account-shell[data-theme="dark"] .kiki-profile-menu > button:not(.kiki-profile-theme-toggle) {
+  min-height: 48px;
+  border: 1px solid var(--divider);
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-menu span svg {
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-menu > * > svg {
+  color: var(--dim);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-theme-toggle {
+  min-height: 52px;
+  border-color: var(--divider);
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 10px 14px;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-theme-copy > i {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-theme-copy strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-theme-copy small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-switch {
+  background: #3a2c52;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-theme-toggle[aria-checked="true"] .kiki-profile-switch {
+  background: #7c3aed;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-logout {
+  min-height: 48px;
+  border: 1px solid rgb(251 113 133 / 35%);
+  border-radius: 16px;
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page header > p,
+.account-shell[data-theme="dark"] .kiki-setting-page section > p,
+.account-shell[data-theme="dark"] .kiki-setting-page label,
+.account-shell[data-theme="dark"] .smart-safety-intro,
+.account-shell[data-theme="dark"] .smart-safety-setting p {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page > section {
+  gap: 14px;
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page section h2 {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page [role="status"] {
+  color: var(--ok);
+}
+
+.account-shell[data-theme="dark"] .kiki-avatar-upload {
+  border-color: var(--divider);
+  border-radius: 18px;
+  background: var(--well);
+}
+
+.account-shell[data-theme="dark"] .kiki-avatar-upload > img,
+.account-shell[data-theme="dark"] .kiki-avatar-upload > span {
+  border-color: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .kiki-avatar-upload b,
+.account-shell[data-theme="dark"] .kiki-avatar-upload small,
+.account-shell[data-theme="dark"] .kiki-avatar-upload input {
+  color: var(--text-2);
+}
+
+.account-shell[data-theme="dark"] .kiki-data-controls {
+  gap: 12px;
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell[data-theme="dark"] .kiki-data-controls > div h2 svg {
+  color: var(--warn);
+}
+
+.account-shell[data-theme="dark"] .kiki-delete-data {
+  border-color: rgb(251 191 36 / 35%);
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.account-shell[data-theme="dark"] .kiki-delete-account {
+  border-color: rgb(251 113 133 / 35%);
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-error {
+  border-color: #753849;
+  background: #351d27;
+  color: #ffb8c5;
+}
+
+.account-shell[data-theme="dark"] .smart-safety-setting,
+.account-shell[data-theme="dark"] .smart-safety-inline,
+.account-shell[data-theme="dark"] .smart-safety-times {
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .smart-safety-setting b,
+.account-shell[data-theme="dark"] .smart-safety-card h2 {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .smart-safety-switch {
+  background: #3a2c52;
+}
+
+.account-shell[data-theme="dark"] .smart-safety-switch[aria-checked="true"] {
+  background: #7c3aed;
+}
+
+.account-shell[data-theme="dark"] .kiki-devices-redesign {
+  --device-ink: #f4eefc;
+  --device-plum: #a78bfa;
+  --device-plum-light: #c4b5fd;
+  --device-lavender: rgb(167 139 250 / 14%);
+  --device-mute: #9c8db4;
+  --device-line: #2f2142;
+  --device-green: #4ade80;
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .devices-heading h1,
+.account-shell[data-theme="dark"] .devices-list-title h2,
+.account-shell[data-theme="dark"] .devices-empty h2 {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .devices-heading p,
+.account-shell[data-theme="dark"] .devices-heading-eyebrow {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .devices-link-button,
+.account-shell[data-theme="dark"] .devices-empty > a,
+.account-shell[data-theme="dark"] .devices-empty > button {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .devices-mode-switch {
+  border-color: var(--divider);
+  background: var(--well);
+}
+
+.account-shell[data-theme="dark"] .devices-mode-switch button {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .devices-mode-switch button.active {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgb(167 139 250 / 35%);
+}
+
+.account-shell[data-theme="dark"] .devices-hero {
+  border-color: var(--divider);
+  background: radial-gradient(circle at 50% 40%, rgb(139 92 246 / 20%), transparent 65%), var(--surface-1);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .device-orbit,
+.account-shell[data-theme="dark"] .devices-hero:not(.is-online) .device-orbit {
+  border-color: rgb(167 139 250 / 18%);
+}
+
+.account-shell[data-theme="dark"] .devices-hero-copy {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .devices-hero-copy h2,
+.account-shell[data-theme="dark"] .devices-metric b,
+.account-shell[data-theme="dark"] .devices-actions b,
+.account-shell[data-theme="dark"] .devices-list-copy b {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .devices-id,
+.account-shell[data-theme="dark"] .devices-metric small,
+.account-shell[data-theme="dark"] .devices-actions small,
+.account-shell[data-theme="dark"] .devices-list-copy small {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .devices-status,
+.account-shell[data-theme="dark"] .devices-list-badge {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .devices-status.connected,
+.account-shell[data-theme="dark"] .devices-list-badge.online {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell[data-theme="dark"] .devices-pagination button {
+  background: var(--line-strong);
+}
+
+.account-shell[data-theme="dark"] .devices-pagination button.selected {
+  background: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .devices-metric,
+.account-shell[data-theme="dark"] .devices-actions,
+.account-shell[data-theme="dark"] .devices-list,
+.account-shell[data-theme="dark"] .devices-list-row,
+.account-shell[data-theme="dark"] .devices-loading,
+.account-shell[data-theme="dark"] .devices-empty {
+  border-color: var(--divider);
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .devices-actions > button,
+.account-shell[data-theme="dark"] .devices-actions > a {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .devices-actions > * + *::before,
+.account-shell[data-theme="dark"] .devices-list-row + .devices-list-row::before {
+  background: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .devices-action-icon,
+.account-shell[data-theme="dark"] .devices-list-art,
+.account-shell[data-theme="dark"] .devices-empty-art {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .devices-actions .remove-device-action .devices-action-icon,
+.account-shell[data-theme="dark"] .devices-actions .remove-device-action {
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell[data-theme="dark"] .devices-actions .remove-device-action b {
+  color: var(--crit);
+}
+
+.account-shell[data-theme="dark"] .devices-list-row.selected {
+  background: var(--surface-2);
+}
+
+.account-shell[data-theme="dark"] .devices-add-another {
+  border-color: var(--divider);
+  background: transparent;
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .devices-empty p {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .everyday-devices-card {
+  --ed-ink: #f4eefc;
+  --ed-muted: #9c8db4;
+  --ed-line: #2f2142;
+  --ed-plum: #a78bfa;
+  --ed-deep: #a78bfa;
+  --ed-lav: rgb(167 139 250 / 14%);
+  --ed-ok: #4ade80;
+  --ed-okbg: rgb(74 222 128 / 12%);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .everyday-heading-icon,
+.account-shell[data-theme="dark"] .everyday-empty-icon,
+.account-shell[data-theme="dark"] .everyday-device-icon,
+.account-shell[data-theme="dark"] .everyday-small-icon {
+  border-color: var(--divider);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .everyday-empty-card,
+.account-shell[data-theme="dark"] .everyday-device-list,
+.account-shell[data-theme="dark"] .everyday-simple-list,
+.account-shell[data-theme="dark"] .everyday-device-entry,
+.account-shell[data-theme="dark"] .everyday-more > div {
+  border-color: var(--divider);
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .everyday-device-entry + .everyday-device-entry,
+.account-shell[data-theme="dark"] .everyday-simple-row + .everyday-simple-row {
+  border-top-color: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .everyday-devices-card :is(h2, h3, b, .everyday-more > div button) {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .everyday-devices-card :is(p, span, small, .everyday-section-label) {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .everyday-status-chip {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .everyday-status-chip.connected {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell[data-theme="dark"] .everyday-primary-button {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .everyday-secondary-button,
+.account-shell[data-theme="dark"] .everyday-action-button,
+.account-shell[data-theme="dark"] .everyday-more summary {
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .everyday-action-button.primary {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .everyday-action-button.remove {
+  color: var(--crit);
+}
+
+.account-shell[data-theme="dark"] .everyday-more > div button:hover {
+  background: var(--surface-2);
+}
+
+.account-shell[data-theme="dark"] .hamba-page {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .hamba-page .hamba-heading .page-title,
+.account-shell[data-theme="dark"] .hamba-page .hamba-heading h1 {
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.account-shell[data-theme="dark"] .hamba-heading p,
+.account-shell[data-theme="dark"] .hamba-page .hamba-note,
+.account-shell[data-theme="dark"] .hamba-page .hamba-message,
+.account-shell[data-theme="dark"] .hamba-page .hamba-active-card > p {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .hamba-engine {
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .hamba-live {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell[data-theme="dark"] .hamba-trip-tabs {
+  border-color: var(--divider);
+  background: var(--well);
+}
+
+.account-shell[data-theme="dark"] .hamba-trip-tabs button {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .hamba-trip-tabs button[aria-selected="true"] {
+  background: var(--accent-bg);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgb(167 139 250 / 40%);
+}
+
+.account-shell[data-theme="dark"] .hamba-planner,
+.account-shell[data-theme="dark"] .hamba-active-card,
+.account-shell[data-theme="dark"] .hamba-recent,
+.account-shell[data-theme="dark"] .buddies-panel,
+.account-shell[data-theme="dark"] .buddies-consent {
+  border-color: var(--divider);
+  border-radius: 22px;
+  background: var(--surface-1);
+  box-shadow: none;
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .hamba-page > a[href*="/account/calm/winds"] {
+  border-color: var(--divider);
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .hamba-page > a[href*="/account/calm/winds"] small {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .hamba-search,
+.account-shell[data-theme="dark"] .hamba-safety-options > *,
+.account-shell[data-theme="dark"] .hamba-mode,
+.account-shell[data-theme="dark"] .buddies-modes,
+.account-shell[data-theme="dark"] .hamba-route-summary div,
+.account-shell[data-theme="dark"] .hamba-trip-stats span,
+.account-shell[data-theme="dark"] .hamba-recent-item,
+.account-shell[data-theme="dark"] .buddies-map,
+.account-shell[data-theme="dark"] .hamba-active-card section {
+  border-color: var(--divider);
+  background-color: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .hamba-search input,
+.account-shell[data-theme="dark"] .hamba-mode button,
+.account-shell[data-theme="dark"] .buddies-modes button {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .hamba-mode button.active,
+.account-shell[data-theme="dark"] .buddies-modes button[aria-pressed="true"] {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .hamba-safety-options span,
+.account-shell[data-theme="dark"] .hamba-route-summary span,
+.account-shell[data-theme="dark"] .hamba-control-stats span {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .hamba-safety-options b,
+.account-shell[data-theme="dark"] .hamba-control-stats b,
+.account-shell[data-theme="dark"] .hamba-recent-item b {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .hamba-map-overlay {
+  border-color: var(--divider);
+  background: rgb(26 17 38 / 94%);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .hamba-map-overlay h2,
+.account-shell[data-theme="dark"] .hamba-map-overlay p {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .hamba-map-overlay p {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .hamba-overlay-icon {
+  background: var(--accent2);
+  color: #fff;
+}
+
+.account-shell[data-theme="dark"] .hamba-recenter {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .account-more-scrim {
+  background: rgb(5 3 10 / 60%);
+  backdrop-filter: blur(3px);
+}
+
+.account-shell[data-theme="dark"] .account-more-sheet {
+  border: 1px solid var(--divider);
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .account-more-sheet::before {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 6px;
+  border-radius: 2px;
+  background: var(--divider);
+  content: "";
+}
+
+.account-shell[data-theme="dark"] .account-more-option {
+  border-bottom-color: var(--divider);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .account-more-option small {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .account-more-option:hover {
+  background: var(--surface-2);
+  transform: none;
+}
+
+.account-shell[data-theme="dark"] .account-more-option .nav-sigil {
+  color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .account-more-sheet .btn {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+@media (max-width: 767px) {
+  .account-shell[data-theme="dark"] main {
+    padding: 8px 16px max(24px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .account-shell[data-theme="dark"] .account-more-scrim {
+    inset: 28px 0 78px;
+    align-items: flex-end;
+  }
+
+  .account-shell[data-theme="dark"] .account-more-sheet {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: min(470px, calc(100% - 12px));
+    margin: 0;
+    overflow-y: auto;
+    border-radius: 28px 28px 0 0;
+    padding: 10px 18px 16px;
+  }
+}
+
+@media (min-width: 768px) {
+  .account-shell[data-theme="dark"] main {
+    padding: 24px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-shell[data-theme="dark"] *,
+  .account-shell[data-theme="dark"] *::before,
+  .account-shell[data-theme="dark"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
   }
 }
