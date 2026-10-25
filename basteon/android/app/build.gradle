@@ -34,8 +34,8 @@ android {
         applicationId "za.co.xanzi.kiki"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "1.8"
+        versionCode 10
+        versionName "1.9"
         buildConfigField "String", "TRIGGER_APP_ORIGIN", "\"${triggerAppOrigin}\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
