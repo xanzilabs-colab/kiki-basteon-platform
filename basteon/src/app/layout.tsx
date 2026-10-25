@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./kiki.css";
+import "./account-theme.css";
 import { Toaster } from "sonner";
 import { TouchSound } from "@/components/TouchSound";
 import { AppDialogProvider } from "@/components/AppDialogProvider";

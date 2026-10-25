@@ -1,0 +1,360 @@
+.kiki-profile-theme-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #f1edf5;
+  border-radius: 16px;
+  background: #faf8fc;
+  padding: 12px 14px;
+  color: #29212f;
+  text-align: left;
+}
+
+.kiki-profile-theme-toggle:disabled {
+  cursor: wait;
+  opacity: .72;
+}
+
+.kiki-profile-theme-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.kiki-profile-theme-copy > i {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+  background: #f2e8f6;
+  color: #5c1d5e;
+  font-style: normal;
+}
+
+.kiki-profile-theme-copy > span {
+  display: grid;
+  gap: 2px;
+}
+
+.kiki-profile-theme-copy strong {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.kiki-profile-theme-copy small {
+  color: #756b7d;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.kiki-profile-switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #d6cfda;
+  transition: background-color 280ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.kiki-profile-switch > i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(35 19 42 / 22%);
+  transition: transform 280ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.kiki-profile-theme-toggle[aria-checked="true"] .kiki-profile-switch {
+  background: #6d3f81;
+}
+
+.kiki-profile-theme-toggle[aria-checked="true"] .kiki-profile-switch > i {
+  transform: translateX(18px);
+}
+
+.kiki-profile-theme-toggle:focus-visible {
+  outline: 3px solid #b995ca;
+  outline-offset: 3px;
+}
+
+.kiki-profile-error {
+  margin: 0 0 12px;
+  border: 1px solid #f2bdc9;
+  border-radius: 12px;
+  background: #fff1f3;
+  padding: 10px 12px;
+  color: #b42346;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kiki-setting-page > .kiki-data-controls {
+  gap: 14px;
+}
+
+.kiki-data-controls > div {
+  display: grid;
+  gap: 5px;
+}
+
+.kiki-data-controls > div h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kiki-data-controls > div h2 svg {
+  color: #a05c48;
+}
+
+.kiki-data-controls > button {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.kiki-delete-data {
+  border-color: #e8d4c0;
+  background: #fff8ed;
+  color: #81502c;
+}
+
+.kiki-delete-account {
+  border-color: #f1c6cf;
+  background: #fff1f3;
+  color: #b42346;
+}
+
+.kiki-data-controls > button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.kiki-data-controls > button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+.account-shell[data-theme="dark"] {
+  color-scheme: dark;
+  --chrome: #211a28;
+  --bg: #18131d;
+  --surface-1: #241d2b;
+  --surface-2: #302638;
+  --surface-3: #3b3045;
+  --well: #17121b;
+  --divider: #44374d;
+  --text: #f4eef7;
+  --text-2: #d2c6db;
+  --muted: #aa9db4;
+  --line: var(--divider);
+  --line-strong: #5b4a66;
+  --line-focus: #d9b9ec;
+  --accent: #cba6df;
+  --accent-ink: #24162d;
+  --accent-bg: #3a2b45;
+  --accent-line: #cba6df;
+  --crit-bg: #381c27;
+  --warn-bg: #352b1c;
+  --info-bg: #1b302e;
+  --violet-bg: #2b2440;
+  --ok-bg: #1d3328;
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color 320ms ease, color 320ms ease;
+}
+
+.account-shell[data-theme="dark"] .sidebar {
+  background: #21172a;
+}
+
+.account-shell[data-theme="dark"] .sidebar-head {
+  border-bottom-color: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .appbar {
+  background: rgb(33 26 40 / 92%);
+  border-color: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .account-mobile-nav {
+  background: var(--chrome);
+  border-color: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .nav-link,
+.account-shell[data-theme="dark"] .nav-link:hover,
+.account-shell[data-theme="dark"] .account-header-action,
+.account-shell[data-theme="dark"] .account-user-name {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .panel,
+.account-shell[data-theme="dark"] .glass,
+.account-shell[data-theme="dark"] .tbl-wrap,
+.account-shell[data-theme="dark"] .kiki-profile-card,
+.account-shell[data-theme="dark"] .kiki-setting-page > section,
+.account-shell[data-theme="dark"] .smart-safety-card,
+.account-shell[data-theme="dark"] .kiki-reference-card {
+  border-color: var(--divider);
+  background: var(--surface-1);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 16%);
+}
+
+.account-shell[data-theme="dark"] .page-title,
+.account-shell[data-theme="dark"] main h1,
+.account-shell[data-theme="dark"] main h2,
+.account-shell[data-theme="dark"] main h3,
+.account-shell[data-theme="dark"] main h4,
+.account-shell[data-theme="dark"] .kiki-profile-identity h2,
+.account-shell[data-theme="dark"] .kiki-profile-menu,
+.account-shell[data-theme="dark"] .kiki-setting-page section h2,
+.account-shell[data-theme="dark"] .kiki-reference-title h1,
+.account-shell[data-theme="dark"] .kiki-card-heading h2,
+.account-shell[data-theme="dark"] .kiki-device-summary h3 {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] main p,
+.account-shell[data-theme="dark"] main .muted,
+.account-shell[data-theme="dark"] .kiki-profile-identity p,
+.account-shell[data-theme="dark"] .kiki-profile-hub > header > span,
+.account-shell[data-theme="dark"] .kiki-setting-page header > span,
+.account-shell[data-theme="dark"] .kiki-setting-page header > p,
+.account-shell[data-theme="dark"] .kiki-setting-page section > p,
+.account-shell[data-theme="dark"] .kiki-setting-page label,
+.account-shell[data-theme="dark"] .kiki-card-heading p,
+.account-shell[data-theme="dark"] .kiki-device-summary p,
+.account-shell[data-theme="dark"] .smart-safety-setting p {
+  color: var(--text-2);
+}
+
+.account-shell[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger),
+.account-shell[data-theme="dark"] .input,
+.account-shell[data-theme="dark"] input,
+.account-shell[data-theme="dark"] textarea,
+.account-shell[data-theme="dark"] select {
+  border-color: var(--divider);
+  background-color: var(--well);
+  color: var(--text);
+  color-scheme: dark;
+}
+
+.account-shell[data-theme="dark"] .input::placeholder,
+.account-shell[data-theme="dark"] input::placeholder,
+.account-shell[data-theme="dark"] textarea::placeholder {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-identity {
+  border-bottom-color: var(--divider);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-identity b,
+.account-shell[data-theme="dark"] .kiki-profile-menu a,
+.account-shell[data-theme="dark"] .kiki-profile-menu > button:not(.kiki-profile-theme-toggle),
+.account-shell[data-theme="dark"] .kiki-ringtone-list > div,
+.account-shell[data-theme="dark"] .kiki-device-summary {
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-menu span svg,
+.account-shell[data-theme="dark"] .kiki-profile-theme-copy > i {
+  color: #d6b4e8;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-theme-toggle {
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-switch {
+  background: #574765;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-theme-toggle[aria-checked="true"] .kiki-profile-switch {
+  background: #a977c0;
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page .input,
+.account-shell[data-theme="dark"] .kiki-setting-page input,
+.account-shell[data-theme="dark"] .kiki-setting-page textarea {
+  border: 1px solid var(--divider);
+  background: var(--well);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .smart-safety-setting,
+.account-shell[data-theme="dark"] .smart-safety-inline,
+.account-shell[data-theme="dark"] .smart-safety-times {
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .smart-safety-setting b,
+.account-shell[data-theme="dark"] .smart-safety-card h2 {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-logout {
+  background: #3a1e2a;
+  color: #ff9eae;
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-hub > header h1,
+.account-shell[data-theme="dark"] .kiki-setting-page h1 {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-error {
+  border: 1px solid #753849;
+  border-radius: 12px;
+  background: #351d27;
+  padding: 10px 12px;
+  color: #ffb8c5;
+}
+
+.account-shell[data-theme="dark"] .kiki-data-controls {
+  border-color: #57404e;
+  background: #2b202c;
+}
+
+.account-shell[data-theme="dark"] .kiki-delete-data {
+  border-color: #704c35;
+  background: #392b22;
+  color: #ffd0a3;
+}
+
+.account-shell[data-theme="dark"] .kiki-delete-account {
+  border-color: #753849;
+  background: #3a1d29;
+  color: #ff9eae;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-shell[data-theme="dark"],
+  .kiki-profile-switch,
+  .kiki-profile-switch > i {
+    transition: none;
+  }
+}

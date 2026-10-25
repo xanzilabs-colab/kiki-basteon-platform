@@ -23,8 +23,9 @@ const links = [
   { href: "/account/profile", label: "Profile", icon: UserRound },
 ];
 
-export function AccountShell({ name, children }: { name: string; children: React.ReactNode }) {
+export function AccountShell({ name, children, initialDarkTheme = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean }) {
   const pathname = usePathname(); const router = useRouter();
+  const [darkTheme, setDarkTheme] = useState(initialDarkTheme);
   const [sosOpen, setSosOpen] = useState(false);
   const [sosBusy, setSosBusy] = useState(false);
   const [sosError, setSosError] = useState("");
@@ -46,6 +47,13 @@ export function AccountShell({ name, children }: { name: string; children: React
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
   const ringtoneUrlRef = useRef<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => { setDarkTheme(initialDarkTheme); }, [initialDarkTheme]);
+  useEffect(() => {
+    const updateTheme = (event: Event) => setDarkTheme((event as CustomEvent<boolean>).detail);
+    window.addEventListener("kiki-account-theme-change", updateTheme);
+    return () => window.removeEventListener("kiki-account-theme-change", updateTheme);
+  }, []);
 
   function closeMore(after?: () => void) {
     if (!moreOpen || moreClosing) return;
@@ -273,7 +281,7 @@ export function AccountShell({ name, children }: { name: string; children: React
 
   const callDuration = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
   return (
-    <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]">
+    <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]" data-theme={darkTheme ? "dark" : "light"}>
       <aside inert={sosOpen} className="sidebar hidden md:flex md:h-[106%] md:min-h-0 md:flex-col">
         <div className="sidebar-head">
           <KikiMark size={100} zoom={2} />
