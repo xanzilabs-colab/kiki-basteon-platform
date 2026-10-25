@@ -23,7 +23,7 @@ const links = [
   { href: "/account/profile", label: "Profile", icon: UserRound },
 ];
 
-export function AccountShell({ name, children, initialDarkTheme = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean }) {
+export function AccountShell({ name, children, initialDarkTheme = false, stoepEnabled = false, calmEnabled = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean; stoepEnabled?: boolean; calmEnabled?: boolean }) {
   const pathname = usePathname(); const router = useRouter();
   const [darkTheme, setDarkTheme] = useState(initialDarkTheme);
   const [sosOpen, setSosOpen] = useState(false);
@@ -371,8 +371,8 @@ export function AccountShell({ name, children, initialDarkTheme = false }: { nam
           <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
             <button className="account-more-option" onClick={() => navigate("/account/trips")}><span><NavSigil><Route size={17} /></NavSigil> Trips</span><small>Route Watch and Travel Together</small></button>
             <button className="account-more-option" onClick={() => navigate("/account/buddies/safe-places")}><span><NavSigil><MapPinned size={17} /></NavSigil> Safe spots &amp; reports</span><small>Browse spots and community reports</small></button>
-            <button className="account-more-option" onClick={() => navigate("/games")}><span><NavSigil><Gamepad2 size={17} /></NavSigil> Stoep</span><small>Unwind and play</small></button>
-            <button className="account-more-option" onClick={() => navigate("/account/calm")}><span><NavSigil><Flower2 size={17} /></NavSigil> Calm</span><small>Breathing, noticing, and body check-ins</small></button>
+            {stoepEnabled && <button className="account-more-option" onClick={() => navigate("/games")}><span><NavSigil><Gamepad2 size={17} /></NavSigil> Stoep</span><small>Unwind and play</small></button>}
+            {calmEnabled && <button className="account-more-option" onClick={() => navigate("/account/calm")}><span><NavSigil><Flower2 size={17} /></NavSigil> Calm</span><small>Breathing, noticing, and body check-ins</small></button>}
             <button className="account-more-option" onClick={() => navigate("/w")}><span><NavSigil><BookOpen size={17} /></NavSigil> Journal</span><small>Your private garden</small></button>
             <button className="account-more-option" onClick={() => navigate("/account/guardians")}><span><NavSigil><ShieldCheck size={17} /></NavSigil> Guardians</span><small>Your private Guardian Circle</small></button>
             <button className="account-more-option" onClick={() => closeMore(() => void startSafetyCall())}><span><NavSigil><PhoneCall size={17} /></NavSigil> Safety call</span><small>Start a discreet in-app call</small></button>
