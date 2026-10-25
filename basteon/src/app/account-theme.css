@@ -489,13 +489,13 @@
   margin: -30px 2px 0;
   border: 5px solid var(--bg);
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fb7185, #e11d48 70%);
-  box-shadow: 0 0 0 1px var(--divider), 0 12px 30px -4px rgb(244 63 94 / 65%);
+  background: #e11d48;
+  box-shadow: none;
   color: #fff;
 }
 
 .account-shell[data-theme="dark"] .account-mobile-sos:hover {
-  background: radial-gradient(circle at 35% 30%, #fb7185, #e11d48 70%);
+  background: #e11d48;
 }
 
 .account-shell[data-theme="dark"] .account-mobile-more {
@@ -571,6 +571,8 @@
 .account-shell[data-theme="dark"] .kiki-overview {
   width: auto;
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
   padding: 0;
 }
 
@@ -587,7 +589,7 @@
   border: 1px solid #1e5a3c;
   border-radius: 26px;
   background: linear-gradient(160deg, #143d2a 0%, #0b2018 100%);
-  box-shadow: 0 18px 40px -18px rgb(74 222 128 / 30%);
+  box-shadow: none;
   padding: 20px;
 }
 
@@ -628,6 +630,10 @@
   font-weight: 800;
 }
 
+.account-shell[data-theme="dark"] .kiki-overview-section {
+  background: transparent;
+}
+
 .account-shell[data-theme="dark"] .kiki-overview-group {
   border: 1px solid var(--divider);
   border-radius: 22px;
@@ -638,6 +644,8 @@
 .account-shell[data-theme="dark"] .kiki-overview-status-row {
   min-height: 66px;
   gap: 12px;
+  border: 0;
+  background: transparent;
   padding: 12px;
   color: var(--text);
 }
@@ -965,12 +973,12 @@
 .account-shell[data-theme="dark"] .devices-mode-switch button.active {
   background: var(--surface-2);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px rgb(167 139 250 / 35%);
+  box-shadow: none;
 }
 
 .account-shell[data-theme="dark"] .devices-hero {
   border-color: var(--divider);
-  background: radial-gradient(circle at 50% 40%, rgb(139 92 246 / 20%), transparent 65%), var(--surface-1);
+  background: var(--surface-1);
   box-shadow: none;
 }
 
@@ -1191,7 +1199,7 @@
 .account-shell[data-theme="dark"] .hamba-trip-tabs button[aria-selected="true"] {
   background: var(--accent-bg);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px rgb(167 139 250 / 40%);
+  box-shadow: none;
 }
 
 .account-shell[data-theme="dark"] .hamba-planner,
@@ -1324,6 +1332,45 @@
   color: var(--text);
 }
 
+.kiki-overview-responders-scrim {
+  background: rgba(29, 3, 31, .55);
+}
+
+.kiki-overview-responders-sheet {
+  background: #fff;
+  color: #241a2c;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-responders-scrim {
+  background: rgb(5 3 10 / 60%);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet {
+  border: 1px solid var(--divider);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet .muted,
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet p,
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet li,
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet small {
+  color: var(--muted) !important;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet li {
+  border-bottom-color: var(--divider) !important;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet li b,
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet h2 {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-responders-sheet li small[style] {
+  color: var(--ok) !important;
+}
+
 @media (max-width: 767px) {
   .account-shell[data-theme="dark"] main {
     padding: 8px 16px max(24px, env(safe-area-inset-bottom)) !important;
@@ -1346,6 +1393,31 @@
     border-radius: 28px 28px 0 0;
     padding: 10px 18px 16px;
   }
+}
+
+.account-shell[data-theme="dark"] *,
+.account-shell[data-theme="dark"] *::before,
+.account-shell[data-theme="dark"] *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.account-shell[data-theme="dark"] .device-orbit,
+.account-shell[data-theme="dark"] .device-floor {
+  animation: none !important;
+  filter: none !important;
+}
+
+.account-shell[data-theme="dark"] .device-orbit {
+  display: none;
+}
+
+.account-shell[data-theme="dark"] .device-floor {
+  display: none;
+}
+
+.account-shell[data-theme="dark"] .device-logo {
+  filter: none;
 }
 
 @media (min-width: 768px) {

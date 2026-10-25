@@ -250,8 +250,8 @@ export default function AccountPage() {
         </Link>
       </div>
     </section>
-    {sheetOpen && <div role="dialog" aria-modal="true" aria-label="Nearby responders" onClick={() => setSheetOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1500, background: "rgba(29,3,31,.55)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={(event) => event.stopPropagation()} style={{ background: "#fff", width: "min(100%,520px)", maxHeight: "80vh", overflowY: "auto", borderRadius: "24px 24px 0 0", padding: 20 }}>
+    {sheetOpen && <div className="kiki-overview-responders-scrim" role="dialog" aria-modal="true" aria-label="Nearby responders" onClick={() => setSheetOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div className="kiki-overview-responders-sheet" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%,520px)", maxHeight: "80vh", overflowY: "auto", borderRadius: "24px 24px 0 0", padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
           <h2 style={{ fontSize: 18, fontWeight: 900 }}>Responders nearby</h2>
           <button type="button" className="btn" aria-label="Close" onClick={() => setSheetOpen(false)}><X size={16} /></button>
