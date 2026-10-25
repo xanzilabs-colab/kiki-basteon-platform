@@ -1,12 +1,95 @@
 "use client";
 
-import { Lock, ShieldCheck } from "lucide-react";
+import { LockKeyhole, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 export default function SecurityPage() {
-  const [pin, setPin] = useState(""); const [message, setMessage] = useState(""); const [pinSet, setPinSet] = useState(false);
-  useEffect(() => { const db = createClient(); void (async () => { const { data: { user } } = await db.auth.getUser(); if (!user) return; const { data } = await db.from("profiles").select("safety_pin_set_at").eq("id", user.id).single(); setPinSet(Boolean(data?.safety_pin_set_at)); })(); }, []);
-  async function savePin() { if (!/^\d{4,6}$/.test(pin)) return setMessage("Choose a 4 to 6 digit PIN."); const db = createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) return; const { error } = await db.from("profiles").update({ safety_pin_set_at: new Date().toISOString() }).eq("id", user.id); if (error) return setMessage(error.message); setPin(""); setPinSet(true); setMessage("Safety PIN is set."); }
-  return <div className="kiki-setting-page"><header><span>MY ACCOUNT</span><h1>Security &amp; PIN Code</h1><p>Use a private safety PIN before changing sensitive settings.</p></header><section><div className="kiki-security-icon"><Lock size={24} /></div><h2>{pinSet ? "Update your safety PIN" : "Set your safety PIN"}</h2><p>A PIN protects sensitive Kiki account actions on this device.</p><label>4 to 6 digit PIN<input className="input" value={pin} inputMode="numeric" maxLength={6} type="password" onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))} /></label>{message && <p role="status">{message}</p>}<button className="btn btn-primary" type="button" onClick={() => void savePin()}><ShieldCheck size={16} />Save PIN</button></section><section><h2>How the SOS button works</h2><p>Tap for SOS. Hold and slide to Medical. The three-second countdown lets you cancel or switch the emergency type before sending.</p></section></div>;
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [pinSet, setPinSet] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/account/security/pin", { cache: "no-store" });
+        const result = await response.json() as { configured?: boolean; error?: string };
+        if (!response.ok) throw new Error(result.error ?? "Your security settings could not be loaded.");
+        if (typeof result.configured !== "boolean") throw new Error("Your security settings could not be loaded.");
+        if (active) setPinSet(result.configured);
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : "Your security settings could not be loaded.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  async function savePin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!/^\d{4,6}$/.test(newPin)) {
+      setError("Choose a new PIN with 4 to 6 digits.");
+      return;
+    }
+    if (pinSet && !/^\d{4,6}$/.test(currentPin)) {
+      setError("Enter your current 4 to 6 digit PIN.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/account/security/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: newPin, currentPin: pinSet ? currentPin : undefined }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Your PIN could not be saved.");
+      setCurrentPin("");
+      setNewPin("");
+      setPinSet(true);
+      setMessage("Your Kiki PIN is set and will be requested for sensitive account changes.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Your PIN could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="kiki-setting-page">
+      <header>
+        <span>MY ACCOUNT</span>
+        <h1>Security &amp; PIN Code</h1>
+        <p>Protect sensitive changes with a private Kiki PIN.</p>
+      </header>
+      {error && <p className="kiki-profile-error" role="alert">{error}</p>}
+      <form onSubmit={(event) => void savePin(event)}>
+        <div className="kiki-security-icon"><LockKeyhole size={24} /></div>
+        <h2>{loading ? "Checking your PIN…" : pinSet ? "Update your Kiki PIN" : "Set your Kiki PIN"}</h2>
+        <p>Your PIN is checked before changes to your personal details or medical information, and before deleting your data or account.</p>
+        {pinSet && (
+          <label>
+            Current PIN
+            <input className="input" value={currentPin} inputMode="numeric" autoComplete="current-password" maxLength={6} type="password" onChange={(event) => setCurrentPin(event.target.value.replace(/\D/g, ""))} disabled={saving || loading} />
+          </label>
+        )}
+        <label>
+          {pinSet ? "New PIN" : "4 to 6 digit PIN"}
+          <input className="input" value={newPin} inputMode="numeric" autoComplete="new-password" maxLength={6} type="password" onChange={(event) => setNewPin(event.target.value.replace(/\D/g, ""))} disabled={saving || loading} />
+        </label>
+        {message && <p role="status">{message}</p>}
+        <button className="btn btn-primary" type="submit" disabled={saving || loading}>
+          <ShieldCheck size={16} />{saving ? "Saving…" : pinSet ? "Update PIN" : "Save PIN"}
+        </button>
+      </form>
+    </div>
+  );
 }

@@ -6,6 +6,7 @@ import { AlertTriangle, Trash2, UserRoundX } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
 import { useAppDialog } from "@/components/AppDialogProvider";
+import { requestAccountPin } from "@/lib/account/pinPrompt";
 
 type Details = { full_name: string; phone: string; home_address: string; emergency_contact_name: string; emergency_contact_phone: string };
 const empty: Details = { full_name: "", phone: "", home_address: "", emergency_contact_name: "", emergency_contact_phone: "" };
@@ -16,13 +17,15 @@ export default function ProfileInfoPage() {
   const [details, setDetails] = useState<Details>(empty); const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [saving, setSaving] = useState(false); const [deleting, setDeleting] = useState<"data" | "account" | null>(null); const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   useEffect(() => { const db = createClient(); void (async () => { const { data: { user } } = await db.auth.getUser(); if (!user) return; const { data } = await db.from("profiles").select("full_name,phone,home_address,emergency_contact_name,emergency_contact_phone").eq("id", user.id).single(); setDetails({ ...empty, ...data }); const response = await fetch("/api/account/profile/avatar"); const avatar = response.ok ? await response.json() as { url?: string | null } : null; setAvatarUrl(avatar?.url ?? null); })(); }, []);
   function field(key: keyof Details) { return { value: details[key], onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDetails((current) => ({ ...current, [key]: event.target.value })) }; }
-  async function save(event: React.FormEvent) { event.preventDefault(); setSaving(true); setError(""); setMessage(""); try { const db = createClient(); const { data: { user }, error: authError } = await db.auth.getUser(); if (authError || !user) throw new Error("Your session has expired. Sign in again to save your details."); const { error: updateError } = await db.from("profiles").update({ ...details, full_name: details.full_name.trim(), phone: details.phone.trim() || null, home_address: details.home_address.trim() || null, emergency_contact_name: details.emergency_contact_name.trim() || null, emergency_contact_phone: details.emergency_contact_phone.trim() || null }).eq("id", user.id); if (updateError) throw updateError; setMessage("Profile details saved."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Profile details could not be saved."); } finally { setSaving(false); } }
-  async function uploadAvatar(file: File | undefined) { if (!file) return; if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) { setError("Choose a JPG, PNG, or WebP image smaller than 2 MB."); return; } const form = new FormData(); form.append("file", file); const response = await fetch("/api/account/profile/avatar", { method: "POST", body: form }); const result = await response.json().catch(() => ({})); if (!response.ok || !result.url) { setError("Profile image could not be saved. Please try again."); return; } setAvatarUrl(result.url); window.dispatchEvent(new CustomEvent<string>("kiki-profile-avatar-updated", { detail: result.url })); setMessage("Profile image saved."); }
+  async function save(event: React.FormEvent) { event.preventDefault(); setSaving(true); setError(""); setMessage(""); try { const pin = await requestAccountPin(prompt, "save your personal details"); if (pin === null) return; const response = await fetch("/api/account/profile/details", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...details, pin }) }); const result = await response.json().catch(() => ({})); if (!response.ok) throw new Error(result.error ?? "Profile details could not be saved."); setMessage("Profile details saved."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Profile details could not be saved."); } finally { setSaving(false); } }
+  async function uploadAvatar(file: File | undefined) { if (!file) return; if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) { setError("Choose a JPG, PNG, or WebP image smaller than 2 MB."); return; } setError(""); try { const pin = await requestAccountPin(prompt, "change your profile image"); if (pin === null) return; const form = new FormData(); form.append("file", file); if (pin !== undefined) form.append("pin", pin); const response = await fetch("/api/account/profile/avatar", { method: "POST", body: form }); const result = await response.json().catch(() => ({})) as { url?: string | null; error?: string }; if (!response.ok || !result.url) throw new Error(result.error ?? "Profile image could not be saved. Please try again."); setAvatarUrl(result.url); window.dispatchEvent(new CustomEvent<string>("kiki-profile-avatar-updated", { detail: result.url })); setMessage("Profile image saved."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Profile image could not be saved."); } }
   async function deletePersonalData() {
     if (!(await confirm("This permanently deletes your profile details, linked-device alert and location history, saved activity, preferences, and uploaded personal files. Your devices will be unlinked, but your sign-in account remains active.", { title: "Delete your data?", confirmLabel: "Delete my data", danger: true }))) return;
     setDeleting("data"); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/account/my-data", { method: "DELETE" });
+      const pin = await requestAccountPin(prompt, "delete your personal data");
+      if (pin === null) return;
+      const response = await fetch("/api/account/my-data", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Your data could not be deleted. Please try again.");
       setDetails(empty); setAvatarUrl(null);
@@ -41,7 +44,9 @@ export default function ProfileInfoPage() {
     if (typed !== "DELETE") return;
     setDeleting("account"); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/account/delete", { method: "DELETE" });
+      const pin = await requestAccountPin(prompt, "delete your account");
+      if (pin === null) return;
+      const response = await fetch("/api/account/delete", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Your account could not be deleted. Please try again.");
       const { error: signOutError } = await createClient().auth.signOut({ scope: "local" });

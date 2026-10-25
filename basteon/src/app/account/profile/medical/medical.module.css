@@ -1,0 +1,589 @@
+.page {
+  --medical-surface: var(--surface-1);
+  --medical-well: var(--surface-2);
+  --medical-line: var(--divider);
+  --medical-muted: var(--muted);
+  --medical-text: var(--text);
+  --medical-accent: var(--accent);
+  --medical-accent-ink: var(--accent-ink);
+  --medical-soft: var(--accent-bg);
+  --medical-rose: #b53b69;
+  --medical-rose-soft: #faeaf0;
+  --medical-amber: #916522;
+  --medical-amber-soft: #fbf1dc;
+  --medical-teal: #347b70;
+  --medical-teal-soft: #e3f2ee;
+  max-width: 640px;
+  margin: 0 auto;
+  padding-bottom: 96px;
+  color: var(--medical-text);
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.header > span {
+  color: var(--medical-accent);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.header h1 {
+  margin: 4px 0 6px;
+  color: var(--medical-text);
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -.04em;
+}
+
+.header p {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--medical-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.error,
+.loading {
+  margin: 0 0 14px;
+  border: 1px solid var(--medical-line);
+  border-radius: 14px;
+  background: var(--medical-surface);
+  padding: 12px 14px;
+  color: var(--medical-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.error {
+  border-color: #e7b8c5;
+  background: #fff0f3;
+  color: #972b48;
+}
+
+.previewCard,
+.panel {
+  border: 1px solid var(--medical-line);
+  border-radius: 22px;
+  background: var(--medical-surface);
+}
+
+.previewCard {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24px;
+  padding: 16px;
+}
+
+.previewCard::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--medical-accent);
+  content: "";
+}
+
+.previewHeading,
+.sectionHeading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.previewHeading {
+  margin-bottom: 15px;
+}
+
+.previewIcon,
+.sectionIcon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 13px;
+}
+
+.previewIcon {
+  width: 40px;
+  height: 40px;
+  background: var(--medical-soft);
+  color: var(--medical-accent);
+}
+
+.previewHeading > span:nth-child(2),
+.sectionHeading > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.previewHeading strong,
+.sectionHeading strong {
+  color: var(--medical-text);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.previewHeading small,
+.sectionHeading small {
+  color: var(--medical-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.progressRing {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-left: auto;
+  border-radius: 50%;
+  background: conic-gradient(var(--medical-accent) var(--medical-progress), var(--medical-well) 0);
+  color: var(--medical-text);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.progressRing::before {
+  position: absolute;
+  z-index: 0;
+  inset: 4px;
+  width: 36px;
+  height: 36px;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--medical-surface);
+  content: "";
+}
+
+.progressRing {
+  position: relative;
+}
+
+.progressRing > span {
+  position: relative;
+  z-index: 1;
+}
+
+.previewGrid {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 8px;
+}
+
+.previewGrid > div {
+  display: grid;
+  min-width: 0;
+  min-height: 67px;
+  align-content: start;
+  gap: 5px;
+  border-radius: 14px;
+  background: var(--medical-well);
+  padding: 10px 12px;
+}
+
+.previewGrid > .previewWide {
+  grid-column: 1 / -1;
+}
+
+.previewGrid small {
+  color: var(--medical-muted);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.previewGrid strong {
+  overflow-wrap: anywhere;
+  color: var(--medical-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.previewGrid .bloodPreview {
+  color: var(--medical-rose);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.previewGrid .emptyValue {
+  color: var(--medical-muted);
+  font-weight: 500;
+}
+
+.section {
+  display: grid;
+  gap: 10px;
+  margin-top: 23px;
+}
+
+.sectionHeading {
+  margin: 0 2px;
+}
+
+.sectionIcon {
+  width: 36px;
+  height: 36px;
+}
+
+.rose {
+  background: var(--medical-rose-soft);
+  color: var(--medical-rose);
+}
+
+.amber {
+  background: var(--medical-amber-soft);
+  color: var(--medical-amber);
+}
+
+.teal {
+  background: var(--medical-teal-soft);
+  color: var(--medical-teal);
+}
+
+.pink {
+  background: var(--medical-rose-soft);
+  color: var(--medical-rose);
+}
+
+.neutral {
+  background: var(--medical-well);
+  color: var(--medical-muted);
+}
+
+.violet {
+  background: var(--medical-soft);
+  color: var(--medical-accent);
+}
+
+.count {
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  margin-left: auto;
+  border-radius: 99px;
+  background: var(--medical-well);
+  padding: 0 7px;
+  color: var(--medical-muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.panel {
+  padding: 13px;
+}
+
+.bloodTypes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.bloodTypes button {
+  min-height: 48px;
+  border: 1px solid var(--medical-line);
+  border-radius: 14px;
+  background: var(--medical-well);
+  color: var(--medical-muted);
+  font-size: 14px;
+  font-weight: 850;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.bloodTypes .selectedBlood {
+  border-color: var(--medical-accent);
+  background: var(--medical-accent);
+  color: var(--medical-accent-ink);
+}
+
+.helpText {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 11px 1px 0;
+  color: var(--medical-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.helpText svg {
+  flex: 0 0 auto;
+}
+
+.chips {
+  display: flex;
+  min-height: 27px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 5px 6px 5px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.chip button {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 8%);
+  color: inherit;
+}
+
+.chip.amber {
+  border-color: color-mix(in srgb, var(--medical-amber) 16%, transparent);
+}
+
+.chip.teal {
+  border-color: color-mix(in srgb, var(--medical-teal) 16%, transparent);
+}
+
+.chip.pink {
+  border-color: color-mix(in srgb, var(--medical-rose) 16%, transparent);
+}
+
+.emptyItems {
+  color: var(--medical-muted);
+  font-size: 11px;
+}
+
+.addRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.addRow input,
+.notes {
+  min-width: 0;
+  border: 1px solid var(--medical-line);
+  border-radius: 13px;
+  background: var(--medical-well);
+  color: var(--medical-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.addRow input {
+  height: 43px;
+  flex: 1;
+  padding: 0 12px;
+}
+
+.addRow input::placeholder,
+.notes::placeholder {
+  color: var(--medical-muted);
+  opacity: .8;
+}
+
+.addRow input:focus,
+.notes:focus {
+  border-color: var(--medical-accent);
+  outline: 2px solid color-mix(in srgb, var(--medical-accent) 22%, transparent);
+  outline-offset: 1px;
+}
+
+.addRow > button {
+  display: grid;
+  width: 44px;
+  height: 43px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 13px;
+  background: var(--medical-accent);
+  color: var(--medical-accent-ink);
+}
+
+.suggestions {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 10px -2px -2px;
+  padding: 0 2px 3px;
+  scrollbar-width: thin;
+}
+
+.suggestions button {
+  min-height: 29px;
+  flex: 0 0 auto;
+  border: 1px dashed var(--medical-line);
+  border-radius: 999px;
+  background: transparent;
+  padding: 0 10px;
+  color: var(--medical-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.notes {
+  display: block;
+  width: 100%;
+  min-height: 104px;
+  resize: vertical;
+  padding: 12px;
+  line-height: 1.5;
+}
+
+.characterCount {
+  margin-top: 5px;
+  color: var(--medical-muted);
+  font-size: 9px;
+  text-align: right;
+}
+
+.privacySection {
+  margin-bottom: 14px;
+}
+
+.privacyNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-top: 1px solid var(--medical-line);
+  padding: 11px 2px 0;
+  color: var(--medical-accent);
+}
+
+.privacyNote svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.privacyNote p {
+  margin: 0;
+  color: var(--medical-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.saveBar {
+  position: sticky;
+  z-index: 5;
+  bottom: 0;
+  display: grid;
+  gap: 7px;
+  margin: 18px -4px 0;
+  background: linear-gradient(to bottom, transparent, var(--bg) 20%);
+  padding: 17px 4px 8px;
+}
+
+.saveBar > p {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--medical-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.saveBar > p svg {
+  color: var(--medical-accent);
+}
+
+.saveBar > button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 15px;
+  background: var(--medical-accent);
+  padding: 0 18px;
+  color: var(--medical-accent-ink);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.saveBar > button:disabled {
+  background: var(--medical-well);
+  color: var(--medical-muted);
+  cursor: default;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.bloodTypes button:focus-visible,
+.chip button:focus-visible,
+.addRow > button:focus-visible,
+.suggestions button:focus-visible,
+.saveBar > button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--medical-accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+:global(.account-shell[data-theme="dark"]) .page {
+  --medical-rose: #f19ab6;
+  --medical-rose-soft: rgb(241 154 182 / 13%);
+  --medical-amber: #e4bc74;
+  --medical-amber-soft: rgb(228 188 116 / 13%);
+  --medical-teal: #80c7b9;
+  --medical-teal-soft: rgb(128 199 185 / 13%);
+}
+
+:global(.account-shell[data-theme="dark"]) .error {
+  border-color: #753849;
+  background: #351d27;
+  color: #ffb8c5;
+}
+
+:global(.account-shell[data-theme="dark"] main) .bloodTypes button {
+  color: var(--medical-muted);
+}
+
+:global(.account-shell[data-theme="dark"] main) .bloodTypes .selectedBlood {
+  color: var(--medical-accent-ink);
+}
+
+:global(.account-shell[data-theme="dark"] main) .addRow > button,
+:global(.account-shell[data-theme="dark"] main) .saveBar > button:not(:disabled) {
+  color: var(--medical-accent-ink);
+}
+
+:global(.account-shell[data-theme="dark"] main) .chip button {
+  color: inherit;
+}
+
+@media (max-width: 420px) {
+  .previewCard {
+    padding: 13px;
+  }
+
+  .panel {
+    padding: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloodTypes button {
+    transition: none;
+  }
+}

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BatteryCharging, Bluetooth, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus, ShieldCheck, Smartphone, Trash2, Wifi } from "lucide-react";
+import { BatteryCharging, Bluetooth, ChevronLeft, ChevronRight, Clock3, Info, Lock, Pencil, Plus, ShieldCheck, Smartphone, Trash2, Wifi } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -239,6 +239,13 @@ export default function DevicesPage() {
         <span><ShieldCheck size={15} />Your Kiki device helps keep your account protected.</span>
       </section>
     )}
+      <section className="devices-sos-guide">
+        <span className="devices-sos-guide-icon"><Info size={18} /></span>
+        <div>
+          <h2>How the SOS button works</h2>
+          <p>Tap for SOS. Hold and slide to Medical. A three-second countdown lets you cancel or switch the emergency type before sending.</p>
+        </div>
+      </section>
     </div>
 
     <div className="devices-screen phone-devices-screen" id="phone-device-screen" hidden={activeScreen !== "phone"}>

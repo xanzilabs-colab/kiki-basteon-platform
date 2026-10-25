@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   deleteUser: vi.fn(),
   list: vi.fn(),
   remove: vi.fn(),
+  checkPin: vi.fn(),
 }));
 
 vi.mock("@/app/api/calm/_shared", () => ({
@@ -17,6 +18,7 @@ vi.mock("@/app/api/calm/_shared", () => ({
   reportDatabaseFailure: vi.fn(),
 }));
 vi.mock("@/lib/verification/http", () => ({ sameOrigin: mocks.sameOrigin }));
+vi.mock("@/lib/account/securityPin.server", () => ({ checkAccountPin: mocks.checkPin }));
 
 import { DELETE as deleteAccount } from "./delete/route";
 import { DELETE as deletePersonalData } from "./my-data/route";
@@ -43,6 +45,7 @@ describe("account privacy deletion", () => {
     vi.clearAllMocks();
     mocks.sameOrigin.mockReturnValue(true);
     mocks.authenticated.mockResolvedValue({ userId: "owner-1", response: null });
+    mocks.checkPin.mockResolvedValue({ ok: true, configured: false });
     mocks.rpc.mockResolvedValue({ error: null });
     mocks.deleteUser.mockResolvedValue({ error: null });
     mocks.list.mockResolvedValue({ data: [], error: null });
@@ -67,6 +70,17 @@ describe("account privacy deletion", () => {
     const response = await deletePersonalData(request());
 
     expect(response.status).toBe(401);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("requires the configured account PIN before removing personal data", async () => {
+    setup();
+    mocks.checkPin.mockResolvedValue({ ok: false, status: 428, error: "Enter your Kiki PIN to continue." });
+
+    const response = await deletePersonalData(request());
+
+    expect(response.status).toBe(428);
+    expect(mocks.list).not.toHaveBeenCalled();
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 

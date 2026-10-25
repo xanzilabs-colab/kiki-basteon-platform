@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sameOrigin } from "@/lib/verification/http";
+import { checkAccountPin } from "@/lib/account/securityPin.server";
 
 const bucket = "kiki-profile-images";
 const extensions = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
@@ -34,8 +35,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_image" }, { status: 400 });
   }
 
-  const path = `${user.id}/avatar-${crypto.randomUUID()}.${extensions[file.type as keyof typeof extensions]}`;
   const db = createAdminClient();
+  const pinCheck = await checkAccountPin(db, user.id, form?.get("pin"));
+  if (!pinCheck.ok) return NextResponse.json({ error: pinCheck.error }, { status: pinCheck.status });
+
+  const path = `${user.id}/avatar-${crypto.randomUUID()}.${extensions[file.type as keyof typeof extensions]}`;
   const { error: uploadError } = await db.storage.from(bucket).upload(path, file, { contentType: file.type });
   if (uploadError) return NextResponse.json({ error: "avatar_upload_failed" }, { status: 500 });
   const { data: profile, error: profileError } = await db.from("profiles").update({ avatar_path: path }).eq("id", user.id).select("avatar_path").single();

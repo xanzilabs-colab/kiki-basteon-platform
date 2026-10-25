@@ -57,6 +57,8 @@
 .org-linked-title h3 { margin:0;color:var(--org-plum);font-size:16px;font-weight:850;letter-spacing:-.25px;line-height:1.3; }
 .org-linked-title .org-chip { margin:0!important;padding:3px 8px;font-size:10px; }
 .org-linked-title .org-chip i { width:5px;height:5px; }
+.org-active-status { display:inline-flex;align-items:center;gap:5px;border-left:1px solid rgba(59,30,84,.14);margin-left:3px;padding-left:10px;color:var(--org-ok);font-size:10px;font-weight:750;letter-spacing:.02em; }
+.org-active-status svg { flex:none; }
 .org-linked-icon { display:grid;width:39px;height:39px;flex:none;place-items:center;border:1px solid #eee6f5;border-radius:14px;background:#f6f1fb;color:#6a4d8c; }
 .org-linked-meta { display:flex;flex-wrap:wrap;gap:4px 6px;margin:-6px 0 0;color:var(--org-ink-2);font-size:11px;font-weight:550; }
 .org-details { display:grid;gap:8px;margin:0;border:1px solid #eeeaf2;border-radius:15px;background:#faf9fb;padding:11px; }

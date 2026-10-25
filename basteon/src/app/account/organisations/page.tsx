@@ -459,7 +459,9 @@ export default function AccountOrganisationsPage() {
                   <div className="org-linked-top">
                     <div className="org-linked-title">
                       <h3>{organisationName}</h3>
-                      <span className={`org-chip ${status.tone}`}><i />{status.tone === "ok" ? "Verified" : status.label}</span>
+                      {status.tone === "ok"
+                        ? <span className="org-active-status"><Check size={13} aria-hidden="true" />Link active</span>
+                        : <span className={`org-chip ${status.tone}`}><i />{status.label}</span>}
                     </div>
                     <span className="org-linked-icon"><RelationIcon size={19} aria-hidden="true" /></span>
                   </div>

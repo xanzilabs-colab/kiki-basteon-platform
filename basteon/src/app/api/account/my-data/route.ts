@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticated, admin, fail, reportDatabaseFailure } from "@/app/api/calm/_shared";
 import { deleteUserStorage } from "@/lib/account/deleteUserStorage";
+import { checkAccountPin } from "@/lib/account/securityPin.server";
 import { sameOrigin } from "@/lib/verification/http";
 
 export async function DELETE(request: Request) {
@@ -9,6 +10,10 @@ export async function DELETE(request: Request) {
   if (auth.response) return auth.response;
 
   const db = admin();
+  const body = await request.json().catch(() => ({}));
+  const pinCheck = await checkAccountPin(db, auth.userId, body?.pin);
+  if (!pinCheck.ok) return fail(pinCheck.error, pinCheck.status);
+
   try {
     await deleteUserStorage(db, auth.userId);
   } catch (error) {

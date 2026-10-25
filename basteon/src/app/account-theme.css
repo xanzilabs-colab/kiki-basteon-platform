@@ -729,3 +729,23 @@
     transition: none;
   }
 }
+
+.account-shell[data-theme="dark"] .kiki-setting-page > form {
+  border-color: var(--divider);
+  background-color: var(--surface-1);
+  box-shadow: none;
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page > form h2 {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page > form > p {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page > form .btn {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+}

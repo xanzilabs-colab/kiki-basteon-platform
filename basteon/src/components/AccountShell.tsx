@@ -321,7 +321,6 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
             <span className="account-user-avatar"><CachedProfileImage src={avatarUrl} alt={`${name}'s profile`} fallback={name.charAt(0).toUpperCase()} /><i /></span>
             <span className="account-user-copy">
               <span className="account-user-name">{name}</span>
-              <span className="account-user-protected"><i />Protection is active</span>
             </span>
           </Link>
           <div className="account-header-actions">

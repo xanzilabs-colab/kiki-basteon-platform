@@ -14,6 +14,9 @@ type PromptOptions = {
   inputLabel?: string;
   placeholder?: string;
   submitLabel?: string;
+  inputType?: "text" | "password";
+  inputMode?: "text" | "numeric";
+  maxLength?: number;
 };
 
 type DialogRequest =
@@ -35,6 +38,9 @@ type DialogRequest =
       inputLabel: string;
       placeholder: string;
       submitLabel: string;
+      inputType: "text" | "password";
+      inputMode: "text" | "numeric";
+      maxLength?: number;
       initialValue: string;
       resolve: (value: string | null) => void;
     };
@@ -93,6 +99,9 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
       inputLabel: options.inputLabel ?? "Value",
       placeholder: options.placeholder ?? "",
       submitLabel: options.submitLabel ?? "Save",
+      inputType: options.inputType ?? "text",
+      inputMode: options.inputMode ?? "text",
+      maxLength: options.maxLength,
       initialValue,
       resolve,
     });
@@ -171,6 +180,10 @@ function DialogSurface({
                 autoFocus
                 value={value}
                 placeholder={request.placeholder}
+                type={request.inputType}
+                inputMode={request.inputMode}
+                maxLength={request.maxLength}
+                autoComplete={request.inputType === "password" ? "current-password" : "off"}
                 onChange={(event) => setValue(event.target.value)}
               />
             </label>
