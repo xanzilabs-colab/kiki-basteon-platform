@@ -7,9 +7,6 @@ import { AppDialogProvider } from "@/components/AppDialogProvider";
 export const metadata: Metadata = {
 	title: "Kiki Connect",
 	description: "Personal safety and support",
-	icons: {
-		icon: [{ url: "/assets/kiki-favicon.png", sizes: "48x48", type: "image/png" }],
-		apple: [{ url: "/assets/kiki-icon.png", sizes: "512x512", type: "image/png" }],
-	},
+	icons: { icon: "/assets/kiki-favicon.png", apple: "/assets/kiki-favicon.png" },
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body><AppDialogProvider>{children}<TouchSound /><Toaster theme="dark" position="top-right" /></AppDialogProvider></body></html>; }
