@@ -85,7 +85,7 @@ export function SosActionButton({ className, title, children, onSelect }: Props)
         {...gesture.buttonProps}
         onContextMenu={gesture.onContextMenu}
         onClick={(event) => {
-          if (event.detail === 0) onSelect("sos", "tap");
+          if (event.detail === 0 && !gesture.isPointerActivationRecent()) onSelect("sos", "tap");
         }}
       >
         {children}

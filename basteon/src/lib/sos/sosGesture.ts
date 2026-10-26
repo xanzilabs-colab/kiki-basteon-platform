@@ -1,7 +1,7 @@
 export type SosType = "sos" | "medical";
 export type SosVia = "tap" | "hold_slide" | "hold_release";
 
-export const HOLD_MS = 400;
+export const HOLD_MS = 300;
 export const TAP_SLOP_PX = 12;
 export const ARM_RADIUS_PX = 64;
 export const MEDICAL_BUBBLE_SIZE_PX = 124;

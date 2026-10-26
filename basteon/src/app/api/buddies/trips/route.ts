@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { sameOrigin, safeJson } from "@/lib/verification/http";
 import { recordBuddyAudit } from "../_audit";
-import { requireBuddyUser } from "../_shared";
+import { activeBuddyTrip, requireBuddyUser } from "../_shared";
 
 const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) });
 const schema = z.object({ start: point, destination: point, route: z.array(point).min(2).max(5_000), mode: z.enum(["walk", "taxi", "ehail", "bus", "train"]), leaveFrom: z.string().datetime(), maxWaitMinutes: z.number().int().min(5).max(120), maxWalkM: z.number().int().min(50).max(5000), groupSize: z.number().int().min(2).max(4), audience: z.enum(["all_verified", "contacts_only"]) });
@@ -13,8 +13,8 @@ const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]
 export async function GET() {
   const access = await requireBuddyUser();
   if ("error" in access) return access.error;
-  const { data } = await access.db.from("buddy_trips").select("visible,alias,avatar,expires_at").eq("user_id", access.user.id).eq("active", true).gt("expires_at", new Date().toISOString()).maybeSingle();
-  return safeJson(data ? { active: true, visible: data.visible, alias: data.alias, avatar: data.avatar, expiresAt: data.expires_at } : { active: false });
+  const trip = await activeBuddyTrip(access.db, access.user.id);
+  return safeJson(trip ? { active: true, id: trip.id, visible: trip.visible, alias: trip.alias, avatar: trip.avatar, expiresAt: trip.expires_at } : { active: false });
 }
 
 export async function POST(request: Request) {
@@ -27,15 +27,22 @@ export async function POST(request: Request) {
     const leaveFrom = new Date(input.data.leaveFrom);
     const leaveTo = new Date(leaveFrom.getTime() + input.data.maxWaitMinutes * 60_000);
     const expiresAt = new Date(leaveTo.getTime() + 4 * 60 * 60_000);
-    await access.db.from("buddy_trips").update({ active: false, visible: false }).eq("user_id", access.user.id).eq("active", true);
+    const { error: deactivateError } = await access.db.from("buddy_trips")
+      .update({ active: false, visible: false })
+      .eq("user_id", access.user.id)
+      .eq("active", true);
+    if (deactivateError) {
+      console.error("Existing Travel Together trip could not be replaced", { code: deactivateError.code, message: deactivateError.message });
+      return safeJson({ error: "trip_unavailable" }, { status: 503 });
+    }
     const { data, error } = await access.db.from("buddy_trips").insert({
       user_id: access.user.id, alias: `${pick(adjectives)} ${pick(nouns)}`, avatar: pick(avatars), start_lat: input.data.start.lat, start_lng: input.data.start.lng,
       destination_lat: input.data.destination.lat, destination_lng: input.data.destination.lng, last_lat: input.data.start.lat, last_lng: input.data.start.lng, last_position_at: new Date().toISOString(),
-      route: input.data.route, mode: input.data.mode, leave_from: leaveFrom.toISOString(), leave_to: leaveTo.toISOString(), max_walk_m: input.data.maxWalkM, max_group_size: input.data.groupSize, audience: input.data.audience, expires_at: expiresAt.toISOString(),
+      route: input.data.route, mode: input.data.mode, leave_from: leaveFrom.toISOString(), leave_to: leaveTo.toISOString(), max_walk_m: input.data.maxWalkM, max_group_size: input.data.groupSize, audience: input.data.audience, active: true, visible: false, expires_at: expiresAt.toISOString(),
     }).select("id,alias,avatar,expires_at").single();
     if (error || !data) return safeJson({ error: "trip_unavailable" }, { status: 500 });
     await recordBuddyAudit(access.db, { tripId: data.id, actorId: access.user.id, actorAlias: data.alias, event: "trip_created" });
-    return safeJson({ active: true, visible: false, alias: data.alias, avatar: data.avatar, expiresAt: data.expires_at }, { status: 201 });
+    return safeJson({ active: true, id: data.id, visible: false, alias: data.alias, avatar: data.avatar, expiresAt: data.expires_at }, { status: 201 });
   } catch (error) {
     console.error("Buddy trip creation failed", error);
     return safeJson({ error: "trip_unavailable" }, { status: 500 });

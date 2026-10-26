@@ -27,7 +27,18 @@ export async function requireBuddyUser() {
 }
 
 export async function activeBuddyTrip(db: ReturnType<typeof createAdminClient>, userId: string) {
-  const { data } = await db.from("buddy_trips").select("*").eq("user_id", userId).eq("active", true).gt("expires_at", new Date().toISOString()).maybeSingle();
+  const { data, error } = await db.from("buddy_trips")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("active", true)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("Active Travel Together trip lookup failed", { code: error.code, message: error.message });
+    throw new Error("active_buddy_trip_lookup_failed");
+  }
   return data as TripRow | null;
 }
 

@@ -14,7 +14,11 @@ describe("communityIntel", () => {
     expect(classifyZone(100, cfg)).toBe("near");
     expect(classifyZone(800, cfg)).toBe("outer");
     expect(classifyZone(5000, cfg)).toBeNull();
-    expect(intelConfig({ SAFETY_INTEL_OUTER_RADIUS_M: "abc" }).outerM).toBe(1000);
+    expect(cfg.outerM).toBe(900);
+    expect(classifyZone(900, cfg)).toBe("outer");
+    expect(classifyZone(901, cfg)).toBeNull();
+    expect(intelConfig({ SAFETY_INTEL_OUTER_RADIUS_M: "abc" }).outerM).toBe(900);
+    expect(intelConfig({ SAFETY_INTEL_OUTER_RADIUS_M: "1200" }).outerM).toBe(900);
   });
   it("dedupes within cooldown, allows after cooldown and for another zone", () => {
     const history = [{ recordId: "a", zone: "outer" as const, sentAt: now - 60_000 }];

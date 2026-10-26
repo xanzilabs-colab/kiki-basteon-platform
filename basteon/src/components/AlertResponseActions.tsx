@@ -105,9 +105,9 @@ export function AlertResponseActions({ alertId, alertStatus }: { alertId: string
 
   async function act(action: "accept" | "en_route" | "on_scene" | "withdraw" | "resolved") {
     if (isClosed) return;
-    if (action === "resolved" && !(await confirm("Mark this incident resolved? Other responders will be notified.", {
-      title: "Resolve incident",
-      confirmLabel: "Resolve incident",
+    if (action === "resolved" && !(await confirm("This closes the incident for everyone, removes it from active responder queues, and keeps it in history.", {
+      title: "Remove active alert?",
+      confirmLabel: "Resolve and remove",
       danger: true,
     }))) return;
     setBusy(true);
@@ -168,7 +168,7 @@ export function AlertResponseActions({ alertId, alertStatus }: { alertId: string
           {myAssignment.status === "assigned" && <button className="btn btn-danger" disabled={busy} onClick={() => void act("accept")}>Acknowledge</button>}
           {myAssignment.status === "acknowledged" && <button className="btn btn-danger" disabled={busy} onClick={() => void act("en_route")}>I&apos;m on my way</button>}
           {myAssignment.status === "en_route" && <button className="btn btn-danger" disabled={busy} onClick={() => void act("on_scene")}>I&apos;ve arrived</button>}
-          {myAssignment.status === "on_scene" && <button className="btn btn-primary" disabled={busy} onClick={() => void act("resolved")}>Resolve incident</button>}
+          {myAssignment.status === "on_scene" && <button className="btn btn-primary" disabled={busy} onClick={() => void act("resolved")}>Remove from active</button>}
           <button className="btn" disabled={busy} onClick={() => void act("withdraw")}>Stop responding</button>
         </div>
       )}

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { transitions, statusLabels } from "@/lib/status";
 import type { Alert, AlertStatus } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 export function StatusActions({
   alert,
@@ -19,6 +20,7 @@ export function StatusActions({
 }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const { confirm } = useAppDialog();
   const closableStatuses = new Set<AlertStatus>(["new", "acknowledged", "enroute", "on_scene"]);
   const reopenChoice: AlertStatus[] = admin && (alert.status === "resolved" || alert.status === "false_alarm") ? ["acknowledged"] : [];
   const choices: AlertStatus[] = closeOnly
@@ -26,6 +28,11 @@ export function StatusActions({
     : [...transitions[alert.status], ...reopenChoice];
 
   async function change(status: AlertStatus) {
+    if (closeOnly && !(await confirm("This closes the incident for everyone and removes it from active responder queues. The incident will remain in history.", {
+      title: "Remove active alert?",
+      confirmLabel: "Resolve and remove",
+      danger: true,
+    }))) return;
     setBusy(true);
     try {
       if (closeOnly) {
@@ -68,7 +75,7 @@ export function StatusActions({
       <input className="input text-sm" placeholder="Optional operational note" value={note} onChange={(event) => setNote(event.target.value)} />
       {choices.map((status) => (
         <button disabled={busy} className="btn w-full text-sm" key={status} onClick={() => void change(status)}>
-          {status === "acknowledged" && (alert.status === "resolved" || alert.status === "false_alarm") ? "Reopen" : closeOnly ? "Resolve incident" : statusLabels[status]}
+          {status === "acknowledged" && (alert.status === "resolved" || alert.status === "false_alarm") ? "Reopen" : closeOnly ? "Remove from active" : statusLabels[status]}
         </button>
       ))}
     </div>

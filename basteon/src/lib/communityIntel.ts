@@ -23,7 +23,7 @@ export const intelConfig = (env: Record<string, string | undefined> = process.en
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
   };
-  const outerM = num(env.SAFETY_INTEL_OUTER_RADIUS_M, 1000, 200, 5000);
+  const outerM = num(env.SAFETY_INTEL_OUTER_RADIUS_M, 900, 200, 900);
   const nearM = Math.min(num(env.SAFETY_INTEL_NEAR_RADIUS_M, 300, 50, 2000), outerM);
   return {
     outerM,

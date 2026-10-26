@@ -93,17 +93,21 @@ export function TravelTogetherPanel() {
     }
   }
 
+  async function refreshTripState(): Promise<void> {
+    const response = await fetch("/api/buddies/trips", { cache: "no-store" });
+    if (!response.ok) throw new Error("Travel Together trip state could not be loaded");
+    const trip = await response.json();
+    const hasActiveTrip = Boolean(trip?.active);
+    setActive(hasActiveTrip);
+    setVisible(hasActiveTrip && Boolean(trip.visible));
+    setAlias(hasActiveTrip ? trip.alias ?? "" : "");
+    setOwnAvatar(hasActiveTrip ? trip.avatar ?? "🧭" : "🧭");
+    if (!hasActiveTrip) setPlanningNewTrip(true);
+  }
+
   useEffect(() => {
     void refreshInvitations();
-    void fetch("/api/buddies/trips")
-      .then((response) => response.ok ? response.json() : null)
-      .then((trip) => {
-        if (!trip?.active) return;
-        setActive(true);
-        setVisible(Boolean(trip.visible));
-        setAlias(trip.alias ?? "");
-        setOwnAvatar(trip.avatar ?? "🧭");
-      }).catch(() => setMessage("Your Travel Together trip could not be loaded. Please refresh."));
+    void refreshTripState().catch(() => setMessage("Your Travel Together trip could not be loaded. Please refresh."));
   }, []);
 
   useEffect(() => {
@@ -135,10 +139,24 @@ export function TravelTogetherPanel() {
     if (!routeResponse.ok || !routeData.routes?.[0]) return setMessage("Route planning is unavailable right now.");
     const response = await fetch("/api/buddies/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: position, destination, route: routeData.routes[0].points, mode, leaveFrom: new Date().toISOString(), maxWaitMinutes: 30, maxWalkM: 800, groupSize: 3, audience: "all_verified" }) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return setMessage(data.error === "not_verified" ? "Travel Together requires verified enrolment." : tripErrorMessage[data.error] ?? "Trip could not be created.");
+    if (!response.ok) {
+      try {
+        await refreshTripState();
+      } catch {
+        return setMessage("Trip could not be created, and your current trip status could not be checked. Please refresh.");
+      }
+      return setMessage(data.error === "not_verified" ? "Travel Together requires verified enrolment." : tripErrorMessage[data.error] ?? "Trip could not be created.");
+    }
     hiddenBubbleIds.current.clear(); setBubbles([]); setActive(true); setPlanningNewTrip(false); setAlias(data.alias); setOwnAvatar(data.avatar ?? "🧭"); setMessage(`Trip ready as ${data.alias}. Turn on visibility when you are ready.`);
     void refreshInvitations();
-    } catch { setMessage("Your Travel Together trip could not be created. Check your connection and try again."); }
+    } catch {
+      try {
+        await refreshTripState();
+        setMessage("Trip creation could not be confirmed. Your current trip status was refreshed.");
+      } catch {
+        setMessage("Your Travel Together trip could not be created or verified. Check your connection and refresh.");
+      }
+    }
     finally { setBusy(false); }
   }
 
@@ -153,7 +171,17 @@ export function TravelTogetherPanel() {
     const response = await fetch("/api/buddies/visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visible: next }) });
     const data = await response.json().catch(() => ({}));
     if (response.status === 401) { await gated("visibility", async () => { await setVisibility(next); }); return; }
-    if (!response.ok) return setMessage(data.error ?? "Visibility could not be changed.");
+    if (!response.ok) {
+      if (data.error === "no_active_trip") {
+        setActive(false);
+        setVisible(false);
+        setPlanningNewTrip(true);
+        setConsent(false);
+        setMessage("Your Travel Together trip is no longer active. Create a trip again, then turn on visibility.");
+        return;
+      }
+      return setMessage(data.error ?? "Visibility could not be changed.");
+    }
     setVisible(next); setConsent(false);
     if (!next) { setAvatars([]); setBubbles([]); setSelected(null); setNearbyLoaded(false); setPending(null); }
     setMessage(next ? "You are visible through privacy-preserving rings." : "You are no longer visible and your face proof was cleared.");
@@ -230,6 +258,13 @@ export function TravelTogetherPanel() {
         return;
       }
       if (!response.ok) {
+        if (data.error === "no_active_trip") {
+          setActive(false);
+          setVisible(false);
+          setPlanningNewTrip(true);
+          setMessage("Your Travel Together trip is no longer active. Create a trip before inviting a buddy.");
+          return;
+        }
         setMessage(invitationErrorMessage[data.error] ?? "The Travel Together invitation could not be sent.");
         return;
       }

@@ -310,7 +310,7 @@ function ItemSection({
             ? <span className={styles.emptyItems}>Nothing added yet.</span>
             : items.map((item, index) => (
               <span className={`${styles.chip} ${categoryClass}`} key={`${item}-${index}`}>
-                {item}
+                <span className={styles.chipLabel}>{item}</span>
                 <button type="button" aria-label={`Remove ${item}`} onClick={() => { onRemove(index); onEdit(); }}><X size={13} /></button>
               </span>
             ))}

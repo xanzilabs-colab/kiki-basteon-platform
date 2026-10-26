@@ -12,6 +12,7 @@ export function useSosGesture(onSelect: Selection) {
   const bubbleRef = useRef<HTMLDivElement>(null);
   const timer = useRef<number | null>(null);
   const pointerId = useRef<number | null>(null);
+  const lastPointerActivationAt = useRef(0);
   const handledDone = useRef(false);
   const selectRef = useRef(onSelect);
   selectRef.current = onSelect;
@@ -56,6 +57,7 @@ export function useSosGesture(onSelect: Selection) {
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (state.phase !== "idle") return;
     event.preventDefault();
+    lastPointerActivationAt.current = Date.now();
     pointerId.current = event.pointerId;
     setAnchor(event.currentTarget.getBoundingClientRect());
     dispatch({ kind: "down", pos: { x: event.clientX, y: event.clientY }, at: Date.now() });
@@ -89,6 +91,7 @@ export function useSosGesture(onSelect: Selection) {
     state,
     anchor,
     bubbleRef,
+    isPointerActivationRecent: () => Date.now() - lastPointerActivationAt.current < 1_000,
     buttonProps: { onPointerDown },
     onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => event.preventDefault(),
   };
