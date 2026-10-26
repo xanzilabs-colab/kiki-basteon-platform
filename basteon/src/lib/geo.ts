@@ -1,10 +1,17 @@
 export interface Position { lat: number; lng: number; accuracy?: number; capturedAt?: number; speed?: number | null; heading?: number | null; }
 export const LOCATION_FIX_MAX_AGE_MS = 60_000;
+export const MAX_LOCATION_ACCURACY_M = 10_000;
 export function isFreshPosition(position: Position | null, now = Date.now()): position is Position & { capturedAt: number } {
   const capturedAt = position?.capturedAt;
   if (typeof capturedAt !== "number" || !Number.isFinite(capturedAt)) return false;
   const age = now - capturedAt;
   return age >= 0 && age <= LOCATION_FIX_MAX_AGE_MS;
+}
+export function hasUsableLocationAccuracy(position: Position): boolean {
+  return typeof position.accuracy === "number" &&
+    Number.isFinite(position.accuracy) &&
+    position.accuracy >= 0 &&
+    position.accuracy <= MAX_LOCATION_ACCURACY_M;
 }
 export const haversineKm = (a: Position, b: Position) => {
   const radians = (degrees: number) => degrees * Math.PI / 180;

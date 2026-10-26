@@ -50,7 +50,7 @@ const invitationErrorMessage: Record<string, string> = {
 };
 
 export function TravelTogetherPanel() {
-  const { position, error: locationError } = useGeolocation();
+  const { position, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
   const [query, setQuery] = useState(""); const [places, setPlaces] = useState<Place[]>([]); const [destination, setDestination] = useState<Place | null>(null);
   const [mode, setMode] = useState<(typeof modes)[number]>("walk"); const [visible, setVisible] = useState(false); const [active, setActive] = useState(false);
   const [avatars, setAvatars] = useState<Avatar[]>([]); const [bubbles, setBubbles] = useState<BubbleMarker[]>([]); const [message, setMessage] = useState(""); const [consent, setConsent] = useState(false); const [pending, setPending] = useState<FacePurpose | null>(null);
@@ -379,7 +379,12 @@ export function TravelTogetherPanel() {
         <p className="buddies-invite-notice"><ShieldCheck size={17} />Your trip starts hidden. Visibility requires consent and a fresh face check.</p>
         <button className="btn btn-primary hamba-start" disabled={!position || !destination || busy} onClick={() => void createTrip()}><UserPlus size={16} />{busy ? "Creating..." : active ? "Replace trip" : "Create travel group"}</button>
         {active && <button className="btn hamba-start" disabled={busy} onClick={() => setPlanningNewTrip(false)}>Keep current trip</button>}
-        {!position && <p className="hamba-note"><LocateFixed size={16} />{locationError ?? "Enable location to plan your trip."}</p>}
+        {!position && <div className="hamba-note" role="status">
+          <LocateFixed size={16} /><span>{locationError ?? "Allow location for this site to plan your trip."}</span>
+          <button className="btn" type="button" disabled={refreshingLocation} onClick={() => void refreshLocation()}>
+            {refreshingLocation ? "Checking…" : "Retry location"}
+          </button>
+        </div>}
       </> : <>
         <button className="btn hamba-start" onClick={() => { setPlanningNewTrip(true); setMessage("Plan a new trip. Your existing trip stays active until you create the replacement."); }}><UserPlus size={16} />Plan another trip</button>
         <div className="buddies-visibility"><div><h3>Be visible to travelers</h3><p>{alias ? `Your alias: ${alias}. ` : ""}Only your alias, avatar, mode, destination area, and zone are shared.</p></div><button className={`buddies-toggle ${visible ? "on" : ""}`} type="button" aria-pressed={visible} onClick={() => visible ? void setVisibility(false) : setConsent(true)}>{visible ? <Eye size={17} /> : <EyeOff size={17} />}{visible ? "Visible" : "Off"}</button></div>

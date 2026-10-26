@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { isFreshPosition, type Position } from "@/lib/geo";
+import { hasUsableLocationAccuracy, isFreshPosition, type Position } from "@/lib/geo";
 import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
 
@@ -34,7 +34,7 @@ export function ResponderLocationPublisher({
         const sampledPosition = await readCurrentPosition();
         if (!active) return;
         const current = sampledPosition ?? positionRef.current;
-        const freshPosition = isFreshPosition(current) ? current : null;
+        const freshPosition = isFreshPosition(current) && hasUsableLocationAccuracy(current) ? current : null;
         const heartbeat = await fetch("/api/organisation/responders/presence", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

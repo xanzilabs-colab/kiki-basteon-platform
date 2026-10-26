@@ -325,11 +325,22 @@
 }
 
 .gpsNotice {
+  display: grid;
+  gap: 7px;
   flex: none;
   border-top: 1px solid #26272b;
   padding: 9px 14px;
   color: #e9a53a;
   font-size: 11px;
+}
+
+.gpsNotice button {
+  justify-self: start;
+  padding: 5px 9px;
+  border: 1px solid #e9a53a;
+  border-radius: 8px;
+  color: inherit;
+  font-weight: 700;
 }
 
 .mapArea {

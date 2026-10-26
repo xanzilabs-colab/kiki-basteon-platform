@@ -48,7 +48,7 @@ export default function ResponderPage() {
   const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts();
   const serverNow = useServerNow();
   const { confirm } = useAppDialog();
-  const { position, error } = useGeolocation();
+  const { position, error, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailCleared, setDetailCleared] = useState(false);
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
@@ -380,7 +380,12 @@ export default function ResponderPage() {
                 <div className={styles.queueList}>
                   <AlertList alerts={displayed} selected={selected?.id ?? null} me={position} onSelect={selectAlert} onDismiss={(alert) => void dismissAlert(alert)} dismissedIds={dismissedAlertIds} relativeTimeNow={serverNow} />
                 </div>
-                {error && <div className={styles.gpsNotice} role="status">GPS · {error}</div>}
+                {error && <div className={styles.gpsNotice} role="status">
+                  <span>GPS · {error}</span>
+                  <button type="button" disabled={refreshingLocation} onClick={() => void refreshLocation()}>
+                    {refreshingLocation ? "Checking…" : "Retry location"}
+                  </button>
+                </div>}
               </aside>
 
               <section className={styles.mapArea} aria-label="Incident map">

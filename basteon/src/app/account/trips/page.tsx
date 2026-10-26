@@ -35,7 +35,7 @@ const transitModes = [
 const modeLabels: Record<TripMode, string> = { taxi: "Taxi", walk: "Walk", ehail: "E-hail", bus: "Bus", train: "Train", cycling: "Cycling" };
 
 export default function TripsPage() {
-  const { position, error: locationError } = useGeolocation();
+  const { position, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
   const { confirm } = useAppDialog();
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<Place[]>([]);
@@ -362,7 +362,12 @@ export default function TripsPage() {
               </div> : buddyContacts.length === 0 && <p className="mt-3 text-sm text-[#756583]">Add buddies in your <Link href="/account/profile/buddies" className="underline">buddy list</Link> to invite them here.</p>}
               {guardianMessage && <p className="mt-3 text-sm" role="status">{guardianMessage}</p>}
             </section>
-            {!position && <p className="hamba-note"><LocateFixed size={16} />{locationError ?? "Waiting for your phone location."}</p>}
+            {!position && <div className="hamba-note" role="status">
+              <LocateFixed size={16} /><span>{locationError ?? "Allow location for this site to plan your route."}</span>
+              <button className="btn" type="button" disabled={refreshingLocation} onClick={() => void refreshLocation()}>
+                {refreshingLocation ? "Checking…" : "Retry location"}
+              </button>
+            </div>}
           </div>
         </section>
       ) : (
@@ -384,7 +389,12 @@ export default function TripsPage() {
           {tools.auto && estimated && <p className="hamba-note">Routing service unavailable for this mode, so this is a straight-line estimate.</p>}
           <div className="hamba-preview"><TripMap points={route?.points ?? []} position={position} stops={stops} drawn={drawn} avatarUrl={avatarUrl}           onMapClick={addMapPoint} drawing={tools.draw} onDraw={addDrawPoint} /></div></>}          {destination && <><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
           <button className="btn btn-primary hamba-start" disabled={!destination || !position || !route || busy} onClick={() => void startTrip()}><Navigation size={17} />{busy ? "Starting..." : "Start active trip protection"}</button>
-          {!position && <p className="hamba-note"><LocateFixed size={16} /> {locationError ?? "Enable location to plan a route."}</p>}
+          {!position && <div className="hamba-note" role="status">
+            <LocateFixed size={16} /><span>{locationError ?? "Allow location for this site to plan a route."}</span>
+            <button className="btn" type="button" disabled={refreshingLocation} onClick={() => void refreshLocation()}>
+              {refreshingLocation ? "Checking…" : "Retry location"}
+            </button>
+          </div>}
         </section>
       )}
       {!activeTrip && <section className="hamba-recent"><div className="hamba-recent-head"><h2><History size={18} />Recent destinations</h2></div>{destinations.map((trip) => <button type="button" className="hamba-recent-item" key={trip.id} onClick={() => { setDestination({ label: trip.destination_label, lat: trip.destination_lat, lng: trip.destination_lng }); setRouteOrigin(position ? { lat: position.lat, lng: position.lng } : null); setQuery(trip.destination_label); setMode(trip.mode); setRoutes([]); setPlaces([]); }}><span className="hamba-recent-dot" /><div><b>{trip.destination_label}</b><p>{trip.mode} · {trip.status === "arrived" ? "Arrived safely" : "Cancelled"}</p></div><ChevronRight size={17} /></button>)}{destinations.length === 0 && <p className="hamba-empty">Your completed trips will appear here.</p>}</section>}

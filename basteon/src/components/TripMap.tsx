@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { useCachedProfileImage } from "@/components/CachedProfileImage";
@@ -19,11 +19,21 @@ type Props = {
   onDraw?: (point: Point) => void;
 };
 
-function FitRoute({ points, recenter }: { points: Point[]; recenter: number }) {
+function FitRoute({ points, position, recenter }: { points: Point[]; position?: Point | null; recenter: number }) {
   const map = useMap();
+  const centeredOnLocation = useRef(false);
+  const lastRecenter = useRef(0);
   useEffect(() => {
-    if (points.length > 1) map.fitBounds(points.map((point) => [point.lat, point.lng]), { paddingTopLeft: [32, 110], paddingBottomRight: [32, 32] });
-  }, [map, points, recenter]);
+    if (points.length > 1) {
+      map.fitBounds(points.map((point) => [point.lat, point.lng]), { paddingTopLeft: [32, 110], paddingBottomRight: [32, 32] });
+      return;
+    }
+    if (position && (!centeredOnLocation.current || recenter !== lastRecenter.current)) {
+      map.setView([position.lat, position.lng], 14);
+      centeredOnLocation.current = true;
+      lastRecenter.current = recenter;
+    }
+  }, [map, points, position, recenter]);
   return null;
 }
 
@@ -82,12 +92,16 @@ const avatarIcon = (url: string | null | undefined, initial: string) => L.divIco
 });
 
 export default function TripMap({ points, position, recenter = 0, stops = [], drawn = [], avatarUrl, initial = "Y", onMapClick, drawing = false, onDraw }: Props) {
-  const center: [number, number] = points.length ? [points[0].lat, points[0].lng] : [-26.2041, 28.0473];
+  const center: [number, number] = points.length
+    ? [points[0].lat, points[0].lng]
+    : position
+      ? [position.lat, position.lng]
+      : [-29, 24];
   const cachedAvatarUrl = useCachedProfileImage(avatarUrl);
   return (
-    <MapContainer center={center} zoom={13} scrollWheelZoom={false} zoomControl={false} className="hamba-map">
+    <MapContainer center={center} zoom={points.length || position ? 13 : 5} scrollWheelZoom={false} zoomControl={false} className="hamba-map">
       <TileLayer url={process.env.NEXT_PUBLIC_MAP_TILE_URL ?? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"} attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION ?? "© OpenStreetMap contributors"} />
-      <FitRoute points={points} recenter={recenter} />
+      <FitRoute points={points} position={position} recenter={recenter} />
       <Clicks onMapClick={drawing ? undefined : onMapClick} />
       <FreeDraw active={drawing} onDraw={onDraw} />
       {points.length > 1 && <Polyline positions={points.map((point) => [point.lat, point.lng])} pathOptions={{ color: "#54256f", weight: 5 }} />}
