@@ -265,7 +265,7 @@ export default function ResponderPage() {
     ? null
     : selectedId
       ? alerts.find((a) => a.id === selectedId) ?? null
-      : unacked[0] ?? active[0] ?? null;
+      : null;
 
   const trail = useAlertTrail(selected?.id ?? null);
 
@@ -386,7 +386,6 @@ export default function ResponderPage() {
               <section className={styles.mapArea} aria-label="Incident map">
                 <div className={styles.mapCanvas}>
                   <AlertMap
-                    alerts={active}
                     selected={selected}
                     me={position}
                     trail={trail}

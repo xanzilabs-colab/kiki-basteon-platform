@@ -19,7 +19,6 @@ const icon = (color: string, selected: boolean) =>
   });
 
 export default function AlertMap({
-  alerts,
   selected,
   me,
   trail = [],
@@ -28,7 +27,6 @@ export default function AlertMap({
   showFollowButton = true,
   onSelect,
 }: {
-  alerts: Alert[];
   selected: Alert | null;
   me: Position | null;
   trail?: AlertLocation[];
@@ -40,16 +38,21 @@ export default function AlertMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseLayersRef = useRef<ReturnType<typeof installMapBaseLayers> | null>(null);
+  const selectedRef = useRef(selected);
+  const onSelectRef = useRef(onSelect);
+  selectedRef.current = selected;
+  onSelectRef.current = onSelect;
   const lastRecenterTokenRef = useRef(0);
+  const userInteractedRef = useRef(false);
+  const initialLocationLoadedRef = useRef(Boolean(me));
   const initialView = useRef({
     center:
       selected && hasLocation(selected)
         ? ([selected.lat!, selected.lng!] as [number, number])
-        : [
-            Number(process.env.NEXT_PUBLIC_DEFAULT_MAP_CENTER_LAT ?? -28.4793),
-            Number(process.env.NEXT_PUBLIC_DEFAULT_MAP_CENTER_LNG ?? 24.6727),
-          ] as [number, number],
-    zoom: Number(process.env.NEXT_PUBLIC_DEFAULT_MAP_ZOOM ?? 5),
+        : me
+          ? ([me.lat, me.lng] as [number, number])
+          : [-29, 24] as [number, number],
+    zoom: selected && hasLocation(selected) ? 14 : me ? 14 : 5,
   });
   const [route, setRoute] = useState<[number, number][]>([]);
   const animatedMarkerRef = useRef<L.Marker | null>(null);
@@ -82,6 +85,7 @@ export default function AlertMap({
     observer.observe(container);
     const frame = requestAnimationFrame(resize);
     const onUserMove = () => {
+      userInteractedRef.current = true;
       followRef.current = false;
       setFollowMode(false);
     };
@@ -99,6 +103,13 @@ export default function AlertMap({
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !me || selected || initialLocationLoadedRef.current || userInteractedRef.current) return;
+    initialLocationLoadedRef.current = true;
+    map.flyTo([me.lat, me.lng], 14, { duration: 0.7 });
+  }, [me, selected]);
 
   useEffect(() => {
     baseLayersRef.current?.select(baseLayer);
@@ -125,28 +136,6 @@ export default function AlertMap({
     if (!map) return;
 
     const layers = L.layerGroup().addTo(map);
-
-    for (const alert of alerts.filter(hasLocation)) {
-      const popup = document.createElement("div");
-      const deviceLabel = document.createElement("strong");
-      deviceLabel.textContent = alertDeviceLabel(alert);
-      popup.append(deviceLabel);
-      const ownerName = alertOwnerName(alert);
-      if (ownerName) {
-        popup.append(document.createElement("br"), document.createTextNode(ownerName));
-      }
-      if (alert.accuracy_m != null && alert.accuracy_m > 0) {
-        popup.append(
-          document.createElement("br"),
-          document.createTextNode(`Phone-reported accuracy ±${Math.round(alert.accuracy_m)} m`),
-        );
-      }
-      const marker = L.marker([alert.lat!, alert.lng!], {
-        icon: icon(alert.status === "new" ? "#ff4d5a" : "#28d5c0", selected?.id === alert.id),
-      }).bindPopup(popup);
-      marker.on("click", () => onSelect?.(alert));
-      layers.addLayer(marker);
-    }
 
     if (me) {
       const accuracy = me.accuracy != null && Number.isFinite(me.accuracy) && me.accuracy > 0
@@ -189,11 +178,26 @@ export default function AlertMap({
     return () => {
       layers.remove();
     };
-  }, [alerts, me, onSelect, route, selected?.id, trail]);
+  }, [me, route, trail]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !selected || !hasLocation(selected)) return;
+    if (!map) return;
+    if (!selected || !hasLocation(selected)) {
+      if (animatedMarkerRef.current) {
+        map.removeLayer(animatedMarkerRef.current);
+        animatedMarkerRef.current = null;
+      }
+      if (predictedMarkerRef.current) {
+        map.removeLayer(predictedMarkerRef.current);
+        predictedMarkerRef.current = null;
+      }
+      if (accuracyCircleRef.current) {
+        map.removeLayer(accuracyCircleRef.current);
+        accuracyCircleRef.current = null;
+      }
+      return;
+    }
 
     const now = performance.now();
     const prev = animToRef.current ?? { lat: selected.lat!, lng: selected.lng! };
@@ -208,9 +212,30 @@ export default function AlertMap({
     animStartRef.current = now;
     animDurationRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : between;
 
-    if (!animatedMarkerRef.current) {
-      animatedMarkerRef.current = L.marker([selected.lat!, selected.lng!], { icon: icon(selected.is_simulated_loc ? "#9CA3AF" : "#ff4d5a", true) }).addTo(map);
+    const popup = document.createElement("div");
+    const deviceLabel = document.createElement("strong");
+    deviceLabel.textContent = alertDeviceLabel(selected);
+    popup.append(deviceLabel);
+    const ownerName = alertOwnerName(selected);
+    if (ownerName) {
+      popup.append(document.createElement("br"), document.createTextNode(ownerName));
     }
+    if (selected.accuracy_m != null && selected.accuracy_m > 0) {
+      popup.append(
+        document.createElement("br"),
+        document.createTextNode(`Phone-reported accuracy ±${Math.round(selected.accuracy_m)} m`),
+      );
+    }
+    if (!animatedMarkerRef.current) {
+      animatedMarkerRef.current = L.marker([selected.lat!, selected.lng!], {
+        icon: icon(selected.is_simulated_loc ? "#9CA3AF" : "#ff4d5a", true),
+      }).addTo(map);
+      animatedMarkerRef.current.on("click", () => {
+        const current = selectedRef.current;
+        if (current) onSelectRef.current?.(current);
+      });
+    }
+    animatedMarkerRef.current.bindPopup(popup);
     animatedMarkerRef.current.setIcon(icon(selected.is_simulated_loc ? "#9CA3AF" : "#ff4d5a", true));
 
     const latestAccuracy = [...trail].reverse().find(
