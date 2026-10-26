@@ -44,7 +44,9 @@ export default function AlertMap({
   onSelectRef.current = onSelect;
   const lastRecenterTokenRef = useRef(0);
   const userInteractedRef = useRef(false);
-  const initialLocationLoadedRef = useRef(Boolean(me));
+  const centeredAccuracyRef = useRef<number | null>(
+    me && Number.isFinite(me.accuracy) && me.accuracy! >= 0 ? me.accuracy! : null,
+  );
   const initialView = useRef({
     center:
       selected && hasLocation(selected)
@@ -84,19 +86,23 @@ export default function AlertMap({
     const observer = new ResizeObserver(resize);
     observer.observe(container);
     const frame = requestAnimationFrame(resize);
-    const onUserMove = () => {
+    const onUserInteraction = () => {
       userInteractedRef.current = true;
       followRef.current = false;
       setFollowMode(false);
     };
-    map.on("dragstart", onUserMove);
-    map.on("zoomstart", onUserMove);
+    map.on("dragstart", onUserInteraction);
+    container.addEventListener("pointerdown", onUserInteraction, { passive: true });
+    container.addEventListener("wheel", onUserInteraction, { passive: true });
+    container.addEventListener("keydown", onUserInteraction);
 
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
-      map.off("dragstart", onUserMove);
-      map.off("zoomstart", onUserMove);
+      map.off("dragstart", onUserInteraction);
+      container.removeEventListener("pointerdown", onUserInteraction);
+      container.removeEventListener("wheel", onUserInteraction);
+      container.removeEventListener("keydown", onUserInteraction);
       baseLayers.remove();
       baseLayersRef.current = null;
       map.remove();
@@ -106,8 +112,11 @@ export default function AlertMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !me || selected || initialLocationLoadedRef.current || userInteractedRef.current) return;
-    initialLocationLoadedRef.current = true;
+    if (!map || !me || selected || userInteractedRef.current) return;
+    const accuracy = Number.isFinite(me.accuracy) && me.accuracy! >= 0 ? me.accuracy! : null;
+    const previousAccuracy = centeredAccuracyRef.current;
+    if (previousAccuracy !== null && (accuracy === null || accuracy > previousAccuracy / 2)) return;
+    if (accuracy !== null) centeredAccuracyRef.current = accuracy;
     map.flyTo([me.lat, me.lng], 14, { duration: 0.7 });
   }, [me, selected]);
 
@@ -120,11 +129,13 @@ export default function AlertMap({
     if (!map || recenterToken === 0 || recenterToken === lastRecenterTokenRef.current) return;
     lastRecenterTokenRef.current = recenterToken;
 
+    userInteractedRef.current = false;
     followRef.current = true;
     setFollowMode(true);
     if (selected && hasLocation(selected)) {
       map.flyTo([selected.lat!, selected.lng!], 15, { duration: 0.7 });
     } else if (me) {
+      centeredAccuracyRef.current = Number.isFinite(me.accuracy) ? me.accuracy! : null;
       map.flyTo([me.lat, me.lng], 14, { duration: 0.7 });
     } else {
       map.flyTo(initialView.current.center, initialView.current.zoom, { duration: 0.7 });

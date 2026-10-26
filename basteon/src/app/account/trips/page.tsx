@@ -399,7 +399,12 @@ export default function TripsPage() {
       )}
       {!activeTrip && <section className="hamba-recent"><div className="hamba-recent-head"><h2><History size={18} />Recent destinations</h2></div>{destinations.map((trip) => <button type="button" className="hamba-recent-item" key={trip.id} onClick={() => { setDestination({ label: trip.destination_label, lat: trip.destination_lat, lng: trip.destination_lng }); setRouteOrigin(position ? { lat: position.lat, lng: position.lng } : null); setQuery(trip.destination_label); setMode(trip.mode); setRoutes([]); setPlaces([]); }}><span className="hamba-recent-dot" /><div><b>{trip.destination_label}</b><p>{trip.mode} · {trip.status === "arrived" ? "Arrived safely" : "Cancelled"}</p></div><ChevronRight size={17} /></button>)}{destinations.length === 0 && <p className="hamba-empty">Your completed trips will appear here.</p>}</section>}
       {message && <p className="hamba-message" role="status">{message}</p>}
-      </> : <TravelTogetherPanel />}
+      </> : <TravelTogetherPanel
+        position={position}
+        locationError={locationError}
+        refreshingLocation={refreshingLocation}
+        refreshLocation={refreshLocation}
+      />}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bus, Car, Clock3, Eye, EyeOff, Footprints, Handshake, LocateFixed, MapPinned, RefreshCw, ShieldCheck, TrainFront, UserCheck, UserPlus, UsersRound, X } from "lucide-react";
-import { useGeolocation } from "@/hooks/useGeolocation";
+import type { Position } from "@/lib/geo";
 import { useFaceCheck, type FacePurpose } from "@/hooks/useFaceCheck";
 import { BUDDY_CONFIG } from "@/lib/buddies/config";
 import radarStyles from "@/app/games/games.module.css";
@@ -49,8 +49,17 @@ const invitationErrorMessage: Record<string, string> = {
   FACE_CHECK_REQUIRED: "Complete a quick face check to join this travel group.",
 };
 
-export function TravelTogetherPanel() {
-  const { position, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
+export function TravelTogetherPanel({
+  position,
+  locationError,
+  refreshingLocation,
+  refreshLocation,
+}: {
+  position: Position | null;
+  locationError: string | null;
+  refreshingLocation: boolean;
+  refreshLocation: () => Promise<void>;
+}) {
   const [query, setQuery] = useState(""); const [places, setPlaces] = useState<Place[]>([]); const [destination, setDestination] = useState<Place | null>(null);
   const [mode, setMode] = useState<(typeof modes)[number]>("walk"); const [visible, setVisible] = useState(false); const [active, setActive] = useState(false);
   const [avatars, setAvatars] = useState<Avatar[]>([]); const [bubbles, setBubbles] = useState<BubbleMarker[]>([]); const [message, setMessage] = useState(""); const [consent, setConsent] = useState(false); const [pending, setPending] = useState<FacePurpose | null>(null);
