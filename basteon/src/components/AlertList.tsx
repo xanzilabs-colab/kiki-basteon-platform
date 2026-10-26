@@ -9,11 +9,17 @@ export function AlertList({
   selected,
   onSelect,
   me,
+  onDismiss,
+  dismissedIds,
+  relativeTimeNow,
 }: {
   alerts: Alert[];
   selected: string | null;
   onSelect(alert: Alert): void;
   me: Position | null;
+  onDismiss?(alert: Alert): void;
+  dismissedIds?: ReadonlySet<string>;
+  relativeTimeNow?: Date;
 }) {
   if (!alerts.length) {
     return (
@@ -32,6 +38,9 @@ export function AlertList({
           me={me}
           selected={selected === a.id}
           onSelect={() => onSelect(a)}
+          onDismiss={onDismiss}
+          dismissed={dismissedIds?.has(a.id) ?? false}
+          relativeTimeNow={relativeTimeNow}
         />
       ))}
     </div>

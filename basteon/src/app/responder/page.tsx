@@ -2,11 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
 import { activeStatuses } from "@/lib/status";
 import { useRealtimeAlerts } from "@/hooks/useRealtimeAlerts";
 import { useAlertTrail } from "@/hooks/useAlertTrail";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { useServerNow } from "@/hooks/useServerNow";
 import { AlertList } from "@/components/AlertList";
 import { AlertDetailPanel } from "@/components/AlertDetailPanel";
 import { ResponderLocationPublisher } from "@/components/ResponderLocationPublisher";
@@ -15,15 +15,18 @@ import { SoundToggle } from "@/components/SoundToggle";
 import { Navbar } from "@/components/Navbar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserProfileDrawer } from "@/components/UserProfileDrawer";
+import { useAppDialog } from "@/components/AppDialogProvider";
 import type { Alert, ProfileContact } from "@/lib/types";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
 import { createClient } from "@/lib/supabase/client";
+import { fmtRelativeTime } from "@/lib/datetime";
 import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
 import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
 import { AlertTriangle, LayoutDashboard, LocateFixed, Settings } from "lucide-react";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
+import { toast } from "sonner";
 import styles from "./ResponderDashboard.module.css";
 
 const AlertMap = dynamic(() => import("@/components/AlertMap"), {
@@ -43,9 +46,12 @@ export default function ResponderPage() {
   const [organisationLoadAttempt, setOrganisationLoadAttempt] = useState(0);
   const [organisationBlocked, setOrganisationBlocked] = useState(false);
   const { alerts, events, connection, error: alertError, refresh } = useRealtimeAlerts();
+  const serverNow = useServerNow();
+  const { confirm } = useAppDialog();
   const { position, error } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailCleared, setDetailCleared] = useState(false);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"active" | "all">("active");
   const [profile, setProfile] = useState<ProfileContact | null>(null);
   const [operatorName, setOperatorName] = useState("");
@@ -64,6 +70,24 @@ export default function ResponderPage() {
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const [supportContacts, setSupportContacts] = useState<Array<any>>([]);
   const emergencyTypes = useEmergencyTypes();
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/alerts/dismiss", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error ?? "Dismissed alerts could not be loaded.");
+        return data.dismissedAlertIds;
+      })
+      .then((ids: unknown) => {
+        if (active && Array.isArray(ids)) setDismissedAlertIds(new Set(ids.filter((id): id is string => typeof id === "string")));
+      })
+      .catch((failure) => {
+        console.error("Responder alert dismissals could not be loaded", failure);
+        if (active) toast.error("Alerts removed from your active queue could not be loaded.");
+      });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -218,8 +242,8 @@ export default function ResponderPage() {
   }
 
   const active = useMemo(
-    () => alerts.filter((a) => activeStatuses.includes(a.status)),
-    [alerts],
+    () => alerts.filter((a) => activeStatuses.includes(a.status) && !dismissedAlertIds.has(a.id)),
+    [alerts, dismissedAlertIds],
   );
   const recentAlerts = useMemo(
     () => [...alerts].sort((a, b) => +new Date(b.triggered_at) - +new Date(a.triggered_at)).slice(0, 6),
@@ -257,6 +281,38 @@ export default function ResponderPage() {
       ),
     [alerts, active, tab, typeFilter, movingOnly],
   );
+
+  async function dismissAlert(alert: Alert) {
+    const confirmed = await confirm(
+      "This removes the alert from your active queue only. It stays active for other responders and remains available in All. Any response you have accepted will continue.",
+      { title: "Remove alert from your active queue?", confirmLabel: "Remove from active", danger: true },
+    );
+    if (!confirmed) return;
+    try {
+      const response = await fetch("/api/alerts/dismiss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alertId: alert.id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast.error(result.error === "closed_alert"
+          ? "This alert has already been closed."
+          : result.error === "forbidden"
+            ? "You cannot remove an alert outside your dispatch area."
+            : "The alert could not be removed from your active queue.");
+        return;
+      }
+      setDismissedAlertIds((current) => new Set(current).add(alert.id));
+      if (selectedId === alert.id) {
+        setSelectedId(null);
+        setDetailCleared(true);
+      }
+      toast.success("Alert removed from your active queue. It remains active for other responders.");
+    } catch {
+      toast.error("Could not reach the alert service. Try again.");
+    }
+  }
 
   return (
     <div className={`responder-console ${styles.responderRoot} h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]`}>
@@ -322,7 +378,7 @@ export default function ResponderPage() {
                   <label><input type="checkbox" checked={movingOnly} onChange={(event) => setMovingOnly(event.target.checked)} /> Moving only</label>
                 </div>
                 <div className={styles.queueList}>
-                  <AlertList alerts={displayed} selected={selected?.id ?? null} me={position} onSelect={selectAlert} />
+                  <AlertList alerts={displayed} selected={selected?.id ?? null} me={position} onSelect={selectAlert} onDismiss={(alert) => void dismissAlert(alert)} dismissedIds={dismissedAlertIds} relativeTimeNow={serverNow} />
                 </div>
                 {error && <div className={styles.gpsNotice} role="status">GPS · {error}</div>}
               </aside>
@@ -389,7 +445,7 @@ export default function ResponderPage() {
                             <tr key={alert.id}>
                               <td><button type="button" onClick={() => { selectAlert(alert); setResponderView("alerts"); }}><AlertTypeBadge typeCode={alert.type_code} />{alertDeviceLabel(alert)}</button></td>
                               <td>{alertOwnerName(alert) ?? "Unassigned"}</td>
-                              <td>{formatDistanceToNow(new Date(alert.triggered_at), { addSuffix: true })}</td>
+                              <td>{fmtRelativeTime(alert.triggered_at, serverNow)}</td>
                             </tr>
                           ))}</tbody>
                         </table>

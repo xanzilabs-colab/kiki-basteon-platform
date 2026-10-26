@@ -72,12 +72,7 @@ export function gestureReducer(s: GestureState, e: GestureEvent): GestureState {
       return s;
 
     case "cancel":
-      if (s.phase === "holding") {
-        return s.armed
-          ? { phase: "done", type: "medical", via: "hold_slide" }
-          : { phase: "done", type: "sos", via: "hold_release" };
-      }
-      return s.phase === "pressing" ? { phase: "idle" } : s;
+      return { phase: "idle" };
 
     default:
       return s;

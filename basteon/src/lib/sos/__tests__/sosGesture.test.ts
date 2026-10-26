@@ -45,16 +45,13 @@ describe("SOS gesture state machine", () => {
     expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "cancel" }])).toEqual({ phase: "idle" });
   });
 
-  it("treats cancellation while holding as SOS unless armed", () => {
+  it("cancels pointer interruption without triggering either SOS flow", () => {
+    expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "cancel" }]))
+      .toEqual({ phase: "idle" });
     expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "holdTimer" }, { kind: "cancel" }]))
-      .toEqual({ phase: "done", type: "sos", via: "hold_release" });
-  });
-
-  it("can arm and complete Medical on cancellation after reaching the bubble", () => {
-    expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "holdTimer" }, { kind: "move", pos: bubble, bubble: null }, { kind: "cancel" }]))
-      .toEqual({ phase: "done", type: "sos", via: "hold_release" });
+      .toEqual({ phase: "idle" });
     expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "holdTimer" }, { kind: "move", pos: bubble, bubble }, { kind: "cancel" }]))
-      .toEqual({ phase: "done", type: "medical", via: "hold_slide" });
+      .toEqual({ phase: "idle" });
   });
 
   it("resets completed gestures to idle", () => {

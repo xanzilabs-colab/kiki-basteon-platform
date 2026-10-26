@@ -1,10 +1,11 @@
 "use client";
 
-import { formatDistanceToNow } from "date-fns";
 import { Bell, CheckCheck, Gamepad2, Handshake, Route } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useServerNow } from "@/hooks/useServerNow";
+import { fmtRelativeTime } from "@/lib/datetime";
 
 type NotificationItem = { id: string; type: string; title: string; body: string; href: string | null; payload?: Record<string, unknown>; read: boolean; createdAt: string };
 
@@ -12,6 +13,7 @@ const POLL_MS = 30_000;
 
 export function NotificationBell() {
   const router = useRouter();
+  const serverNow = useServerNow();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -141,7 +143,7 @@ export function NotificationBell() {
                     <span>
                       <b>{item.title}</b>
                       {item.body && <small>{item.body}</small>}
-                      <time dateTime={item.createdAt}>{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}</time>
+                      <time dateTime={item.createdAt}>{fmtRelativeTime(item.createdAt, serverNow)}</time>
                     </span>
                   </button>
                 </li>

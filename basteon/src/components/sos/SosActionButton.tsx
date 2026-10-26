@@ -85,6 +85,7 @@ export function SosActionButton({ className, title, children, onSelect }: Props)
         {...gesture.buttonProps}
         onContextMenu={gesture.onContextMenu}
         onClick={(event) => {
+          // Keyboard and assistive clicks have no pointer/touch activation to finish the gesture.
           if (event.detail === 0 && !gesture.isPointerActivationRecent()) onSelect("sos", "tap");
         }}
       >

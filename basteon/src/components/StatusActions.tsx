@@ -30,7 +30,7 @@ export function StatusActions({
   async function change(status: AlertStatus) {
     if (closeOnly && !(await confirm("This closes the incident for everyone and removes it from active responder queues. The incident will remain in history.", {
       title: "Remove active alert?",
-      confirmLabel: "Resolve and remove",
+      confirmLabel: "Resolve for everyone",
       danger: true,
     }))) return;
     setBusy(true);
@@ -75,7 +75,7 @@ export function StatusActions({
       <input className="input text-sm" placeholder="Optional operational note" value={note} onChange={(event) => setNote(event.target.value)} />
       {choices.map((status) => (
         <button disabled={busy} className="btn w-full text-sm" key={status} onClick={() => void change(status)}>
-          {status === "acknowledged" && (alert.status === "resolved" || alert.status === "false_alarm") ? "Reopen" : closeOnly ? "Remove from active" : statusLabels[status]}
+          {status === "acknowledged" && (alert.status === "resolved" || alert.status === "false_alarm") ? "Reopen" : closeOnly ? "Resolve for everyone" : statusLabels[status]}
         </button>
       ))}
     </div>

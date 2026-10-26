@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from "date-fns";
+import { formatDistance } from "date-fns";
 
 const johannesburg = new Intl.DateTimeFormat("en-ZA", {
   dateStyle: "medium",
@@ -10,6 +10,6 @@ export function fmtDateTime(value: string) {
   return johannesburg.format(new Date(value));
 }
 
-export function fmtRelativeTime(value: string) {
-  return formatDistanceToNow(new Date(value), { addSuffix: true });
+export function fmtRelativeTime(value: string, referenceDate: Date = new Date()) {
+  return formatDistance(new Date(value), referenceDate, { addSuffix: true });
 }
