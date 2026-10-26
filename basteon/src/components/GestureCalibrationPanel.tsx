@@ -136,12 +136,16 @@ export default function GestureCalibrationPanel({
   const [verifyResult, setVerifyResult] = useState("");
   const savedSetupsRef = useRef<HTMLDetailsElement>(null);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const stepActionRef = useRef<HTMLElement | null>(null);
+  const setStepActionRef = useCallback((node: HTMLElement | null) => {
+    stepActionRef.current = node;
+  }, []);
   const settingsSheetRef = useRef<HTMLElement>(null);
   const actionSheetRef = useRef<HTMLElement>(null);
   const returnScrollPositionRef = useRef<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const autoFocusedDeviceRef = useRef("");
-  const previousStepRef = useRef(step);
+  const actionFocusInitializedRef = useRef(false);
   const waitKindRef = useRef<WaitKind>(null);
   const verifyActionRef = useRef<Action | null>(null);
   const verifyActionsRef = useRef<Action[]>([]);
@@ -234,14 +238,22 @@ export default function GestureCalibrationPanel({
   }, [profiles, registeredDevices, requestedDeviceRef]);
 
   useEffect(() => {
-    if (previousStepRef.current === step) return;
-    previousStepRef.current = step;
+    if (!actionFocusInitializedRef.current) {
+      actionFocusInitializedRef.current = true;
+      return;
+    }
+    if (waiting) return;
     const frame = requestAnimationFrame(() => {
-      stepHeadingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      stepHeadingRef.current?.focus({ preventScroll: true });
+      const action = stepActionRef.current;
+      const target = action && !action.matches(":disabled") ? action : stepHeadingRef.current;
+      target?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "center",
+      });
+      target?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
-  }, [step]);
+  }, [step, waiting, pendingSample, warmupSignature, mapping, verifyActionIndex, practice, connected]);
 
   useEffect(() => {
     const sheet = editingAction ? actionSheetRef.current : settingsOpen ? settingsSheetRef.current : null;
@@ -438,11 +450,6 @@ export default function GestureCalibrationPanel({
       void loadProfiles().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not refresh gesture profiles."));
     }
   }, [practice, loadProfiles]);
-
-  useEffect(() => {
-    const needsRecheck = profiles.some((profile) => !isProfileCurrent(profile, status));
-    if (needsRecheck) setSavedSetupsOpen(true);
-  }, [profiles, status.appVersion, status.androidSdk]);
 
   function resetWizard() {
     setStep("preflight");
@@ -726,6 +733,7 @@ export default function GestureCalibrationPanel({
     : currentStep === "calibrate" ? 1
       : currentStep === "review" ? 2
         : 3;
+  const profilesNeedingCheck = profiles.filter((profile) => !isProfileCurrent(profile, status)).length;
 
   function assignGesture(action: Action, signature: string | undefined) {
     setMapping((previous) => {
@@ -749,7 +757,7 @@ export default function GestureCalibrationPanel({
         })}
       </ol>
 
-      <button className={styles.settingsButton} type="button" onClick={() => {
+      <button ref={!connected && practice ? setStepActionRef : undefined} className={styles.settingsButton} type="button" onClick={() => {
         rememberPagePosition();
         setSettingsOpen(true);
       }}>
@@ -764,7 +772,7 @@ export default function GestureCalibrationPanel({
         {waiting && waitKind === "warmup" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <>
           {warmupSignature
             ? <div className={`${styles.message} ${styles.messageSuccess}`} role="status"><Check size={17} />Button detected. Continue to capture the patterns you want to use.</div>
-            : <button className={styles.primaryButton} type="button" disabled={!practice || !connected || waiting} onClick={() => void beginCapture("warmup")}>Check button</button>}
+            : <button ref={connected ? setStepActionRef : undefined} className={styles.primaryButton} type="button" disabled={!practice || !connected || waiting} onClick={() => void beginCapture("warmup")}>Check button</button>}
         </>}
         {noSignal && !warmupSignature && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />Kiki did not receive a signal. Try again with music apps closed. Some controls may not be sent to Android.</p>}
       </section>}
@@ -781,11 +789,11 @@ export default function GestureCalibrationPanel({
         {waiting && waitKind === "sample" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : pendingSample ? <div className={styles.samplePreview}>
           <p>Kiki detected: <b>{humanize(pendingSample.sig) || "No signal"}</b>.</p>
           <div className={styles.sampleActions}>
-            <button className={styles.primaryButton} type="button" onClick={() => appendSample(pendingSample)}>Use this sample</button>
+            <button ref={setStepActionRef} className={styles.primaryButton} type="button" onClick={() => appendSample(pendingSample)}>Use this sample</button>
             <button className={styles.secondaryButton} type="button" onClick={() => { setPendingSample(null); setNoSignal(false); }}>Try again</button>
           </div>
         </div> : <div className={styles.buttonRow}>
-          <button className={styles.primaryButton} type="button" disabled={!practice || waiting} onClick={() => void beginCapture("sample")}>Start capture</button>
+          <button ref={setStepActionRef} className={styles.primaryButton} type="button" disabled={!practice || waiting} onClick={() => void beginCapture("sample")}>Start capture</button>
           {noSignal && <button className={styles.warningButton} type="button" onClick={() => void acceptNoSignal()}>Record no signal</button>}
         </div>}
         {noSignal && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />No button signal arrived. Try again, or record it as unavailable.</p>}
@@ -797,6 +805,7 @@ export default function GestureCalibrationPanel({
         <p className={styles.cardCopy}>Choose from the exact ordered events your accessory sent. Play/Pause and volume sequences stay distinct.</p>
         <label className={`${styles.field} ${styles.profileNameField}`}>Profile name
           <input
+            ref={!profileNameForSave ? setStepActionRef : undefined}
             maxLength={40}
             value={resolveGestureProfileName(profileName, profileNameEdited, generatedProfileName)}
             onChange={(event) => { setProfileName(event.target.value); setProfileNameEdited(true); }}
@@ -804,21 +813,26 @@ export default function GestureCalibrationPanel({
           />
         </label>
         {profileNameEdited && !profileName.trim() && <p className={`${styles.message} ${styles.messageError}`} role="alert">Enter a profile name between 1 and 40 characters.</p>}
-        {analysis.gestures.length === 0 ? <p className={styles.messageWarning}>No complete gesture samples were detected yet.</p> : <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead><tr><th>Requested taps</th><th>Actual event sequence</th><th>Capture</th></tr></thead>
-            <tbody>
-              {analysis.gestures.map((gesture) => <tr key={`${gesture.taps}-${gesture.sig}`}>
-                <td>{gesture.taps} tap{gesture.taps === 1 ? "" : "s"}</td>
-                <td>{humanize(gesture.sig)}</td>
-                <td><span className={styles.repeatable}>{gesture.total > 1 ? `${gesture.samples}/${gesture.total} matched` : "Captured once"}</span></td>
-              </tr>)}
-              {analysis.unseen.map((count) => <tr key={`unseen-${count}`}>
-                <td className={styles.dimmed}>{count} taps</td><td className={styles.dimmed}>No signal</td><td className={styles.dimmed}>—</td>
-              </tr>)}
-            </tbody>
-          </table>
-        </div>}
+        {analysis.gestures.length === 0
+          ? <p className={styles.messageWarning}>No complete gesture samples were detected yet.</p>
+          : <details className={styles.captureDetails}>
+            <summary>View captured patterns ({analysis.gestures.length})</summary>
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead><tr><th>Requested taps</th><th>Actual event sequence</th><th>Capture</th></tr></thead>
+                <tbody>
+                  {analysis.gestures.map((gesture) => <tr key={`${gesture.taps}-${gesture.sig}`}>
+                    <td>{gesture.taps} tap{gesture.taps === 1 ? "" : "s"}</td>
+                    <td>{humanize(gesture.sig)}</td>
+                    <td><span className={styles.repeatable}>{gesture.total > 1 ? `${gesture.samples}/${gesture.total} matched` : "Captured once"}</span></td>
+                  </tr>)}
+                  {analysis.unseen.map((count) => <tr key={`unseen-${count}`}>
+                    <td className={styles.dimmed}>{count} taps</td><td className={styles.dimmed}>No signal</td><td className={styles.dimmed}>—</td>
+                  </tr>)}
+                </tbody>
+              </table>
+            </div>
+          </details>}
         {analysis.unseen.length > 0 && <p className={`${styles.message} ${styles.messageWarning}`}><AlertCircle size={17} />No events were received for {analysis.unseen.join(", ")} taps. Those gestures cannot be assigned.</p>}
         {analysis.indistinguishable.map(({ sig, taps }) => <p className={`${styles.message} ${styles.messageWarning}`} key={sig}><AlertCircle size={17} />Tap counts {taps.join(" and ")} produced the same signal ({humanize(sig)}), so Kiki cannot distinguish them.</p>)}
         <button className={`${styles.secondaryButton} ${styles.suggestActionsButton}`} type="button" onClick={() => void acceptRecommendations()} disabled={!analysis.gestures.length}>Suggest actions</button>
@@ -826,8 +840,10 @@ export default function GestureCalibrationPanel({
           {ACTIONS.map(({ id: action, label }) => {
             const signature = mapping[action];
             const gesture = analysis.gestures.find((item) => item.sig === signature);
+            const nextUnassignedAction = !mapping.sos ? "sos" : !mapping.cancel ? "cancel" : null;
             return <button
               className={`${styles.actionButton} ${signature ? styles.actionButtonSelected : ""}`}
+              ref={action === nextUnassignedAction ? setStepActionRef : undefined}
               type="button"
               key={action}
               onClick={() => {
@@ -845,13 +861,17 @@ export default function GestureCalibrationPanel({
           })}
         </div>
         {mappedErrors.map((item) => <p className={`${styles.message} ${styles.messageError}`} key={item}><AlertCircle size={17} />{item}</p>)}
-        {maxTapCount === 3 && <button className={`${styles.secondaryButton} ${styles.captureMoreButton}`} type="button" disabled={!practice || waiting || busy} onClick={() => {
-          setTapCount(4);
-          setSampleNumber(1);
-          setMaxTapCount(6);
-          setStep("calibrate");
-          setMessage("Capture extra 4–6 tap patterns only if this accessory supports them.");
-        }}>Capture optional 4–6 tap patterns</button>}
+        {maxTapCount === 3 && <details className={styles.optionalCapture}>
+          <summary>Need more patterns? (optional)</summary>
+          <p>Capture 4–6 taps only if your accessory supports them.</p>
+          <button className={styles.secondaryButton} type="button" disabled={!practice || waiting || busy} onClick={() => {
+            setTapCount(4);
+            setSampleNumber(1);
+            setMaxTapCount(6);
+            setStep("calibrate");
+            setMessage("Capture extra 4–6 tap patterns only if this accessory supports them.");
+          }}>Capture extra patterns</button>
+        </details>}
       </section>}
 
       {step === "verify" && <section className={styles.card} aria-labelledby="trigger-verify-title">
@@ -878,8 +898,8 @@ export default function GestureCalibrationPanel({
           {verifyResult.startsWith("That attempt") || verifyResult.startsWith("No matching") ? <AlertCircle size={17} /> : <CircleHelp size={17} />}{verifyResult}
         </p>}
         {activeVerifyAction && <p className={styles.verifyPrompt}>Safety check {verifyActionIndex + 1}/{verifyActions.length}: perform <b>{ACTIONS.find((item) => item.id === activeVerifyAction)?.label}</b> once.</p>}
-        {waiting && waitKind === "verify" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <button className={styles.primaryButton} type="button" disabled={!practice || busy || !activeVerifyAction} onClick={() => void retryFailedVerification()}><ShieldCheck size={18} />Check {ACTIONS.find((item) => item.id === activeVerifyAction)?.label ?? "button"} pattern</button>}
-        {verifyResult.startsWith("Expected ") && <button className={`${styles.secondaryButton} ${styles.adjustAssignmentsButton}`} type="button" disabled={busy || waiting} onClick={() => setStep("review")}>Adjust event assignments</button>}
+        {waiting && waitKind === "verify" ? <div className={styles.listening} role="status"><i className={styles.listenDot} /><i className={styles.listenDot} /><i className={styles.listenDot} />Listening…</div> : <button ref={setStepActionRef} className={styles.primaryButton} type="button" disabled={!practice || busy || !activeVerifyAction} onClick={() => void retryFailedVerification()}><ShieldCheck size={18} />Check {ACTIONS.find((item) => item.id === activeVerifyAction)?.label ?? "button"} pattern</button>}
+        {verifyResult.startsWith("Expected ") && <button ref={setStepActionRef} className={`${styles.secondaryButton} ${styles.adjustAssignmentsButton}`} type="button" disabled={busy || waiting} onClick={() => setStep("review")}>Adjust event assignments</button>}
         {noSignal && <p className={`${styles.message} ${styles.messageWarning}`} role="status"><AlertCircle size={17} />No signal arrived. Try again.</p>}
       </section>}
 
@@ -890,7 +910,11 @@ export default function GestureCalibrationPanel({
       </section>}
 
       {profiles.length > 0 && <details ref={savedSetupsRef} className={`${styles.card} ${styles.savedCard}`} open={savedSetupsOpen} onToggle={(event) => setSavedSetupsOpen(event.currentTarget.open)}>
-        <summary className={styles.savedHeader}><span className={styles.savedTitle}>Saved button setups ({profiles.length})</span><ChevronDown size={17} /></summary>
+        <summary className={styles.savedHeader}>
+          <span className={styles.savedTitle}>Saved setups ({profiles.length})</span>
+          {profilesNeedingCheck > 0 && <span className={`${styles.badge} ${styles.badgeNeedsCheck}`}>{profilesNeedingCheck} need a check</span>}
+          <ChevronDown size={17} />
+        </summary>
         <div className={styles.savedRows}>
           {profiles.map((profile) => {
             const verified = isProfileCurrent(profile, status);
@@ -914,9 +938,9 @@ export default function GestureCalibrationPanel({
       {busy && <p className={styles.phoneSaved} role="status">Saving gesture profile…</p>}
 
       <div className={styles.footer}>
-        {(step === "preflight" || step === "warmup") && <button className={styles.primaryButton} type="button" disabled={!warmupSignature || !practice || busy} onClick={() => { setStep("calibrate"); setNoSignal(false); setMessage(""); }}>Continue</button>}
-        {step === "review" && <button className={styles.primaryButton} type="button" disabled={!practice || busy || !mappedReady || !profileNameForSave} onClick={() => void saveDraftForVerification()}><ShieldCheck size={18} />Continue to safety check</button>}
-        {step === "done" && <Link className={styles.primaryButton} href="/account/profile/triggers">Done</Link>}
+        {(step === "preflight" || step === "warmup") && warmupSignature && <button ref={setStepActionRef} className={styles.primaryButton} type="button" disabled={!practice || busy} onClick={() => { setStep("calibrate"); setNoSignal(false); setMessage(""); }}>Continue</button>}
+        {step === "review" && mappedReady && profileNameForSave && <button ref={setStepActionRef} className={styles.primaryButton} type="button" disabled={!practice || busy} onClick={() => void saveDraftForVerification()}><ShieldCheck size={18} />Continue to safety check</button>}
+        {step === "done" && <Link ref={setStepActionRef} className={styles.primaryButton} href="/account/profile/triggers">Done</Link>}
         {(step === "calibrate" || step === "verify") && <button className={styles.ghostButton} type="button" disabled={busy || waiting} onClick={resetWizard}><RotateCcw size={15} />Reset setup</button>}
       </div>
 

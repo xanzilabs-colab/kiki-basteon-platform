@@ -116,6 +116,36 @@
 .practiceActions { margin-left: 19px; }
 .buttonRow > button { width: auto; flex: 1; }
 .practiceActions > button { flex: 0 0 auto; }
+.practiceMore { position: relative; }
+.practiceMore summary {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 7px 11px;
+  border: 1px solid var(--tl-warn-line);
+  border-radius: 11px;
+  background: #fff;
+  color: #6b4306;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  list-style: none;
+}
+.practiceMore summary::-webkit-details-marker { display: none; }
+.practiceMore[open] .practiceMoreActions {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid var(--tl-warn-line);
+  border-radius: 12px;
+  background: var(--tl-warn-bg);
+  box-shadow: 0 8px 20px rgb(42 21 54 / 12%);
+}
+.practiceMoreActions > button { flex: 0 0 auto; }
 
 .practiceChip {
   min-height: 36px;
@@ -245,11 +275,17 @@
   font-size: 15px;
   font-weight: 800;
   text-align: center;
+  scroll-margin-block: 96px;
 }
 
 .primaryButton { background: var(--tl-deep); color: #fff; }
 .primaryButton:hover:not(:disabled) { background: #401e50; }
 .primaryButton:disabled { background: #c9b8d8; color: #fff; cursor: not-allowed; }
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.ghostButton:focus-visible,
+.warningButton:focus-visible,
+.actionButton:focus-visible { outline: 3px solid var(--tl-plum); outline-offset: 3px; }
 a.primaryButton { text-decoration: none; }
 .secondaryButton { min-height: 46px; background: var(--tl-lav); color: var(--tl-deep); font-size: 14px; }
 .ghostButton { min-height: 42px; background: transparent; color: var(--tl-muted); font-size: 14px; }
@@ -322,6 +358,28 @@ a.primaryButton { text-decoration: none; }
 .sampleActions > button { width: auto; flex: 1; }
 
 .tableWrap { width: 100%; overflow-x: auto; }
+.captureDetails,
+.optionalCapture {
+  margin: 10px 0;
+  border: 1px solid var(--tl-line);
+  border-radius: 13px;
+  background: var(--tl-bg);
+}
+.captureDetails summary,
+.optionalCapture summary {
+  padding: 11px 13px;
+  color: var(--tl-deep);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+  list-style: none;
+}
+.captureDetails summary::-webkit-details-marker,
+.optionalCapture summary::-webkit-details-marker { display: none; }
+.captureDetails[open] summary { padding-bottom: 3px; }
+.captureDetails .tableWrap { padding: 0 9px 9px; }
+.optionalCapture > p { margin: 0 13px 10px; color: var(--tl-muted); font-size: 12px; }
+.optionalCapture > button { width: calc(100% - 26px); margin: 0 13px 13px; }
 .profileNameField + .tableWrap { margin-top: 8px; }
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .table th { padding: 0 5px 8px; color: var(--tl-muted); font-size: 10px; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
@@ -362,9 +420,7 @@ a.primaryButton { text-decoration: none; }
 .actionHint { display: block; margin-top: 3px; color: var(--tl-warn); font-size: 11px; }
 .actionChevron { flex: none; color: #b9a9c7; }
 .suggestActionsButton,
-.captureMoreButton,
 .adjustAssignmentsButton { margin-block: 8px; }
-.captureMoreButton { margin-top: 16px; margin-bottom: 6px; }
 
 .verificationList { margin: 4px 0 12px; }
 .verificationRow { display: flex; align-items: center; gap: 12px; padding: 12px 0; }

@@ -115,12 +115,17 @@ export default function TriggerLab({ requestedDeviceRef = "" }: { requestedDevic
           <button className={styles.practiceChip} type="button" disabled={busy} onClick={() => void setPracticeMode(true)}>
             {practice ? "Extend 10 min" : "Start Practice · 10 min"}
           </button>
-          <button className={styles.practiceChip} type="button" disabled={busy || !practice} onClick={() => void setPracticeMode(false)}>
-            <CircleStop size={14} />Stop
-          </button>
-          <button className={styles.practiceChip} type="button" disabled={busy} onClick={() => void refresh()}>
-            <RefreshCw size={14} />Refresh
-          </button>
+          <details className={styles.practiceMore}>
+            <summary>More</summary>
+            <div className={styles.practiceMoreActions}>
+              <button className={styles.practiceChip} type="button" disabled={busy || !practice} onClick={() => void setPracticeMode(false)}>
+                <CircleStop size={14} />Stop
+              </button>
+              <button className={styles.practiceChip} type="button" disabled={busy} onClick={() => void refresh()}>
+                <RefreshCw size={14} />Refresh
+              </button>
+            </div>
+          </details>
         </div>
       </section>
 
