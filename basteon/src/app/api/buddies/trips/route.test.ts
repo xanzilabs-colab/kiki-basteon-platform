@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeSupabase, jsonRequest } from "@/test/fakeSupabase";
 
 const mocks = vi.hoisted(() => ({
@@ -21,6 +21,8 @@ const trip = {
 
 describe("create Travel Together trip", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-26T10:00:00.000Z"));
     vi.clearAllMocks();
     const { client, calls } = fakeSupabase((call) => {
       if (call.table === "buddy_trips" && call.action === "insert") return { data: trip };
@@ -31,13 +33,17 @@ describe("create Travel Together trip", () => {
     mocks.calls = calls;
   });
 
-  it("creates an active, hidden trip and returns its ID for subsequent actions", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("uses server time for trip expiry, ignoring a stale client clock", async () => {
     const response = await POST(jsonRequest("http://localhost/api/buddies/trips", {
       start: { lat: -26.2, lng: 28.0 },
       destination: { lat: -26.1, lng: 28.1 },
       route: [{ lat: -26.2, lng: 28.0 }, { lat: -26.1, lng: 28.1 }],
       mode: "walk",
-      leaveFrom: "2026-10-26T08:00:00.000Z",
+      leaveFrom: "2026-10-25T18:00:00.000Z",
       maxWaitMinutes: 30,
       maxWalkM: 800,
       groupSize: 3,
@@ -48,7 +54,14 @@ describe("create Travel Together trip", () => {
 
     expect(response.status).toBe(201);
     expect(body).toMatchObject({ active: true, id: trip.id, visible: false });
-    expect(insert?.payload).toMatchObject({ active: true, visible: false, user_id: "user-id" });
+    expect(insert?.payload).toMatchObject({
+      active: true,
+      visible: false,
+      user_id: "user-id",
+      leave_from: "2026-10-26T10:00:00.000Z",
+      leave_to: "2026-10-26T10:30:00.000Z",
+      expires_at: "2026-10-26T14:30:00.000Z",
+    });
     expect(mocks.audit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tripId: trip.id, actorId: "user-id" }));
   });
 });

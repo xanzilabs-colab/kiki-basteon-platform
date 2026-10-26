@@ -4,7 +4,7 @@ import { recordBuddyAudit } from "../_audit";
 import { activeBuddyTrip, requireBuddyUser } from "../_shared";
 
 const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) });
-const schema = z.object({ start: point, destination: point, route: z.array(point).min(2).max(5_000), mode: z.enum(["walk", "taxi", "ehail", "bus", "train"]), leaveFrom: z.string().datetime(), maxWaitMinutes: z.number().int().min(5).max(120), maxWalkM: z.number().int().min(50).max(5000), groupSize: z.number().int().min(2).max(4), audience: z.enum(["all_verified", "contacts_only"]) });
+const schema = z.object({ start: point, destination: point, route: z.array(point).min(2).max(5_000), mode: z.enum(["walk", "taxi", "ehail", "bus", "train"]), maxWaitMinutes: z.number().int().min(5).max(120), maxWalkM: z.number().int().min(50).max(5000), groupSize: z.number().int().min(2).max(4), audience: z.enum(["all_verified", "contacts_only"]) });
 const adjectives = ["Amber", "Bright", "Calm", "Cedar", "Kind", "Quiet", "Swift", "Willow"];
 const nouns = ["Comet", "Clover", "Dawn", "Harbor", "Lily", "Meadow", "River", "Sky"];
 const avatars = ["🌻", "🌿", "🌸", "🪻", "🍀", "🌙", "🫧", "🧭"];
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     if ("error" in access) return access.error;
     const input = schema.safeParse(await request.json().catch(() => null));
     if (!input.success) return safeJson({ error: "invalid_trip" }, { status: 400 });
-    const leaveFrom = new Date(input.data.leaveFrom);
+    const leaveFrom = new Date();
     const leaveTo = new Date(leaveFrom.getTime() + input.data.maxWaitMinutes * 60_000);
     const expiresAt = new Date(leaveTo.getTime() + 4 * 60 * 60_000);
     const { error: deactivateError } = await access.db.from("buddy_trips")
