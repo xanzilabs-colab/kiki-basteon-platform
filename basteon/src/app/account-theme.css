@@ -103,8 +103,8 @@
   gap: 14px;
 }
 
-.kiki-setting-page > .kiki-data-controls {
-  margin-top: 24px;
+.kiki-profile-details-page > .kiki-data-controls {
+  margin-block-start: 40px !important;
   gap: 14px;
 }
 

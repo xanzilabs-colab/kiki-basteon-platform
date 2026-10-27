@@ -8,6 +8,7 @@ import type { Position } from "@/lib/geo";
 import { useFaceCheck, type FacePurpose } from "@/hooks/useFaceCheck";
 import { BUDDY_CONFIG } from "@/lib/buddies/config";
 import radarStyles from "@/app/games/games.module.css";
+import { radarMarkerPosition } from "@/lib/buddies/radarLayout";
 
 type Place = { label: string; lat: number; lng: number };
 type Avatar = { ref: string; nickname: string; avatar: string; ring: number; angleDeg: number; radialPct: number; badges: string[]; destinationArea: string | null; mode: string };
@@ -330,8 +331,7 @@ export function TravelTogetherPanel({
         <div className={radarStyles.pondGuide} />
         <div className={radarStyles.pondGuideInner} />
         {visible && bubbles.map((bubble, index) => {
-          const radius = 24 + bubble.radialPct * 43;
-          const radians = bubble.angleDeg * Math.PI / 180;
+          const position = radarMarkerPosition(bubble.angleDeg, bubble.radialPct);
           const tone = ["", radarStyles.gardenBuddyTone1, radarStyles.gardenBuddyTone2, radarStyles.gardenBuddyTone3][index % 4];
           return (
             <button
@@ -340,7 +340,7 @@ export function TravelTogetherPanel({
               aria-pressed={selected?.ref === bubble.ref}
               onClick={() => setSelected(bubble)}
               className={`${radarStyles.gardenBuddy} ${tone}`}
-              style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }}
+              style={{ left: `${position.left}%`, top: `${position.top}%` }}
               title={`${bubble.memberCount} travelers travelling together`}
               aria-label={`Select travel group with ${bubble.memberCount} members`}
             >
@@ -350,8 +350,7 @@ export function TravelTogetherPanel({
           );
         })}
         {visible && avatars.map((avatar, index) => {
-          const radius = 24 + avatar.radialPct * 43;
-          const radians = avatar.angleDeg * Math.PI / 180;
+          const position = radarMarkerPosition(avatar.angleDeg, avatar.radialPct);
           const tone = ["", radarStyles.gardenBuddyTone1, radarStyles.gardenBuddyTone2, radarStyles.gardenBuddyTone3][index % 4];
           return (
             <button
@@ -360,7 +359,7 @@ export function TravelTogetherPanel({
               aria-pressed={selected?.ref === avatar.ref}
               onClick={() => setSelected(avatar)}
               className={`${radarStyles.gardenBuddy} ${tone}`}
-              style={{ left: `${50 + Math.sin(radians) * radius}%`, top: `${50 - Math.cos(radians) * radius}%` }}
+              style={{ left: `${position.left}%`, top: `${position.top}%` }}
               title={`${avatar.nickname}, ${avatar.mode}`}
               aria-label={`Select ${avatar.nickname}, ${avatar.mode}`}
             >

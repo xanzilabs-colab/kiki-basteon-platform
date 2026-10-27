@@ -309,14 +309,15 @@
 .gardenYou { position: relative; z-index: 2; display: grid; justify-items: center; gap: 5px; border: 0; background: transparent; color: var(--garden-ink); cursor: pointer; }
 .gardenYouMark { width: 68px; height: 68px; display: grid; place-items: center; border: 4px solid white; border-radius: 50%; background: linear-gradient(140deg, var(--garden-rose), var(--garden-purple-soft)); color: #fff; font-size: 30px; box-shadow: 0 8px 20px rgba(118,85,138,.2); animation: lotusPulse 4.5s ease-in-out infinite; }
 .gardenYouLabel { padding: 3px 10px; border: 1px solid rgba(118,85,138,.14); border-radius: 999px; background: rgba(255,255,255,.78); color: var(--garden-ink); font-size: 9px; font-weight: 900; letter-spacing: .08em; }
-.gardenBuddy { position: absolute; z-index: 3; display: grid; justify-items: center; gap: 3px; padding: 0; transform: translate(-50%,-50%); border: 0; background: transparent; color: var(--garden-ink); cursor: pointer; }
+.gardenBuddy { position: absolute; z-index: 3; display: grid; width: 90px; max-width: 90px; justify-items: center; gap: 3px; padding: 0; transform: translate(-50%,-50%); border: 0; background: transparent; color: var(--garden-ink); cursor: pointer; }
 .gardenBuddyMark { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid white; border-radius: 50%; background: linear-gradient(145deg, var(--garden-sage-soft), var(--garden-sage)); box-shadow: 0 5px 14px rgba(57,43,64,.13); font-size: 22px; transition: transform .2s ease, box-shadow .2s ease; }
 .gardenBuddyTone1 .gardenBuddyMark { background: linear-gradient(145deg, var(--garden-rose-soft), var(--garden-rose)); }
 .gardenBuddyTone2 .gardenBuddyMark { background: linear-gradient(145deg, var(--garden-purple-soft), var(--garden-purple)); }
 .gardenBuddyTone3 .gardenBuddyMark { background: linear-gradient(145deg, #f2ead4, var(--garden-rose)); }
 .gardenBuddy:hover .gardenBuddyMark, .gardenBuddy[aria-pressed="true"] .gardenBuddyMark { transform: scale(1.08); box-shadow: 0 0 0 3px rgba(118,85,138,.2), 0 8px 18px rgba(57,43,64,.16); }
-.gardenBuddyLabel { display: grid; justify-items: center; min-width: 52px; padding: 3px 7px; border: 1px solid rgba(118,85,138,.1); border-radius: 999px; background: rgba(255,255,255,.83); box-shadow: 0 4px 10px rgba(57,43,64,.05); }
-.gardenBuddyLabel strong { max-width: 72px; overflow: hidden; color: var(--garden-ink); font-size: 9px; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
+.gardenBuddyLabel { display: grid; width: max-content; max-width: 100%; justify-items: center; overflow: hidden; padding: 3px 7px; border: 1px solid rgba(118,85,138,.1); border-radius: 999px; background: rgba(255,255,255,.83); box-shadow: 0 4px 10px rgba(57,43,64,.05); }
+.gardenBuddyLabel strong,.gardenBuddyLabel small { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gardenBuddyLabel strong { color: var(--garden-ink); font-size: 9px; font-weight: 850; }
 .gardenBuddyLabel small { color: var(--garden-muted); font-size: 8px; font-weight: 650; }
 .gardenSelection { min-height: 62px; display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid rgba(217,154,156,.2); border-radius: 12px; background: var(--garden-card); box-shadow: 0 8px 20px rgba(71,51,80,.05); }
 .selectionMark { width: 38px; height: 38px; display: grid; flex: none; place-items: center; border-radius: 50%; background: var(--garden-rose-soft); color: var(--garden-rose); font-size: 20px; }

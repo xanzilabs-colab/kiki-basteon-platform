@@ -6,6 +6,7 @@ export const TAP_SLOP_PX = 12;
 export const ARM_RADIUS_PX = 64;
 export const MEDICAL_BUBBLE_SIZE_PX = 124;
 export const MEDICAL_BUBBLE_GAP_PX = 20;
+export const MEDICAL_SWIPE_MIN_PX = 48;
 
 export type Point = { x: number; y: number };
 export type GestureAnchor = Pick<DOMRect, "left" | "right" | "top" | "bottom" | "width" | "height">;
@@ -46,6 +47,10 @@ const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 export const isArmed = (pos: Point, bubble: Point | null) =>
   !!bubble && dist(pos, bubble) <= ARM_RADIUS_PX;
 
+export const isMedicalSlide = (start: Point, pos: Point, bubble: Point | null) =>
+  isArmed(pos, bubble) ||
+  (pos.x - start.x >= MEDICAL_SWIPE_MIN_PX && Math.abs(pos.y - start.y) <= ARM_RADIUS_PX);
+
 export function gestureReducer(s: GestureState, e: GestureEvent): GestureState {
   switch (e.kind) {
     case "reset":
@@ -62,16 +67,16 @@ export function gestureReducer(s: GestureState, e: GestureEvent): GestureState {
     case "move":
       if (s.phase === "pressing") {
         return dist(s.start, e.pos) > TAP_SLOP_PX
-          ? { phase: "holding", start: s.start, pos: e.pos, armed: isArmed(e.pos, e.bubble) }
+          ? { phase: "holding", start: s.start, pos: e.pos, armed: isMedicalSlide(s.start, e.pos, e.bubble) }
           : s;
       }
-      if (s.phase === "holding") return { ...s, pos: e.pos, armed: isArmed(e.pos, e.bubble) };
+      if (s.phase === "holding") return { ...s, pos: e.pos, armed: isMedicalSlide(s.start, e.pos, e.bubble) };
       return s;
 
     case "up":
       if (s.phase === "pressing") return { phase: "done", type: "sos", via: "tap" };
       if (s.phase === "holding") {
-        return isArmed(e.pos, e.bubble)
+        return isMedicalSlide(s.start, e.pos, e.bubble)
           ? { phase: "done", type: "medical", via: "hold_slide" }
           : { phase: "done", type: "sos", via: "hold_release" };
       }

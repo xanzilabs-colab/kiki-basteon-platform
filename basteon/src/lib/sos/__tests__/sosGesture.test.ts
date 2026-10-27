@@ -36,6 +36,31 @@ describe("SOS gesture state machine", () => {
       .toEqual({ phase: "done", type: "medical", via: "hold_slide" });
   });
 
+  it("selects Medical for a held right swipe even if release misses the bubble center", () => {
+    const start = { x: 100, y: 120 };
+    const end = { x: 156, y: 126 };
+    const distantBubble = { x: 250, y: 120 };
+
+    expect(reduce([
+      { kind: "down", pos: start, at: 0 },
+      { kind: "holdTimer" },
+      { kind: "move", pos: end, bubble: distantBubble },
+      { kind: "up", pos: end, bubble: distantBubble },
+    ])).toEqual({ phase: "done", type: "medical", via: "hold_slide" });
+  });
+
+  it("keeps a left swipe as regular SOS", () => {
+    const start = { x: 100, y: 120 };
+    const end = { x: 40, y: 120 };
+
+    expect(reduce([
+      { kind: "down", pos: start, at: 0 },
+      { kind: "holdTimer" },
+      { kind: "move", pos: end, bubble: null },
+      { kind: "up", pos: end, bubble: null },
+    ])).toEqual({ phase: "done", type: "sos", via: "hold_release" });
+  });
+
   it("recognizes a fast right swipe before the Medical bubble has rendered", () => {
     const anchor = { left: 0, right: 54, top: 780, bottom: 834, width: 54, height: 54 };
     const start = { x: 27, y: 807 };
