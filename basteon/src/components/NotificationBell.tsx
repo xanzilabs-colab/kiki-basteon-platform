@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useServerNow } from "@/hooks/useServerNow";
 import { fmtRelativeTime } from "@/lib/datetime";
 
-type NotificationItem = { id: string; type: string; title: string; body: string; href: string | null; payload?: Record<string, unknown>; read: boolean; createdAt: string };
+type NotificationItem = { id: string; type: string; title: string; body: string; href: string | null; payload?: Record<string, unknown>; read: boolean; createdAt: string; acknowledged?: boolean };
 
 const POLL_MS = 30_000;
 
@@ -17,6 +17,8 @@ export function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
+  const [acknowledging, setAcknowledging] = useState<Set<string>>(() => new Set());
+  const [ackError, setAckError] = useState("");
   const known = useRef<Set<string> | null>(null);
   const audio = useRef<AudioContext | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -122,6 +124,34 @@ export function NotificationBell() {
     markRead({ all: true });
   }
 
+  async function acknowledge(item: NotificationItem) {
+    const recordId = typeof item.payload?.recordId === "string" ? item.payload.recordId : null;
+    if (!recordId || acknowledging.has(recordId)) return;
+    setAckError("");
+    setAcknowledging((current) => new Set(current).add(recordId));
+    try {
+      const response = await fetch("/api/safety-intel/acknowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId }),
+      });
+      if (!response.ok) throw new Error("Could not acknowledge this report. Please try again.");
+      setItems((current) => current.map((entry) =>
+        entry.type === "safety_intel" && entry.payload?.recordId === recordId
+          ? { ...entry, acknowledged: true }
+          : entry,
+      ));
+    } catch (error) {
+      setAckError(error instanceof Error ? error.message : "Could not acknowledge this report. Please try again.");
+    } finally {
+      setAcknowledging((current) => {
+        const next = new Set(current);
+        next.delete(recordId);
+        return next;
+      });
+    }
+  }
+
   return (
     <div className="account-notifications" ref={root}>
       <button className="account-header-action" title="Notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} aria-haspopup="dialog" aria-expanded={open} onClick={() => { if (!open) void load(); setOpen(!open); }}>
@@ -146,10 +176,21 @@ export function NotificationBell() {
                       <time dateTime={item.createdAt}>{fmtRelativeTime(item.createdAt, serverNow)}</time>
                     </span>
                   </button>
+                  {item.type === "safety_intel" && typeof item.payload?.recordId === "string" && (
+                    <button
+                      type="button"
+                      className="account-notification-ack"
+                      disabled={item.acknowledged || acknowledging.has(item.payload.recordId)}
+                      onClick={() => void acknowledge(item)}
+                    >
+                      {item.acknowledged ? "Acknowledged" : acknowledging.has(item.payload.recordId) ? "Saving…" : "Acknowledge"}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
           )}
+          {ackError && <p className="account-notification-error" role="alert">{ackError}</p>}
         </section>
       )}
     </div>

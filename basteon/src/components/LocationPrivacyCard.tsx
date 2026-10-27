@@ -55,7 +55,7 @@ export function LocationPrivacyCard() {
   if (!settings) return null;
   return <section className="smart-safety-card">
     <h2><MapPin size={18} />Location &amp; community alerts</h2>
-    <p className="smart-safety-intro">To get community alerts within 900 m, turn on both switches and allow location and notifications for Kiki. Kiki checks while the app is open. Both settings start off, and you can turn them off at any time.</p>
+    <p className="smart-safety-intro">To get community alerts within 1 km, turn on both switches and allow location and notifications for Kiki. Kiki checks while the app is open and repeats each unacknowledged report every 5 minutes. Both settings start off, and you can turn them off at any time.</p>
     <Row label="Live Location Sharing" description="Lets Kiki use your current location for nearby responders and safety alerts. It also needs your device location permission." checked={settings.liveLocationSharing} disabled={saving} onChange={(value) => void save({ liveLocationSharing: value })} />
     <Row label="Safety Intelligence Alerts" description="Get a notification when community reports are near you. Reports are unverified unless marked otherwise. Requires Live Location Sharing." checked={settings.safetyIntelAlerts} disabled={saving || !settings.liveLocationSharing} onChange={(value) => void save({ safetyIntelAlerts: value })} />
     {settings.liveLocationSharing && !allowed && <p className="smart-safety-alert" role="status">{reasonText[reason]}</p>}

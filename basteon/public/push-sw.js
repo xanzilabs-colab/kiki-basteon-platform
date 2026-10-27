@@ -5,12 +5,35 @@ self.addEventListener("push", (event) => {
     tag: payload.tag || "basteon-alert",
     requireInteraction: true,
     actions: payload.actions || [],
-    data: { url: payload.url || "/responder", tripId: payload.tripId, pendingId: payload.data?.pendingId ?? payload.pendingId },
+    data: { url: payload.url || "/responder", tripId: payload.tripId, pendingId: payload.data?.pendingId ?? payload.pendingId, recordId: payload.data?.recordId },
   }));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  if (event.action === "acknowledge-safety-alert" && event.notification.data.recordId) {
+    event.waitUntil(
+      fetch("/api/safety-intel/acknowledge", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: event.notification.data.recordId }),
+      }).then(async (response) => {
+        await self.registration.showNotification("Kiki community alert", {
+          body: response.ok ? "This report is acknowledged. Reminders have stopped." : "Could not acknowledge this report. Open Kiki and try again.",
+          tag: `kiki-safety-intel-ack-${event.notification.data.recordId}`,
+          data: { url: "/account/buddies" },
+        });
+      }).catch(async () => {
+        await self.registration.showNotification("Kiki community alert", {
+          body: "Could not acknowledge this report. Open Kiki and try again.",
+          tag: `kiki-safety-intel-ack-${event.notification.data.recordId}`,
+          data: { url: "/account/buddies" },
+        });
+      })
+    );
+    return;
+  }
   if (event.action === "check-in" && event.notification.data.tripId) {
     event.waitUntil(fetch(`/api/trips/${event.notification.data.tripId}/check-in`, { method: "POST", credentials: "include" }));
     return;

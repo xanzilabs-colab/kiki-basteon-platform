@@ -16,19 +16,19 @@ export type IntelRecord = {
   expiresAt: string;
 };
 
-export type IntelConfig = { outerM: number; nearM: number; cooldownMs: number; corroborationRadiusM: number };
+export type IntelConfig = { outerM: number; nearM: number; reminderIntervalMs: number; corroborationRadiusM: number };
 
 export const intelConfig = (env: Record<string, string | undefined> = process.env): IntelConfig => {
   const num = (value: string | undefined, fallback: number, min: number, max: number) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
   };
-  const outerM = num(env.SAFETY_INTEL_OUTER_RADIUS_M, 900, 200, 900);
+  const outerM = num(env.SAFETY_INTEL_OUTER_RADIUS_M, 1000, 200, 1000);
   const nearM = Math.min(num(env.SAFETY_INTEL_NEAR_RADIUS_M, 300, 50, 2000), outerM);
   return {
     outerM,
     nearM,
-    cooldownMs: num(env.SAFETY_INTEL_COOLDOWN_MIN, 120, 5, 1440) * 60_000,
+    reminderIntervalMs: 5 * 60_000,
     corroborationRadiusM: 300,
   };
 };
@@ -85,7 +85,7 @@ export type AlertHistory = { recordId: string; zone: IntelZone; sentAt: number }
 /** Dedupe per record/zone, suppress while a recent alert exists for the same kind nearby, and allow near after outer. */
 export function shouldAlert(record: IntelRecord, zone: IntelZone, history: AlertHistory, cfg: IntelConfig, now = Date.now()) {
   if (!isActive(record, now)) return false;
-  return !history.some((entry) => entry.recordId === record.id && entry.zone === zone && now - entry.sentAt < cfg.cooldownMs);
+  return !history.some((entry) => entry.recordId === record.id && now - entry.sentAt < cfg.reminderIntervalMs);
 }
 
 const LABEL: Record<IntelKind, string> = {

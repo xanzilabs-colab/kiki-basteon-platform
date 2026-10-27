@@ -7,7 +7,7 @@ import { distanceM } from "@/lib/hamba/geometry";
 import { watchLocation } from "@/lib/platform/location";
 import { useLocationEligibility } from "@/hooks/useLocationEligibility";
 
-const MIN_INTERVAL_MS = 2 * 60_000;
+const MIN_INTERVAL_MS = 5 * 60_000;
 const MIN_MOVE_M = 150;
 const MOVE_EVALUATION_COOLDOWN_MS = 30_000;
 
@@ -38,23 +38,27 @@ export function SafetyIntelWatcher() {
         const result = await response.json().catch(() => null) as {
           sent?: number;
           error?: string;
-          notification?: { title?: string; body?: string };
+          notifications?: Array<{ title?: string; body?: string; recordId?: string }>;
         } | null;
         if (!response.ok) {
           console.error("Safety intelligence evaluation failed", { status: response.status, error: result?.error });
           return;
         }
-        if (result?.sent && result.notification?.title && result.notification.body && Capacitor.isNativePlatform()) {
+        if (result?.sent && result.notifications?.length && Capacitor.isNativePlatform()) {
           const permission = await LocalNotifications.checkPermissions();
           if (permission.display === "granted") {
             await LocalNotifications.schedule({
-              notifications: [{
-                id: Math.floor(Date.now() % 2_147_483_647),
-                title: result.notification.title,
-                body: result.notification.body,
-                schedule: { at: new Date(Date.now() + 1_000) },
-                extra: { href: "/account/buddies" },
-              }],
+              notifications: result.notifications.flatMap((notification, index) =>
+                notification.title && notification.body
+                  ? [{
+                      id: Math.floor((Date.now() + index) % 2_147_483_647),
+                      title: notification.title,
+                      body: notification.body,
+                      schedule: { at: new Date(Date.now() + 1_000) },
+                      extra: { href: "/account/buddies", recordId: notification.recordId },
+                    }]
+                  : [],
+              ),
             });
           }
         }

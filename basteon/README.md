@@ -47,6 +47,10 @@ Web Push supports desktop browsers and mobile browsers. On iPhone, responders mu
 
 Responders receive the browser permission prompt after their first interaction with the dashboard. Accept it to subscribe that browser or phone.
 
+## Community Safety Alerts
+
+Apply `supabase/migrations/20261116000000_recurring_safety_intel_acknowledgements.sql` before deploying this version. With Live Location Sharing and Safety Intelligence Alerts enabled, Kiki checks reported incident locations within 1 km while the app is open. Each unacknowledged nearby report repeats every five minutes; acknowledge it from the notification inbox or the push notification action. Marking a notification read does not acknowledge the report. Turning location off pauses checks; turning it back on resumes them.
+
 ## Scheduled Jobs
 
 Scheduled cron jobs are disabled in [vercel.json](./vercel.json). The watchdog, alert escalation, and roster revalidation endpoints remain available for manually authorized service-to-service calls. Because schedules are off, expired roster links will not be ended automatically; invoke roster revalidation manually when required.

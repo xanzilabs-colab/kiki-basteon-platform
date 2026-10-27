@@ -26,6 +26,32 @@ describe("notifications", () => {
     expect(mocks.push).toHaveBeenCalledWith("u1", expect.objectContaining({ title: "Hi", url: "/account", tag: "kiki-notification-n1" }));
   });
 
+  it("adds a push acknowledgement action to safety intelligence alerts", async () => {
+    const rows = [{
+      id: "n2",
+      user_id: "u1",
+      href: "/account/buddies",
+      title: "Community report nearby",
+      body: "A report is close to you.",
+      type: "safety_intel",
+      payload: { recordId: "11111111-1111-4111-8111-111111111111", zone: "near" },
+    }];
+    mocks.insert.mockReturnValue({ select: vi.fn().mockResolvedValue({ data: rows, error: null }) });
+    await createNotifications([{
+      userId: "u1",
+      type: "safety_intel",
+      title: rows[0].title,
+      body: rows[0].body,
+      href: rows[0].href,
+      payload: rows[0].payload,
+    }], { from: () => ({ insert: mocks.insert }) } as never);
+    expect(mocks.push).toHaveBeenCalledWith("u1", expect.objectContaining({
+      tag: `kiki-safety-intel-${rows[0].payload.recordId}`,
+      actions: [{ action: "acknowledge-safety-alert", title: "Acknowledge" }],
+      data: { recordId: rows[0].payload.recordId },
+    }));
+  });
+
   it("does not fail when push delivery fails", async () => {
     mocks.push.mockRejectedValue(new Error("offline"));
     mocks.insert.mockReturnValue({ select: vi.fn().mockResolvedValue({ data: [{ id: "n2", user_id: "u2", href: null, title: "T", body: "" }], error: null }) });

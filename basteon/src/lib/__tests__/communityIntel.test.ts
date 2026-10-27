@@ -14,18 +14,18 @@ describe("communityIntel", () => {
     expect(classifyZone(100, cfg)).toBe("near");
     expect(classifyZone(800, cfg)).toBe("outer");
     expect(classifyZone(5000, cfg)).toBeNull();
-    expect(cfg.outerM).toBe(900);
-    expect(classifyZone(900, cfg)).toBe("outer");
-    expect(classifyZone(901, cfg)).toBeNull();
-    expect(intelConfig({ SAFETY_INTEL_OUTER_RADIUS_M: "abc" }).outerM).toBe(900);
-    expect(intelConfig({ SAFETY_INTEL_OUTER_RADIUS_M: "1200" }).outerM).toBe(900);
+    expect(cfg.outerM).toBe(1000);
+    expect(classifyZone(1000, cfg)).toBe("outer");
+    expect(classifyZone(1001, cfg)).toBeNull();
+    expect(intelConfig({ SAFETY_INTEL_OUTER_RADIUS_M: "abc" }).outerM).toBe(1000);
+    expect(intelConfig({ SAFETY_INTEL_OUTER_RADIUS_M: "1200" }).outerM).toBe(1000);
+    expect(cfg.reminderIntervalMs).toBe(5 * 60_000);
   });
-  it("dedupes within cooldown, allows after cooldown and for another zone", () => {
+  it("repeats after five minutes per report, regardless of zone", () => {
     const history = [{ recordId: "a", zone: "outer" as const, sentAt: now - 60_000 }];
     expect(shouldAlert(rec(), "outer", history, cfg, now)).toBe(false);
-    expect(shouldAlert(rec(), "near", history, cfg, now)).toBe(true);
-    const longLived = rec({ expiresAt: new Date(now + 2 * cfg.cooldownMs).toISOString() });
-    expect(shouldAlert(longLived, "outer", history, cfg, now + cfg.cooldownMs + 1)).toBe(true);
+    expect(shouldAlert(rec(), "near", history, cfg, now)).toBe(false);
+    expect(shouldAlert(rec(), "outer", history, cfg, now + cfg.reminderIntervalMs)).toBe(true);
   });
   it("never alerts for expired or rejected records", () => {
     expect(shouldAlert(rec({ expiresAt: new Date(now - 1).toISOString() }), "near", [], cfg, now)).toBe(false);

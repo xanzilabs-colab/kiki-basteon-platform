@@ -50,13 +50,24 @@ export async function createNotifications(items: NewNotification[], db = createA
   if (items.length === 0) return [];
   const { data, error } = await db.from("notifications").insert(items.map((item) => ({
     user_id: item.userId, type: item.type, title: item.title.slice(0, 120), body: item.body.slice(0, 500), href: safeHref(item.href), payload: item.payload ?? {},
-  }))).select("id,user_id,href,title,body");
+  }))).select("id,user_id,href,title,body,type,payload");
   if (error || !data) {
     console.error("Notification insert failed", error);
     return [];
   }
   await Promise.all(data.map((row) => sendPushNotificationsToUser(row.user_id, {
-    title: row.title, body: row.body, tag: `kiki-notification-${row.id}`, url: row.href ?? "/account",
+    title: row.title,
+    body: row.body,
+    tag: row.type === "safety_intel" && typeof row.payload?.recordId === "string"
+      ? `kiki-safety-intel-${row.payload.recordId}`
+      : `kiki-notification-${row.id}`,
+    url: row.href ?? "/account",
+    ...(row.type === "safety_intel" && typeof row.payload?.recordId === "string"
+      ? {
+          actions: [{ action: "acknowledge-safety-alert", title: "Acknowledge" }],
+          data: { recordId: row.payload.recordId },
+        }
+      : {}),
   }).catch((pushError) => console.error("Notification push failed", pushError))));
   return data.map((row) => row.id as string);
 }

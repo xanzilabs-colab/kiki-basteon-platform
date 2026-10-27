@@ -15,5 +15,28 @@ export async function GET() {
     db.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).is("read_at", null),
   ]);
   if (error) return NextResponse.json({ error: "notifications_unavailable" }, { status: 500 });
-  return NextResponse.json({ notifications: (data ?? []).map(toNotificationView), unreadCount: count ?? 0 }, { headers: { "Cache-Control": "no-store" } });
+  const views = (data ?? []).map(toNotificationView);
+  const recordIds = [...new Set(views.flatMap((item) => {
+    const recordId = typeof item.payload.recordId === "string" ? item.payload.recordId : null;
+    return item.type === "safety_intel" && recordId ? [recordId] : [];
+  }))];
+  if (recordIds.length === 0) {
+    return NextResponse.json({ notifications: views, unreadCount: count ?? 0 }, { headers: { "Cache-Control": "no-store" } });
+  }
+  const { data: acknowledgements, error: acknowledgementError } = await db.from("safety_intel_alert_acknowledgements")
+    .select("record_id")
+    .eq("user_id", user.id)
+    .in("record_id", recordIds);
+  if (acknowledgementError) {
+    console.error("Could not load safety intelligence acknowledgements.", acknowledgementError);
+    return NextResponse.json({ error: "notifications_unavailable" }, { status: 500 });
+  }
+  const acknowledged = new Set((acknowledgements ?? []).map((row) => row.record_id));
+  const notifications = views.map((item) => {
+    const recordId = typeof item.payload.recordId === "string" ? item.payload.recordId : null;
+    return item.type === "safety_intel" && recordId
+      ? { ...item, acknowledged: acknowledged.has(recordId) }
+      : item;
+  });
+  return NextResponse.json({ notifications, unreadCount: count ?? 0 }, { headers: { "Cache-Control": "no-store" } });
 }

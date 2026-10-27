@@ -689,6 +689,9 @@
 .mk-medical .mk-dot svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .account-notification-panel header button { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; color: #4a154b; font-size: 11px; font-weight: 800; }
 .account-notification-panel li button { display: flex; width: 100%; gap: 10px; border: 0; border-bottom: 1px solid #f4f0f7; background: transparent; padding: 12px 14px; color: inherit; text-align: left; }
+.account-notification-panel li .account-notification-ack { width: auto; margin: 0 14px 10px auto; border: 1px solid #d9c8e5; border-radius: 999px; padding: 6px 10px; color: #4a154b; font-size: 11px; font-weight: 800; }
+.account-notification-panel li .account-notification-ack:disabled { color: #756b7d; }
+.account-notification-error { padding: 8px 14px; color: #a71931; font-size: 12px; }
 .account-notification-panel li button.unread { background: #faf6fc; }
 .account-notification-panel li button.unread b::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: #e63956; vertical-align: middle; }
 .account-notification-panel li button > svg { flex: none; margin-top: 2px; color: #4a154b; }
