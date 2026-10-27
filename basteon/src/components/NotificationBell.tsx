@@ -177,14 +177,16 @@ export function NotificationBell() {
                     </span>
                   </button>
                   {item.type === "safety_intel" && typeof item.payload?.recordId === "string" && (
-                    <button
-                      type="button"
-                      className="account-notification-ack"
-                      disabled={item.acknowledged || acknowledging.has(item.payload.recordId)}
-                      onClick={() => void acknowledge(item)}
-                    >
-                      {item.acknowledged ? "Acknowledged" : acknowledging.has(item.payload.recordId) ? "Saving…" : "Acknowledge"}
-                    </button>
+                    <div className="account-notification-actions">
+                      <button
+                        type="button"
+                        className="account-notification-ack"
+                        disabled={item.acknowledged || acknowledging.has(item.payload.recordId)}
+                        onClick={() => void acknowledge(item)}
+                      >
+                        {item.acknowledged ? "Acknowledged" : acknowledging.has(item.payload.recordId) ? "Saving…" : "Acknowledge"}
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}
