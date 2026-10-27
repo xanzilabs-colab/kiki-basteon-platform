@@ -9,16 +9,24 @@ type BuddyHistoryEvent = {
   created_at: string;
 };
 
+const QUICK_UPDATE_KEYS = new Set([
+  "on_my_way",
+  "at_the_meeting_point",
+  "running_late",
+  "i_need_help",
+  "i_arrived",
+]);
+
 function toHistoryEvent(event: BuddyHistoryEvent) {
   const details = event.details;
-  const key = details && typeof details === "object" && "key" in details && typeof details.key === "string"
+  const key = event.event === "quick_update" && details && typeof details === "object" && "key" in details && typeof details.key === "string"
     ? details.key
     : null;
   return {
     id: event.id,
     actor_alias: event.actor_alias,
     event: event.event,
-    details: key ? { key } : null,
+    details: key && QUICK_UPDATE_KEYS.has(key) ? { key } : null,
     created_at: event.created_at,
   };
 }
