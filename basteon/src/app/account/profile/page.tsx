@@ -45,7 +45,16 @@ export default function ProfilePage() {
     <header><span>MY ACCOUNT</span><h1>User Profile</h1></header>
     {error && <p className="kiki-profile-error" role="alert">{error}</p>}
     <section className="kiki-profile-card">
-      <Link className="kiki-profile-identity" href="/account/profile/info"><CachedProfileImage src={avatarUrl} alt="Your profile" fallback={<span>{name.charAt(0).toUpperCase()}</span>} /><div><h2>{name}</h2><p>{email}</p><b>Premium Safety Subscriber</b></div><ChevronRight size={18} /></Link>
+      <Link className="kiki-profile-identity" href="/account/profile/info">
+        <CachedProfileImage src={avatarUrl} alt="Your profile" fallback={<span>{name.charAt(0).toUpperCase()}</span>} />
+        <div className="kiki-profile-identity-copy">
+          <h2>{name}</h2>
+          <p>{email}</p>
+          <div className="kiki-profile-open-cue">View profile details <ChevronRight size={14} aria-hidden="true" /></div>
+          <b>Premium Safety Subscriber</b>
+        </div>
+        <ChevronRight className="kiki-profile-card-arrow" size={18} aria-hidden="true" />
+      </Link>
       <nav className="kiki-profile-menu" aria-label="Account settings">
         <Link href="/account/profile/medical"><span><FileText size={17} />Medical ID &amp; Emergency Info</span><ChevronRight size={17} /></Link>
         <Link href="/account/organisations"><span><Building2 size={17} />My Organisations</span><ChevronRight size={17} /></Link>

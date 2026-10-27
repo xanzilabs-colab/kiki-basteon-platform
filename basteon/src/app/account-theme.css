@@ -315,6 +315,41 @@
   box-shadow: none;
 }
 
+.account-shell[data-theme="dark"] main :is(.everyday-device-list, .everyday-simple-list) {
+  border-color: #e6dcf0;
+  background-color: #fff;
+  color: #2a1536;
+}
+
+.account-shell[data-theme="dark"] main .everyday-device-list .everyday-device-copy b,
+.account-shell[data-theme="dark"] main .everyday-simple-list .everyday-simple-copy b {
+  color: #2a1536;
+}
+
+.account-shell[data-theme="dark"] main .everyday-device-list .everyday-device-copy span,
+.account-shell[data-theme="dark"] main .everyday-device-list .everyday-device-copy small,
+.account-shell[data-theme="dark"] main .everyday-simple-list .everyday-simple-copy small {
+  color: #554861;
+}
+
+.account-shell[data-theme="dark"] main .everyday-device-list .everyday-device-copy small.verified {
+  color: #2f7a4a;
+}
+
+.account-shell[data-theme="dark"] main .everyday-device-list .everyday-device-copy small.unverified {
+  color: #93651b;
+}
+
+.account-shell[data-theme="dark"] main .everyday-device-list .everyday-status-chip {
+  background-color: #eee8f3;
+  color: #4c3b59;
+}
+
+.account-shell[data-theme="dark"] main .everyday-device-list .everyday-status-chip.connected {
+  background-color: #e6f3ea;
+  color: #2f7a4a;
+}
+
 .account-shell[data-theme="dark"] main :is(.pane-head, .smart-safety-setting, .smart-safety-inline, .smart-safety-times, .hamba-search, .hamba-mode, .buddies-modes, .hamba-route-summary div, .hamba-trip-stats span, .devices-mode-switch, .devices-mode-switch button, .devices-status, .devices-action-icon, .devices-list-art, .devices-empty-art, .everyday-heading-icon, .everyday-empty-icon, .everyday-device-icon, .everyday-small-icon, .everyday-action-button, .everyday-more summary) {
   border-color: var(--divider);
   background-color: var(--surface-2);
@@ -440,6 +475,18 @@
 
 .account-shell[data-theme="dark"] .kiki-profile-identity {
   border-bottom-color: var(--divider);
+  border-color: var(--divider);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-identity:hover {
+  border-color: var(--accent);
+}
+
+.account-shell[data-theme="dark"] .kiki-profile-open-cue {
+  border-color: var(--divider);
+  background-color: var(--accent-bg);
   color: var(--text);
 }
 
@@ -471,6 +518,20 @@
 .account-shell[data-theme="dark"] .kiki-avatar-upload {
   border-color: var(--divider);
   background-color: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-avatar-copy strong {
+  color: var(--text);
+}
+
+.account-shell[data-theme="dark"] .kiki-avatar-copy small {
+  color: var(--text-2);
+}
+
+.account-shell[data-theme="dark"] .kiki-setting-page label.kiki-avatar-change {
+  border-color: var(--accent);
+  background-color: var(--accent-bg);
   color: var(--text);
 }
 

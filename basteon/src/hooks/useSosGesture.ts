@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent } from "react";
-import { gestureReducer, HOLD_MS, type Point, type SosType, type SosVia, typeSourceFor } from "@/lib/sos/sosGesture";
+import { gestureReducer, HOLD_MS, medicalBubbleCenter, type Point, type SosType, type SosVia, typeSourceFor } from "@/lib/sos/sosGesture";
 
 type Selection = (type: SosType, source: ReturnType<typeof typeSourceFor>) => void;
 
 export function useSosGesture(onSelect: Selection) {
   const [state, dispatch] = useReducer(gestureReducer, { phase: "idle" });
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const anchorRef = useRef<DOMRect | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const timer = useRef<number | null>(null);
   const pointerId = useRef<number | null>(null);
@@ -20,7 +21,10 @@ export function useSosGesture(onSelect: Selection) {
 
   const bubbleCenter = useCallback((): Point | null => {
     const rect = bubbleRef.current?.getBoundingClientRect();
-    return rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
+    if (rect) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    const activeAnchor = anchorRef.current;
+    if (!activeAnchor) return null;
+    return medicalBubbleCenter(activeAnchor, { width: window.innerWidth, height: window.innerHeight });
   }, []);
 
   const clearTimer = useCallback(() => {
@@ -30,6 +34,7 @@ export function useSosGesture(onSelect: Selection) {
 
   const begin = useCallback((pos: Point, rect: DOMRect) => {
     lastPointerActivationAt.current = Date.now();
+    anchorRef.current = rect;
     setAnchor(rect);
     dispatch({ kind: "down", pos, at: Date.now() });
     clearTimer();
@@ -53,6 +58,7 @@ export function useSosGesture(onSelect: Selection) {
       pointerId.current = null;
       if (touchId.current !== null) return;
       clearTimer();
+      anchorRef.current = null;
       dispatch({ kind: "cancel" });
     };
     const onTouchMove = (event: TouchEvent) => {
@@ -82,6 +88,7 @@ export function useSosGesture(onSelect: Selection) {
       touchId.current = null;
       if (pointerId.current !== null) return;
       clearTimer();
+      anchorRef.current = null;
       dispatch({ kind: "cancel" });
     };
     window.addEventListener("pointermove", onPointerMove, true);
@@ -139,6 +146,7 @@ export function useSosGesture(onSelect: Selection) {
     dispatch({ kind: "reset" });
     pointerId.current = null;
     touchId.current = null;
+    anchorRef.current = null;
     clearTimer();
     setAnchor(null);
     handledDone.current = false;

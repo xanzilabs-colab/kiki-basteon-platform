@@ -10,7 +10,7 @@
 .org-segment button { background:transparent; }
 .org-segment button.selected { border:1px solid #e7deed; background:#fff; color:#522868; }
 .org-chip { background:#eee8f4; color:#513468!important; }
-.org-toast { max-width:calc(100vw - 32px); background:#34173f; color:#fff; white-space:normal; }
+.org-toast { display:grid;grid-template-columns:17px minmax(0,1fr);align-items:center;gap:10px;width:max-content;max-width:calc(100vw - 32px);min-height:48px;border-radius:16px;background:#34173f;padding:11px 16px;color:#fff;font-size:13px;line-height:1.35;text-align:left;white-space:normal;overflow-wrap:anywhere; }
 .org-toast { z-index:10060; }
 .org-toast.is-error { border:1px solid #f3c6cf; background:#9f253c; color:#fff; }
 .org-toast.is-error svg { color:#fff; }

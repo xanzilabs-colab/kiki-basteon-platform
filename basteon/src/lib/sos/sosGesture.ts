@@ -22,6 +22,12 @@ export function medicalBubblePosition(anchor: GestureAnchor, viewport: { width: 
   };
 }
 
+export function medicalBubbleCenter(anchor: GestureAnchor, viewport: { width: number; height: number }): Point {
+  const { left, top } = medicalBubblePosition(anchor, viewport);
+  const halfSize = MEDICAL_BUBBLE_SIZE_PX / 2;
+  return { x: left + halfSize, y: top + halfSize };
+}
+
 export type GestureState =
   | { phase: "idle" }
   | { phase: "pressing"; start: Point; at: number }

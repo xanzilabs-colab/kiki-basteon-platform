@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gestureReducer, medicalBubblePosition, type GestureEvent, type GestureState } from "../sosGesture";
+import { gestureReducer, medicalBubbleCenter, medicalBubblePosition, type GestureEvent, type GestureState } from "../sosGesture";
 
 const origin = { x: 10, y: 10 };
 const bubble = { x: 150, y: 10 };
@@ -34,6 +34,18 @@ describe("SOS gesture state machine", () => {
   it("selects Medical when release lands inside the bubble", () => {
     expect(reduce([{ kind: "down", pos: origin, at: 0 }, { kind: "holdTimer" }, { kind: "move", pos: bubble, bubble }, { kind: "up", pos: bubble, bubble }]))
       .toEqual({ phase: "done", type: "medical", via: "hold_slide" });
+  });
+
+  it("recognizes a fast right swipe before the Medical bubble has rendered", () => {
+    const anchor = { left: 0, right: 54, top: 780, bottom: 834, width: 54, height: 54 };
+    const start = { x: 27, y: 807 };
+    const target = medicalBubbleCenter(anchor, { width: 390, height: 844 });
+
+    expect(reduce([
+      { kind: "down", pos: start, at: 0 },
+      { kind: "move", pos: target, bubble: target },
+      { kind: "up", pos: target, bubble: target },
+    ])).toEqual({ phase: "done", type: "medical", via: "hold_slide" });
   });
 
   it("promotes a quick drag beyond the tap slop to a hold", () => {

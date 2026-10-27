@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Trash2, UserRoundX } from "lucide-react";
+import { AlertTriangle, Camera, Trash2, UserRoundX } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
 import { useAppDialog } from "@/components/AppDialogProvider";
@@ -60,7 +60,18 @@ export default function ProfileInfoPage() {
     <header><span>MY ACCOUNT</span><h1>Personal details</h1><p>Keep your identity and emergency contact information current.</p></header>
     {error && <p className="kiki-profile-error" role="alert">{error}</p>}
     <section>
-      <label className="kiki-avatar-upload"><CachedProfileImage src={avatarUrl} alt="Your profile" fallback={<span>{details.full_name.trim().charAt(0).toUpperCase() || "K"}</span>} /><b>Profile image<small>JPG, PNG, or WebP · up to 2 MB</small></b><input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => void uploadAvatar(event.target.files?.[0])} /></label>
+      <div className="kiki-avatar-upload">
+        <span className="kiki-avatar-preview">
+          <CachedProfileImage src={avatarUrl} alt="Your profile" fallback={<span>{details.full_name.trim().charAt(0).toUpperCase() || "K"}</span>} />
+        </span>
+        <div className="kiki-avatar-copy">
+          <div><strong>Profile photo</strong><small>JPG, PNG, or WebP · up to 2 MB</small></div>
+          <label className="kiki-avatar-change">
+            <Camera size={16} aria-hidden="true" />Choose photo
+            <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload a profile photo" disabled={busy} onChange={(event) => void uploadAvatar(event.target.files?.[0])} />
+          </label>
+        </div>
+      </div>
       <label>Full name<input className="input" required {...field("full_name")} disabled={busy} /></label><label>Mobile number<input className="input" type="tel" {...field("phone")} disabled={busy} /></label><label>Home address<textarea className="input" {...field("home_address")} disabled={busy} /></label><label>Emergency contact name<input className="input" {...field("emergency_contact_name")} disabled={busy} /></label><label>Emergency contact phone<input className="input" type="tel" {...field("emergency_contact_phone")} disabled={busy} /></label>
       {message && <p role="status">{message}</p>}
       <button className="btn btn-primary" disabled={busy}>{saving ? "Saving…" : "Save details"}</button>
