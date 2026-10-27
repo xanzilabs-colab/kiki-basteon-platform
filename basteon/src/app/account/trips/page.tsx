@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bike, Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound, Wind } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Bike, Bus, Car, CheckCircle2, ChevronRight, Clock3, Expand, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound, Wind, X } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { formatDistance } from "@/lib/geo";
 import { remainingRouteDurationS } from "@/lib/hamba/geometry";
@@ -63,6 +64,7 @@ export default function TripsPage() {
   const [guardianMessage, setGuardianMessage] = useState("");
   const nextStop = checkpoints.find((cp) => cp.status !== "checked_in" && cp.status !== "skipped" && cp.status !== "escalated") ?? null;
   const [tripTab, setTripTab] = useState<"route" | "travel">("route");
+  const [mapExpanded, setMapExpanded] = useState(false);
   const fixes = useRef<GeoPoint[]>([]);
   const previousWatchState = useRef<RouteWatchState>("normal");
 
@@ -117,6 +119,20 @@ export default function TripsPage() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mode") === "travel-together") setTripTab("travel");
   }, []);
+
+  useEffect(() => {
+    if (!mapExpanded) return;
+    const originalOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMapExpanded(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mapExpanded]);
 
   useEffect(() => {
     if (!activeTrip) return;
@@ -318,7 +334,7 @@ export default function TripsPage() {
   return (
     <div className="hamba-page">
       <div className="hamba-heading">
-        <div><p className="eyebrow">{activeTrip && tripTab === "route" ? "Live route watch" : tripTab === "route" ? "Personal safety" : "Travel Together"}</p><h1 className="page-title">{activeTrip && tripTab === "route" ? "Active trip tracking" : "Where to?"}</h1></div>
+        <div><h1 className="page-title">{activeTrip && tripTab === "route" ? "Active trip tracking" : "Where to?"}</h1></div>
         {tripTab === "route" && <span className={activeTrip ? "hamba-live" : "hamba-engine"}>{activeTrip ? <><i />{activeTrip.status === "active" ? "Trip active" : activeTrip.status}</> : "No active trip"}</span>}
       </div>
       <div className="hamba-trip-tabs" role="tablist" aria-label="Trip safety mode">
@@ -333,6 +349,7 @@ export default function TripsPage() {
         <section className="hamba-active">
           <div className="hamba-map-stage">
             <TripMap points={activeTrip.planned_route.points} position={position} recenter={recenter} avatarUrl={avatarUrl} stops={checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng }))} />
+            <button type="button" className="hamba-map-expand-button" aria-label="Expand trip map" title="Expand map" onClick={() => setMapExpanded(true)}><Expand size={18} /></button>
             <div className="hamba-map-overlay"><span className="hamba-overlay-icon"><ShieldCheck size={18} /></span><div><h2>{activeTrip.destination_label}</h2><p>{modeLabels[activeTrip.mode]} · {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min estimated</p></div><button type="button" className="hamba-recenter" title="Center map on route" aria-label="Center map on route" onClick={() => setRecenter((current) => current + 1)}><LocateFixed size={18} /></button></div>
           </div>
           <div className="hamba-active-card">
@@ -387,7 +404,12 @@ export default function TripsPage() {
           {(tools.stops || tools.draw) && <p className="hamba-note">{tools.draw ? "Press and drag on the map to draw your route." : "Tap the map to add a stop. Stops become check-in points."}</p>}
           {!tools.auto && <p className="hamba-note">Auto-route is off, so the route follows your stops and drawing. The time is an estimate.</p>}
           {tools.auto && estimated && <p className="hamba-note">Routing service unavailable for this mode, so this is a straight-line estimate.</p>}
-          <div className="hamba-preview"><TripMap points={route?.points ?? []} position={position} stops={stops} drawn={drawn} avatarUrl={avatarUrl}           onMapClick={addMapPoint} drawing={tools.draw} onDraw={addDrawPoint} /></div></>}          {destination && <><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
+          <div className="hamba-preview">
+            <TripMap points={route?.points ?? []} position={position} stops={stops} drawn={drawn} avatarUrl={avatarUrl} onMapClick={addMapPoint} drawing={tools.draw} onDraw={addDrawPoint} />
+            <button type="button" className="hamba-map-expand-button" aria-label="Expand trip map" title="Expand map" onClick={() => setMapExpanded(true)}><Expand size={18} /></button>
+          </div>
+          </>}
+          {destination && <><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
           <button className="btn btn-primary hamba-start" disabled={!destination || !position || !route || busy} onClick={() => void startTrip()}><Navigation size={17} />{busy ? "Starting..." : "Start active trip protection"}</button>
           {!position && <div className="hamba-note" role="status">
             <LocateFixed size={16} /><span>{locationError ?? "Allow location for this site to plan a route."}</span>
@@ -405,6 +427,25 @@ export default function TripsPage() {
         refreshingLocation={refreshingLocation}
         refreshLocation={refreshLocation}
       />}
+      {mapExpanded && typeof document !== "undefined" && createPortal(
+        <div className="hamba-map-expand-modal" role="dialog" aria-modal="true" aria-labelledby="hamba-map-expand-title">
+          <header><h2 id="hamba-map-expand-title">Adjust your map</h2><button type="button" aria-label="Close expanded map" onClick={() => setMapExpanded(false)}><X size={20} /></button></header>
+          <div className="hamba-map-expand-canvas">
+            <TripMap
+              points={activeTrip ? activeTrip.planned_route.points : (route?.points ?? [])}
+              position={position}
+              recenter={recenter}
+              stops={activeTrip ? checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })) : stops}
+              drawn={activeTrip ? [] : drawn}
+              avatarUrl={avatarUrl}
+              onMapClick={activeTrip ? undefined : addMapPoint}
+              drawing={!activeTrip && tools.draw}
+              onDraw={activeTrip ? undefined : addDrawPoint}
+            />
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

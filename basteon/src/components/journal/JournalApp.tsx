@@ -100,6 +100,7 @@ function LeaveSheet({ kind, userId, template, onClose, onSaved }: { kind: Journa
   const [recordingMs, setRecordingMs] = useState(0);
   const [saving, setSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -254,11 +255,11 @@ function LeaveSheet({ kind, userId, template, onClose, onSaved }: { kind: Journa
             <>
               <span className={styles.label}>Photo</span>
               <input ref={fileInput} className={mediaStyles.fileInput} id="journal-photo-library" type="file" accept="image/*" onChange={selectFile} aria-label="Choose an image" />
-              <input className={mediaStyles.fileInput} id="journal-photo-camera" type="file" accept="image/*" capture="environment" onChange={selectFile} aria-label="Take a photo" />
+              <input ref={cameraInput} className={mediaStyles.fileInput} id="journal-photo-camera" type="file" accept="image/*" capture="environment" onChange={selectFile} aria-label="Take a photo" />
               {file && previewUrl && file.type.startsWith("image/") ? (
                 <div className={styles.ph}><img src={previewUrl} alt={`Selected photo: ${file.name}`} /><button type="button" className={styles.rm} aria-label="Remove photo" onClick={() => { setFile(null); setDurationMs(undefined); }}><X size={16} /></button></div>
               ) : (
-                <div className={styles.drop}><div className={styles.dropIc}><ImageIcon size={26} /></div><b>Add a photo</b><span>Take one now or pick from your library.</span><div className={styles.two}><label htmlFor="journal-photo-camera" className={styles.tonalBtn}><Camera size={20} />Take</label><label htmlFor="journal-photo-library" className={styles.tonalBtn}><ImageIcon size={20} />Library</label></div></div>
+                <div className={styles.drop}><div className={styles.dropIc}><ImageIcon size={26} /></div><b>Add a photo</b><span>Take one now or pick from your library.</span><div className={styles.two}><button type="button" className={styles.tonalBtn} onClick={() => cameraInput.current?.click()}><Camera size={20} /><span>Take photo</span></button><button type="button" className={styles.tonalBtn} onClick={() => fileInput.current?.click()}><ImageIcon size={20} /><span>Choose from library</span></button></div></div>
               )}
               <span className={styles.label}>Caption <span className={styles.opt}>· optional</span></span><textarea className={styles.ta} style={{ minHeight: 84 }} maxLength={300} placeholder="A caption" value={text} onChange={(event) => setText(event.target.value)} />
             </>

@@ -44,6 +44,7 @@ export default function DevicesPage() {
   const { confirm, prompt } = useAppDialog();
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [turnDirection, setTurnDirection] = useState<"next" | "previous">("next");
   const [activeScreen, setActiveScreen] = useState<"kiki" | "phone">("kiki");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -72,9 +73,12 @@ export default function DevicesPage() {
   const latestSignal = selectedDevice?.telemetry_at ?? selectedDevice?.last_seen_at ?? null;
   const selectedOnline = selectedDevice ? isDeviceOnline(selectedDevice) : false;
 
-  function selectDevice(index: number) {
+  function selectDevice(index: number, direction?: "next" | "previous") {
     if (!devices.length) return;
-    setSelectedIndex((index + devices.length) % devices.length);
+    const nextIndex = (index + devices.length) % devices.length;
+    if (nextIndex === selectedIndex) return;
+    setTurnDirection(direction ?? (nextIndex > selectedIndex ? "next" : "previous"));
+    setSelectedIndex(nextIndex);
   }
 
   async function rename(device: Device) {
@@ -149,15 +153,17 @@ export default function DevicesPage() {
             <div className="device-orbit device-orbit-one" />
             <div className="device-orbit device-orbit-two" />
             <div className="device-floor" />
-            <div className="device-pendant" aria-label="3D illustration of a Kiki device">
-              <span className="device-grip device-grip-left" />
-              <span className="device-grip device-grip-right" />
-              <span className="device-lens" />
-              <Image className="device-logo" src="/assets/kiki-icon.png" alt="Kiki" width={88} height={50} priority />
+            <div key={selectedDevice.id} className={`device-turn-card turn-${turnDirection}`}>
+              <div className="device-pendant" aria-label="3D illustration of a Kiki device">
+                <span className="device-grip device-grip-left" />
+                <span className="device-grip device-grip-right" />
+                <span className="device-lens" />
+                <Image className="device-logo" src="/assets/kiki-icon.png" alt="Kiki" width={88} height={50} priority />
+              </div>
             </div>
             {devices.length > 1 && <>
-              <button className="devices-carousel-arrow previous" type="button" onClick={() => selectDevice(selectedIndex - 1)} aria-label="Previous device"><ChevronLeft size={20} /></button>
-              <button className="devices-carousel-arrow next" type="button" onClick={() => selectDevice(selectedIndex + 1)} aria-label="Next device"><ChevronRight size={20} /></button>
+              <button className="devices-carousel-arrow previous" type="button" onClick={() => selectDevice(selectedIndex - 1, "previous")} aria-label="Previous device"><ChevronLeft size={20} /></button>
+              <button className="devices-carousel-arrow next" type="button" onClick={() => selectDevice(selectedIndex + 1, "next")} aria-label="Next device"><ChevronRight size={20} /></button>
             </>}
           </div>
           <div className="devices-hero-copy">

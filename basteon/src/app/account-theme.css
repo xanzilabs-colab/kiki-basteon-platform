@@ -521,7 +521,23 @@
 .account-shell[data-theme="dark"] .devices-list-copy small,
 .account-shell[data-theme="dark"] .everyday-devices-card p,
 .account-shell[data-theme="dark"] .everyday-devices-card small {
-  color: var(--muted);
+  color: #554861;
+}
+
+.account-shell[data-theme="dark"] .everyday-device-copy b,
+.account-shell[data-theme="dark"] .everyday-simple-copy b {
+  color: #2a1536;
+}
+
+.account-shell[data-theme="dark"] .everyday-device-copy span,
+.account-shell[data-theme="dark"] .everyday-device-copy small,
+.account-shell[data-theme="dark"] .everyday-simple-copy small {
+  color: #554861;
+}
+
+.account-shell[data-theme="dark"] .everyday-status-chip {
+  background-color: #eee8f3;
+  color: #4c3b59;
 }
 
 .account-shell[data-theme="dark"] .devices-link-button,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Expand, X } from "lucide-react";
 import L from "leaflet";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayers";
 
@@ -48,6 +49,7 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
   const [editMode, setEditMode] = useState<EditMode>(null);
   const [baseLayer, setBaseLayer] = useState<MapBaseLayerName>("Street");
   const [draftPoints, setDraftPoints] = useState<[number, number][]>([]);
+  const [expanded, setExpanded] = useState(false);
 
   modeRef.current = mode;
   onChangeRef.current = onChange;
@@ -213,6 +215,22 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
     }
   }, [draftPoints, editMode, mode, value]);
 
+  useEffect(() => {
+    if (!expanded) return;
+    const originalOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    const frame = requestAnimationFrame(() => mapRef.current?.invalidateSize({ animate: false, pan: false }));
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      cancelAnimationFrame(frame);
+    };
+  }, [expanded]);
+
   function startPinPlacement() {
     setEditMode(null);
     setDraftPoints([]);
@@ -245,7 +263,7 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
   }
 
   return (
-    <div className="community-report-map">
+    <div className={`community-report-map${expanded ? " is-expanded" : ""}`} role={expanded ? "dialog" : undefined} aria-modal={expanded || undefined} aria-label={expanded ? "Expanded report location map" : undefined}>
       <div className="community-report-map-toolbar">
         <label>
           <span className="sr-only">Map style</span>
@@ -262,6 +280,7 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
         {editMode && <span className="community-report-map-editing" role="status">Editing {editMode === "pin" ? "pin" : "area"}</span>}
         {editMode && <button type="button" onClick={() => setEditMode(null)}>Done editing</button>}
         {(value.point || draftPoints.length > 0) && <button type="button" className="community-report-map-delete" onClick={deleteSelection}>Delete selection</button>}
+        <button type="button" className="community-report-map-expand" aria-label={expanded ? "Close expanded map" : "Expand map"} onClick={() => setExpanded((current) => !current)}>{expanded ? <X size={15} /> : <Expand size={15} />}{expanded ? "Close map" : "Expand map"}</button>
       </div>
       <div ref={mapElementRef} className="community-report-map-canvas" role="application" aria-label="Choose a report location on the map" />
       <p className="community-report-map-help">
