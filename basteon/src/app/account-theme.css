@@ -98,7 +98,13 @@
   font-weight: 700;
 }
 
+.kiki-security-pin-form {
+  display: grid;
+  gap: 14px;
+}
+
 .kiki-setting-page > .kiki-data-controls {
+  margin-top: 24px;
   gap: 14px;
 }
 

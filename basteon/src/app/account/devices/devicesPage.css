@@ -197,8 +197,8 @@
 .everyday-sheet-body h2 { margin:0; color:var(--ed-ink); font-size:22px; font-weight:800; letter-spacing:-.025em; line-height:1.2; }
 .everyday-sheet-body h3 { color:var(--ed-ink); }
 .everyday-sheet-body > p { margin:0; color:var(--ed-muted); font-size:13px; line-height:1.5; }
-.everyday-type-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; max-height:40vh; overflow:auto; }
-.everyday-type-tile { display:grid; min-height:88px; align-content:start; justify-items:start; gap:10px; border:1.5px solid var(--ed-line); border-radius:16px; background:#fff; padding:12px; color:var(--ed-ink); text-align:left; }
+.everyday-type-grid { display:grid; min-width:0; grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:minmax(88px,auto); gap:9px; max-height:min(40vh,320px); overflow:auto; }
+.everyday-type-tile { display:grid; width:100%; min-width:0; min-height:88px; align-content:start; justify-items:start; gap:10px; overflow-wrap:anywhere; border:1.5px solid var(--ed-line); border-radius:16px; background:#fff; padding:12px; color:var(--ed-ink); text-align:left; }
 .everyday-type-tile.selected { border-color:var(--ed-plum); background:#fbf8ff; }
 .everyday-type-tile > span { display:grid; width:36px; height:36px; place-items:center; border-radius:11px; background:var(--ed-lav); color:var(--ed-deep); }
 .everyday-type-tile.selected > span { background:var(--ed-plum); color:#fff; }

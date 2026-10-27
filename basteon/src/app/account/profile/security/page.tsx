@@ -71,7 +71,7 @@ export default function SecurityPage() {
         <p>Protect sensitive changes with a private Kiki PIN.</p>
       </header>
       {error && <p className="kiki-profile-error" role="alert">{error}</p>}
-      <form onSubmit={(event) => void savePin(event)}>
+      <form className="kiki-security-pin-form" onSubmit={(event) => void savePin(event)}>
         <div className="kiki-security-icon"><LockKeyhole size={24} /></div>
         <h2>{loading ? "Checking your PIN…" : pinSet ? "Update your Kiki PIN" : "Set your Kiki PIN"}</h2>
         <p>Your PIN is checked before changes to your personal details or medical information, and before deleting your data or account.</p>
