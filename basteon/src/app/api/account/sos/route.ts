@@ -15,6 +15,52 @@ const inputSchema = z.object({
   message: "Latitude and longitude must be supplied together.",
 });
 
+function requiresKikiLink() {
+  return process.env.REQUIRE_KIKI_LINK?.trim().toLowerCase() === "true";
+}
+
+async function getOrCreatePhoneSosDevice(db: ReturnType<typeof createAdminClient>, userId: string) {
+  const deviceId = `PHONE-SOS-${userId.replaceAll("-", "").toUpperCase()}`;
+  const { data: existing, error: lookupError } = await db
+    .from("devices")
+    .select("device_id,device_name,user_id,active,is_virtual")
+    .eq("device_id", deviceId)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) {
+    if (existing.user_id !== userId || !existing.is_virtual || !existing.active) {
+      throw new Error("phone_sos_endpoint_unavailable");
+    }
+    return { device_id: existing.device_id, device_name: existing.device_name };
+  }
+
+  const { data: created, error: createError } = await db
+    .from("devices")
+    .insert({
+      device_id: deviceId,
+      user_id: userId,
+      device_name: "Phone SOS",
+      active: true,
+      last_ctr: 0,
+      is_virtual: true,
+    })
+    .select("device_id,device_name,user_id,active,is_virtual")
+    .single();
+  if (!createError && created) return { device_id: created.device_id, device_name: created.device_name };
+  if (createError?.code !== "23505") throw createError ?? new Error("phone_sos_endpoint_unavailable");
+
+  const { data: raced, error: raceLookupError } = await db
+    .from("devices")
+    .select("device_id,device_name,user_id,active,is_virtual")
+    .eq("device_id", deviceId)
+    .maybeSingle();
+  if (raceLookupError) throw raceLookupError;
+  if (!raced || raced.user_id !== userId || !raced.is_virtual || !raced.active) {
+    throw new Error("phone_sos_endpoint_unavailable");
+  }
+  return { device_id: raced.device_id, device_name: raced.device_name };
+}
+
 export async function POST(request: Request) {
   const client = await createClient();
   const { data: { user } } = await client.auth.getUser();
@@ -30,15 +76,29 @@ export async function POST(request: Request) {
   if (!input.success) return NextResponse.json({ error: input.error.flatten() }, { status: 400 });
 
   const db = createAdminClient();
-  const { data: device } = await db
+  const { data: linkedDevice, error: deviceError } = await db
     .from("devices")
     .select("device_id,device_name")
     .eq("user_id", user.id)
     .eq("active", true)
+    .eq("is_virtual", false)
     .order("linked_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!device) return NextResponse.json({ error: "no_active_device" }, { status: 409 });
+  if (deviceError) {
+    console.error("Phone SOS linked-device lookup failed", deviceError);
+    return NextResponse.json({ error: "device_lookup_unavailable" }, { status: 503 });
+  }
+  let device = linkedDevice;
+  if (!device && requiresKikiLink()) return NextResponse.json({ error: "no_active_device" }, { status: 409 });
+  if (!device) {
+    try {
+      device = await getOrCreatePhoneSosDevice(db, user.id);
+    } catch (error) {
+      console.error("Phone SOS endpoint provisioning failed", error);
+      return NextResponse.json({ error: "phone_endpoint_unavailable" }, { status: 503 });
+    }
+  }
 
   const { data: resolvedType } = await db.rpc("resolve_emergency_type", { p_type: input.data.type ?? input.data.type_code ?? "general" });
   const typeCode = typeof resolvedType === "string" ? resolvedType : "general";
