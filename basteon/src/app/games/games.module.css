@@ -224,11 +224,11 @@
 
 @keyframes rowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-@media (min-width: 700px) {
+@media (min-width: 700px) and (hover: hover) and (pointer: fine) {
   .mobileFrame { border-inline: 1px solid rgba(84, 37, 111, .1); }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
   .gamesHome { width: calc(100% + 48px); margin: -24px; }
 }
 

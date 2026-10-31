@@ -169,7 +169,7 @@
 .org-toast svg { color:#7be0ad; }
 @keyframes org-rise { from { opacity:0;transform:translateY(8px); } }
 @keyframes org-sheet-in { from { transform:translateY(20px);opacity:.8; } to { transform:none;opacity:1; } }
-@media(min-width:768px) { .org-screen { min-height:calc(100vh - 112px);margin:-24px;padding:6px 24px 100px; }.org-page { max-width:390px; }.org-sheet { margin-bottom:18px;border-radius:28px; }.org-toast { bottom:24px; } }
+@media (min-width:768px) and (hover:hover) and (pointer:fine) { .org-screen { min-height:calc(100vh - 112px);margin:-24px;padding:6px 24px 100px; }.org-page { max-width:390px; }.org-sheet { margin-bottom:18px;border-radius:28px; }.org-toast { bottom:24px; } }
 @media(prefers-reduced-motion:reduce) { .org-screen *, .org-sheet-layer * { animation:none!important;transition:none!important; } }
 :is(.account-shell, .auth-shell) .page-title { color: #32183f; font-family: var(--font-ui); font-size: 34px; font-weight: 800; letter-spacing: 0; }
 :is(.account-shell, .auth-shell) .eyebrow { color: #54256f; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -687,7 +687,7 @@
   .hamba-safety-options > * { padding: 10px; gap: 6px; }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
   .account-mobile-sos { display: none; }
 }
 

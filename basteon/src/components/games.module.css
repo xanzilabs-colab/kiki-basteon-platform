@@ -836,7 +836,7 @@
   .fullScreenCard .desk { gap: 6px; padding-block: 7px; }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
   .fullScreenCard .desk { width: min(100%, 900px); align-self: center; }
 }
 .crease {
