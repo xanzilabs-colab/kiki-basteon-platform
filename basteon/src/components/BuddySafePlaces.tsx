@@ -188,7 +188,7 @@ export function BuddySafePlaces() {
             <span className="safe-map-road safe-map-road-b" />
             <span className="safe-map-road safe-map-road-c" />
             <span className="safe-map-label safe-map-label-a">NEARBY</span>
-            {point && <span className="safe-map-you" style={places.length ? mapPosition({ lat: point.lat, lng: point.lng, id: "you", name: "You", category: "other_public", address: null, quality: 0, open_24h: false }, places, point) : { left: "50%", top: "50%" }}><i /><b>You</b></span>}
+            {point && <span className="safe-map-you" style={places.length ? mapPosition({ lat: point.lat, lng: point.lng, id: "you", name: "You", category: "other_public", address: null, quality: 0, open_24h: false, is_demo: false }, places, point) : { left: "50%", top: "50%" }}><i /><b>You</b></span>}
             {filteredPlaces.map((place) => {
               const Icon = categoryIcons[place.category] ?? Building2;
               return <button key={place.id} type="button" className={`safe-map-pin${selectedSpot === place.id ? " is-selected" : ""}`} style={mapPosition(place, places, point)} onClick={() => { setSelectedSpot(selectedSpot === place.id ? null : place.id); document.getElementById(`safe-spot-${place.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }} aria-label={`Show ${place.name}`} aria-pressed={selectedSpot === place.id}><Icon size={15} /></button>;
