@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Plus, Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Building2, Plus, Search, Trash2, X } from "lucide-react";
 import { BUSINESS_INDUSTRY_OPTIONS, INSTITUTION_KIND_OPTIONS, ORGANISATION_CATEGORY_OPTIONS, RESPONDER_CATEGORY_OPTIONS } from "@/lib/organisationCategories";
 
 type Organisation = {
@@ -51,12 +52,34 @@ export default function AdminOrganisationsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [query, setQuery] = useState("");
+  const [editForm, setEditForm] = useState({
+    name: "",
+    organisationType: "responder_partner" as "institution" | "business" | "responder_partner",
+    category: "",
+    supportEmail: "",
+    supportPhone: "",
+  });
 
   const categoryOptions = orgType === "institution"
     ? INSTITUTION_KIND_OPTIONS
     : orgType === "business"
       ? BUSINESS_INDUSTRY_OPTIONS
       : RESPONDER_CATEGORY_OPTIONS;
+  const editCategoryOptions = editForm.organisationType === "institution"
+    ? INSTITUTION_KIND_OPTIONS
+    : editForm.organisationType === "business"
+      ? BUSINESS_INDUSTRY_OPTIONS
+      : RESPONDER_CATEGORY_OPTIONS;
+  const visibleRows = rows.filter((row) => {
+    const text = [row.name, row.slug, row.organisation_type, row.institution_kind, row.business_category, row.responder_category, row.status]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return text.includes(query.trim().toLowerCase());
+  });
 
   useEffect(() => {
     setCategory(categoryOptions[0]?.value ?? "other");
@@ -89,8 +112,50 @@ export default function AdminOrganisationsPage() {
       return;
     }
     setDetail(body as OrganisationDetail);
+    setEditingDetails(false);
+    const organisation = (body as OrganisationDetail).organisation;
+    const organisationType = organisation.organisation_type as typeof editForm.organisationType;
+    setEditForm({
+      name: organisation.name,
+      organisationType,
+      category: organisation.institution_kind || organisation.business_category || organisation.responder_category || "",
+      supportEmail: organisation.support_email ?? "",
+      supportPhone: organisation.support_phone ?? "",
+    });
     setBlockUntil(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
     setDetailBusy(false);
+  }
+
+  async function saveOrganisationDetails(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    setDetailBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/organisations/${selectedId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_details",
+          ...editForm,
+          category: editForm.category || null,
+          supportEmail: editForm.supportEmail || null,
+          supportPhone: editForm.supportPhone || null,
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        setError(body?.error ?? "Could not update organisation details.");
+        return;
+      }
+      setEditingDetails(false);
+      setMessage("Organisation details updated.");
+      await Promise.all([load(), openOrganisation(selectedId)]);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Could not update organisation details.");
+    } finally {
+      setDetailBusy(false);
+    }
   }
 
   async function create(event: React.FormEvent) {
@@ -100,37 +165,42 @@ export default function AdminOrganisationsPage() {
     setMessage("");
     setGenerated(null);
     setGeneratedCredentialPdfData("");
-    const response = await fetch("/api/admin/organisations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        organisationType: orgType,
-        category: category || null,
-        isPartner,
-        ownerFullName,
-        ownerEmail,
-        ownerPhone: ownerPhone || null,
-      }),
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      setError((body as any)?.error ?? "Could not create organisation.");
+    try {
+      const response = await fetch("/api/admin/organisations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          organisationType: orgType,
+          category: category || null,
+          isPartner,
+          ownerFullName,
+          ownerEmail,
+          ownerPhone: ownerPhone || null,
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        setError((body as any)?.error ?? "Could not create organisation.");
+        return;
+      }
+      setGenerated((body as any).credentials ?? null);
+      const base64 = (body as any).credentialPdfBase64;
+      setGeneratedCredentialPdfData(typeof base64 === "string" ? `data:application/pdf;base64,${base64}` : "");
+      setMessage("Organisation created.");
+      setName("");
+      setCategory("");
+      setOwnerFullName("");
+      setOwnerEmail("");
+      setOwnerPhone("");
+      setIsPartner(false);
+      setShowCreate(false);
+      await load();
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Could not create organisation.");
+    } finally {
       setBusy(false);
-      return;
     }
-    setGenerated((body as any).credentials ?? null);
-    const base64 = (body as any).credentialPdfBase64;
-    setGeneratedCredentialPdfData(typeof base64 === "string" ? `data:application/pdf;base64,${base64}` : "");
-    setMessage("Organisation created.");
-    setName("");
-    setCategory("");
-    setOwnerFullName("");
-    setOwnerEmail("");
-    setOwnerPhone("");
-    setIsPartner(false);
-    await load();
-    setBusy(false);
   }
 
   async function blockOrganisation() {
@@ -241,96 +311,122 @@ export default function AdminOrganisationsPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-[1280px]">
-      <div>
-        <p className="eyebrow">Platform directory</p>
-        <h1 className="page-title mt-1 flex items-center gap-2"><Building2 size={23} />Organisations</h1>
-      </div>
+    <div className="admin-page">
+      <header className="admin-page-heading">
+        <div>
+          <h1>Organisations</h1>
+          <p>Manage organisation accounts, responder partners and access.</p>
+        </div>
+        <button className="btn btn-primary" type="button" onClick={() => { setError(""); setShowCreate(true); }}>
+          <Plus size={15} />Add organisation
+        </button>
+      </header>
 
-      {error && <p className="ops-login-error" role="alert">{error}</p>}
-      {message && <p className="ops-login-status" role="status">{message}</p>}
+      {error && !selectedId && !showCreate && <p className="admin-status admin-status-error" role="alert">{error}</p>}
+      {message && <p className="admin-status admin-status-success" role="status">{message}</p>}
       {generated && (
-        <div className="panel p-4">
-          <p className="text-sm">Generated owner credentials:</p>
-          <p className="text-sm"><b>{generated.email}</b></p>
-          <p className="text-sm"><b>{generated.password}</b></p>
+        <div className="admin-status admin-status-success flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm">
+            <p>Generated owner credentials for <b>{generated.email}</b></p>
+            <p className="admin-data">{generated.password}</p>
+          </div>
           {generatedCredentialPdfData && (
-            <a className="btn mt-3 inline-flex w-fit" href={generatedCredentialPdfData} download={`basteon-org-owner-${Date.now()}.pdf`}>
-              Download credential PDF
+            <a className="btn" href={generatedCredentialPdfData} download={`basteon-org-owner-${Date.now()}.pdf`}>
+              Download credentials
             </a>
           )}
         </div>
       )}
 
-      <section className="panel p-4 space-y-3">
-        <h2 className="pane-head flex items-center gap-2"><Plus size={18} />Add organisation / responder partner</h2>
-        <form className="grid gap-3 md:grid-cols-3" onSubmit={(event) => void create(event)}>
-          <label className="field">Organisation name<input className="input" required value={name} onChange={(event) => setName(event.target.value)} /></label>
-          <label className="field">Type
-            <select className="input" value={orgType} onChange={(event) => setOrgType(event.target.value as any)}>
-              <option value="institution">Institution</option>
-              <option value="business">Business / Company</option>
-              <option value="responder_partner">Responder Partner</option>
-            </select>
+      <section className="admin-panel">
+        <div className="admin-panel-header">
+          <div><h2>Organisation directory</h2><p>{rows.length} {rows.length === 1 ? "organisation" : "organisations"}</p></div>
+        </div>
+        <div className="admin-toolbar">
+          <label className="admin-search">
+            <Search aria-hidden="true" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search organisation or category" aria-label="Search organisations" />
           </label>
-          <label className="field">Category / industry
-            <select className="input" value={category} onChange={(event) => setCategory(event.target.value)}>
-              {categoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
-          <label className="field">Owner name<input className="input" required value={ownerFullName} onChange={(event) => setOwnerFullName(event.target.value)} /></label>
-          <label className="field">Owner email<input className="input" required type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label>
-          <label className="field">Owner phone<input className="input" value={ownerPhone} onChange={(event) => setOwnerPhone(event.target.value)} /></label>
-          <div className="md:col-span-2 flex items-center justify-between gap-4 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
-            <div>
-              <p className="text-sm font-semibold">Partner organisation</p>
-              <p className="muted text-xs">Hide from organisation search and use as alert fallback.</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isPartner}
-              aria-label="Mark this organisation as a partner"
-              className={`admin-toggle ${isPartner ? "is-on" : ""}`}
-              onClick={() => setIsPartner((value) => !value)}
-            ><span /></button>
-          </div>
-          <button className="btn btn-primary self-end" disabled={busy}>Create organisation</button>
-        </form>
-      </section>
-
-      <section className="tbl-wrap">
+          <span className="admin-muted text-[13px]">{visibleRows.length} shown</span>
+        </div>
         {loading ? (
-          <div className="p-4">Loading organisations...</div>
+          <div className="space-y-3 p-5">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-9 animate-pulse rounded bg-[#eef0f3]" />)}</div>
         ) : (
-          <table className="tbl">
-            <thead><tr><th>Name</th><th>Type</th><th>Partner</th><th>Category</th><th>Branches</th><th>Members</th><th>Status</th></tr></thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="cursor-pointer hover:bg-[var(--surface-2)]" onClick={() => void openOrganisation(row.id)}>
-                  <td>{row.name}</td>
-                  <td>{row.organisation_type}</td>
-                  <td>{row.is_partner ? "Yes" : "No"}</td>
-                  <td>{row.institution_kind || row.business_category || row.responder_category || "—"}</td>
-                  <td>{row.organisation_branches?.length ?? 0}</td>
-                  <td>{row.organisation_memberships?.length ?? 0}</td>
-                  <td>{row.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead><tr><th>Name</th><th>Type</th><th>Partner</th><th>Category</th><th>Branches</th><th>Members</th><th>Status</th></tr></thead>
+              <tbody>
+                {visibleRows.map((row) => (
+                  <tr key={row.id}>
+                    <td><button className="admin-person-name" type="button" onClick={() => void openOrganisation(row.id)}>{row.name}</button></td>
+                    <td>{row.organisation_type.replaceAll("_", " ")}</td>
+                    <td><span className={`admin-pill ${row.is_partner ? "admin-pill-teal" : ""}`}>{row.is_partner ? "Partner" : "No"}</span></td>
+                    <td className="admin-muted">{row.institution_kind || row.business_category || row.responder_category || "—"}</td>
+                    <td className="admin-data">{row.organisation_branches?.length ?? 0}</td>
+                    <td className="admin-data">{row.organisation_memberships?.length ?? 0}</td>
+                    <td><span className={`admin-pill ${row.status === "active" ? "admin-pill-green" : "admin-pill-amber"}`}>{row.status}</span></td>
+                  </tr>
+                ))}
+                {visibleRows.length === 0 && <tr><td colSpan={7}><div className="py-12 text-center"><b className="block text-[16px]">No organisations found</b><span className="admin-muted mt-1 block">Try another name, type or category.</span></div></td></tr>}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
-      {selectedId && (
-        <div className="fixed inset-y-0 right-0 z-[1200] w-full max-w-[50vw] min-w-[340px] border-l border-[var(--line)] bg-[var(--surface-1)] p-5 shadow-[0_0_28px_rgba(0,0,0,.35)]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="eyebrow">Organisation details</p>
-              <h2 className="page-title mt-1 text-[24px]">{detail?.organisation?.name ?? "Loading..."}</h2>
-            </div>
-            <button className="btn" type="button" onClick={() => { setSelectedId(""); setDetail(null); }}>Close</button>
+      {showCreate && (
+        <BodyPortal>
+          <div className="fixed inset-0 z-[1200]">
+            <button className="admin-overlay" type="button" aria-label="Close add organisation form" onClick={() => setShowCreate(false)} />
+            <aside className="admin-drawer" role="dialog" aria-modal="true" aria-labelledby="create-organisation-title">
+              <header className="admin-drawer-header">
+                <h2 id="create-organisation-title">Add organisation</h2>
+                <button className="btn" type="button" aria-label="Close add organisation form" onClick={() => setShowCreate(false)}><X size={16} /></button>
+              </header>
+              <form className="admin-drawer-body" onSubmit={(event) => void create(event)}>
+                <p className="admin-muted mb-5">Create an organisation and its owner account.</p>
+                {error && <p className="admin-status admin-status-error mb-4" role="alert">{error}</p>}
+                <div className="grid gap-4">
+                  <label className="admin-field-wrap">Organisation name<input required minLength={2} value={name} onChange={(event) => setName(event.target.value)} /></label>
+                  <label className="admin-field-wrap">Type
+                    <select value={orgType} onChange={(event) => setOrgType(event.target.value as typeof orgType)}>
+                      <option value="institution">Institution</option><option value="business">Business / Company</option><option value="responder_partner">Responder Partner</option>
+                    </select>
+                  </label>
+                  <label className="admin-field-wrap">Category / industry
+                    <select value={category} onChange={(event) => setCategory(event.target.value)}>
+                      {categoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="admin-field-wrap">Owner name<input required minLength={2} value={ownerFullName} onChange={(event) => setOwnerFullName(event.target.value)} /></label>
+                  <label className="admin-field-wrap">Owner email<input required type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label>
+                  <label className="admin-field-wrap">Owner phone<input value={ownerPhone} onChange={(event) => setOwnerPhone(event.target.value)} /></label>
+                  <div className="admin-detail-card flex items-center justify-between gap-4">
+                    <div><b className="block text-sm">Partner organisation</b><span>Mark this organisation as a responder partner.</span></div>
+                    <button type="button" role="switch" aria-checked={isPartner} aria-label="Mark this organisation as a partner" className={`admin-toggle ${isPartner ? "is-on" : ""}`} onClick={() => setIsPartner((value) => !value)}><span /></button>
+                  </div>
+                </div>
+                <div className="admin-drawer-footer -mx-[22px] mt-6">
+                  <button className="btn" type="button" disabled={busy} onClick={() => setShowCreate(false)}>Cancel</button>
+                  <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? "Creating…" : "Create organisation"}</button>
+                </div>
+              </form>
+            </aside>
           </div>
+        </BodyPortal>
+      )}
+
+      {selectedId && (
+        <BodyPortal>
+        <div className="fixed inset-0 z-[1200]">
+          <button className="admin-overlay" type="button" aria-label="Close organisation details" onClick={() => { setSelectedId(""); setDetail(null); }} />
+          <aside className="admin-drawer" style={{ width: "min(560px, 100%)" }}>
+            <header className="admin-drawer-header">
+              <div><p className="admin-muted text-xs">Organisation details</p><h2>{detail?.organisation?.name ?? "Loading…"}</h2></div>
+              <button className="btn" type="button" aria-label="Close organisation details" onClick={() => { setSelectedId(""); setDetail(null); }}><X size={16} /></button>
+            </header>
+            <div className="admin-drawer-body">
+          {error && <p className="admin-status admin-status-error mb-3" role="alert">{error}</p>}
           {detailBusy && <p className="muted mt-3">Loading details…</p>}
           {detail && (
             <div className="mt-4 space-y-4">
@@ -353,10 +449,39 @@ export default function AdminOrganisationsPage() {
                 <p className="text-sm">Owner: <b>{detail.owner?.name ?? "—"}</b></p>
                 <p className="text-sm">Support email: <b>{detail.organisation.support_email ?? "—"}</b></p>
                 <p className="text-sm">Support phone: <b>{detail.organisation.support_phone ?? "—"}</b></p>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                  <div className="panel p-2"><p className="text-lg font-bold">{detail.counts.members}</p><p className="muted text-xs">Members</p></div>
-                  <div className="panel p-2"><p className="text-lg font-bold">{detail.counts.responders}</p><p className="muted text-xs">Responders</p></div>
-                  <div className="panel p-2"><p className="text-lg font-bold">{detail.counts.beneficiaries}</p><p className="muted text-xs">Beneficiaries</p></div>
+                <button className="btn" type="button" disabled={detailBusy} onClick={() => setEditingDetails((editing) => !editing)}>
+                  {editingDetails ? "Cancel organisation edit" : "Edit organisation details"}
+                </button>
+                {editingDetails && (
+                  <form className="mt-3 grid gap-3" onSubmit={(event) => void saveOrganisationDetails(event)}>
+                    <label className="field">Organisation name<input className="input" required minLength={2} value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
+                    <label className="field">Type
+                      <select
+                        className="input"
+                        value={editForm.organisationType}
+                        onChange={(event) => {
+                          const organisationType = event.target.value as typeof editForm.organisationType;
+                          const options = organisationType === "institution" ? INSTITUTION_KIND_OPTIONS : organisationType === "business" ? BUSINESS_INDUSTRY_OPTIONS : RESPONDER_CATEGORY_OPTIONS;
+                          setEditForm({ ...editForm, organisationType, category: options[0]?.value ?? "" });
+                        }}
+                      >
+                        <option value="institution">Institution</option><option value="business">Business / Company</option><option value="responder_partner">Responder Partner</option>
+                      </select>
+                    </label>
+                    <label className="field">Category / industry
+                      <select className="input" value={editForm.category} onChange={(event) => setEditForm({ ...editForm, category: event.target.value })}>
+                        {editCategoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="field">Support email<input className="input" type="email" value={editForm.supportEmail} onChange={(event) => setEditForm({ ...editForm, supportEmail: event.target.value })} /></label>
+                    <label className="field">Support phone<input className="input" value={editForm.supportPhone} onChange={(event) => setEditForm({ ...editForm, supportPhone: event.target.value })} /></label>
+                    <button className="btn btn-primary w-fit" type="submit" disabled={detailBusy}>{detailBusy ? "Saving…" : "Save organisation"}</button>
+                  </form>
+                )}
+                <div className="admin-detail-grid mt-4">
+                  <div className="admin-detail-card"><span>Members</span><strong>{detail.counts.members}</strong></div>
+                  <div className="admin-detail-card"><span>Responders</span><strong>{detail.counts.responders}</strong></div>
+                  <div className="admin-detail-card"><span>Beneficiaries</span><strong>{detail.counts.beneficiaries}</strong></div>
                 </div>
               </section>
 
@@ -385,9 +510,13 @@ export default function AdminOrganisationsPage() {
               </section>
             </div>
           )}
+            </div>
+          </aside>
         </div>
+        </BodyPortal>
       )}
       {showDeleteModal && selectedId && (
+        <BodyPortal>
         <div
           className="fixed inset-0 z-[1300] grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
           role="presentation"
@@ -406,7 +535,7 @@ export default function AdminOrganisationsPage() {
             </div>
             <h2 id="delete-organisation-title" className="text-lg font-bold">Delete {detail?.organisation?.name ?? "organisation"}?</h2>
             <p className="muted mt-2 text-sm">This permanently removes the organisation and its linked records. Enter your admin control password to confirm.</p>
-            {error && <p className="ops-login-error mt-3" role="alert">{error}</p>}
+            {error && <p className="admin-status admin-status-error mt-3" role="alert">{error}</p>}
             <form className="mt-5 space-y-4" onSubmit={(event) => void deleteOrganisation(event)}>
               <label className="field">Admin control password
                 <input
@@ -427,39 +556,14 @@ export default function AdminOrganisationsPage() {
             </form>
           </section>
         </div>
+        </BodyPortal>
       )}
-      <style jsx global>{`
-        .admin-toggle {
-          position: relative;
-          display: inline-flex;
-          flex: none;
-          width: 46px;
-          height: 26px;
-          align-items: center;
-          padding: 3px;
-          border: 1px solid var(--line);
-          border-radius: 999px;
-          background: var(--surface-3);
-          transition: background var(--kiki-control-speed) var(--kiki-ease), border-color var(--kiki-control-speed) var(--kiki-ease), box-shadow var(--kiki-control-speed) var(--kiki-ease);
-        }
-        .admin-toggle span {
-          width: 18px;
-          height: 18px;
-          border-radius: 999px;
-          background: var(--text-2);
-          transition: transform var(--kiki-control-speed) var(--kiki-ease), background var(--kiki-control-speed) var(--kiki-ease);
-        }
-        .admin-toggle.is-on {
-          border-color: var(--ok);
-          background: var(--ok-bg);
-        }
-        .admin-toggle.is-on span {
-          transform: translateX(20px);
-          background: var(--ok);
-        }
-        .admin-toggle:disabled { cursor: not-allowed; opacity: .6; }
-        .admin-toggle:focus-visible { outline: 2px solid var(--line-focus); outline-offset: 3px; }
-      `}</style>
     </div>
   );
+}
+
+function BodyPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? createPortal(<div className="admin-theme">{children}</div>, document.body) : null;
 }

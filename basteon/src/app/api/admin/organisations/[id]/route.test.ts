@@ -19,7 +19,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.admin,
 }));
 
-import { DELETE } from "./route";
+import { DELETE, PATCH } from "./route";
 
 describe("DELETE /api/admin/organisations/[id]", () => {
   const originalPassword = process.env.ADMIN_CONTROL_PASSWORD;
@@ -27,6 +27,54 @@ describe("DELETE /api/admin/organisations/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.profile.mockResolvedValue({ data: { role: "admin" } });
+  });
+
+  describe("PATCH /api/admin/organisations/[id]", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mocks.profile.mockResolvedValue({ data: { role: "admin" } });
+    });
+
+    it("updates editable organisation details and clears unrelated category fields", async () => {
+      const query = {
+        update: vi.fn(),
+        eq: vi.fn(),
+        select: vi.fn(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: "org-1", name: "Example College", organisation_type: "institution" },
+          error: null,
+        }),
+      };
+      query.update.mockReturnValue(query);
+      query.eq.mockReturnValue(query);
+      query.select.mockReturnValue(query);
+      mocks.admin.mockReturnValue({ from: vi.fn(() => query) });
+
+      const response = await PATCH(new Request("http://localhost/api/admin/organisations/org-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_details",
+          name: "Example College",
+          organisationType: "institution",
+          category: "school",
+          supportEmail: "support@example.com",
+          supportPhone: null,
+        }),
+      }), { params: Promise.resolve({ id: "org-1" }) });
+
+      expect(response.status).toBe(200);
+      expect(query.update).toHaveBeenCalledWith({
+        name: "Example College",
+        organisation_type: "institution",
+        institution_kind: "school",
+        business_category: null,
+        responder_category: null,
+        support_email: "support@example.com",
+        support_phone: null,
+      });
+      expect(await response.json()).toMatchObject({ ok: true });
+    });
   });
 
   afterEach(() => {

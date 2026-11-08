@@ -27,29 +27,25 @@ export default function UsersPage() {
   useEffect(() => { void refresh(); }, []);
 
   return (
-    <div className="space-y-5 max-w-[1280px]">
-      <div>
-        <p className="eyebrow">Access control</p>
-        <h1 className="page-title mt-1">Users</h1>
-      </div>
-
-      {error && (
-        <div
-          role="alert"
-          className="bg-[var(--surface-2)] border-l-4 border-[var(--crit)] px-3 py-2.5 text-[12px] text-[var(--crit)]"
-        >
-          Could not load users — {error}
+    <div className="admin-page">
+      <header className="admin-page-heading">
+        <div>
+          <h1>Users</h1>
+          <p>Everyone with access to the platform, and the role they hold.</p>
         </div>
-      )}
+      </header>
+
+      {error && <div role="alert" className="admin-status admin-status-error">{error}</div>}
 
       {loading ? (
-        <div className="tbl-wrap">
-          <div className="p-4 space-y-3">
+        <section className="admin-panel">
+          <div className="admin-panel-header"><div><h2>All users</h2><p>Loading accounts</p></div></div>
+          <div className="space-y-3 p-5">
             {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="h-8 bg-[var(--surface-2)] animate-pulse" />
+              <div key={i} className="h-9 animate-pulse rounded bg-[#eef0f3]" />
             ))}
           </div>
-        </div>
+        </section>
       ) : (
         <UserTable users={users} refresh={refresh} />
       )}

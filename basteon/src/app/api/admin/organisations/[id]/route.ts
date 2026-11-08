@@ -57,6 +57,14 @@ export async function GET(_request: Request, context: Context) {
 
 const patchSchema = z.discriminatedUnion("action", [
   z.object({
+    action: z.literal("update_details"),
+    name: z.string().trim().min(2).max(160),
+    organisationType: z.enum(["institution", "business", "responder_partner"]),
+    category: z.string().trim().max(100).nullable(),
+    supportEmail: z.string().email().nullable(),
+    supportPhone: z.string().trim().max(40).nullable(),
+  }),
+  z.object({
     action: z.literal("block"),
     blockedUntil: z.string().datetime(),
     reason: z.string().min(3),
@@ -80,6 +88,32 @@ export async function PATCH(request: Request, context: Context) {
   const parsed = patchSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const db = createAdminClient();
+
+  if (parsed.data.action === "update_details") {
+    const categoryColumn = parsed.data.organisationType === "institution"
+      ? "institution_kind"
+      : parsed.data.organisationType === "business"
+        ? "business_category"
+        : "responder_category";
+    const update: Record<string, string | null> = {
+      name: parsed.data.name,
+      organisation_type: parsed.data.organisationType,
+      institution_kind: null,
+      business_category: null,
+      responder_category: null,
+      support_email: parsed.data.supportEmail,
+      support_phone: parsed.data.supportPhone,
+    };
+    update[categoryColumn] = parsed.data.category;
+    const { data, error } = await db.from("organisations")
+      .update(update)
+      .eq("id", id)
+      .select("id,name,organisation_type,institution_kind,business_category,responder_category,support_email,support_phone")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!data) return NextResponse.json({ error: "Organisation not found." }, { status: 404 });
+    return NextResponse.json({ ok: true, organisation: data });
+  }
 
   if (parsed.data.action === "set_partner") {
     const { data, error } = await db.from("organisations")
