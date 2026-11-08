@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AdminNav } from "@/components/AdminNav";
+import { BasteonBrand } from "@/components/BasteonBrand";
 
 export default async function AdminLayout({
   children,
@@ -24,11 +25,10 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen md:grid md:h-screen md:grid-cols-[224px_1fr] md:overflow-hidden">
+    <div className="basteon-admin-shell min-h-screen md:grid md:h-screen md:grid-cols-[224px_1fr] md:overflow-hidden">
       <aside className="sidebar flex flex-col md:min-h-0 md:overflow-y-auto">
-        <div className="sidebar-head">
-          <span className="mark">B</span>
-          <span>BASTEON</span>
+        <div className="sidebar-head basteon-admin-brand">
+          <BasteonBrand variant="light" />
           <span className="label ml-1">Admin</span>
         </div>
         <div className="py-2">

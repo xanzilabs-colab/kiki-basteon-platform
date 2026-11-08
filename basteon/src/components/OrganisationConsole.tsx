@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
+import { BasteonBrand } from "@/components/BasteonBrand";
 import { membershipTypeOptionsForOrganisation, roleHintForMembershipType } from "@/lib/organisationCategories";
 import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
 import { useAppDialog } from "@/components/AppDialogProvider";
@@ -1253,11 +1254,7 @@ export function OrganisationConsole() {
     <div className="org-console">
       <aside className="org-console-sidebar">
         <div className="org-console-brand">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <path d="M5 3h22v17l-11 9-11-9z" />
-            <path d="M12 10h5a3 3 0 0 1 0 6h-5zm0 6h6a3 3 0 0 1 0 6h-6z" />
-          </svg>
-          <b>BASTEON</b>
+          <BasteonBrand />
         </div>
         <div className="org-console-org-card">
           <div className="org-console-org-mark">
@@ -2288,14 +2285,6 @@ export function OrganisationConsole() {
         font: 700 16px "Barlow Semi Condensed", "Arial Narrow", sans-serif;
         letter-spacing: .22em;
       }
-      .org-console-brand svg {
-        width: 26px;
-        height: 26px;
-        flex: none;
-        fill: #fff;
-        stroke: none;
-      }
-      .org-console-brand svg path + path { fill: var(--ink); }
       .org-console-org-card {
         display: flex;
         align-items: center;
@@ -3495,7 +3484,6 @@ export function OrganisationConsole() {
       @media (max-width: 1000px) {
         .org-console { grid-template-columns: 64px minmax(0, 1fr); }
         .org-console-brand { justify-content: center; padding: 4px 0 18px; }
-        .org-console-brand b,
         .org-console-org-details,
         .org-console-nav-label,
         .org-console-nav-item span,

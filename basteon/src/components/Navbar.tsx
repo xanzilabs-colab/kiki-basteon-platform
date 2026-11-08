@@ -28,11 +28,13 @@ export function Navbar({
   children,
   beforeSpacer,
   brandMark,
+  brandWordmark,
   brandClassName,
 }: {
   children?: ReactNode;
   beforeSpacer?: ReactNode;
   brandMark?: ReactNode;
+  brandWordmark?: ReactNode;
   brandClassName?: string;
 }) {
   const router = useRouter();
@@ -46,7 +48,7 @@ export function Navbar({
           </>
         )}
       </div>
-      {brandMark && <span className="wordmark">BASTEON</span>}
+      {brandMark && <span className="wordmark">{brandWordmark ?? "BASTEON"}</span>}
 
       <div className="context hidden sm:flex">
         <b>Response console</b>

@@ -53,15 +53,22 @@
   place-items: center;
 }
 
+.responderRoot :global(.appbar .brand-icon .basteon-brand-mark) {
+  width: 36px;
+  height: 28px;
+}
+
+.responderRoot :global(.appbar .brand-icon .basteon-brand-mark img) {
+  width: 64px;
+}
+
 .responderRoot :global(.appbar .wordmark) {
+  display: flex;
+  width: 164px;
+  height: 32px;
+  align-items: center;
   margin-left: 0;
   flex: none;
-  color: #f4f4f5;
-  font-family: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  white-space: nowrap;
 }
 
 .headerOrganisation {

@@ -13,6 +13,7 @@ import { ResponderLocationPublisher } from "@/components/ResponderLocationPublis
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Navbar } from "@/components/Navbar";
+import { BasteonBrand } from "@/components/BasteonBrand";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserProfileDrawer } from "@/components/UserProfileDrawer";
 import { useAppDialog } from "@/components/AppDialogProvider";
@@ -318,7 +319,8 @@ export default function ResponderPage() {
     <div className={`responder-console ${styles.responderRoot} h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]`}>
       <Navbar
         brandClassName={styles.brandBox}
-        brandMark={<svg viewBox="0 0 32 32" aria-hidden="true" className={styles.brandMark}><path d="M5 3h22v17l-11 9-11-9z" /><path d="M12 10h5a3 3 0 0 1 0 6h-5zm0 6h6a3 3 0 0 1 0 6h-6z" className={styles.brandMarkCutout} /></svg>}
+        brandMark={<BasteonBrand markOnly />}
+        brandWordmark={<BasteonBrand variant="dark" wordmarkOnly />}
         beforeSpacer={organisationName ? (
           <div className={styles.headerOrganisation}>
             {organisationLogo ? <img src={organisationLogo} alt="" /> : <i>{organisationName.slice(0, 2).toUpperCase()}</i>}
