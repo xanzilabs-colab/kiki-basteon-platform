@@ -1,3 +1,4 @@
+import { getCurrentLocation, locationErrorMessage } from "@/lib/platform/location";
 export const categoryLabel = (value: string) => value.replaceAll("_", " ");
 
 const errors: Record<string, string> = {
@@ -20,17 +21,17 @@ export async function meetingFetch<T>(url: string, body?: object, signal?: Abort
 }
 
 export async function currentMeetingLocation(): Promise<{ lat: number; lng: number }> {
-  if (!navigator.geolocation) throw new Error("Location is unavailable on this device.");
-  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(
-    ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
-    () => reject(new Error("Location could not be shared. Check your location permission.")),
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
-  ));
+  try {
+    const position = await getCurrentLocation({ enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+    return { lat: position.lat, lng: position.lng };
+  } catch (error) {
+    throw new Error(locationErrorMessage(error));
+  }
 }
 
-export type PublicSpot = { id: string; name: string; category: string; lat: number; lng: number; address: string | null; quality: number; open_24h: boolean };
+export type PublicSpot = { id: string; name: string; category: string; lat: number; lng: number; address: string | null; quality: number; open_24h: boolean; is_demo: boolean };
 export type CommunityRegion = { type: "Polygon"; coordinates: [number, number][][] };
-export type CommunityAlert = { id: string; kind: string; lat: number; lng: number; location_label: string | null; detail: string | null; region?: CommunityRegion | null; created_at: string; expires_at: string | null; upvotes: number; voted: boolean; mine?: boolean };
+export type CommunityAlert = { id: string; kind: string; lat: number; lng: number; location_label: string | null; detail: string | null; region?: CommunityRegion | null; created_at: string; expires_at: string | null; upvotes: number; voted: boolean; mine?: boolean; is_demo: boolean };
 export type MeetingCandidate = { id: string; name: string; category: string; source: string; lat: number; lng: number; address: string | null; distanceM: number; maxDistanceM: number; balanced: boolean; votes: number; yourVote: boolean; rejected: boolean };
 export type MeetingView = { round: number; selectedCandidateId: string | null; total: number; ready: number; membershipChanged: boolean; candidates: MeetingCandidate[]; lookFor: Array<{ alias: string; you: boolean; topColor: string | null; carryingBag: boolean | null }> };
 export const directionsUrl = (lat: number, lng: number) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;

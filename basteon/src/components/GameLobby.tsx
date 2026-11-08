@@ -59,7 +59,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   const soloPath = game === "linkup" ? "/games/linkup/solo"
     : game === "teach_one" ? "/games/teach/kiki"
       : game === "read_room" ? "/games/read-room/kiki" : "/games/play/solo";
-  const { position, error: locationError } = useGeolocation();
+  const { position, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [invitationError, setInvitationError] = useState("");
@@ -493,8 +493,9 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
             <span className={styles.selectionMark}>{selected ? selected.avatar : <UsersRound size={20} />}</span>
             <span className={styles.selectionCopy}>
               <strong>{selected ? selected.label : buddies.length || savedBuddies.length ? "Choose a Buddy" : "Your garden is quiet"}</strong>
-              <small>{presenceError || (locationError && !savedBuddies.length ? "Enable location to see nearby players." : selected ? selected.distanceKm === undefined ? "From your buddy list · private game invite" : `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length || savedBuddies.length ? "Choose a nearby player or someone from your buddy list." : game === "teach_one" || game === "read_room" ? "Choose a Buddy to send a private invitation." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
+              <small>{presenceError || (locationError && !position ? locationError : selected ? selected.distanceKm === undefined ? "From your buddy list · private game invite" : `${selected.distanceKm.toFixed(1)} km away · broad location only` : buddies.length || savedBuddies.length ? "Choose a nearby player or someone from your buddy list." : game === "teach_one" || game === "read_room" ? "Choose a Buddy to send a private invitation." : position ? "You can still create an open room." : "Nearby players appear when location is available.")}</small>
             </span>
+            {locationError && !position && <button type="button" className={styles.gardenLocationRetry} disabled={refreshingLocation} onClick={() => void refreshLocation()}>{refreshingLocation ? "Checking…" : "Retry location"}</button>}
             {selected && <button type="button" className={styles.clearSelection} aria-label="Clear selected Buddy" onClick={() => setSelected(null)}><X size={18} /></button>}
           </div>
         </section>

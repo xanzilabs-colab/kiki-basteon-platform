@@ -12,6 +12,28 @@ type BrowserPositionOptions = {
   maximumAge?: number;
 };
 
+export function locationErrorMessage(error: unknown) {
+  const native = Capacitor.isNativePlatform();
+  if (!native && typeof window !== "undefined" && !window.isSecureContext) {
+    return "Browser location requires HTTPS. Open Kiki using its secure https:// address.";
+  }
+  if (!native && typeof navigator !== "undefined" && !navigator.geolocation) {
+    return "This browser does not support location. Open Kiki in a current browser.";
+  }
+  const code = typeof error === "object" && error !== null && "code" in error && typeof error.code === "number"
+    ? error.code
+    : null;
+  if (!native && code === 1) return "Location permission is blocked. Allow location for Kiki in browser site settings, then retry. On Windows, also turn on Location services.";
+  if (!native && code === 2) return "Your PC could not determine its location. Turn on Windows Location services, allow location for this site, and retry.";
+  if (!native && code === 3) return "Location lookup timed out. Check Windows Location services and your connection, then retry.";
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("permission") || message.includes("denied")) return "Allow location access for Kiki in Android app settings.";
+  if (message.includes("disabled") || message.includes("turned off") || message.includes("services")) return "Turn on Location services in Android settings.";
+  return native
+    ? "Could not get your location. Check Android app permission and Location services, then retry."
+    : "Could not get your location. Check your browser’s site permission and Windows Location services, then retry.";
+}
+
 function fromCoordinates(
   coords: { latitude: number; longitude: number; accuracy: number; speed?: number | null; heading?: number | null },
   capturedAt: number,

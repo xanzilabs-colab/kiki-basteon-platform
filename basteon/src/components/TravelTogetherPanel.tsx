@@ -136,7 +136,14 @@ export function TravelTogetherPanel({
     if (!active || !position || positionInFlight.current) return;
     positionInFlight.current = true;
     void fetch("/api/buddies/trips/position", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(position) })
-      .catch(() => undefined)
+      .then(async (response) => {
+        if (response.ok) return;
+        const data = await response.json().catch(() => ({}));
+        setMessage(data.error === "no_active_trip"
+          ? "Your Travel Together trip has ended. Create a new trip to appear on the map."
+          : "Your location could not be updated on the travel map. Please try refreshing your location.");
+      })
+      .catch(() => setMessage("Your location could not be updated on the travel map. Check your connection and try again."))
       .finally(() => { positionInFlight.current = false; });
   }, [active, position?.lat, position?.lng]);
 

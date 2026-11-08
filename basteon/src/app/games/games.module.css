@@ -324,6 +324,8 @@
 .selectionCopy { min-width: 0; display: grid; gap: 3px; }
 .selectionCopy strong { color: var(--garden-ink); font-size: 12px; font-weight: 850; }
 .selectionCopy small { color: var(--garden-muted); font-size: 10px; line-height: 1.4; }
+.gardenLocationRetry { flex: none; border: 1px solid rgba(118,85,138,.2); border-radius: 999px; background: #f7f1f8; padding: 7px 10px; color: var(--garden-purple); font-size: 10px; font-weight: 800; }
+.gardenLocationRetry:disabled { cursor: wait; opacity: .65; }
 .clearSelection { width: 34px; height: 34px; display: grid; flex: none; place-items: center; margin-left: auto; border: 0; border-radius: 50%; background: var(--garden-purple-soft); color: var(--garden-purple); cursor: pointer; }
 .gardenFooter { display: grid; gap: 9px; }
 .gardenOpenRooms { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid rgba(118,85,138,.14); border-radius: 12px; background: rgba(255,255,255,.72); }
