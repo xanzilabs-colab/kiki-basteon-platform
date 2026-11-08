@@ -223,6 +223,9 @@
 }
 
 .admin-page-heading h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-family: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
   font-size: 30px;
@@ -668,6 +671,30 @@
   color: #126532;
 }
 
+.admin-alert-type-default {
+  border-color: var(--admin-line-strong);
+  background: #f3f4f6;
+  color: var(--admin-text);
+}
+
+.admin-alert-type-medical {
+  border-color: #b9dfc8;
+  background: var(--admin-green-bg);
+  color: #126532;
+}
+
+.admin-alert-type-danger {
+  border-color: #f0c4c8;
+  background: var(--admin-red-bg);
+  color: #8f1d27;
+}
+
+.admin-alert-type-default,
+.admin-alert-type-medical,
+.admin-alert-type-danger {
+  border-radius: 999px;
+}
+
 @media (max-width: 1000px) {
   .basteon-admin-shell { grid-template-columns: 64px minmax(0, 1fr); }
   .admin-sidebar .sidebar-head { justify-content: center; padding: 0; }
@@ -685,49 +712,29 @@
 
 @media (max-width: 700px) {
   .basteon-admin-shell {
-    display: flex;
-    height: auto;
-    min-height: 100dvh;
-    flex-direction: column;
-    overflow: visible;
+    grid-template-columns: 64px minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
-  .admin-sidebar { display: block; overflow: hidden; }
-  .admin-sidebar .sidebar-head {
-    height: 50px;
-    justify-content: flex-start;
-    padding: 0 16px;
-  }
-  .admin-sidebar .basteon-brand { display: inline-flex; width: 132px; }
-  .admin-sidebar .basteon-brand-compact { display: none; }
-  .admin-sidebar .sidebar-head .label { display: inline; }
-  .admin-nav {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding: 7px 10px 10px;
-    scrollbar-width: thin;
-  }
-  .admin-nav-group {
-    display: flex;
-    flex: none;
-    gap: 6px;
-    padding: 0 10px 0 0;
-    border-right: 1px solid #343b46;
-  }
-  .admin-nav-group:last-of-type { border-right: 0; }
-  .admin-sidebar .sidebar-link {
-    width: 42px;
-    height: 38px;
-    flex: none;
-  }
-  .admin-nav-console { display: none !important; }
-  .admin-main { min-height: calc(100dvh - 100px); }
+  .admin-sidebar { display: flex; overflow: auto; }
+  .admin-sidebar .sidebar-head { height: 60px; justify-content: center; padding: 0; }
+  .admin-sidebar .basteon-brand { display: none; }
+  .admin-sidebar .basteon-brand-compact { display: inline-grid; width: 28px; height: 28px; }
+  .admin-sidebar .sidebar-head .label,
+  .admin-nav-heading,
+  .admin-nav-label { display: none; }
+  .admin-nav { display: grid; gap: 4px; padding: 8px 6px 12px; }
+  .admin-nav-group { display: grid; gap: 4px; padding: 7px 0 0; }
+  .admin-sidebar .sidebar-link { width: 50px; height: 42px; justify-content: center; padding: 0; }
+  .admin-sidebar .admin-nav-console { display: block !important; }
+  .admin-main { min-height: 0; }
   .admin-topbar { height: 50px; gap: 8px; padding: 0 12px; }
   .admin-topbar .admin-live,
   .admin-topbar .admin-refresh-label,
   .admin-topbar .admin-console-label { display: none; }
   .admin-breadcrumb { max-width: 46%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .admin-content { overflow: visible; padding: 18px 12px 28px; }
+  .admin-content { overflow: auto; padding: 18px 12px 28px; }
   .admin-page { gap: 14px; }
   .admin-page-heading h1 { font-size: 27px; }
   .admin-panel-header { padding: 13px 15px; }
@@ -741,13 +748,21 @@
 
 .admin-sidebar .sidebar-link,
 .admin-sidebar .sidebar-link[aria-current="page"] {
-  border: 0;
-  box-shadow: none;
+  border: 0 !important;
+  border-left: 0 !important;
+  box-shadow: none !important;
+  outline: 0;
 }
 
 .admin-sidebar .sidebar-link[aria-current="page"] {
   background: #222a35;
   color: #fff;
+}
+
+.admin-sidebar .sidebar-link[aria-current="page"]::before,
+.admin-sidebar .sidebar-link[aria-current="page"]::after {
+  display: none !important;
+  content: none !important;
 }
 
 .admin-theme .panel,

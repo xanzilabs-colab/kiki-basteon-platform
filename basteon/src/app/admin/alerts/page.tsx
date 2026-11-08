@@ -61,18 +61,18 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="max-w-[1280px] space-y-6">
-      <header className="flex flex-col gap-4 border-b border-[#282930] pb-4 md:flex-row md:items-end md:justify-between">
+    <div className="admin-page">
+      <header className="admin-page-heading">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight text-white">
-            <ListChecks size={20} className="text-slate-400" />
+          <h1>
+            <ListChecks size={20} />
             System Alert &amp; GPS Audit Log
           </h1>
-          <p className="mt-1 text-xs text-slate-400">Immutable high-density incident event trails and telemetry logs.</p>
+          <p>Immutable incident event trails and telemetry logs.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
-            className="h-9 rounded border border-[#282930] bg-[#0B0C0E] px-3 text-xs text-slate-200 outline-none focus:border-[#3B82F6]"
+            className="input"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -81,52 +81,54 @@ export default function AlertsPage() {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-          <select aria-label="Filter by emergency type" className="h-9 rounded border border-[#282930] bg-[#0B0C0E] px-3 text-xs text-slate-200 outline-none focus:border-[#087f70]" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          <select aria-label="Filter by emergency type" className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
             <option value="all">All alert types</option>
             {emergencyTypes.map((type) => <option key={type.code} value={type.code}>{type.short_label}</option>)}
           </select>
-          <button className="inline-flex h-9 items-center gap-2 rounded bg-[#3B82F6] px-3.5 text-xs font-medium text-white transition-colors hover:bg-[#2563EB]" onClick={exportCsv}>
+          <button className="btn btn-primary inline-flex items-center gap-2 px-3.5" onClick={exportCsv}>
             <FileDown size={15} />
             Export CSV
           </button>
         </div>
       </header>
 
-      <section className="overflow-x-auto rounded border border-[#282930] bg-[#16171B]">
-        <table className="w-full min-w-[900px] border-collapse text-left text-xs">
-          <thead className="border-b border-[#282930] bg-[#111215] font-mono text-slate-400">
+      <section className="admin-panel">
+        <div className="admin-table-wrap">
+          <table className="admin-table min-w-[900px]">
+          <thead>
             <tr>
-              <th className="p-3 font-medium">TIMESTAMP</th>
-              <th className="p-3 font-medium">DEVICE ID</th>
-              <th className="p-3 font-medium">STATUS</th>
-              <th className="p-3 font-medium">TYPE</th>
-              <th className="p-3 font-medium">LATITUDE</th>
-              <th className="p-3 font-medium">LONGITUDE</th>
-              <th className="p-3 font-medium">SOURCE</th>
-              <th className="p-3 text-right font-medium">ACTION</th>
+              <th>Timestamp</th>
+              <th>Device ID</th>
+              <th>Status</th>
+              <th>Type</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Source</th>
+              <th className="text-right">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#282930]">
+          <tbody>
             {rows.map((a) => (
-              <tr key={a.id} className="transition-colors hover:bg-[#1C1D22]">
-                <td className="p-3 font-mono text-slate-300">{new Date(a.triggered_at).toLocaleString("en-ZA")}</td>
-                <td className="p-3 font-mono font-bold text-white">{a.device_id}</td>
-                <td className="p-3"><StatusBadge status={a.status} /></td>
-                <td className="p-3"><AlertTypeBadge typeCode={a.type_code} /></td>
-                <td className="p-3 font-mono text-slate-300">{a.lat?.toFixed(6) ?? "—"}</td>
-                <td className="p-3 font-mono text-slate-300">{a.lng?.toFixed(6) ?? "—"}</td>
-                <td className="p-3 font-mono text-[11px] text-slate-400 uppercase">{a.loc_source ?? "no fix"}</td>
-                <td className="p-3 text-right">
-                  <button className="inline-flex items-center gap-1.5 rounded border border-[#31333C] bg-[#1C1D22] px-2.5 py-1 text-xs text-slate-200 transition-colors hover:bg-[#23252C]" onClick={() => void exportTrail(a.id)}>
-                    <Download size={13} className="text-slate-400" />
+              <tr key={a.id}>
+                <td className="admin-data">{new Date(a.triggered_at).toLocaleString("en-ZA")}</td>
+                <td className="admin-data">{a.device_id}</td>
+                <td><StatusBadge status={a.status} /></td>
+                <td><AlertTypeBadge typeCode={a.type_code} variant="admin" /></td>
+                <td className="admin-data">{a.lat?.toFixed(6) ?? "—"}</td>
+                <td className="admin-data">{a.lng?.toFixed(6) ?? "—"}</td>
+                <td className="admin-data">{a.loc_source ?? "no fix"}</td>
+                <td className="text-right">
+                  <button className="btn inline-flex items-center gap-1.5 px-2.5" onClick={() => void exportTrail(a.id)}>
+                    <Download size={13} />
                     Trail CSV
                   </button>
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-slate-500"><MapPin className="mx-auto mb-2" size={20} />No alerts match this filter.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={8} className="text-center admin-muted"><MapPin className="mx-auto mb-2" size={20} />No alerts match this filter.</td></tr>}
           </tbody>
-        </table>
+          </table>
+        </div>
       </section>
     </div>
   );

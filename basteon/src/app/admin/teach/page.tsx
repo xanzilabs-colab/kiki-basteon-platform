@@ -95,57 +95,57 @@ export default function TeachModerationPage() {
   }
 
   return (
-    <div className="max-w-[1280px] space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#282930] pb-4">
+    <div className="admin-page">
+      <header className="admin-page-heading">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight text-white">
-            <BookOpen size={20} className="text-slate-400" /> Each One Teach One moderation
+          <h1>
+            <BookOpen size={20} /> Each One Teach One moderation
           </h1>
-          <p className="mt-1 text-xs text-slate-400">Review community tips and user reports before content is shared broadly.</p>
+          <p>Review community tips and user reports before content is shared broadly.</p>
         </div>
-        <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded border border-[#34353D] px-3 py-2 text-xs text-slate-200 disabled:opacity-50">
+        <button type="button" onClick={() => void refresh()} disabled={loading} className="btn inline-flex items-center gap-2 px-3">
           <RefreshCw size={14} /> Refresh queue
         </button>
       </header>
 
-      <aside className="rounded border border-amber-900/70 bg-amber-950/30 p-4 text-sm text-amber-100">
+      <aside className="admin-status" role="note">
         Community tips are not professional advice. Check each tip for personal information, unsafe guidance, and respectful language before approving it.
       </aside>
 
-      {error && <p role="alert" className="rounded border border-red-900 bg-red-950/40 p-3 text-sm text-red-200">{error}</p>}
-      {notice && <p role="status" className="rounded border border-emerald-900 bg-emerald-950/40 p-3 text-sm text-emerald-200">{notice}</p>}
+      {error && <p role="alert" className="admin-status admin-status-error">{error}</p>}
+      {notice && <p role="status" className="admin-status admin-status-success">{notice}</p>}
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-white"><ShieldCheck size={16} />Tip cards <span className="text-xs text-slate-400">({cards.length})</span></div>
-        {loading ? <p className="text-sm text-slate-400">Loading tips…</p> : cards.length === 0
-          ? <p className="rounded border border-[#282930] bg-[#16171B] p-4 text-sm text-slate-400">No tips need review.</p>
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><ShieldCheck size={16} />Tip cards <span className="text-sm admin-muted">({cards.length})</span></h2>
+        {loading ? <p className="text-sm admin-muted">Loading tips…</p> : cards.length === 0
+          ? <p className="admin-panel p-4 text-sm admin-muted">No tips need review.</p>
           : cards.map((card) => (
-            <article key={card.id} className="space-y-3 rounded border border-[#282930] bg-[#16171B] p-4">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-slate-400">
+            <article key={card.id} className="admin-panel space-y-3 p-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs admin-muted">
                 <span>{card.topic_id.replaceAll("_", " ")}</span>
                 <span>·</span><span>{card.tier}</span>
                 <span>·</span><span>{card.status}</span>
-                {card.flagged && <span className="inline-flex items-center gap-1 text-red-300"><Flag size={12} /> flagged</span>}
+                {card.flagged && <span className="admin-pill admin-pill-red"><Flag size={12} />Flagged</span>}
                 <span>· {card.report_count} open reports</span>
               </div>
-              <div className="space-y-2 text-sm text-slate-200">
+              <div className="space-y-2 text-sm">
                 <p><strong>Problem:</strong> {card.problem}</p>
                 <p><strong>Tip:</strong> {card.tip}</p>
                 {card.example && <p><strong>Example:</strong> {card.example}</p>}
                 <p><strong>Quick check:</strong> {card.check_q}</p>
-                <ol className="list-inside list-decimal text-slate-300">
+                <ol className="list-inside list-decimal">
                   {card.check_options.map((option, index) => <li key={`${card.id}-${index}`}>{option}{index === card.check_answer ? " · correct answer" : ""}</li>)}
                 </ol>
               </div>
               {card.author_id && (
-                <div className="space-y-2 rounded border border-[#282930] bg-[#111215] p-3">
-                  <label className="flex items-start gap-2 text-xs text-slate-300">
+                <div className="admin-panel space-y-2 p-3">
+                  <label className="flex items-start gap-2 text-xs">
                     <input type="checkbox" checked={credentialsChecked} onChange={(event) => setCredentialsChecked(event.target.checked)} />
                     I have checked this author’s relevant credentials using the organisation’s normal verification process.
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    <input aria-label="Verified professional area" value={area} onChange={(event) => setArea(event.target.value)} maxLength={120} placeholder="Verified area (e.g. financial literacy)" className="min-w-56 flex-1 rounded border border-[#34353D] bg-[#0B0C0E] px-3 py-2 text-xs text-white" />
-                    <button type="button" disabled={!credentialsChecked || !area.trim() || Boolean(busyId)} onClick={() => void moderate({ action: "verify_author", userId: card.author_id!, area: area.trim() })} className="inline-flex items-center gap-1 rounded border border-[#34353D] px-3 py-2 text-xs text-slate-200 disabled:opacity-40">
+                    <input aria-label="Verified professional area" value={area} onChange={(event) => setArea(event.target.value)} maxLength={120} placeholder="Verified area (e.g. financial literacy)" className="admin-field min-w-56 flex-1" />
+                    <button type="button" disabled={!credentialsChecked || !area.trim() || Boolean(busyId)} onClick={() => void moderate({ action: "verify_author", userId: card.author_id!, area: area.trim() })} className="btn inline-flex items-center gap-1 px-3">
                       <BadgeCheck size={14} /> Verify credentials
                     </button>
                   </div>
@@ -153,7 +153,7 @@ export default function TeachModerationPage() {
               )}
               <div className="flex flex-wrap gap-2">
                 {(["approve", "reject", "remove"] as const).map((action) => (
-                  <button key={action} type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action, cardId: card.id })} className={`rounded border px-3 py-2 text-xs capitalize disabled:opacity-40 ${action === "approve" ? "border-emerald-900 text-emerald-200" : action === "remove" ? "border-red-900 text-red-200" : "border-[#34353D] text-slate-300"}`}>
+                  <button key={action} type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action, cardId: card.id })} className={`btn capitalize ${action === "approve" ? "btn-primary" : action === "remove" ? "btn-danger" : ""}`}>
                     {busyId === card.id ? "Saving…" : action}
                   </button>
                 ))}
@@ -163,36 +163,36 @@ export default function TeachModerationPage() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-white"><Flag size={16} />Open reports <span className="text-xs text-slate-400">({reports.length})</span></div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><Flag size={16} />Open reports <span className="text-sm admin-muted">({reports.length})</span></h2>
         {!loading && reports.length === 0
-          ? <p className="rounded border border-[#282930] bg-[#16171B] p-4 text-sm text-slate-400">No open reports.</p>
+          ? <p className="admin-panel p-4 text-sm admin-muted">No open reports.</p>
           : reports.map((report) => (
-            <article key={report.id} className="flex flex-wrap items-start justify-between gap-3 rounded border border-[#282930] bg-[#16171B] p-4">
-              <div className="space-y-1 text-sm text-slate-200">
+            <article key={report.id} className="admin-panel flex flex-wrap items-start justify-between gap-3 p-4">
+              <div className="space-y-1 text-sm">
                 <p>{report.reason || "No reason provided"}</p>
-                <p className="text-xs text-slate-400">Card {report.card_id ?? "not linked"} · {new Date(report.created_at).toLocaleString()}</p>
+                <p className="text-xs admin-muted">Card {report.card_id ?? "not linked"} · {new Date(report.created_at).toLocaleString()}</p>
               </div>
               <div className="flex gap-2">
-                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_report", reportId: report.id, reportStatus: "actioned" })} className="rounded border border-emerald-900 px-3 py-2 text-xs text-emerald-200 disabled:opacity-40">Action taken</button>
-                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_report", reportId: report.id, reportStatus: "dismissed" })} className="rounded border border-[#34353D] px-3 py-2 text-xs text-slate-300 disabled:opacity-40">Dismiss</button>
+                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_report", reportId: report.id, reportStatus: "actioned" })} className="btn btn-primary">Action taken</button>
+                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_report", reportId: report.id, reportStatus: "dismissed" })} className="btn">Dismiss</button>
               </div>
             </article>
           ))}
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-white"><Flag size={16} />Read the Room reports <span className="text-xs text-slate-400">({readRoomReports.length})</span></div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><Flag size={16} />Read the Room reports <span className="text-sm admin-muted">({readRoomReports.length})</span></h2>
         {!loading && readRoomReports.length === 0
-          ? <p className="rounded border border-[#282930] bg-[#16171B] p-4 text-sm text-slate-400">No open Read the Room reports.</p>
+          ? <p className="admin-panel p-4 text-sm admin-muted">No open Read the Room reports.</p>
           : readRoomReports.map((report) => (
-            <article key={report.id} className="flex flex-wrap items-start justify-between gap-3 rounded border border-[#282930] bg-[#16171B] p-4">
-              <div className="space-y-1 text-sm text-slate-200">
+            <article key={report.id} className="admin-panel flex flex-wrap items-start justify-between gap-3 p-4">
+              <div className="space-y-1 text-sm">
                 <p>{report.reason}</p>
-                <p className="text-xs text-slate-400">Reporter {report.reporter_id} · Reported user {report.target_id} · {new Date(report.created_at).toLocaleString()}</p>
+                <p className="text-xs admin-muted">Reporter {report.reporter_id} · Reported user {report.target_id} · {new Date(report.created_at).toLocaleString()}</p>
               </div>
               <div className="flex gap-2">
-                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_read_room_report", reportId: report.id, reportStatus: "actioned" })} className="rounded border border-emerald-900 px-3 py-2 text-xs text-emerald-200 disabled:opacity-40">Action taken</button>
-                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_read_room_report", reportId: report.id, reportStatus: "dismissed" })} className="rounded border border-[#34353D] px-3 py-2 text-xs text-slate-300 disabled:opacity-40">Dismiss</button>
+                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_read_room_report", reportId: report.id, reportStatus: "actioned" })} className="btn btn-primary">Action taken</button>
+                <button type="button" disabled={Boolean(busyId)} onClick={() => void moderate({ action: "resolve_read_room_report", reportId: report.id, reportStatus: "dismissed" })} className="btn">Dismiss</button>
               </div>
             </article>
           ))}
