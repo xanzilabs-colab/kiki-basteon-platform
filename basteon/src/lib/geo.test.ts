@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasUsableLocationAccuracy, isFreshPosition, LOCATION_FIX_MAX_AGE_MS, MAX_LOCATION_ACCURACY_M } from "./geo";
+import { hasUsableLocationAccuracy, hasUsableMapLocationAccuracy, isFreshPosition, LOCATION_FIX_MAX_AGE_MS, MAX_LOCATION_ACCURACY_M, MAX_MAP_LOCATION_ACCURACY_M } from "./geo";
 
 describe("responder location freshness", () => {
   const now = 1_800_000_000_000;
@@ -22,6 +22,13 @@ describe("responder location freshness", () => {
       expect(hasUsableLocationAccuracy({ lat: -26.2, lng: 28, accuracy: 3_000 })).toBe(false);
       expect(hasUsableLocationAccuracy({ lat: -26.2, lng: 28 })).toBe(false);
       expect(hasUsableLocationAccuracy({ lat: -26.2, lng: 28, accuracy: Number.NaN })).toBe(false);
+    });
+
+    it("allows bounded approximate fixes for privacy-preserving buddy maps, not precise route use", () => {
+      expect(MAX_MAP_LOCATION_ACCURACY_M).toBe(1_000);
+      expect(hasUsableMapLocationAccuracy({ lat: -26.2, lng: 28, accuracy: 800 })).toBe(true);
+      expect(hasUsableMapLocationAccuracy({ lat: -26.2, lng: 28, accuracy: 1_000 })).toBe(true);
+      expect(hasUsableMapLocationAccuracy({ lat: -26.2, lng: 28, accuracy: 1_001 })).toBe(false);
     });
   });
 

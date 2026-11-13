@@ -52,11 +52,13 @@ const invitationErrorMessage: Record<string, string> = {
 
 export function TravelTogetherPanel({
   position,
+  mapPosition,
   locationError,
   refreshingLocation,
   refreshLocation,
 }: {
   position: Position | null;
+  mapPosition: Position | null;
   locationError: string | null;
   refreshingLocation: boolean;
   refreshLocation: () => Promise<void>;
@@ -133,9 +135,9 @@ export function TravelTogetherPanel({
   }, [query, destination]);
 
   useEffect(() => {
-    if (!active || !position || positionInFlight.current) return;
+    if (!active || !mapPosition || positionInFlight.current) return;
     positionInFlight.current = true;
-    void fetch("/api/buddies/trips/position", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(position) })
+    void fetch("/api/buddies/trips/position", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mapPosition) })
       .then(async (response) => {
         if (response.ok) return;
         const data = await response.json().catch(() => ({}));
@@ -145,7 +147,7 @@ export function TravelTogetherPanel({
       })
       .catch(() => setMessage("Your location could not be updated on the travel map. Check your connection and try again."))
       .finally(() => { positionInFlight.current = false; });
-  }, [active, position?.lat, position?.lng]);
+  }, [active, mapPosition?.lat, mapPosition?.lng]);
 
   async function createTrip() {
     if (!position || !destination) return setMessage("Choose a destination and enable location first.");

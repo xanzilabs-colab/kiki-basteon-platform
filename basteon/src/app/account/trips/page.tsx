@@ -36,7 +36,7 @@ const transitModes = [
 const modeLabels: Record<TripMode, string> = { taxi: "Taxi", walk: "Walk", ehail: "E-hail", bus: "Bus", train: "Train", cycling: "Cycling" };
 
 export default function TripsPage() {
-  const { position, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
+  const { position, approximatePosition, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
   const { confirm } = useAppDialog();
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<Place[]>([]);
@@ -423,6 +423,7 @@ export default function TripsPage() {
       {message && <p className="hamba-message" role="status">{message}</p>}
       </> : <TravelTogetherPanel
         position={position}
+        mapPosition={position ?? approximatePosition}
         locationError={locationError}
         refreshingLocation={refreshingLocation}
         refreshLocation={refreshLocation}

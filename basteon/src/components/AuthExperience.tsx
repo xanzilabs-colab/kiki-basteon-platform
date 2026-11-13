@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, KeyRound, LogIn, Mail, ShieldCheck, UserRoundPlus } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Flower2, KeyRound, LogIn, Mail, ShieldCheck, UserRoundPlus, UsersRound } from "lucide-react";
 import { KikiMark } from "@/components/KikiMark";
 import { createClient } from "@/lib/supabase/client";
 
@@ -113,6 +113,19 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
 
   return (
     <main className="auth-shell">
+      <aside className="auth-promo" aria-label="About Kiki Connect">
+        <div className="auth-promo-brand"><KikiMark size={76} /><span>KIKI CONNECT</span></div>
+        <div className="auth-promo-copy">
+          <span>PERSONAL SAFETY, BUILT AROUND YOU</span>
+          <h2>Support that stays close.</h2>
+          <p>Keep your trusted people and everyday wellbeing tools within reach, wherever life takes you.</p>
+        </div>
+        <div className="auth-promo-features">
+          <div><UsersRound size={19} /><span><b>Your people, closer</b><small>Stay connected to the people you trust.</small></span></div>
+          <div><Flower2 size={19} /><span><b>Room to feel better</b><small>Small, supportive tools for everyday moments.</small></span></div>
+        </div>
+        <div className="auth-promo-trust"><ShieldCheck size={18} /><span>Your safety network, on your terms.</span></div>
+      </aside>
       <section className="auth-card" aria-label="Kiki account access">
         <header className="auth-brand">
           <KikiMark size={82} />

@@ -59,7 +59,8 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   const soloPath = game === "linkup" ? "/games/linkup/solo"
     : game === "teach_one" ? "/games/teach/kiki"
       : game === "read_room" ? "/games/read-room/kiki" : "/games/play/solo";
-  const { position, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
+  const { position: precisePosition, approximatePosition, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
+  const position = precisePosition ?? approximatePosition;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [invitationError, setInvitationError] = useState("");
@@ -74,7 +75,11 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
   const [activeRooms, setActiveRooms] = useState<ActiveRoom[]>([]);
   const [leavingRoomId, setLeavingRoomId] = useState<string | null>(null);
   const positionRef = useRef(position);
+  const savedBuddiesRef = useRef(savedBuddies);
+  const refreshPresenceRef = useRef<() => void>(() => {});
+  const hadPositionRef = useRef(false);
   positionRef.current = position;
+  savedBuddiesRef.current = savedBuddies;
 
   useEffect(() => {
     let active = true;
@@ -198,7 +203,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
           setBuddies(nextBuddies);
           setSelected((current) => current && (
             current.isSaved
-              ? savedBuddies.some((buddy) => buddy.userId === current.userId)
+              ? savedBuddiesRef.current.some((buddy) => buddy.userId === current.userId)
               : nextBuddies.some((buddy) => buddy.userId === current.userId)
           ) ? current : null);
           setIncomingInvite(pendingInvites[0] ?? null);
@@ -211,6 +216,14 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
 
     void publishPresence();
     void loadNearbyBuddies();
+    refreshPresenceRef.current = () => {
+      if (!positionRef.current) {
+        void db.rpc("game_clear_presence");
+        return;
+      }
+      void publishPresence();
+      void loadNearbyBuddies();
+    };
     const nearbyTimer = window.setInterval(() => { void loadNearbyBuddies(); }, 3_000);
     const presenceTimer = window.setInterval(() => { void publishPresence(); }, 60_000);
     const refreshWhenVisible = () => {
@@ -224,9 +237,21 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
       window.clearInterval(nearbyTimer);
       window.clearInterval(presenceTimer);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
+      refreshPresenceRef.current = () => {};
       void db.rpc("game_clear_presence");
     };
-  }, [Boolean(position), game, router, savedBuddies]);
+  }, [game, router]);
+
+  const hasPosition = Boolean(position);
+  useEffect(() => {
+    if (hasPosition) {
+      hadPositionRef.current = true;
+      refreshPresenceRef.current();
+    } else if (hadPositionRef.current) {
+      hadPositionRef.current = false;
+      refreshPresenceRef.current();
+    }
+  }, [hasPosition]);
 
   async function createRoom(selectedBuddy?: InviteBuddy) {
     setBusy(true);
@@ -442,7 +467,7 @@ export function GameLobby({ game = "morabaraba" }: { game?: GameType }) {
           <Link href="/games" className={styles.gardenIconButton} aria-label="Back to games"><ArrowLeft size={19} /></Link>
           <div className={styles.gardenHeading}>
             <h1>{gardenName}</h1>
-            <span><i />{locationError ? "Location access needed" : position ? "Broad location rings active" : "Finding your garden…"}</span>
+            <span><i />{locationError && !position ? "Location access needed" : position ? precisePosition ? "Broad location rings active" : "Approximate location rings active" : "Finding your garden…"}</span>
           </div>
           <button type="button" className={styles.gardenIconButton} aria-label="Location privacy information" onClick={() => setPrivacyOpen(true)}><LockKeyhole size={18} /></button>
         </header>
