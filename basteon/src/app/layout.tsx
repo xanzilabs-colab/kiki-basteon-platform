@@ -14,5 +14,6 @@ export const viewport: Viewport = {
 	width: "device-width",
 	initialScale: 1,
 	viewportFit: "cover",
+	themeColor: "#F8F4EC",
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body><AppDialogProvider>{children}<TouchSound /><Toaster theme="dark" position="top-right" /></AppDialogProvider></body></html>; }
