@@ -8,6 +8,8 @@ import type { SosType } from "@/lib/sos/sosGesture";
 import { estimateResponseRoute, formatResponseEta } from "@/lib/sos/responseRoute";
 import type { MapPoint, MapResponder, ResponseRoute } from "./SosResponseMap";
 import { useAppDialog } from "@/components/AppDialogProvider";
+import { MapBottomSheet, MapScreen } from "@/components/account/MapScreen";
+import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 import type { Position } from "@/lib/geo";
 import { watchLocation } from "@/lib/platform/location";
 
@@ -101,6 +103,9 @@ export function SosResponseScreen({
   const [trackingError, setTrackingError] = useState("");
   const [loading, setLoading] = useState(true);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(0);
+  const [mapLayer, setMapLayer] = useState<MapBaseLayerName>(MAP_BASE_LAYERS[0].name);
+  const [mapRecenter, setMapRecenter] = useState(0);
   const routeCache = useRef(new Map<string, RouteCacheEntry>());
   const routeRequests = useRef(new Set<string>());
   const [routes, setRoutes] = useState<Record<string, ResponseRoute>>({});
@@ -264,134 +269,88 @@ export function SosResponseScreen({
     { title: "Alert closed", detail: falseAlarm ? "Cancelled as a false alarm" : "" },
   ];
 
-  return (
-    <section className="kiki-sos-response fixed inset-0 z-[2000] flex items-center justify-center overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="kiki-response-title">
-      <div className="kiki-sos-response-panel flex h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden">
-        <header className="kiki-sos-response-header flex shrink-0 items-center gap-3 px-[18px] pb-3 pt-[max(24px,env(safe-area-inset-top))]">
-          <span className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[15px] ${falseAlarm || closed ? "bg-[#e9dcf0] text-[#522868]" : onTheWay || onScene ? "bg-[#e6f3f0] text-[#12766a]" : "bg-[#fdeaee] text-[#d9435f]"}`}>
-            {closed ? <Check size={23} /> : type === "medical" ? <HeartPulse size={23} /> : <Siren size={23} />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 id="kiki-response-title" className="text-[20px] font-extrabold leading-tight tracking-[-.02em]">{currentStatus}</h1>
-            <p className="mt-0.5 truncate text-xs text-[#6e5a7c]">{type === "medical" ? "Medical emergency" : "Kiki emergency alert"} · Ref {alertId.slice(0, 8).toUpperCase()}</p>
-          </div>
-          <button type="button" className="kiki-sos-close inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold" onClick={onClose} title={closed ? undefined : "Close this view. Your alert stays active."}>
-            <ArrowLeft size={15} /><span>{closed ? "Back" : "Close"}</span>
-          </button>
-        </header>
-
-        <div className="kiki-sos-response-content flex-1 space-y-3 overflow-y-auto px-[14px] pb-4">
-          <section className="kiki-sos-map-panel relative h-[250px] shrink-0 overflow-hidden rounded-[22px] bg-white" aria-label="Live response map">
-            <div className="absolute left-2.5 top-2.5 z-[500] inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#12766a] shadow-sm">
-              <span className={`h-[7px] w-[7px] rounded-full ${closed ? "bg-[#b9a9c7]" : "animate-pulse bg-[#12766a]"}`} />{closed ? "ENDED" : "LIVE"}
-            </div>
-            <div className="h-full w-full"><ResponseMap caller={caller} responders={mapResponders} /></div>
-            {(!caller || accepted === 0) && !closed && (
-              <div className="pointer-events-none absolute bottom-2.5 left-2.5 right-2.5 rounded-2xl bg-white/95 px-3.5 py-2.5 text-xs font-semibold shadow-md">
-                {!caller ? "Waiting for a fresh location from your device." : "Your alert is reaching nearby responders. Their updates will appear here."}
-              </div>
-            )}
-            {nearest && <div className="absolute bottom-2.5 left-2.5 right-2.5 z-[500] flex items-center justify-between rounded-2xl bg-white px-3.5 py-2.5 shadow-md">
-              <div><small className="block text-[10px] text-[#6e5a7c]">{nearest.route!.roadRoute ? "Road distance" : "Approx. distance"}</small><b className="text-lg">{nearest.route!.roadRoute ? "" : "~"}{formatDistance(nearest.route!.distanceM)}</b></div>
-              <div className="text-right"><small className="block text-[10px] text-[#6e5a7c]">Estimated arrival</small><b className="inline-flex items-center gap-1 text-lg"><Clock3 size={15} />{formatResponseEta(nearest.route, nearest.status)}</b></div>
-            </div>}
-          </section>
-
-          <section className="kiki-sos-status-panel rounded-[22px] bg-white p-4">
-            <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#6e5a7c]">Status</p>
-            <p className="mt-2 text-sm leading-5">
-              {falseAlarm
-                ? "Your false-alarm update is recorded and responders have been notified."
-                : closed
-                  ? "This alert is no longer active. Your location is no longer shared."
-                  : onScene
-                    ? "A responder is with you. Their location stays visible here until the incident is closed."
-                    : onTheWay
-                      ? "A responder is on the way. Stay somewhere safe if you can; their progress updates here."
-                      : accepted
-                        ? "A responder has acknowledged your alert. Their movement will appear here as they travel."
-                        : "We’re alerting responders near you. You’ll see their updates here when one accepts."}
-            </p>
-            {loadError && <p className="mt-3 flex items-center gap-2 rounded-xl bg-[#fdeaee] px-3 py-2 text-xs text-[#7d3341]" role="status"><RefreshCw size={14} />{loadError}</p>}
-            {trackingError && <p className="mt-2 text-xs text-[#7d3341]" role="status">{trackingError}</p>}
-            {!closed && (
-              <p className="mt-2 text-xs text-[#6e5a7c]" role="status">
-                {data?.alert.accuracyM != null
-                  ? `Your GPS reports an accuracy radius of about ±${Math.round(data.alert.accuracyM)} m.`
-                  : "Waiting for a GPS accuracy reading."}
-                {callerLocationAgeSeconds != null && ` Updated ${callerLocationAgeSeconds}s ago.`}
-              </p>
-            )}
-            {loading && !data && <p className="mt-2 text-xs text-[#6e5a7c]">Connecting to your responders…</p>}
-            <ol className="mt-3 list-none p-0">
-              {progressSteps.map((step, index) => (
-                <li key={step.title} className={`relative flex gap-3 pb-3 text-[13px] last:pb-0 ${index <= progressStep ? "text-[#2a1536]" : "text-[#8c7b98]"}`}>
-                  {index < progressSteps.length - 1 && <span className={`absolute bottom-0 left-[8px] top-[18px] w-0.5 ${index < progressStep ? "bg-[#12766a]" : "bg-[#e6dcf0]"}`} />}
-                  <span className={`z-10 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-2 ${index < progressStep ? "border-[#12766a] bg-[#12766a] text-white" : index === progressStep ? "border-[#12766a] bg-white" : "border-[#e6dcf0] bg-white"}`}>{index < progressStep && <Check size={11} />}</span>
-                  <span className={index === progressStep ? "font-semibold" : ""}>{step.title}{step.detail && index <= progressStep && <small className="mt-0.5 block text-xs font-normal text-[#6e5a7c]">{step.detail}</small>}</span>
-                </li>
-              ))}
-            </ol>
-          </section>
-
-          {nearest ? (
-            <section className="kiki-sos-nearest-panel rounded-[22px] bg-[#e6f3f0] p-4">
-              <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#12766a]">{nearest.status === "on_scene" ? "Responder arrived" : "Nearest responder"}</p>
-              <div className="mt-2 flex items-center gap-3">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#12766a] text-sm font-bold text-white">{nearest.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}</span>
-                <div className="min-w-0 flex-1"><h2 className="text-[16px] font-bold">{nearest.name}</h2><p className="text-xs text-[#6e5a7c]">{[nearest.role, nearest.organisation].filter(Boolean).join(" · ") || "Kiki responder"}</p></div>
-              </div>
-              <p className="mt-3 text-[11px] leading-4 text-[#6e5a7c]">{nearest.route!.roadRoute ? "ETA uses road routing; live traffic data may not be available." : "Distance and ETA are estimates; road routing and live traffic are unavailable."}</p>
-            </section>
-          ) : !closed && (
-            <section className="kiki-sos-status-panel rounded-[22px] bg-white p-4">
-              <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#6e5a7c]">Responders</p>
-              <p className="mt-2 text-sm leading-5 text-[#6e5a7c]">{accepted ? "Responders acknowledged your alert, but no one has confirmed they are travelling yet." : "Waiting for a responder to acknowledge your alert."}</p>
-            </section>
-          )}
-
-          {mapResponders.length > 0 && (
-            <section className="kiki-sos-team-panel rounded-[22px] bg-white p-4">
-              <h2 className="mb-3 font-bold">Response team</h2>
-              <ul className="space-y-3">
-                {mapResponders.map((responder) => (
-                  <li key={responder.id} className="flex items-start gap-3">
-                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#12766a]" />
-                    <div className="min-w-0 flex-1"><p className="font-semibold">{responder.name}</p><p className="text-xs text-[#6e5a7c]">{[responder.role, responder.organisation].filter(Boolean).join(" · ")}</p><p className="text-xs text-[#6e5a7c]">{statusCopy[responder.status] ?? responder.status.replaceAll("_", " ")}</p></div>
-                    {responder.route && responder.status !== "acknowledged" ? <span className="text-right text-xs font-semibold">{responder.route.roadRoute ? "" : "~"}{formatDistance(responder.route.distanceM)}<br /><span className="text-[#6e5a7c]">{formatResponseEta(responder.route, responder.status)}</span></span> : <span className="text-right text-xs text-[#6e5a7c]">{responder.status === "acknowledged" ? "Not travelling yet" : responder.location ? "Updating route…" : "Location unavailable"}</span>}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {closed && (
-            <section className="kiki-sos-complete-panel rounded-[22px] bg-white p-4">
-              <p className="flex items-center gap-2 text-[16px] font-bold text-[#12766a]"><Check size={19} />{falseAlarm ? "Alert cancelled" : "Response complete"}</p>
-              <p className="mt-1 text-sm text-[#6e5a7c]">This alert is no longer active.</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-[14px] bg-[#f3eefb] p-3"><span className="text-[10px] font-bold uppercase text-[#6e5a7c]">Responders</span><b className="mt-1 block text-lg">{accepted}</b></div>
-                <div className="rounded-[14px] bg-[#f3eefb] p-3"><span className="text-[10px] font-bold uppercase text-[#6e5a7c]">Closed</span><b className="mt-1 block text-lg">{data?.alert.updatedAt ? new Date(data.alert.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</b></div>
-              </div>
-            </section>
-          )}
-
-          {!closed && <div className="kiki-sos-privacy-note flex items-start gap-2 rounded-[22px] bg-white p-4 text-[13px] leading-5"><ShieldCheck size={19} className="mt-0.5 shrink-0" /><span>Your location is shared only with responders on this alert, and stops when it closes.</span></div>}
+  return <section className="kiki-sos-response" role="dialog" aria-modal="true" aria-labelledby="kiki-response-title">
+    <MapScreen
+      screenId={`sos-response-${alertId}`}
+      className="kiki-sos-response-map"
+      map={<ResponseMap caller={caller} responders={mapResponders} layer={mapLayer} recenter={mapRecenter} />}
+      topBar={<header className="kiki-sos-response-header">
+        <div className="kiki-sos-response-title">
+          <span className={`kiki-sos-live-dot${closed ? " is-closed" : ""}`} />
+          <div><h1 id="kiki-response-title">{type === "medical" ? "Medical emergency" : "Kiki emergency alert"}</h1><p>Ref {alertId.slice(0, 8).toUpperCase()}</p></div>
         </div>
-
-        <footer className="kiki-sos-response-footer flex shrink-0 flex-col gap-2 px-[14px] pb-[max(14px,env(safe-area-inset-bottom))] pt-3">
-          {closed ? <><Link href="/account/calm/winds?mode=quiet" className="kiki-sos-secondary-link flex h-[48px] items-center justify-center gap-2 rounded-[17px] text-sm font-bold">Need a minute? <span className="font-medium">Gentle Winds</span></Link><button type="button" className="kiki-sos-primary-action flex h-[54px] items-center justify-center gap-2 rounded-[17px] text-base font-bold" onClick={onClose}><Check size={19} />Done</button></> : <>
-            <button type="button" className="kiki-sos-primary-action flex h-[54px] items-center justify-center gap-2 rounded-[17px] text-base font-bold disabled:opacity-60" disabled={changingType} onClick={onChangeType}>
+        <button type="button" className="kiki-sos-close" onClick={onClose} aria-label={closed ? "Back" : "Close this view"} title={closed ? "Back" : "Your alert stays active."}><ArrowLeft size={18} /></button>
+      </header>}
+      controls={<div className="kiki-sos-map-stat" data-map-ui="hide">
+        {nearest
+          ? <><div><small>{nearest.route!.roadRoute ? "Road distance" : "Approx. distance"}</small><b>{nearest.route!.roadRoute ? "" : "~"}{formatDistance(nearest.route!.distanceM)}</b></div><div><small>Estimated arrival</small><b><Clock3 size={15} />{formatResponseEta(nearest.route, nearest.status)}</b></div></>
+          : <p>{!caller ? "Waiting for a fresh location from your device." : closed ? "This alert has ended." : "Your alert is reaching nearby responders."}</p>}
+      </div>}
+      onRecenter={() => setMapRecenter((value) => value + 1)}
+      selectedLayer={mapLayer}
+      onLayerChange={setMapLayer}
+      hiddenActions={!closed && <button type="button" className="map-screen-sos kiki-sos-hidden-cancel" disabled={cancelBusy} onClick={() => void cancelAlert()}><Siren size={17} />{cancelBusy ? "Notifying…" : "Cancel alert"}</button>}
+      bottomSheet={<MapBottomSheet level={sheetLevel} onLevelChange={setSheetLevel} label="Emergency response details" className="kiki-sos-response-sheet">
+        <div className="kiki-sos-sheet-peek">
+          <span className={`kiki-sos-peek-icon${closed ? " is-closed" : ""}`}>{closed ? <Check size={18} /> : type === "medical" ? <HeartPulse size={18} /> : <Siren size={18} />}</span>
+          <div><strong>{currentStatus}</strong><small>{nearest ? `${nearest.name} · ${formatResponseEta(nearest.route, nearest.status)}` : closed ? "Location sharing has stopped." : "Live updates every few seconds"}</small></div>
+        </div>
+        <section className="kiki-sos-status-panel">
+          <h2>Status</h2>
+          <p>
+            {falseAlarm ? "Your false-alarm update is recorded and responders have been notified."
+              : closed ? "This alert is no longer active. Your location is no longer shared."
+                : onScene ? "A responder is with you. Their location stays visible here until the incident is closed."
+                  : onTheWay ? "A responder is on the way. Stay somewhere safe if you can; their progress updates here."
+                    : accepted ? "A responder has acknowledged your alert. Their movement will appear here as they travel."
+                      : "We’re alerting responders near you. You’ll see their updates here when one accepts."}
+          </p>
+          {loadError && <p className="kiki-sos-inline-error" role="status"><RefreshCw size={14} />{loadError}</p>}
+          {trackingError && <p className="kiki-sos-inline-error" role="status">{trackingError}</p>}
+          {!closed && <p className="kiki-sos-gps" role="status">
+            {data?.alert.accuracyM != null ? `GPS accuracy about ±${Math.round(data.alert.accuracyM)} m.` : "Waiting for GPS accuracy."}
+            {callerLocationAgeSeconds != null && ` Updated ${callerLocationAgeSeconds}s ago.`}
+          </p>}
+          {loading && !data && <p className="kiki-sos-gps">Connecting to your responders…</p>}
+          <ol className="kiki-sos-timeline">
+            {progressSteps.map((step, index) => <li key={step.title} className={index <= progressStep ? "is-current" : ""}>
+              <span>{index < progressStep ? <Check size={11} /> : null}</span>
+              <div>{step.title}{step.detail && index <= progressStep && <small>{step.detail}</small>}</div>
+            </li>)}
+          </ol>
+        </section>
+        {nearest && <section className="kiki-sos-nearest-panel">
+          <span className="kiki-sos-responder-avatar">{nearest.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}</span>
+          <div><small>{nearest.status === "on_scene" ? "Responder arrived" : "Nearest responder"}</small><h2>{nearest.name}</h2><p>{[nearest.role, nearest.organisation].filter(Boolean).join(" · ") || "Kiki responder"}</p><small>{nearest.route!.roadRoute ? "ETA uses road routing; live traffic may not be available." : "Distance and ETA are estimates; road routing and live traffic are unavailable."}</small></div>
+        </section>}
+        {!nearest && !closed && <section className="kiki-sos-team-empty"><strong>Responders</strong><p>{accepted ? "Responders acknowledged your alert, but no one has confirmed they are travelling yet." : "Waiting for a responder to acknowledge your alert."}</p></section>}
+        {mapResponders.length > 0 && <section className="kiki-sos-team-panel">
+          <h2>Response team</h2>
+          <ul>{mapResponders.map((responder) => <li key={responder.id}>
+            <span className="kiki-sos-team-dot" />
+            <div><strong>{responder.name}</strong><small>{[responder.role, responder.organisation].filter(Boolean).join(" · ")}</small><small>{statusCopy[responder.status] ?? responder.status.replaceAll("_", " ")}</small></div>
+            <span className="kiki-sos-team-eta">{responder.route && responder.status !== "acknowledged" ? <>{responder.route.roadRoute ? "" : "~"}{formatDistance(responder.route.distanceM)}<small>{formatResponseEta(responder.route, responder.status)}</small></> : responder.status === "acknowledged" ? "Not travelling yet" : responder.location ? "Updating route…" : "Location unavailable"}</span>
+          </li>)}</ul>
+        </section>}
+        {closed && <section className="kiki-sos-complete-panel">
+          <strong><Check size={18} />{falseAlarm ? "Alert cancelled" : "Response complete"}</strong>
+          <p>This alert is no longer active.</p>
+          <div><span>Responders<b>{accepted}</b></span><span>Closed<b>{data?.alert.updatedAt ? new Date(data.alert.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</b></span></div>
+        </section>}
+        {!closed && <p className="kiki-sos-privacy-note"><ShieldCheck size={17} />Your location is shared only with responders on this alert, and stops when it closes.</p>}
+        <footer className="kiki-sos-response-footer">
+          {closed ? <><Link href="/account/calm/winds?mode=quiet" className="kiki-sos-secondary-link">Need a minute? <span>Gentle Winds</span></Link><button type="button" className="kiki-sos-primary-action" onClick={onClose}><Check size={18} />Done</button></> : <>
+            <button type="button" className="kiki-sos-primary-action" disabled={changingType} onClick={onChangeType}>
               {changingType ? <RefreshCw size={16} className="animate-spin" /> : type === "sos" ? <HeartPulse size={17} /> : <Siren size={17} />}
               {changingType ? "Updating alert…" : type === "sos" ? "Update to a medical emergency" : "Change alert type"}
             </button>
-            <button type="button" className="kiki-sos-cancel-action flex h-10 items-center justify-center gap-2 rounded-[17px] text-sm font-semibold disabled:opacity-60" disabled={cancelBusy} onClick={() => void cancelAlert()}>
+            <button type="button" className="kiki-sos-cancel-action" disabled={cancelBusy} onClick={() => void cancelAlert()}>
               <Siren size={15} />{cancelBusy ? "Notifying responders…" : "Cancel · false alarm"}
             </button>
           </>}
-          {typeChangeError && <p className="rounded-xl bg-[#fdeaee] px-3 py-2 text-xs text-[#7d3341]" role="alert">{typeChangeError}</p>}
+          {typeChangeError && <p className="kiki-sos-inline-error" role="alert">{typeChangeError}</p>}
         </footer>
-      </div>
-    </section>
-  );
+      </MapBottomSheet>}
+    />
+  </section>;
 }

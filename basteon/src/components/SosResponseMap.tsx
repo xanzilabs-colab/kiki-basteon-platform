@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useMemo } from "react";
-import { Circle, CircleMarker, LayersControl, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
-import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
+import { Circle, CircleMarker, MapContainer, Polyline, Popup, useMap } from "react-leaflet";
+import { installMapBaseLayers, type MapBaseLayerName } from "@/lib/mapLayers";
 
 export type MapPoint = { lat: number; lng: number; accuracyM?: number | null };
 export type ResponseRoute = {
@@ -21,7 +21,7 @@ export type MapResponder = {
   route?: ResponseRoute;
 };
 
-function FitResponse({ points }: { points: MapPoint[] }) {
+function FitResponse({ points, recenter }: { points: MapPoint[]; recenter: number }) {
   const map = useMap();
   const signature = points.map(({ lat, lng }) => `${lat.toFixed(5)},${lng.toFixed(5)}`).join("|");
   useEffect(() => {
@@ -30,16 +30,30 @@ function FitResponse({ points }: { points: MapPoint[] }) {
     } else if (points[0]) {
       map.setView([points[0].lat, points[0].lng], 15);
     }
-  }, [map, signature]);
+  }, [map, signature, recenter]);
+  return null;
+}
+
+function ResponseBaseLayer({ layer }: { layer: MapBaseLayerName }) {
+  const map = useMap();
+  useEffect(() => {
+    const layers = installMapBaseLayers(map);
+    layers.select(layer);
+    return () => layers.remove();
+  }, [layer, map]);
   return null;
 }
 
 export default function SosResponseMap({
   caller,
   responders,
+  layer,
+  recenter,
 }: {
   caller: MapPoint | null;
   responders: MapResponder[];
+  layer: MapBaseLayerName;
+  recenter: number;
 }) {
   const mapPoints = useMemo(
     () => [caller, ...responders.map((responder) => responder.location)]
@@ -49,15 +63,9 @@ export default function SosResponseMap({
   const center: [number, number] = caller ? [caller.lat, caller.lng] : [-26.2041, 28.0473];
 
   return (
-    <MapContainer center={center} zoom={caller ? 14 : 5} scrollWheelZoom className="h-full min-h-[300px] w-full">
-      <LayersControl position="topright" collapsed={false}>
-        {MAP_BASE_LAYERS.map((layer, index) => (
-          <LayersControl.BaseLayer key={layer.name} checked={index === 0} name={layer.name}>
-            <TileLayer url={layer.url} attribution={layer.attribution} maxZoom={layer.maxZoom} />
-          </LayersControl.BaseLayer>
-        ))}
-      </LayersControl>
-      <FitResponse points={mapPoints} />
+    <MapContainer center={center} zoom={caller ? 14 : 5} scrollWheelZoom attributionControl={false} zoomControl={false} className="h-full min-h-[300px] w-full">
+      <ResponseBaseLayer layer={layer} />
+      <FitResponse points={mapPoints} recenter={recenter} />
       {caller && (
         <>
           {caller.accuracyM != null && caller.accuracyM > 0 && (

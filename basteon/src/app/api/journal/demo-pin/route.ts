@@ -9,6 +9,7 @@ function response(body: { pin: string | null }, status = 200) {
 }
 
 export async function GET() {
+  if (process.env.NODE_ENV === "production") return response({ pin: null }, 404);
   const client = await createClient();
   const { data: { user }, error: authError } = await client.auth.getUser();
   if (authError) {

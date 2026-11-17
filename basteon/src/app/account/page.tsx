@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import {
   AlertTriangle,
   ChevronRight,
-  Layers,
   LocateFixed,
   MapPin,
   Navigation,
@@ -20,8 +19,9 @@ import { useEffect, useRef, useState } from "react";
 import { useLocationEligibility } from "@/hooks/useLocationEligibility";
 import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
-import { AccountBottomSheet, AccountListCard, AccountListRow, AccountSectionLabel, AccountStatusPill } from "@/components/account/AccountList";
-import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayers";
+import { AccountListCard, AccountListRow, AccountSectionLabel, AccountStatusPill } from "@/components/account/AccountList";
+import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
+import { MapBottomSheet, MapScreen } from "@/components/account/MapScreen";
 
 const KikiSafetyMap = dynamic(() => import("@/components/KikiSafetyMap"), { ssr: false, loading: () => <div className="kiki-safety-map-loading" role="status">Loading map…</div> });
 
@@ -214,17 +214,19 @@ export default function AccountPage() {
       : { label: "Limited location", tone: "warning" as const };
   const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
 
-  return <div className="kiki-map-home">
-    <KikiSafetyMap center={mapPoint} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} />
-    <div className="kiki-map-status"><AccountStatusPill tone={mapStatus.tone}>{mapStatus.label}</AccountStatusPill></div>
-    <div className="kiki-map-actions" aria-label="Map controls">
-      <button type="button" aria-label="Recenter map on your location" title="Recenter map" onClick={() => { if (mapPoint) setMapRecenter((value) => value + 1); else refreshNearbyRef.current(); }}><LocateFixed size={20} /></button>
+  return <><MapScreen
+    screenId="account-home"
+    className="kiki-map-home"
+    map={<KikiSafetyMap center={mapPoint} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} />}
+    topBar={<div className="kiki-map-status"><AccountStatusPill tone={mapStatus.tone}>{mapStatus.label}</AccountStatusPill></div>}
+    controls={<div className="kiki-map-actions" aria-label="Map shortcuts" data-map-ui="hide">
       <Link href="/account/buddies/safe-places?tab=spots" aria-label="Safe spots" title="Safe spots"><MapPin size={20} /></Link>
       <Link href="/account/buddies/safe-places?tab=alerts" aria-label="Community reports" title="Community reports"><AlertTriangle size={20} /></Link>
-      <button type="button" aria-label={`Map layer: ${currentMapLayer ?? "Street"}`} title={`Map layer: ${currentMapLayer ?? "Street"}`} onClick={() => setMapLayerIndex((index) => (index + 1) % MAP_BASE_LAYERS.length)}><Layers size={20} /></button>
-    </div>
-
-    <AccountBottomSheet level={sheetLevel} onLevelChange={setSheetLevel}>
+    </div>}
+    onRecenter={() => { if (mapPoint) setMapRecenter((value) => value + 1); else refreshNearbyRef.current(); }}
+    selectedLayer={currentMapLayer}
+    onLayerChange={(layer) => setMapLayerIndex(MAP_BASE_LAYERS.findIndex((item) => item.name === layer))}
+    bottomSheet={<MapBottomSheet level={sheetLevel} onLevelChange={setSheetLevel} label="Your safety map details">
       <div className="kiki-map-sheet-peek">
         <span className="kiki-map-avatar" aria-hidden="true">{readiness?.fullName?.trim().charAt(0).toUpperCase() || "K"}</span>
         <span className="kiki-map-peek-copy">
@@ -286,7 +288,9 @@ export default function AccountPage() {
           </AccountListCard>
         </section>
       </div>
-    </AccountBottomSheet>
+    </MapBottomSheet>}
+    hiddenActions={<button type="button" className="map-screen-sos" onClick={() => window.dispatchEvent(new Event("kiki:open-sos"))}><Siren size={19} />SOS</button>}
+  />
     {sheetOpen && <div className="kiki-overview-responders-scrim" role="dialog" aria-modal="true" aria-label="Nearby responders" onClick={() => setSheetOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div className="kiki-overview-responders-sheet" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%,520px)", maxHeight: "80vh", overflowY: "auto", borderRadius: "24px 24px 0 0", padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -306,5 +310,5 @@ export default function AccountPage() {
           </li>)}</ul>}
       </div>
     </div>}
-  </div>;
+  </>;
 }

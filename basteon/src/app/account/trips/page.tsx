@@ -3,8 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { Bike, Bus, Car, CheckCircle2, ChevronRight, Clock3, Expand, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Timer, TrainFront, UsersRound, Wind, X } from "lucide-react";
+import { Bike, Bus, Car, CheckCircle2, ChevronRight, Clock3, Flag, Footprints, History, LocateFixed, MapPinned, Navigation, ShieldCheck, Siren, Timer, TrainFront, UsersRound, Wind } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { formatDistance } from "@/lib/geo";
 import { remainingRouteDurationS } from "@/lib/hamba/geometry";
@@ -16,6 +15,8 @@ import { enablePushNotifications } from "@/lib/usePushNotifications";
 import { TravelTogetherPanel } from "@/components/TravelTogetherPanel";
 import { useAppDialog } from "@/components/AppDialogProvider";
 import { AccountBanner, AccountListCard } from "@/components/account/AccountList";
+import { MapBottomSheet, MapScreen } from "@/components/account/MapScreen";
+import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false, loading: () => <div className="hamba-map hamba-map-loading">Loading map...</div> });
 type Place = { label: string; lat: number; lng: number };
@@ -65,7 +66,8 @@ export default function TripsPage() {
   const [guardianMessage, setGuardianMessage] = useState("");
   const nextStop = checkpoints.find((cp) => cp.status !== "checked_in" && cp.status !== "skipped" && cp.status !== "escalated") ?? null;
   const [tripTab, setTripTab] = useState<"route" | "travel">("route");
-  const [mapExpanded, setMapExpanded] = useState(false);
+  const [tripSheetLevel, setTripSheetLevel] = useState<0 | 1 | 2>(0);
+  const [tripMapLayer, setTripMapLayer] = useState<MapBaseLayerName>(MAP_BASE_LAYERS[0].name);
   const fixes = useRef<GeoPoint[]>([]);
   const previousWatchState = useRef<RouteWatchState>("normal");
 
@@ -120,20 +122,6 @@ export default function TripsPage() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mode") === "travel-together") setTripTab("travel");
   }, []);
-
-  useEffect(() => {
-    if (!mapExpanded) return;
-    const originalOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMapExpanded(false);
-    };
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [mapExpanded]);
 
   useEffect(() => {
     if (!activeTrip) return;
@@ -331,9 +319,18 @@ export default function TripsPage() {
   const checkInSeconds = activeTrip?.next_check_in_at ? Math.max(0, Math.ceil((new Date(activeTrip.next_check_in_at).getTime() - now) / 1_000)) : null;
   const countdown = checkInSeconds === null ? "Not scheduled" : `${String(Math.floor(checkInSeconds / 60)).padStart(2, "0")}:${String(checkInSeconds % 60).padStart(2, "0")}`;
   const destinations = recentTrips.filter((trip, index, items) => items.findIndex((item) => item.destination_label === trip.destination_label) === index);
+  const mapTools = activeTrip ? <div className="hamba-map-tools">
+    <button className="btn" disabled={busy} onClick={() => void checkIn()}><CheckCircle2 size={16} />Check in</button>
+    <button className="btn hamba-arrive" disabled={busy} onClick={() => void arrive()}><Flag size={16} />Arrived</button>
+  </div> : destination ? <div className="hamba-tools" role="group" aria-label="Route tools">
+    <button type="button" className={tools.auto ? "active" : ""} aria-pressed={tools.auto} onClick={() => setTools((current) => ({ ...current, auto: !current.auto }))}>Auto-route</button>
+    <button type="button" className={tools.stops ? "active" : ""} aria-pressed={tools.stops} onClick={() => setTools((current) => ({ ...current, stops: !current.stops, draw: current.stops ? current.draw : false }))}>Add stops{stops.length ? ` (${stops.length})` : ""}</button>
+    <button type="button" className={tools.draw ? "active" : ""} aria-pressed={tools.draw} onClick={() => setTools((current) => ({ ...current, draw: !current.draw, stops: current.draw ? current.stops : false }))}>Draw route</button>
+    {(stops.length > 0 || drawn.length > 0) && <button type="button" onClick={() => { setStops([]); setDrawn([]); }}>Clear</button>}
+  </div> : undefined;
 
-  return (
-    <div className="hamba-page">
+  const pageContent = (
+    <div className={`hamba-page${tripTab === "route" ? " is-map-route" : ""}`}>
       <div className="hamba-heading">
         {tripTab === "route" && <span className={activeTrip ? "hamba-live" : "hamba-engine"}>{activeTrip ? <><i />{activeTrip.status === "active" ? "Trip active" : activeTrip.status}</> : "No active trip"}</span>}
       </div>
@@ -348,7 +345,6 @@ export default function TripsPage() {
           <div className="hamba-map-stage">
             <TripMap points={activeTrip.planned_route.points} position={position} recenter={recenter} avatarUrl={avatarUrl} stops={checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng }))} />
             <button type="button" className="hamba-recenter" title="Center map on route" aria-label="Center map on route" onClick={() => setRecenter((current) => current + 1)}><LocateFixed size={18} /></button>
-            <button type="button" className="hamba-map-expand-button" aria-label="Expand trip map" title="Expand map" onClick={() => setMapExpanded(true)}><Expand size={18} /></button>
             <div className="hamba-map-overlay"><span className="hamba-overlay-icon"><ShieldCheck size={18} /></span><div><h2>{activeTrip.destination_label}</h2><p>{modeLabels[activeTrip.mode]} · {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min estimated</p></div></div>
           </div>
           <div className="hamba-active-card">
@@ -396,18 +392,12 @@ export default function TripsPage() {
           <span className="hamba-field-label">Travel mode</span>
           <div className="hamba-mode" role="group" aria-label="Travel mode">{transitModes.map((item) => <button key={item.value} type="button" className={mode === item.value ? "active" : ""} aria-pressed={mode === item.value} onClick={() => { if (item.value !== mode) { setRoutes([]); setMode(item.value); } }}><item.icon size={18} /><span>{item.label}</span></button>)}</div>
           <div className="hamba-safety-options"><div><Clock3 size={18} /><div><span>Check-in frequency</span><b>Adaptive · up to 15 min</b></div></div><Link href="/account/guardians"><UsersRound size={18} /><div><span>Guardian Circle</span><b>Manage contacts</b></div><ChevronRight size={14} /></Link></div>
-          {destination && <><div className="hamba-tools" role="group" aria-label="Route tools">
-            <button type="button" className={tools.auto ? "active" : ""} aria-pressed={tools.auto} onClick={() => setTools((t) => ({ ...t, auto: !t.auto }))}>Auto-route</button>
-            <button type="button" className={tools.stops ? "active" : ""} aria-pressed={tools.stops} onClick={() => setTools((t) => ({ ...t, stops: !t.stops, draw: t.stops ? t.draw : false }))}>Add stops{stops.length ? ` (${stops.length})` : ""}</button>
-            <button type="button" className={tools.draw ? "active" : ""} aria-pressed={tools.draw} onClick={() => setTools((t) => ({ ...t, draw: !t.draw, stops: t.draw ? t.stops : false }))}>Draw route</button>
-            {(stops.length > 0 || drawn.length > 0) && <button type="button" onClick={() => { setStops([]); setDrawn([]); }}>Clear</button>}
-          </div>
+          {destination && <>
           {(tools.stops || tools.draw) && <p className="hamba-note">{tools.draw ? "Press and drag on the map to draw your route." : "Tap the map to add a stop. Stops become check-in points."}</p>}
           {!tools.auto && <p className="hamba-note">Auto-route is off, so the route follows your stops and drawing. The time is an estimate.</p>}
           {tools.auto && estimated && <p className="hamba-note">Routing service unavailable for this mode, so this is a straight-line estimate.</p>}
           <div className="hamba-preview">
             <TripMap points={route?.points ?? []} position={position} stops={stops} drawn={drawn} avatarUrl={avatarUrl} onMapClick={addMapPoint} drawing={tools.draw} onDraw={addDrawPoint} />
-            <button type="button" className="hamba-map-expand-button" aria-label="Expand trip map" title="Expand map" onClick={() => setMapExpanded(true)}><Expand size={18} /></button>
           </div>
           </>}
           {destination && <><div className="hamba-route-summary"><div><b>{route ? formatDistance(route.distanceM / 1000) : "-"}</b><span>Planned distance</span></div><div><b>{etaMinutes ?? "-"} min</b><span>Estimated time</span></div></div>{routes.length > 1 && <label className="hamba-field-label">Route option<select className="input" value={selectedRoute} onChange={(event) => setSelectedRoute(Number(event.target.value))}>{routes.map((option, index) => <option key={index} value={index}>Route {index + 1} · {formatDistance(option.distanceM / 1000)} · {Math.ceil(option.durationS / 60)} min</option>)}</select></label>}</>}
@@ -429,25 +419,34 @@ export default function TripsPage() {
         refreshingLocation={refreshingLocation}
         refreshLocation={refreshLocation}
       />}
-      {mapExpanded && typeof document !== "undefined" && createPortal(
-        <div className="hamba-map-expand-modal" role="dialog" aria-modal="true" aria-labelledby="hamba-map-expand-title">
-          <header><h2 id="hamba-map-expand-title">Adjust your map</h2><button type="button" aria-label="Close expanded map" onClick={() => setMapExpanded(false)}><X size={20} /></button></header>
-          <div className="hamba-map-expand-canvas">
-            <TripMap
-              points={activeTrip ? activeTrip.planned_route.points : (route?.points ?? [])}
-              position={position}
-              recenter={recenter}
-              stops={activeTrip ? checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })) : stops}
-              drawn={activeTrip ? [] : drawn}
-              avatarUrl={avatarUrl}
-              onMapClick={activeTrip ? undefined : addMapPoint}
-              drawing={!activeTrip && tools.draw}
-              onDraw={activeTrip ? undefined : addDrawPoint}
-            />
-          </div>
-        </div>,
-        document.body,
-      )}
     </div>
   );
+  return tripTab === "route"
+    ? <MapScreen
+      screenId="trip-route"
+      className="hamba-trip-map-screen"
+      map={<TripMap
+        points={activeTrip ? activeTrip.planned_route.points : (route?.points ?? [])}
+        position={position}
+        recenter={recenter}
+        stops={activeTrip ? checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })) : stops}
+        drawn={activeTrip ? [] : drawn}
+        avatarUrl={avatarUrl}
+        onMapClick={!activeTrip && tools.stops ? addMapPoint : undefined}
+        drawing={!activeTrip && tools.draw}
+        onDraw={activeTrip ? undefined : addDrawPoint}
+        layer={tripMapLayer}
+      />}
+      topBar={<div className="hamba-map-topbar">
+        <span className="hamba-map-topbar-icon"><ShieldCheck size={18} /></span>
+        <div><strong>{activeTrip ? activeTrip.destination_label : destination?.label ?? "Route Watch"}</strong><small>{activeTrip ? `${modeLabels[activeTrip.mode]} · trip active` : destination ? `${modeLabels[mode]} · route preview` : "Plan a safer route"}</small></div>
+      </div>}
+      tools={mapTools}
+      onRecenter={() => setRecenter((current) => current + 1)}
+      selectedLayer={tripMapLayer}
+      onLayerChange={setTripMapLayer}
+      hiddenActions={<button type="button" className="map-screen-sos" onClick={() => window.dispatchEvent(new Event("kiki:open-sos"))}><Siren size={19} />SOS</button>}
+      bottomSheet={<MapBottomSheet level={tripSheetLevel} onLevelChange={setTripSheetLevel} label="Route Watch details" className="hamba-route-map-sheet">{pageContent}</MapBottomSheet>}
+    />
+    : pageContent;
 }

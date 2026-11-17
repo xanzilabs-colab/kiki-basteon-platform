@@ -25,6 +25,7 @@ const links = [
 export function AccountShell({ name, children, initialDarkTheme = false, stoepEnabled = false, calmEnabled = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean; stoepEnabled?: boolean; calmEnabled?: boolean }) {
   const pathname = usePathname(); const router = useRouter();
   const [darkTheme, setDarkTheme] = useState(initialDarkTheme);
+  const [mapUiHidden, setMapUiHidden] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
   const [sosBusy, setSosBusy] = useState(false);
   const [sosError, setSosError] = useState("");
@@ -63,6 +64,16 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
     const updateTheme = (event: Event) => setDarkTheme((event as CustomEvent<boolean>).detail);
     window.addEventListener("kiki-account-theme-change", updateTheme);
     return () => window.removeEventListener("kiki-account-theme-change", updateTheme);
+  }, []);
+  useEffect(() => {
+    const updateMapUi = (event: Event) => setMapUiHidden((event as CustomEvent<boolean>).detail === true);
+    const openSosFromMap = () => openSos();
+    window.addEventListener("kiki-map-ui-hidden", updateMapUi);
+    window.addEventListener("kiki:open-sos", openSosFromMap);
+    return () => {
+      window.removeEventListener("kiki-map-ui-hidden", updateMapUi);
+      window.removeEventListener("kiki:open-sos", openSosFromMap);
+    };
   }, []);
 
   function openSos(type: SosType = "sos", source: "tap" | "hold_slide" = "tap") {
@@ -302,7 +313,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
 
   const callDuration = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
   return (
-    <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]" data-theme={darkTheme ? "dark" : "light"}>
+    <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]" data-theme={darkTheme ? "dark" : "light"} data-map-ui-hidden={mapUiHidden}>
       <aside inert={sosOpen || Boolean(sosSent)} className="sidebar hidden md:flex md:h-[106%] md:min-h-0 md:flex-col">
         <div className="sidebar-head">
           <KikiMark size={100} zoom={2} />

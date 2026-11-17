@@ -15,7 +15,8 @@ import { CommunityAlertsPanel } from "./CommunityAlertsPanel";
 import "./safeSpots.css";
 import { categoryLabel, currentMeetingLocation, directionsUrl, meetingFetch, type CommunityAlert, type PublicSpot } from "@/lib/buddies/meeting/client";
 import type { SafetyMapPoint } from "@/components/KikiSafetyMap";
-import { AccountBottomSheet } from "@/components/account/AccountList";
+import { MapBottomSheet, MapScreen } from "@/components/account/MapScreen";
+import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 
 type BubbleLink = { id: string; member_count: number; expires_at: string };
 type Location = { lat: number; lng: number };
@@ -61,6 +62,8 @@ export function BuddySafePlaces() {
   const [messageIsError, setMessageIsError] = useState(false);
   const [tab, setTab] = useState<"spots" | "alerts" | "meetings">("spots");
   const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(0);
+  const [mapLayerIndex, setMapLayerIndex] = useState(0);
+  const [mapRecenter, setMapRecenter] = useState(0);
   const [category, setCategory] = useState("all");
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
 
@@ -70,11 +73,11 @@ export function BuddySafePlaces() {
     [category, places],
   );
   const activeAlerts = alerts;
-  const mapPoints: SafetyMapPoint[] = tab === "spots"
-    ? filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot", category: spot.category }))
-    : tab === "alerts"
-      ? activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report", category: alert.kind, createdAt: alert.created_at, upvotes: alert.upvotes }))
-      : [];
+  const mapPoints: SafetyMapPoint[] = [
+    ...filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot" as const, category: spot.category })),
+    ...activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report" as const, category: alert.kind, createdAt: alert.created_at, upvotes: alert.upvotes })),
+  ];
+  const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get("tab");
@@ -153,28 +156,30 @@ export function BuddySafePlaces() {
     setMessageIsError(/could not|couldn|can't|unavailable|please|error|failed|closed/i.test(next));
   }
 
-  return <div className="buddy-places buddies-page safe-spots-page">
-    <div className="safe-spots-map-frame">
+  return <MapScreen
+    screenId="safe-spots"
+    className="buddy-places buddies-page safe-spots-page"
+    map={<KikiSafetyMap center={point} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} />}
+    topBar={<div className="safe-spots-map-actions">
+      <span>{searched
+        ? tab === "spots" ? `${filteredPlaces.length} spots nearby`
+          : tab === "alerts" ? `${activeAlerts.length} reports nearby`
+            : `${bubbles.length} meetings`
+        : "Nearby map"}</span>
       {searched
-        ? <KikiSafetyMap center={point} points={mapPoints} zoom={14} />
-        : <div className="safe-map-intro">
-          <span className="safe-map-intro-icon"><LocateFixed size={25} /></span>
-          <div><b>Find nearby places</b><p>Share your location to see spots and reports on the map.</p></div>
-          <button type="button" className="safe-map-search" disabled={busy} onClick={() => void search()}>{busy ? "Finding…" : "Search nearby"}<ChevronRight size={16} /></button>
-        </div>}
-      <div className="safe-spots-map-actions">
-        <span>{searched ? tab === "spots" ? `${filteredPlaces.length} spots nearby` : `${activeAlerts.length} reports nearby` : "Nearby map"}</span>
-        {searched && <button className="safe-map-refresh" type="button" disabled={busy} onClick={() => void search()} aria-label="Refresh nearby places"><RefreshCw size={17} className={busy ? "is-spinning" : ""} /></button>}
-      </div>
-      {searched && tab === "alerts" && activeAlerts.length > 0 && <div className="safe-risk-legend" role="note">
-        <span>Reported risk</span>
-        <i aria-hidden="true" />
-        <small>Fewer reports</small><small>More recent / frequent</small>
-        <small className="safe-risk-disclaimer">No reports does not confirm an area is safe.</small>
-      </div>}
-    </div>
-
-    <AccountBottomSheet level={sheetLevel} onLevelChange={setSheetLevel}>
+        ? <button className="safe-map-refresh" type="button" disabled={busy} onClick={() => void search()} aria-label="Refresh nearby places"><RefreshCw size={17} className={busy ? "is-spinning" : ""} /></button>
+        : <button type="button" className="safe-map-search" disabled={busy} onClick={() => void search()}>{busy ? "Finding…" : "Search nearby"}<ChevronRight size={16} /></button>}
+    </div>}
+    controls={searched && activeAlerts.length > 0 ? <div className="safe-risk-legend" role="note" data-map-ui="hide">
+      <span>Reported risk</span>
+      <i aria-hidden="true" />
+      <small>Lower reported risk</small><small>Higher reported risk</small>
+      <small className="safe-risk-disclaimer">No reports does not confirm an area is safe.</small>
+    </div> : undefined}
+    onRecenter={() => point ? setMapRecenter((value) => value + 1) : void search()}
+    selectedLayer={currentMapLayer}
+    onLayerChange={(layer) => setMapLayerIndex(MAP_BASE_LAYERS.findIndex((item) => item.name === layer))}
+    bottomSheet={<MapBottomSheet level={sheetLevel} onLevelChange={setSheetLevel} label="Safe spots and community reports">
     <div className="safe-spots-sheet-body">
       <div className="safe-spots-tabs account-segmented" role="tablist" aria-label="Safe spots and reports">
       <button id="safe-tab-spots" type="button" role="tab" aria-selected={tab === "spots"} aria-controls="safe-panel-spots" onClick={() => setTab("spots")}><MapPin size={16} />Spots<span>{places.length}</span></button>
@@ -183,6 +188,7 @@ export function BuddySafePlaces() {
     </div>
 
     <section id="safe-panel-spots" role="tabpanel" aria-labelledby="safe-tab-spots" hidden={tab !== "spots"} className="safe-spots-tab-panel">
+      {places.some((place) => place.is_demo) && <div className="safe-demo-notice" role="note"><b>Demo data — not verified.</b> Sample locations are fictional placeholders, not real venues or safety recommendations. Do not rely on them for directions or personal safety.</div>}
 
       {searched && categories.length > 0 && <div className="safe-category-chips" aria-label="Filter spots by category">
         <button type="button" aria-pressed={category === "all"} onClick={() => { setCategory("all"); setSelectedSpot(null); }}>All <span>{places.length}</span></button>
@@ -193,13 +199,13 @@ export function BuddySafePlaces() {
         })}
       </div>}
 
-      <div className="safe-spots-list-heading"><div><h2>Nearby spots</h2><p>{searched ? "Public places reviewed for your area" : "Places where you can meet or ask for help"}</p></div><span>{searched ? filteredPlaces.length : "—"}</span></div>
+      <div className="safe-spots-list-heading"><div><h2>Nearby spots</h2><p>{searched ? places.some((place) => place.is_demo) ? "Reviewed spots and clearly labeled demo samples" : "Public places reviewed for your area" : "Places where you can meet or ask for help"}</p></div><span>{searched ? filteredPlaces.length : "—"}</span></div>
       {!searched ? (
         <button className="safe-search-prompt" type="button" disabled={busy} onClick={() => void search()}><LocateFixed size={19} /><span><b>Search nearby</b><small>Find reviewed public places around your current location.</small></span><ChevronRight size={18} /></button>
       ) : filteredPlaces.length ? (
         <div className="safe-spot-list account-list-card">{filteredPlaces.map((place) => {
           const Icon = categoryIcons[place.category] ?? Building2;
-          return <article className={`safe-spot-card${selectedSpot === place.id ? " is-selected" : ""}`} id={`safe-spot-${place.id}`} key={place.id}>
+          return <article className={`safe-spot-card${place.is_demo ? " is-demo" : ""}${selectedSpot === place.id ? " is-selected" : ""}`} id={`safe-spot-${place.id}`} key={place.id}>
             <button type="button" className="safe-spot-title" onClick={() => setSelectedSpot(selectedSpot === place.id ? null : place.id)} aria-pressed={selectedSpot === place.id}>
               <span className="safe-spot-icon"><Icon size={19} /></span>
               <span className="safe-spot-name"><b>{place.name}</b><small>{prettyCategory(place.category)}</small></span>
@@ -207,9 +213,9 @@ export function BuddySafePlaces() {
             </button>
             <p className="safe-spot-address">{place.address || "Address not provided"}</p>
             <div className="safe-spot-footer">
-              <span className="safe-reviewed-badge"><ShieldCheck size={14} />Reviewed spot</span>
+              <span className={`safe-reviewed-badge${place.is_demo ? " is-demo" : ""}`}>{place.is_demo ? <><AlertTriangle size={14} />Demo sample · unverified</> : <><ShieldCheck size={14} />Reviewed spot</>}</span>
               <span className="safe-hours-badge"><Clock3 size={13} />{place.open_24h ? "Open 24 hours" : "Hours may vary"}</span>
-              <a className="safe-directions-link" href={directionsUrl(place.lat, place.lng)} target="_blank" rel="noreferrer"><Navigation size={15} />Directions</a>
+              {place.is_demo ? <span className="safe-directions-link is-disabled" aria-label="Directions unavailable for demo locations">Sample only</span> : <a className="safe-directions-link" href={directionsUrl(place.lat, place.lng)} target="_blank" rel="noreferrer"><Navigation size={15} />Directions</a>}
             </div>
           </article>;
         })}</div>
@@ -238,6 +244,6 @@ export function BuddySafePlaces() {
 
     {message && <div className={`safe-spots-message${messageIsError ? " is-error" : ""}`} role={messageIsError ? "alert" : "status"}>{message}</div>}
     </div>
-    </AccountBottomSheet>
-  </div>;
+    </MapBottomSheet>}
+  />;
 }

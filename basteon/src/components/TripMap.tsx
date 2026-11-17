@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { useCachedProfileImage } from "@/components/CachedProfileImage";
+import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 
 type Point = { lat: number; lng: number };
 type Props = {
@@ -17,6 +18,7 @@ type Props = {
   onMapClick?: (point: Point) => void;
   drawing?: boolean;
   onDraw?: (point: Point) => void;
+  layer?: MapBaseLayerName;
 };
 
 function FitRoute({ points, position, recenter }: { points: Point[]; position?: Point | null; recenter: number }) {
@@ -91,16 +93,17 @@ const avatarIcon = (url: string | null | undefined, initial: string) => L.divIco
   iconAnchor: [19, 19],
 });
 
-export default function TripMap({ points, position, recenter = 0, stops = [], drawn = [], avatarUrl, initial = "Y", onMapClick, drawing = false, onDraw }: Props) {
+export default function TripMap({ points, position, recenter = 0, stops = [], drawn = [], avatarUrl, initial = "Y", onMapClick, drawing = false, onDraw, layer = "Street" }: Props) {
   const center: [number, number] = points.length
     ? [points[0].lat, points[0].lng]
     : position
       ? [position.lat, position.lng]
       : [-29, 24];
   const cachedAvatarUrl = useCachedProfileImage(avatarUrl);
+  const selectedLayer = MAP_BASE_LAYERS.find((item) => item.name === layer) ?? MAP_BASE_LAYERS[0];
   return (
-    <MapContainer center={center} zoom={points.length || position ? 13 : 5} scrollWheelZoom={false} zoomControl={false} className="hamba-map">
-      <TileLayer url={process.env.NEXT_PUBLIC_MAP_TILE_URL ?? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"} attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION ?? "© OpenStreetMap contributors"} />
+    <MapContainer center={center} zoom={points.length || position ? 13 : 5} scrollWheelZoom attributionControl={false} zoomControl={false} className="hamba-map">
+      <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} maxZoom={selectedLayer.maxZoom} />
       <FitRoute points={points} position={position} recenter={recenter} />
       <Clicks onMapClick={drawing ? undefined : onMapClick} />
       <FreeDraw active={drawing} onDraw={onDraw} />

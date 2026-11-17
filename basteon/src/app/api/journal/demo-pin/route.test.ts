@@ -62,6 +62,17 @@ describe("journal demo PIN", () => {
     expect(await (await GET()).json()).toEqual({ pin: null });
   });
 
+  it("never exposes the demo PIN in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("KIKI_JOURNAL_DEMO_PIN", "654321");
+
+    const response = await GET();
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ pin: null });
+    expect(mocks.user).not.toHaveBeenCalled();
+  });
+
   it("rejects unauthenticated requests", async () => {
     const db = setup(null);
 
