@@ -3620,6 +3620,43 @@ body:has(.account-shell) {
   font-size: 12px;
 }
 
+.account-shell .buddies-invitation-list,
+.account-shell .buddies-contact-list {
+  gap: 0;
+}
+
+.account-shell .buddies-invitation-list > h3,
+.account-shell .buddies-contact-list > h3 {
+  margin: 0;
+  padding: 14px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.account-shell .buddies-invitation-row,
+.account-shell .buddies-contact-row {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 12px 0;
+}
+
+.account-shell .buddies-invitation-row + .buddies-invitation-row,
+.account-shell .buddies-contact-row + .buddies-contact-row {
+  border-top: 1px solid var(--divider);
+}
+
+.account-shell .buddies-invitation-row > p,
+.account-shell .buddies-contact-row > span {
+  color: var(--text);
+}
+
+.account-shell .buddies-contact-row > span > small,
+.account-shell .buddies-contact-list > p {
+  color: var(--muted);
+}
+
 .account-shell .account-sheet-content > .safe-spots-sheet-body {
   overflow: visible;
   padding: 0 0 calc(32px + env(safe-area-inset-bottom));
@@ -3688,5 +3725,191 @@ body:has(.account-shell) {
 
   .account-shell .hamba-actions .btn {
     font-size: 13px;
+  }
+}
+
+.account-shell .kiki-profile-setup-intro {
+  padding: 16px 16px 4px;
+}
+
+.account-shell .kiki-profile-setup-intro h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.account-shell .kiki-profile-setup-intro p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.account-shell .kiki-profile-setup .account-list-row-trailing {
+  color: var(--ok);
+}
+
+.account-shell .kiki-sos-response {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.account-shell .kiki-sos-response-panel {
+  max-width: none;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.account-shell .kiki-sos-response-header {
+  border-bottom: 1px solid var(--divider);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.account-shell .kiki-sos-response-header h1 {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+
+.account-shell .kiki-sos-response-header p,
+.account-shell .kiki-sos-response-content small,
+.account-shell .kiki-sos-response-content .text-\[\#6e5a7c\],
+.account-shell .kiki-sos-response-content .text-\[\#8c7b98\] {
+  color: var(--muted);
+}
+
+.account-shell .kiki-sos-close {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell .kiki-sos-response-content {
+  gap: 12px;
+  background: var(--bg);
+  padding-top: 12px;
+}
+
+.account-shell .kiki-sos-response-content > section,
+.account-shell .kiki-sos-privacy-note {
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: var(--surface-1) !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  color: var(--text);
+}
+
+.account-shell .kiki-sos-response-content > .kiki-sos-map-panel {
+  min-height: 250px;
+  background: var(--surface-2) !important;
+}
+
+.account-shell .kiki-sos-response-content .kiki-sos-status-panel > p:first-child,
+.account-shell .kiki-sos-response-content .kiki-sos-team-panel > h2,
+.account-shell .kiki-sos-response-content .kiki-sos-complete-panel > p:first-child {
+  color: var(--muted);
+}
+
+.account-shell .kiki-sos-response-content .kiki-sos-status-panel > p:nth-child(2),
+.account-shell .kiki-sos-team-panel li,
+.account-shell .kiki-sos-complete-panel {
+  color: var(--text);
+}
+
+.account-shell .kiki-sos-response-content > .kiki-sos-nearest-panel {
+  background: var(--ok-bg) !important;
+}
+
+.account-shell .kiki-sos-nearest-panel h2,
+.account-shell .kiki-sos-nearest-panel > p:first-child {
+  color: var(--ok);
+}
+
+.account-shell .kiki-sos-privacy-note {
+  color: var(--muted);
+}
+
+.account-shell .kiki-sos-privacy-note svg {
+  color: var(--ok);
+}
+
+.account-shell .kiki-sos-response-footer {
+  border-top: 1px solid var(--divider);
+  background: var(--surface-1);
+  box-shadow: 0 -4px 12px rgb(0 0 0 / 3%);
+}
+
+.account-shell .kiki-sos-response-footer > button,
+.account-shell .kiki-sos-response-footer > a {
+  min-height: 48px;
+  border: 0;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-shell .kiki-sos-response-footer .kiki-sos-primary-action {
+  background: var(--accent);
+  color: #fff;
+}
+
+.account-shell .kiki-sos-response-footer .kiki-sos-cancel-action {
+  color: var(--crit);
+}
+
+.account-shell .kiki-sos-response-footer .kiki-sos-secondary-link {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .kiki-sos-response :is(button, a):focus-visible {
+  outline: 3px solid var(--line-focus);
+  outline-offset: 3px;
+}
+
+@media (min-width: 768px) {
+  .account-shell .kiki-sos-response {
+    padding: 24px;
+    background: var(--bg);
+  }
+
+  .account-shell .kiki-sos-response-panel {
+    width: min(100%, 1160px);
+    height: calc(100dvh - 48px);
+    border-radius: 24px;
+    background: var(--surface-1);
+    box-shadow: 0 16px 48px rgb(22 11 31 / 18%);
+  }
+
+  .account-shell .kiki-sos-response-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr);
+    align-content: start;
+    gap: 12px;
+    padding: 16px 18px;
+  }
+
+  .account-shell .kiki-sos-map-panel {
+    grid-column: 1;
+    grid-row: 1 / span 5;
+    height: 100%;
+    min-height: 520px;
+  }
+
+  .account-shell .kiki-sos-response-footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    padding-inline: 18px;
+  }
+
+  .account-shell .kiki-sos-response-footer > button,
+  .account-shell .kiki-sos-response-footer > a {
+    min-width: 190px;
+    padding-inline: 18px;
   }
 }

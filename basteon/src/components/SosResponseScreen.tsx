@@ -265,23 +265,23 @@ export function SosResponseScreen({
   ];
 
   return (
-    <main className="fixed inset-0 z-[2000] flex items-center justify-center overflow-hidden bg-[#d9cde8] text-[#2a1536]" role="dialog" aria-modal="true" aria-label="Live emergency response">
-      <div className="flex h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden bg-[#f3eefb] shadow-2xl sm:rounded-[32px]">
-        <header className={`flex shrink-0 items-center gap-3 px-[18px] pb-3 pt-[max(24px,env(safe-area-inset-top))] ${falseAlarm ? "text-[#522868]" : closed ? "text-[#522868]" : ""}`}>
+    <main className="kiki-sos-response fixed inset-0 z-[2000] flex items-center justify-center overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="kiki-response-title">
+      <div className="kiki-sos-response-panel flex h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden">
+        <header className="kiki-sos-response-header flex shrink-0 items-center gap-3 px-[18px] pb-3 pt-[max(24px,env(safe-area-inset-top))]">
           <span className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[15px] ${falseAlarm || closed ? "bg-[#e9dcf0] text-[#522868]" : onTheWay || onScene ? "bg-[#e6f3f0] text-[#12766a]" : "bg-[#fdeaee] text-[#d9435f]"}`}>
             {closed ? <Check size={23} /> : type === "medical" ? <HeartPulse size={23} /> : <Siren size={23} />}
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="text-[20px] font-extrabold leading-tight tracking-[-.02em]">{currentStatus}</h1>
+            <h1 id="kiki-response-title" className="text-[20px] font-extrabold leading-tight tracking-[-.02em]">{currentStatus}</h1>
             <p className="mt-0.5 truncate text-xs text-[#6e5a7c]">{type === "medical" ? "Medical emergency" : "Kiki emergency alert"} · Ref {alertId.slice(0, 8).toUpperCase()}</p>
           </div>
-          <button className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[#e6dcf0] bg-white px-3 text-xs font-semibold hover:bg-[#e9dcf0]" onClick={onClose} title={closed ? undefined : "Close this view. Your alert stays active."}>
+          <button type="button" className="kiki-sos-close inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold" onClick={onClose} title={closed ? undefined : "Close this view. Your alert stays active."}>
             <ArrowLeft size={15} /><span>{closed ? "Back" : "Close"}</span>
           </button>
         </header>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-[14px] pb-4">
-          <section className="relative h-[250px] shrink-0 overflow-hidden rounded-[22px] border border-[#e6dcf0] bg-white">
+        <div className="kiki-sos-response-content flex-1 space-y-3 overflow-y-auto px-[14px] pb-4">
+          <section className="kiki-sos-map-panel relative h-[250px] shrink-0 overflow-hidden rounded-[22px] bg-white" aria-label="Live response map">
             <div className="absolute left-2.5 top-2.5 z-[500] inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#12766a] shadow-sm">
               <span className={`h-[7px] w-[7px] rounded-full ${closed ? "bg-[#b9a9c7]" : "animate-pulse bg-[#12766a]"}`} />{closed ? "ENDED" : "LIVE"}
             </div>
@@ -297,7 +297,7 @@ export function SosResponseScreen({
             </div>}
           </section>
 
-          <section className="rounded-[22px] border border-[#e6dcf0] bg-white p-4">
+          <section className="kiki-sos-status-panel rounded-[22px] bg-white p-4">
             <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#6e5a7c]">Status</p>
             <p className="mt-2 text-sm leading-5">
               {falseAlarm
@@ -335,7 +335,7 @@ export function SosResponseScreen({
           </section>
 
           {nearest ? (
-            <section className="rounded-[22px] border border-[#c9e5db] bg-[#e6f3f0] p-4">
+            <section className="kiki-sos-nearest-panel rounded-[22px] bg-[#e6f3f0] p-4">
               <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#12766a]">{nearest.status === "on_scene" ? "Responder arrived" : "Nearest responder"}</p>
               <div className="mt-2 flex items-center gap-3">
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#12766a] text-sm font-bold text-white">{nearest.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}</span>
@@ -344,14 +344,14 @@ export function SosResponseScreen({
               <p className="mt-3 text-[11px] leading-4 text-[#6e5a7c]">{nearest.route!.roadRoute ? "ETA uses road routing; live traffic data may not be available." : "Distance and ETA are estimates; road routing and live traffic are unavailable."}</p>
             </section>
           ) : !closed && (
-            <section className="rounded-[22px] border border-[#e6dcf0] bg-white p-4">
+            <section className="kiki-sos-status-panel rounded-[22px] bg-white p-4">
               <p className="text-[11px] font-bold uppercase tracking-[.08em] text-[#6e5a7c]">Responders</p>
               <p className="mt-2 text-sm leading-5 text-[#6e5a7c]">{accepted ? "Responders acknowledged your alert, but no one has confirmed they are travelling yet." : "Waiting for a responder to acknowledge your alert."}</p>
             </section>
           )}
 
           {mapResponders.length > 0 && (
-            <section className="rounded-[22px] border border-[#e6dcf0] bg-white p-4">
+            <section className="kiki-sos-team-panel rounded-[22px] bg-white p-4">
               <h2 className="mb-3 font-bold">Response team</h2>
               <ul className="space-y-3">
                 {mapResponders.map((responder) => (
@@ -366,7 +366,7 @@ export function SosResponseScreen({
           )}
 
           {closed && (
-            <section className="rounded-[22px] border border-[#e6dcf0] bg-white p-4">
+            <section className="kiki-sos-complete-panel rounded-[22px] bg-white p-4">
               <p className="flex items-center gap-2 text-[16px] font-bold text-[#12766a]"><Check size={19} />{falseAlarm ? "Alert cancelled" : "Response complete"}</p>
               <p className="mt-1 text-sm text-[#6e5a7c]">This alert is no longer active.</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -376,16 +376,16 @@ export function SosResponseScreen({
             </section>
           )}
 
-          {!closed && <div className="flex items-start gap-2 rounded-[22px] border border-[#e6dcf0] bg-white p-4 text-[13px] leading-5 text-[#6e5a7c]"><ShieldCheck size={19} className="mt-0.5 shrink-0 text-[#12766a]" /><span>Your location is shared only with responders on this alert, and stops when it closes.</span></div>}
+          {!closed && <div className="kiki-sos-privacy-note flex items-start gap-2 rounded-[22px] bg-white p-4 text-[13px] leading-5"><ShieldCheck size={19} className="mt-0.5 shrink-0" /><span>Your location is shared only with responders on this alert, and stops when it closes.</span></div>}
         </div>
 
-        <footer className="flex shrink-0 flex-col gap-2 bg-gradient-to-b from-transparent via-[#f3eefb] to-[#f3eefb] px-[14px] pb-[max(14px,env(safe-area-inset-bottom))] pt-3">
-          {closed ? <><Link href="/account/calm/winds?mode=quiet" className="flex h-[48px] items-center justify-center gap-2 rounded-[17px] border border-[#d9c9e3] bg-white text-sm font-bold text-[#522868]">Need a minute? <span className="font-medium">Gentle Winds</span></Link><button className="flex h-[54px] items-center justify-center gap-2 rounded-[17px] bg-[#522868] text-base font-bold text-white" onClick={onClose}><Check size={19} />Done</button></> : <>
-            <button className="flex h-[54px] items-center justify-center gap-2 rounded-[17px] bg-[#522868] text-base font-bold text-white disabled:opacity-60" disabled={changingType} onClick={onChangeType}>
+        <footer className="kiki-sos-response-footer flex shrink-0 flex-col gap-2 px-[14px] pb-[max(14px,env(safe-area-inset-bottom))] pt-3">
+          {closed ? <><Link href="/account/calm/winds?mode=quiet" className="kiki-sos-secondary-link flex h-[48px] items-center justify-center gap-2 rounded-[17px] text-sm font-bold">Need a minute? <span className="font-medium">Gentle Winds</span></Link><button type="button" className="kiki-sos-primary-action flex h-[54px] items-center justify-center gap-2 rounded-[17px] text-base font-bold" onClick={onClose}><Check size={19} />Done</button></> : <>
+            <button type="button" className="kiki-sos-primary-action flex h-[54px] items-center justify-center gap-2 rounded-[17px] text-base font-bold disabled:opacity-60" disabled={changingType} onClick={onChangeType}>
               {changingType ? <RefreshCw size={16} className="animate-spin" /> : type === "sos" ? <HeartPulse size={17} /> : <Siren size={17} />}
               {changingType ? "Updating alert…" : type === "sos" ? "Update to a medical emergency" : "Change alert type"}
             </button>
-            <button className="flex h-10 items-center justify-center gap-2 rounded-[17px] text-sm font-semibold text-[#d9435f] disabled:opacity-60" disabled={cancelBusy} onClick={() => void cancelAlert()}>
+            <button type="button" className="kiki-sos-cancel-action flex h-10 items-center justify-center gap-2 rounded-[17px] text-sm font-semibold disabled:opacity-60" disabled={cancelBusy} onClick={() => void cancelAlert()}>
               <Siren size={15} />{cancelBusy ? "Notifying responders…" : "Cancel · false alarm"}
             </button>
           </>}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bluetooth, BookOpen, Building2, ChevronRight, FileText, Flower2, Gamepad2, Lock, MapPinned, Moon, PhoneCall, Shield, Sun, Users, Volume2 } from "lucide-react";
+import { Bluetooth, BookOpen, Building2, CheckCircle2, ChevronRight, FileText, Flower2, Gamepad2, Lock, MapPinned, Moon, PhoneCall, Shield, Sun, Users, Volume2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -43,6 +43,8 @@ export default function ProfilePage() {
   }
   async function signOut() { await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
   const name = profile?.full_name || "Your Kiki profile";
+  const profileReady = Boolean(profile?.full_name?.trim());
+  const medicalStarted = medicalCompletion !== null && medicalCompletion > 0;
   return <div className="kiki-profile-hub">
     {error && <p className="kiki-profile-error" role="alert">{error}</p>}
     <AccountListCard className="kiki-profile-identity-card">
@@ -56,6 +58,32 @@ export default function ProfilePage() {
         <ChevronRight className="kiki-profile-card-arrow" size={18} aria-hidden="true" />
       </Link>
     </AccountListCard>
+
+    {profile && medicalCompletion !== null && !(profileReady && medicalStarted) && (
+      <section className="kiki-profile-section">
+        <AccountSectionLabel>Get started</AccountSectionLabel>
+        <AccountListCard className="kiki-profile-setup" aria-label="Profile setup">
+          <div className="kiki-profile-setup-intro">
+            <h2>Make your profile responder-ready</h2>
+            <p>Add the details you want your trusted network and responders to have.</p>
+          </div>
+          <AccountListRow
+            href="/account/profile/info"
+            icon={<Users size={20} />}
+            title="Profile details"
+            subtitle={profileReady ? "Name added" : "Add your name and photo"}
+            trailing={profileReady ? <CheckCircle2 size={18} /> : <ChevronRight size={18} />}
+          />
+          <AccountListRow
+            href="/account/profile/medical"
+            icon={<FileText size={20} />}
+            title="Medical ID"
+            subtitle={medicalStarted ? `${medicalCompletion}% of fields filled` : "Add any helpful medical details"}
+            trailing={medicalStarted ? <CheckCircle2 size={18} /> : <ChevronRight size={18} />}
+          />
+        </AccountListCard>
+      </section>
+    )}
 
     <section className="kiki-profile-section">
       <AccountSectionLabel>Account</AccountSectionLabel>

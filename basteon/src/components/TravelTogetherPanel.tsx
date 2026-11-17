@@ -418,9 +418,9 @@ export function TravelTogetherPanel({
         <h2><UsersRound size={18} />Travel with your buddies</h2>
         <Link className="btn" href="/account/profile/buddies">Manage buddy list</Link>
       </div>
-      {incomingInvitations.length > 0 && <div className="mt-4 grid gap-3">
+      {incomingInvitations.length > 0 && <div className="buddies-invitation-list mt-4 grid">
         <h3 className="font-semibold">Invitations for you</h3>
-        {incomingInvitations.map((invitation) => <article key={invitation.id} className="rounded-2xl border border-[#e8deed] bg-white p-4">
+        {incomingInvitations.map((invitation) => <article key={invitation.id} className="buddies-invitation-row">
           <p><b>{invitation.buddy?.name ?? "A buddy"}</b> invited you to join a {invitation.mode} trip.</p>
           {!active && <p className="mt-2 text-sm text-[#6c6072]">Plan your own Travel Together trip before accepting. Your route stays private until you accept.</p>}
           <div className="mt-3 flex flex-wrap gap-2">
@@ -432,11 +432,11 @@ export function TravelTogetherPanel({
           </div>
         </article>)}
       </div>}
-      {active && buddyContacts.length > 0 && <div className="mt-5 grid gap-3">
+      {active && buddyContacts.length > 0 && <div className="buddies-contact-list mt-5 grid">
         <h3 className="font-semibold">Invite a buddy to your trip</h3>
         {buddyContacts.map((buddy) => {
           const pendingInvite = outgoingInvitations.find((invite) => invite.buddy?.id === buddy.id);
-          return <div key={buddy.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#e8deed] bg-white p-3">
+          return <div key={buddy.id} className="buddies-contact-row flex flex-wrap items-center justify-between gap-3">
             <span><b>{buddy.name}</b><small className="ml-2 text-[#756583]">{buddy.kikiId}</small></span>
             {pendingInvite
               ? <span className="text-sm text-[#756583]">Invitation sent</span>
