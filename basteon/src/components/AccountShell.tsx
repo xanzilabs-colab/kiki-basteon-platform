@@ -1,13 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Flower2, Gamepad2, HeartPulse, House, LogOut, MapPinned, Menu, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { HeartPulse, Map, PhoneCall, PhoneOff, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KikiMark } from "@/components/KikiMark";
-import { CachedProfileImage } from "@/components/CachedProfileImage";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SafetyIntelWatcher } from "@/components/SafetyIntelWatcher";
 import { primeRingtone, startRingtone } from "@/lib/ringtone";
@@ -18,12 +16,13 @@ import type { SosType } from "@/lib/sos/sosGesture";
 import { enqueueSos, flushSosOutbox, removeQueuedSos, type SosRequest } from "@/lib/sos/outbox";
 
 const links = [
-  { href: "/account", label: "Overview", icon: House },
+  { href: "/account", label: "Map", icon: Map },
+  { href: "/account/trips", label: "Trips", icon: Route },
   { href: "/account/devices", label: "Devices", icon: Smartphone },
   { href: "/account/profile", label: "Profile", icon: UserRound },
 ];
 
-export function AccountShell({ name, children, initialDarkTheme = false, stoepEnabled = false, calmEnabled = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean; stoepEnabled?: boolean; calmEnabled?: boolean }) {
+export function AccountShell({ children, initialDarkTheme = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean; stoepEnabled?: boolean; calmEnabled?: boolean }) {
   const pathname = usePathname(); const router = useRouter();
   const [darkTheme, setDarkTheme] = useState(initialDarkTheme);
   const [sosOpen, setSosOpen] = useState(false);
@@ -42,11 +41,8 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
   const sosDialog = useRef<HTMLElement>(null);
   const [safetyCall, setSafetyCall] = useState<"idle" | "arming" | "incoming" | "active">("idle");
   const [callSeconds, setCallSeconds] = useState(0);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [moreClosing, setMoreClosing] = useState(false);
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
   const ringtoneUrlRef = useRef<string | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => { setDarkTheme(initialDarkTheme); }, [initialDarkTheme]);
   useEffect(() => {
@@ -55,12 +51,6 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
     return () => window.removeEventListener("kiki-account-theme-change", updateTheme);
   }, []);
 
-  function closeMore(after?: () => void) {
-    if (!moreOpen || moreClosing) return;
-    setMoreClosing(true);
-    window.setTimeout(() => { setMoreOpen(false); setMoreClosing(false); after?.(); }, 220);
-  }
-  function navigate(path: string) { closeMore(() => router.push(path)); }
   function openSos(type: SosType = "sos", source: "tap" | "hold_slide" = "tap") {
     sosSending.current = false;
     sosRequestId.current = crypto.randomUUID();
@@ -177,20 +167,6 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
   }, []);
 
   useEffect(() => {
-    void (async () => {
-      const response = await fetch("/api/account/profile/avatar");
-      const avatar = response.ok ? await response.json() as { url?: string | null } : null;
-      setAvatarUrl(avatar?.url ?? null);
-    })();
-  }, [pathname]);
-
-  useEffect(() => {
-    const updateAvatar = (event: Event) => setAvatarUrl((event as CustomEvent<string | null>).detail);
-    window.addEventListener("kiki-profile-avatar-updated", updateAvatar);
-    return () => window.removeEventListener("kiki-profile-avatar-updated", updateAvatar);
-  }, []);
-
-  useEffect(() => {
     if (safetyCall !== "incoming") return;
     return startRingtone(ringtoneUrlRef.current);
   }, [ringtoneUrl, safetyCall]);
@@ -279,6 +255,12 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
     }
   }
 
+  useEffect(() => {
+    const start = () => { void startSafetyCall(); };
+    window.addEventListener("kiki:start-safety-call", start);
+    return () => window.removeEventListener("kiki:start-safety-call", start);
+  }, [safetyCall]);
+
   const callDuration = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
   return (
     <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]" data-theme={darkTheme ? "dark" : "light"}>
@@ -293,16 +275,11 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
               key={link.href}
               href={link.href}
               className="sidebar-link"
-              aria-current={pathname === link.href ? "page" : undefined}
+              aria-current={isActiveLink(pathname, link.href) ? "page" : undefined}
             >
               <NavSigil><link.icon size={17} aria-hidden="true" /></NavSigil>{link.label}
             </Link>
           ))}
-          <Link href="/account/trips" className="sidebar-link" aria-current={pathname === "/account/trips" || pathname === "/account/buddies" ? "page" : undefined}><NavSigil><Route size={17} /></NavSigil>Trips</Link>
-          <Link href="/account/buddies/safe-places" className="sidebar-link" aria-current={pathname === "/account/buddies/safe-places" ? "page" : undefined}><NavSigil><MapPinned size={17} /></NavSigil>Safe spots &amp; reports</Link>
-          <Link href="/games" className="sidebar-link" aria-current={pathname === "/games" ? "page" : undefined}><NavSigil><Gamepad2 size={17} /></NavSigil>Stoep</Link>
-          <Link href="/account/calm" className="sidebar-link" aria-current={pathname.startsWith("/account/calm") ? "page" : undefined}><NavSigil><Flower2 size={17} /></NavSigil>Calm</Link>
-          <Link href="/w" className="sidebar-link" aria-current={pathname === "/w" ? "page" : undefined}><NavSigil><BookOpen size={17} /></NavSigil>Journal</Link>
         </nav>
         <SosActionButton className="account-desktop-sos btn btn-danger mx-3 mt-auto" title="Send emergency alert" onSelect={openSos}>
           <KikiMark size={48} zoom={2} /> Send SOS
@@ -317,68 +294,32 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
 
       <div inert={sosOpen} className="min-w-0 pb-[76px] md:min-h-0 md:overflow-y-auto md:pb-0">
         <header className="appbar account-mobile-appbar px-4">
-          <Link className="account-user-summary" href="/account/profile" title="Open profile">
-            <span className="account-user-avatar"><CachedProfileImage src={avatarUrl} alt={`${name}'s profile`} fallback={name.charAt(0).toUpperCase()} /><i /></span>
-            <span className="account-user-copy">
-              <span className="account-user-name">{name}</span>
-            </span>
-          </Link>
+          <h1 className="account-topbar-title">{screenTitle(pathname)}</h1>
           <div className="account-header-actions">
-            <div className="md:hidden"><button className="account-header-action" title="Start safety call" onClick={() => void startSafetyCall()}><Volume2 size={17} /></button></div>
             <NotificationBell />
             <SafetyIntelWatcher />
-            <button
-              type="button"
-              className="account-header-action"
-              title="Refresh app"
-              aria-label="Refresh app"
-              onClick={() => window.location.reload()}
-            >
-              <RefreshCw size={17} aria-hidden="true" />
-            </button>
           </div>
-          <button className="btn btn-ghost account-sign-out md:hidden" title="Sign out" onClick={() => void signOut()}>
-            <LogOut size={17} aria-hidden="true" />
-          </button>
         </header>
         <main key={pathname} className="account-page-transition mx-auto max-w-4xl p-5 md:p-6">{children}</main>
       </div>
 
       <nav inert={sosOpen} className="account-mobile-nav fixed inset-x-0 bottom-0 z-20 flex h-[68px] border-t border-[var(--line)] bg-[var(--chrome)] md:hidden">
         {links.slice(0, 2).map((link) => (
-          <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px] aria-[current=page]:border-t-[var(--text)]" aria-current={pathname === link.href ? "page" : undefined}>
-            <NavSigil className={link.href === "/account/devices" ? "nav-device-sigil" : undefined}>{link.href === "/account/devices" ? <Image src="/assets/devices-icon.png" alt="" width={32} height={32} /> : <link.icon size={17} strokeWidth={2.2} aria-hidden="true" />}</NavSigil>
+          <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 text-[11px]" aria-current={isActiveLink(pathname, link.href) ? "page" : undefined}>
+            <NavSigil><link.icon size={20} strokeWidth={2} aria-hidden="true" /></NavSigil>
             <span>{link.label}</span>
           </Link>
         ))}
         <SosActionButton className="account-mobile-sos" title="Send SOS" onSelect={openSos}>
           <KikiMark size={108} />
         </SosActionButton>
-        <button className="account-mobile-more nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px]" title="More options" aria-label="Open more options" onClick={() => setMoreOpen(true)}>
-          <NavSigil><Menu size={20} strokeWidth={2.2} aria-hidden="true" /></NavSigil>
-          <span>More</span>
-        </button>
         {links.slice(2).map((link) => (
-          <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 border-t-2 border-transparent text-[11px] aria-[current=page]:border-t-[var(--text)]" aria-current={pathname === link.href ? "page" : undefined}>
-            <NavSigil><link.icon size={18} strokeWidth={2.2} aria-hidden="true" /></NavSigil>
+          <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 text-[11px]" aria-current={isActiveLink(pathname, link.href) ? "page" : undefined}>
+            <NavSigil><link.icon size={20} strokeWidth={2} aria-hidden="true" /></NavSigil>
             <span>{link.label}</span>
           </Link>
         ))}
       </nav>
-      {moreOpen && (
-        <div className={`account-more-scrim ${moreClosing ? "is-closing" : ""}`} role="presentation" onClick={() => closeMore()}>
-          <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
-            <button className="account-more-option" onClick={() => navigate("/account/trips")}><span><NavSigil><Route size={17} /></NavSigil> Trips</span><small>Route Watch and Travel Together</small></button>
-            <button className="account-more-option" onClick={() => navigate("/account/buddies/safe-places")}><span><NavSigil><MapPinned size={17} /></NavSigil> Safe spots &amp; reports</span><small>Browse spots and community reports</small></button>
-            {stoepEnabled && <button className="account-more-option" onClick={() => navigate("/games")}><span><NavSigil><Gamepad2 size={17} /></NavSigil> Stoep</span><small>Unwind and play</small></button>}
-            {calmEnabled && <button className="account-more-option" onClick={() => navigate("/account/calm")}><span><NavSigil><Flower2 size={17} /></NavSigil> Calm</span><small>Breathing, noticing, and body check-ins</small></button>}
-            <button className="account-more-option" onClick={() => navigate("/w")}><span><NavSigil><BookOpen size={17} /></NavSigil> Journal</span><small>Your private garden</small></button>
-            <button className="account-more-option" onClick={() => navigate("/account/guardians")}><span><NavSigil><ShieldCheck size={17} /></NavSigil> Guardians</span><small>Your private Guardian Circle</small></button>
-            <button className="account-more-option" onClick={() => closeMore(() => void startSafetyCall())}><span><NavSigil><PhoneCall size={17} /></NavSigil> Safety call</span><small>Start a discreet in-app call</small></button>
-            <button className="btn w-full" onClick={() => closeMore()}>Close</button>
-          </section>
-        </div>
-      )}
       {sosOpen && (
         <div className="account-sos-scrim" role="presentation">
           <section ref={sosDialog} className="account-sos-dialog" role="dialog" aria-modal="true" aria-labelledby="sos-title" aria-describedby="sos-description" onKeyDown={(event) => {
@@ -457,4 +398,20 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
 
 function NavSigil({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <span className={`nav-sigil ${className}`.trim()}>{children}</span>;
+}
+
+function isActiveLink(pathname: string, href: string) {
+  if (href === "/account") return pathname === "/account";
+  if (href === "/account/trips") return pathname.startsWith("/account/trips") || pathname.startsWith("/account/buddies");
+  if (href === "/account/profile") return pathname.startsWith("/account/profile") || pathname.startsWith("/account/guardians") || pathname.startsWith("/account/organisations") || pathname === "/w";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function screenTitle(pathname: string) {
+  if (pathname === "/account") return "";
+  if (pathname.startsWith("/account/trips")) return "Trips";
+  if (pathname.startsWith("/account/devices")) return "Devices";
+  if (pathname.startsWith("/account/profile")) return pathname === "/account/profile" ? "Profile" : "";
+  if (pathname.startsWith("/account/buddies/safe-places")) return "Safe spots";
+  return "";
 }

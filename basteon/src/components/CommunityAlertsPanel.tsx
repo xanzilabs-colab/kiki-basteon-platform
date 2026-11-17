@@ -7,6 +7,7 @@ import { useAppDialog } from "@/components/AppDialogProvider";
 import { AlertTriangle, Check, ChevronRight, MapPin, MapPinned, ThumbsUp, Trash2, X } from "lucide-react";
 import { categoryLabel, meetingFetch, type CommunityAlert } from "@/lib/buddies/meeting/client";
 import type { ReportLocation } from "./CommunityReportMap";
+import { AccountFeedCard } from "@/components/account/AccountList";
 
 type Place = { label: string; lat: number; lng: number };
 type Props = { alerts: CommunityAlert[]; busy: boolean; initialPoint: { lat: number; lng: number } | null; onBusyChange: (busy: boolean) => void; onAlertsChange: (alerts: CommunityAlert[]) => void; onLocationChange: (point: { lat: number; lng: number } | null) => void; onMessage: (message: string) => void };
@@ -119,16 +120,13 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
   }
   const filteredAlerts = alerts.filter((alert) => category === "all" || alert.kind === category);
   const reportCount = `${filteredAlerts.length} ${filteredAlerts.length === 1 ? "Report" : "Reports"}`;
-  return <section id="community-alerts" className="buddies-panel buddy-community-panel safe-alerts-panel">
-    <div className="safe-alerts-header">
-      <div><h2>Community Feed</h2></div>
-      <span className="safe-alert-count">{reportCount}</span>
-    </div>
+  return <section id="community-alerts" className="safe-alerts-panel">
+    <div className="safe-alerts-header"><span className="safe-alert-count">{reportCount}</span></div>
     <div className="safe-report-categories" role="group" aria-label="Filter community reports by category">
       {reportCategories.map((item) => <button key={item.value} type="button" aria-pressed={category === item.value} onClick={() => setCategory(item.value)}>{item.label}</button>)}
     </div>
     <button type="button" className="safe-report-open" onClick={() => setReportOpen(true)}><span><AlertTriangle size={17} />Report a concern</span><span>Share a local safety update<ChevronRight size={16} /></span></button>
-    <div className="buddy-alert-list safe-alert-list">{filteredAlerts.map((alert) => <article key={alert.id} className={`buddy-alert-card safe-alert-card${alert.kind === "poor_lighting" ? " is-lighting" : alert.kind === "harassment" ? " is-rose" : ""}`}>
+    <div className="buddy-alert-list safe-alert-list">{filteredAlerts.map((alert) => <AccountFeedCard key={alert.id} className={`buddy-alert-card safe-alert-card${alert.kind === "poor_lighting" ? " is-lighting" : alert.kind === "harassment" ? " is-rose" : ""}`}>
       <div className="safe-alert-card-heading">
         <span className="safe-alert-meta">
           <span className="safe-alert-kind"><i /><AlertTriangle size={12} />{titleCase(alert.kind)}</span>
@@ -140,7 +138,7 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
       <div className="safe-alert-card-footer"><MapPin size={14} /><span>{alert.location_label ?? "Nearby location"}{alert.region ? " · Area marked" : ""}</span>
         {alert.mine && <button type="button" className="safe-alert-delete" disabled={busy} onClick={() => void deleteAlert(alert)}><Trash2 size={13} />Delete</button>}
       </div>
-    </article>)}</div>
+    </AccountFeedCard>)}</div>
     {filteredAlerts.length === 0 && <div className="safe-alert-empty"><span><Check size={17} /></span><p>{alerts.length === 0 ? "No reports nearby. If you notice a concern, share it with the community." : "No reports in this category. Choose another category to see more."}</p></div>}
 
     {typeof document !== "undefined" && reportOpen && createPortal(<div className="safe-report-layer">

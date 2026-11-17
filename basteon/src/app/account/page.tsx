@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
+  AlertTriangle,
   ChevronRight,
+  Layers,
+  LocateFixed,
+  MapPin,
   Navigation,
   Radio,
   Route,
@@ -15,7 +20,10 @@ import { useEffect, useRef, useState } from "react";
 import { useLocationEligibility } from "@/hooks/useLocationEligibility";
 import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
-import { AccountListCard, AccountListRow } from "@/components/account/AccountList";
+import { AccountBottomSheet, AccountListCard, AccountListRow, AccountSectionLabel, AccountStatusPill } from "@/components/account/AccountList";
+import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayers";
+
+const KikiSafetyMap = dynamic(() => import("@/components/KikiSafetyMap"), { ssr: false, loading: () => <div className="kiki-safety-map-loading" role="status">Loading map…</div> });
 
 type TripActivity = {
   id: string;
@@ -32,6 +40,7 @@ type ReadinessData = {
   deviceCount: number;
   connectedDeviceCount: number;
   responderCount: number;
+  fullName: string | null;
 };
 
 type NearbyResponderItem = { id: string; name: string; role: string; organisation: string; distanceKm: number };
@@ -58,6 +67,10 @@ export default function AccountPage() {
   const [locationDenied, setLocationDenied] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeSos, setActiveSos] = useState<ActiveSos | null>(null);
+  const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(0);
+  const [mapLayerIndex, setMapLayerIndex] = useState(0);
+  const [mapRecenter, setMapRecenter] = useState(0);
   const { allowed, reason: eligibility } = useLocationEligibility();
   const refreshNearbyRef = useRef<() => void>(() => {});
 
@@ -84,6 +97,7 @@ export default function AccountPage() {
       void getCurrentLocation({ timeout: 8_000, maximumAge: 30_000 }).then(
         (position) => {
           if (cancelled || sequence !== requestSequence) return;
+          setMapPoint({ lat: position.lat, lng: position.lng });
           setLocationDenied(false);
           load(sequence, { lat: position.lat, lng: position.lng });
         },
@@ -160,6 +174,7 @@ export default function AccountPage() {
         deviceCount: deviceRows.length,
         connectedDeviceCount,
         responderCount: (guardianCount ?? 0) + Number(Boolean(profile?.emergency_contact_name?.trim() && profile.emergency_contact_phone?.trim())),
+        fullName: profile?.full_name ?? null,
       });
     })().catch(() => {
       if (!cancelled) setReadinessError(true);
@@ -182,78 +197,86 @@ export default function AccountPage() {
     : nearby.count == null
       ? nearby.availableCount ? "On duty" : "None on duty"
       : nearby.count ? "Nearby" : "None nearby";
+  const mapStatus = activeSos
+    ? { label: "Alert active", tone: "critical" as const }
+    : allowed && mapPoint
+      ? { label: "Protected", tone: "positive" as const }
+      : { label: "Limited location", tone: "warning" as const };
+  const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
 
-  return <div className="kiki-overview">
-    <h1 className="kiki-overview-title">You’re protected.</h1>
+  return <div className="kiki-map-home">
+    <KikiSafetyMap center={mapPoint} zoom={14} layer={currentMapLayer} recenter={mapRecenter} />
+    <div className="kiki-map-status"><AccountStatusPill tone={mapStatus.tone}>{mapStatus.label}</AccountStatusPill></div>
+    <div className="kiki-map-actions" aria-label="Map controls">
+      <button type="button" aria-label="Recenter map on your location" title="Recenter map" onClick={() => { if (mapPoint) setMapRecenter((value) => value + 1); else refreshNearbyRef.current(); }}><LocateFixed size={20} /></button>
+      <Link href="/account/buddies/safe-places?tab=spots" aria-label="Safe spots" title="Safe spots"><MapPin size={20} /></Link>
+      <Link href="/account/buddies/safe-places?tab=alerts" aria-label="Community reports" title="Community reports"><AlertTriangle size={20} /></Link>
+      <button type="button" aria-label={`Map layer: ${currentMapLayer ?? "Street"}`} title={`Map layer: ${currentMapLayer ?? "Street"}`} onClick={() => setMapLayerIndex((index) => (index + 1) % MAP_BASE_LAYERS.length)}><Layers size={20} /></button>
+    </div>
 
-    {activeSos && <button
-      type="button"
-      className="kiki-overview-alert"
-      onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}
-      aria-label={`Open active ${activeSos.type === "medical" ? "medical alert" : "SOS"}`}
-    >
-      <span className="kiki-overview-alert-icon"><Siren size={21} aria-hidden="true" /></span>
-      <span className="kiki-overview-alert-copy">
-        <strong>Active {activeSos.type === "medical" ? "medical alert" : "SOS"}</strong>
-        <span>{activeSos.onScene ? "A responder has arrived" : activeSos.enRoute ? `${activeSos.enRoute} responder${activeSos.enRoute === 1 ? "" : "s"} en route` : activeSos.acknowledged ? `${activeSos.acknowledged} responder${activeSos.acknowledged === 1 ? "" : "s"} acknowledged · not yet en route` : "Alert sent · waiting for a responder"}</span>
-      </span>
-      <span className="kiki-overview-alert-action">View live response <ChevronRight size={16} /></span>
-    </button>}
-
-    <section className="kiki-overview-hero" aria-label="Safety readiness">
-      <div className="kiki-overview-hero-row">
-        <div className="kiki-overview-hero-copy">
-          <h2>{activeTrip ? "Trip protection active" : hasSafetySetup ? "Systems ready" : "Setup in progress"}</h2>
-          <p>
-            {readinessError
-              ? "Safety readiness is temporarily unavailable. You can still plan a safe trip."
-              : activeTrip
-                ? "Route Watch is monitoring your active trip. Check in whenever you need."
-                : hasSafetySetup
-                  ? "Your device and emergency contacts are ready. Start a trip to activate Route Watch."
-                  : "Add a Kiki device and emergency contact to strengthen your safety setup."}
-          </p>
-        </div>
+    <AccountBottomSheet level={sheetLevel} onLevelChange={setSheetLevel}>
+      <div className="kiki-map-sheet-peek">
+        <span className="kiki-map-avatar" aria-hidden="true">{readiness?.fullName?.trim().charAt(0).toUpperCase() || "K"}</span>
+        <span className="kiki-map-peek-copy">
+          <strong>{readiness?.fullName || "Your Kiki account"}</strong>
+          <small>{activeTrip ? `Trip active · ${activeTrip.destination_label}` : hasSafetySetup ? "Your safety setup is ready" : "Complete your safety setup"}</small>
+        </span>
+        <AccountStatusPill tone={activeTrip ? "positive" : mapStatus.tone}>{activeTrip ? "On trip" : mapStatus.label}</AccountStatusPill>
       </div>
-      <Link className="kiki-overview-cta" href="/account/trips">
-        <Navigation size={21} aria-hidden="true" />
-        {activeTrip ? "Open active trip" : "Plan a safe trip"}
-      </Link>
-    </section>
-
-    <section className="kiki-overview-section" aria-labelledby="safety-circle-title">
-      <div className="kiki-overview-section-head"><h2 id="safety-circle-title">Your safety circle</h2></div>
-      <AccountListCard className="kiki-overview-group">
+      <div className="kiki-map-sheet-details">
+        {activeSos && <button type="button" className="kiki-overview-alert" onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>
+          <span className="kiki-overview-alert-icon"><Siren size={20} aria-hidden="true" /></span>
+          <span className="kiki-overview-alert-copy"><strong>Active {activeSos.type === "medical" ? "medical alert" : "SOS"}</strong><span>{activeSos.onScene ? "A responder has arrived" : activeSos.enRoute ? `${activeSos.enRoute} responder${activeSos.enRoute === 1 ? "" : "s"} en route` : activeSos.acknowledged ? `${activeSos.acknowledged} acknowledged` : "Waiting for a responder"}</span></span>
+          <ChevronRight size={18} />
+        </button>}
+        {activeTrip && <Link className="kiki-overview-cta" href="/account/trips"><Navigation size={18} />Open active trip</Link>}
+        <section className="kiki-overview-section" aria-labelledby="safety-circle-title">
+          <AccountSectionLabel>Safety circle</AccountSectionLabel>
+          <AccountListCard className="kiki-overview-group" aria-label="Safety circle">
         <AccountListRow
           href="/account/devices"
           icon={<Radio size={20} />}
           title="Kiki hardware"
           subtitle={`${deviceCount} ${deviceCount === 1 ? "device" : "devices"} linked`}
-          trailing={<><span className={`kiki-overview-state${connectedDeviceCount ? " is-on" : ""}`}><i />{readinessError ? "Unavailable" : connectedDeviceCount ? "Connected" : deviceCount ? "Offline" : "Not linked"}</span><ChevronRight className="kiki-overview-chevron" size={17} /></>}
+          trailing={<><AccountStatusPill tone={readinessError ? "warning" : connectedDeviceCount ? "positive" : "neutral"}>{readinessError ? "Unavailable" : connectedDeviceCount ? "Connected" : deviceCount ? "Offline" : "Not linked"}</AccountStatusPill><ChevronRight className="kiki-overview-chevron" size={17} /></>}
         />
         <AccountListRow
           onClick={() => { setSheetOpen(true); refreshNearbyRef.current(); }}
           icon={<ShieldCheck size={20} />}
           title="Responders"
-          subtitle={nearbyError ? "Responder availability unavailable" : responderStatusCopy}
-          trailing={<><span className={`kiki-overview-state${nearby?.availableCount ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : responderStatusLabel}</span><ChevronRight className="kiki-overview-chevron" size={17} /></>}
+          subtitle={nearbyError ? "Availability unavailable" : responderStatusCopy}
+          trailing={<><AccountStatusPill tone={nearbyError ? "warning" : nearby?.count ? "positive" : nearby?.count === 0 ? "neutral" : "warning"}>{nearbyError ? "Unavailable" : responderStatusLabel}</AccountStatusPill><ChevronRight className="kiki-overview-chevron" size={17} /></>}
         />
         <AccountListRow
           href="/account/buddies"
           icon={<UsersRound size={20} />}
           title="Buddy watch"
-          subtitle={buddy?.active ? buddy.visible ? "Visible to nearby Buddies" : "Buddy trip active · hidden" : "No Buddy trip active"}
-          trailing={<><span className={`kiki-overview-state${buddy?.active && buddy.visible ? " is-on" : ""}`}><i />{buddyError ? "Unavailable" : buddy?.active ? buddy.visible ? "Sharing" : "Hidden" : "Off"}</span><ChevronRight className="kiki-overview-chevron" size={17} /></>}
+          subtitle={buddy?.active ? buddy.visible ? "Visible to nearby Buddies" : "Trip active but hidden" : "No trip active"}
+          trailing={<><AccountStatusPill tone={buddyError ? "warning" : buddy?.active && buddy.visible ? "positive" : "neutral"}>{buddyError ? "Unavailable" : buddy?.active ? buddy.visible ? "Sharing" : "Hidden" : "Off"}</AccountStatusPill><ChevronRight className="kiki-overview-chevron" size={17} /></>}
         />
         <AccountListRow
           href="/account/trips"
           icon={<Route size={20} />}
           title="Route Watch"
           subtitle={activeTrip ? `Monitoring trip to ${activeTrip.destination_label}` : "No active trip"}
-          trailing={<><span className={`kiki-overview-state${activeTrip ? " is-on" : ""}`}><i />{tripError ? "Unavailable" : activeTrip ? "Active" : "Off"}</span><ChevronRight className="kiki-overview-chevron" size={17} /></>}
+          trailing={<><AccountStatusPill tone={tripError ? "warning" : activeTrip ? "positive" : "neutral"}>{tripError ? "Unavailable" : activeTrip ? "Active" : "Off"}</AccountStatusPill><ChevronRight className="kiki-overview-chevron" size={17} /></>}
         />
-      </AccountListCard>
-    </section>
+          </AccountListCard>
+        </section>
+        <section className="kiki-overview-section kiki-overview-recent" aria-labelledby="recent-trips-title">
+          <div className="kiki-overview-section-head"><AccountSectionLabel>Recent trips</AccountSectionLabel><Link href="/account/trips">See all</Link></div>
+          <AccountListCard className="kiki-overview-group" aria-label="Recent trips">
+            {trips && trips.recent.length > 0
+              ? trips.recent.slice(0, 3).map((trip) => <Link className="kiki-overview-trip-row" href={`/account/trips?destination=${encodeURIComponent(trip.id)}`} key={trip.id}>
+                <span className="kiki-overview-route" aria-hidden="true"><i /><u /><i /></span>
+                <span className="kiki-overview-trip-copy"><strong>{trip.destination_label}</strong></span>
+                <time dateTime={trip.ended_at ?? trip.created_at}>{formatTripDate(trip.ended_at ?? trip.created_at)}</time>
+              </Link>)
+              : <div className="kiki-overview-empty">{tripError ? "Recent trips are unavailable." : trips ? "No completed trips yet." : "Loading recent trips…"}</div>}
+          </AccountListCard>
+        </section>
+      </div>
+    </AccountBottomSheet>
     {sheetOpen && <div className="kiki-overview-responders-scrim" role="dialog" aria-modal="true" aria-label="Nearby responders" onClick={() => setSheetOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div className="kiki-overview-responders-sheet" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%,520px)", maxHeight: "80vh", overflowY: "auto", borderRadius: "24px 24px 0 0", padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -273,20 +296,5 @@ export default function AccountPage() {
           </li>)}</ul>}
       </div>
     </div>}
-
-    <section className="kiki-overview-section kiki-overview-recent" aria-labelledby="recent-trips-title">
-      <div className="kiki-overview-section-head"><h2 id="recent-trips-title">Recent trips</h2><Link href="/account/trips">See all</Link></div>
-      <AccountListCard className="kiki-overview-group">
-        {trips && trips.recent.length > 0
-          ? trips.recent.slice(0, 3).map((trip) => <Link className="kiki-overview-trip-row" href={`/account/trips?destination=${encodeURIComponent(trip.id)}`} key={trip.id}>
-            <span className="kiki-overview-route" aria-hidden="true"><i /><u /><i /></span>
-            <span className="kiki-overview-trip-copy">
-              <strong>{trip.destination_label}</strong>
-            </span>
-            <time dateTime={trip.ended_at ?? trip.created_at}>{formatTripDate(trip.ended_at ?? trip.created_at)}</time>
-          </Link>)
-          : <div className="kiki-overview-empty">{tripError ? "Recent trips are unavailable right now." : trips ? "Your completed trips will appear here." : "Loading recent trips…"}</div>}
-      </AccountListCard>
-    </section>
   </div>;
 }

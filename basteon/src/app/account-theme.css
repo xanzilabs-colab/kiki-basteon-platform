@@ -1751,3 +1751,1942 @@
     border-radius: 16px 16px 0 0;
   }
 }
+
+.account-shell {
+  --chrome: #fff;
+  --bg: #f4f2f7;
+  --surface-1: #fff;
+  --surface-2: #f4f2f7;
+  --surface-3: #eee8f6;
+  --well: #f4f2f7;
+  --divider: rgb(41 35 31 / 7%);
+  --text: #29231f;
+  --text-2: #756d66;
+  --muted: #756d66;
+  --accent: #4a2472;
+  --accent-ink: #fff;
+  --accent-bg: #eee8f6;
+  --line-focus: #4a2472;
+  --ok: #2f7048;
+  --ok-bg: #e6f3e8;
+  --warn: #91600e;
+  --warn-bg: #fff3d8;
+  --crit: #b4233d;
+  --crit-bg: #fff0f2;
+  background: var(--bg);
+}
+
+html:has(.account-shell),
+body:has(.account-shell) {
+  background: #f4f2f7;
+}
+
+.account-shell > div,
+.account-shell main {
+  background: var(--bg);
+}
+
+.account-shell main {
+  padding-bottom: max(112px, calc(68px + env(safe-area-inset-bottom) + 32px));
+}
+
+.account-shell .account-list-card {
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell .account-section-label {
+  margin: 0 4px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.account-shell .account-icon-badge,
+.account-shell .account-list-row-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .account-list-row {
+  position: relative;
+  min-height: 64px;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 10px 16px;
+}
+
+.account-shell .account-list-row::after,
+.account-shell .account-toggle-row::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 68px;
+  height: 1px;
+  background: var(--divider);
+  content: "";
+}
+
+.account-shell .account-list-row:last-child::after,
+.account-shell .account-list-row:last-child::before,
+.account-shell .account-toggle-row:last-child::after {
+  display: none;
+}
+
+.account-shell .account-list-row:hover,
+.account-shell .account-toggle-row:hover {
+  background: transparent;
+}
+
+.account-shell .account-list-row-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .account-list-row-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .account-list-row-trailing {
+  flex: none;
+  color: var(--muted);
+}
+
+.account-shell .account-status-pill {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--surface-2);
+  padding: 3px 9px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.account-shell .account-status-pill.is-positive {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell .account-status-pill.is-warning {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.account-shell .account-status-pill.is-critical {
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell .account-segmented {
+  display: flex;
+  min-height: 48px;
+  gap: 4px;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 4px;
+  scrollbar-width: none;
+}
+
+.account-shell .account-segmented::-webkit-scrollbar,
+.account-shell .account-chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.account-shell .account-segmented button {
+  display: inline-flex;
+  min-width: max-content;
+  min-height: 40px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-shell .account-segmented button[aria-pressed="true"] {
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.account-shell .account-chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.account-shell .account-chip {
+  display: inline-flex;
+  min-height: 36px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  padding: 0 13px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.account-shell .account-chip[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+
+.account-shell .account-stat-tile {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 14px;
+}
+
+.account-shell .account-stat-icon {
+  color: var(--accent);
+}
+
+.account-shell .account-stat-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-shell .account-stat-tile strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .account-banner {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent-bg);
+  padding: 12px 16px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.account-shell .account-toggle-row {
+  position: relative;
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+}
+
+.account-shell .account-toggle {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  background: #d7d4da;
+}
+
+.account-shell .account-toggle > span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 18%);
+  transition: transform 160ms ease;
+}
+
+.account-shell .account-toggle[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.account-shell .account-toggle[aria-checked="true"] > span {
+  transform: translateX(20px);
+}
+
+.account-shell .account-toggle:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.account-shell .btn {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell .btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 6px rgb(74 36 114 / 16%);
+}
+
+.account-shell .btn-primary:hover,
+.account-shell .btn-primary:active {
+  background: #35194f;
+}
+
+.account-shell .account-bottom-sheet {
+  position: absolute;
+  z-index: 450;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  max-height: calc(100% - 88px);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px 24px 0 0;
+  background: var(--bg);
+  box-shadow: 0 -8px 32px rgb(35 20 48 / 12%);
+  transition: height 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.account-shell .account-bottom-sheet.level-0 { height: 128px; }
+.account-shell .account-bottom-sheet.level-1 { height: min(58%, 520px); }
+.account-shell .account-bottom-sheet.level-2 { height: calc(100% - 88px); }
+
+.account-shell .account-sheet-handle {
+  display: grid;
+  min-height: 38px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+.account-shell .account-sheet-handle span {
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: #c9c4ce;
+}
+
+.account-shell .account-sheet-content {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 16px calc(92px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+
+.account-shell .account-sheet-content::-webkit-scrollbar {
+  display: none;
+}
+
+.account-shell :is(.account-page-transition, main > div):focus-visible {
+  outline-offset: -2px;
+}
+
+.account-shell > div {
+  scrollbar-width: none;
+}
+
+.account-shell > div::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .account-shell main {
+    padding: 0 16px calc(112px + env(safe-area-inset-bottom));
+  }
+}
+
+.account-shell .appbar {
+  height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--divider);
+  background: var(--surface-1);
+  padding-inline: 16px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.account-shell .account-topbar-title {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .account-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.account-shell .account-header-actions .account-header-action {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+}
+
+.account-shell .account-header-actions .account-header-action:hover {
+  background: var(--surface-2);
+}
+
+.account-shell .sidebar {
+  background: #35194f;
+}
+
+.account-shell .sidebar-link {
+  min-height: 48px;
+  margin-inline: 10px;
+  border-radius: 12px;
+  color: rgb(255 255 255 / 76%);
+}
+
+.account-shell .sidebar-link[aria-current="page"] {
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+}
+
+.account-shell .account-mobile-nav {
+  height: calc(68px + env(safe-area-inset-bottom));
+  align-items: center;
+  justify-content: space-around;
+  border-top: 1px solid var(--divider);
+  border-color: var(--divider);
+  background: var(--surface-1);
+  padding: 0 8px env(safe-area-inset-bottom);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.account-shell .account-mobile-nav .nav-link {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  height: 58px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  color: #817c86;
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.account-shell .account-mobile-nav .nav-link[aria-current="page"] {
+  background: transparent;
+  color: var(--accent);
+}
+
+.account-shell .account-mobile-nav .nav-link[aria-current="page"]::before {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 16px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--accent);
+  content: "";
+}
+
+.account-shell .account-mobile-nav .nav-sigil {
+  display: grid;
+  width: auto;
+  height: auto;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.account-shell .account-mobile-nav .nav-sigil::before {
+  display: none;
+}
+
+.account-shell .account-mobile-nav .account-mobile-sos {
+  position: relative;
+  top: -10px;
+  display: grid;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid var(--surface-1);
+  border-radius: 50%;
+  background: var(--crit);
+  box-shadow: 0 4px 12px rgb(180 35 61 / 25%);
+}
+
+.account-shell .account-mobile-nav .account-mobile-sos .kiki-mark {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+.account-shell main:has(.kiki-map-home) {
+  width: 100%;
+  max-width: none;
+  height: calc(100dvh - 56px);
+  min-height: 480px;
+  padding: 0;
+}
+
+.account-shell .kiki-map-home {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  overflow: hidden;
+  background: #e9e7ed;
+}
+
+.account-shell .kiki-safety-map,
+.account-shell .kiki-safety-map-canvas,
+.account-shell .kiki-safety-map-loading {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.account-shell .kiki-safety-map-loading {
+  display: grid;
+  place-items: center;
+  background: #ebe8ef;
+  color: var(--muted);
+}
+
+.account-shell .kiki-map-attribution {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 400;
+  max-width: min(60%, 260px);
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 82%);
+  padding: 2px 4px;
+  color: #544d59;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-map-status {
+  position: absolute;
+  z-index: 410;
+  top: 14px;
+  left: 14px;
+}
+
+.account-shell .kiki-map-actions {
+  position: absolute;
+  z-index: 410;
+  top: 66px;
+  right: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.account-shell .kiki-map-actions button,
+.account-shell .kiki-map-actions a {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: 0 2px 10px rgb(34 23 43 / 16%);
+  text-decoration: none;
+}
+
+.account-shell .kiki-map-sheet-peek {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-shell .kiki-map-avatar {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.account-shell .kiki-map-peek-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.account-shell .kiki-map-peek-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-map-peek-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-map-sheet-details {
+  display: grid;
+  gap: 14px;
+  padding-top: 12px;
+}
+
+.account-shell .kiki-map-sheet-details .kiki-overview-section {
+  display: grid;
+  gap: 8px;
+}
+
+.account-shell .kiki-map-sheet-details .kiki-overview-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.account-shell .kiki-map-sheet-details .kiki-overview-section-head > a {
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.account-shell .account-bottom-sheet.level-0 .account-sheet-content {
+  overflow: hidden;
+}
+
+.account-shell .kiki-overview-cta {
+  min-height: 48px;
+  justify-content: flex-start;
+  border-radius: 14px;
+  background: var(--accent);
+  padding: 0 16px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.account-shell .kiki-overview-cta:hover {
+  background: #35194f;
+  color: #fff;
+}
+
+.account-shell .kiki-overview-trip-row {
+  min-height: 60px;
+  height: auto;
+  background: transparent;
+}
+
+.account-shell .kiki-overview-trip-row + .kiki-overview-trip-row::before {
+  left: 58px;
+}
+
+.account-shell .kiki-profile-hub {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.account-shell .kiki-profile-identity-card {
+  overflow: hidden;
+  padding: 16px;
+}
+
+.account-shell .kiki-profile-identity {
+  display: flex;
+  min-height: 88px;
+  align-items: center;
+  gap: 14px;
+  border: 0;
+  padding: 0;
+  text-decoration: none;
+}
+
+.account-shell .kiki-profile-identity > img,
+.account-shell .kiki-profile-identity > span {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  box-shadow: none;
+  object-fit: cover;
+}
+
+.account-shell .kiki-profile-identity-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.account-shell .kiki-profile-identity-copy h2 {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-profile-identity-copy p {
+  overflow: hidden;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-profile-identity-copy b {
+  width: max-content;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  padding: 4px 9px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.account-shell .kiki-profile-card-arrow {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.account-shell .kiki-profile-section {
+  display: grid;
+  gap: 8px;
+}
+
+.account-shell .smart-safety-settings {
+  display: grid;
+}
+
+.account-shell .smart-safety-settings > .account-toggle-row:first-child::after {
+  left: 16px;
+}
+
+.account-shell .smart-safety-settings > .account-toggle-row:last-of-type::after {
+  display: none;
+}
+
+.account-shell .smart-safety-alert {
+  margin: 6px 16px 10px;
+  border-radius: 10px;
+  background: var(--warn-bg);
+  padding: 9px 11px;
+  color: var(--warn);
+  font-size: 12px;
+}
+
+.account-shell .kiki-profile-logout-card {
+  overflow: hidden;
+}
+
+.account-shell .kiki-profile-logout {
+  width: 100%;
+  min-height: 56px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface-1);
+  padding: 12px 16px;
+  color: var(--crit);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.account-shell .kiki-profile-logout:hover {
+  background: var(--crit-bg);
+}
+
+.account-shell main :is(.panel, .glass, .tbl-wrap, .kiki-setting-page > section, .hamba-planner, .hamba-recent, .buddies-panel:not(.buddies-radar-panel), .buddies-consent, .devices-empty, .everyday-empty-card, .everyday-device-list, .everyday-simple-list) {
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell main button:not(.leaflet-control-zoom a),
+.account-shell main a.btn {
+  border-color: transparent;
+}
+
+.account-shell .kiki-setting-page > header > span,
+.account-shell .kiki-profile-hub > header > span,
+.account-shell .devices-heading-eyebrow,
+.account-shell .everyday-eyebrow {
+  display: none;
+}
+
+.account-shell .kiki-setting-page h1,
+.account-shell .kiki-profile-hub > header h1,
+.account-shell .devices-heading h1,
+.account-shell .safe-spots-heading {
+  display: none;
+}
+
+.account-shell .page-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.account-shell .safe-spots-page {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.account-shell main:has(.safe-spots-page) {
+  width: 100%;
+  max-width: none;
+  height: calc(100dvh - 56px);
+  min-height: 480px;
+  padding: 0;
+}
+
+.account-shell .safe-spots-map-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #e9e7ed;
+}
+
+.account-shell .safe-spots-map-frame .kiki-safety-map,
+.account-shell .safe-spots-map-frame .kiki-safety-map-canvas,
+.account-shell .safe-spots-map-frame .safe-map-loading {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.account-shell .safe-spots-map-actions {
+  position: absolute;
+  z-index: 420;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  background: var(--surface-1);
+  padding: 0 8px 0 14px;
+  color: var(--text);
+  box-shadow: 0 2px 10px rgb(34 23 43 / 16%);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account-shell .safe-spots-map-actions button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--accent);
+}
+
+.account-shell .safe-spots-map-frame > .safe-map-intro {
+  position: absolute;
+  z-index: 410;
+  right: 16px;
+  bottom: 62%;
+  left: 16px;
+  max-width: 440px;
+  margin: 0 auto;
+  border-radius: 18px;
+  background: var(--surface-1);
+  padding: 16px;
+  box-shadow: 0 2px 12px rgb(34 23 43 / 12%);
+}
+
+.account-shell .safe-spots-sheet-body {
+  display: grid;
+  gap: 12px;
+}
+
+.account-shell .safe-spots-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.account-shell .safe-spots-tabs button {
+  position: static;
+  min-width: 0;
+  min-height: 40px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  padding: 0 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account-shell .safe-spots-tabs button[aria-selected="true"] {
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.account-shell .safe-spots-tabs button > span {
+  min-width: 20px;
+  height: 20px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.account-shell .safe-spots-tab-panel {
+  display: grid;
+  gap: 12px;
+  background: transparent;
+}
+
+.account-shell .safe-spots-tab-panel[hidden] {
+  display: none;
+}
+
+.account-shell .safe-category-chips,
+.account-shell .safe-report-categories {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0;
+  padding: 0 0 4px;
+  scrollbar-width: none;
+}
+
+.account-shell .safe-category-chips::-webkit-scrollbar,
+.account-shell .safe-report-categories::-webkit-scrollbar {
+  display: none;
+}
+
+.account-shell .safe-category-chips button,
+.account-shell .safe-report-categories button {
+  min-height: 36px;
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  padding: 0 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.account-shell .safe-category-chips button[aria-pressed="true"],
+.account-shell .safe-report-categories button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+
+.account-shell .safe-spot-list,
+.account-shell .safe-meeting-list {
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.account-shell .safe-spot-card,
+.account-shell .safe-meeting-card {
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-1);
+  box-shadow: none;
+  padding: 12px 14px;
+}
+
+.account-shell .safe-spot-card + .safe-spot-card,
+.account-shell .safe-meeting-card + .safe-meeting-card {
+  border-top: 1px solid var(--divider);
+}
+
+.account-shell .safe-spot-card.is-selected,
+.account-shell .safe-spot-card.is-demo {
+  border-color: transparent;
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+.account-shell .safe-spot-card.is-selected {
+  background: var(--accent-bg);
+}
+
+.account-shell .safe-spot-title {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.account-shell .safe-spot-icon,
+.account-shell .safe-meeting-icon,
+.account-shell .safe-suggest-icon {
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .safe-spot-address {
+  margin: 3px 0 8px 52px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-shell .safe-spot-footer {
+  flex-wrap: wrap;
+  margin-left: 52px;
+  border-top: 1px solid var(--divider);
+  padding-top: 8px;
+}
+
+.account-shell .safe-alerts-panel {
+  display: grid;
+  gap: 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.account-shell .safe-alerts-header {
+  display: flex;
+  min-height: 0;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.account-shell .safe-report-open {
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  padding: 12px 14px;
+}
+
+.account-shell .safe-report-open > span:first-child,
+.account-shell .safe-report-open > span:last-child {
+  color: #fff;
+}
+
+.account-shell .safe-alert-list {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+}
+
+.account-shell .account-feed-card.safe-alert-card {
+  gap: 10px;
+  border: 0 !important;
+  border-radius: 16px !important;
+  background: var(--surface-1) !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%) !important;
+  padding: 14px !important;
+}
+
+.account-shell .safe-alert-card.is-demo,
+.account-shell .safe-alert-card.is-lighting,
+.account-shell .safe-alert-card.is-rose {
+  border: 0 !important;
+  background: var(--surface-1) !important;
+}
+
+.account-shell .safe-alert-kind {
+  border: 0;
+  border-radius: 999px;
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell .safe-alert-card.is-lighting .safe-alert-kind {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.account-shell .safe-alert-card > p {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.account-shell .safe-alert-card-footer {
+  align-items: center;
+  border-color: var(--divider);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-shell .safe-alert-card-footer .safe-alert-delete {
+  border: 0;
+  background: transparent;
+  color: var(--crit);
+}
+
+.account-shell .safe-alert-card-heading .buddy-upvote {
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.account-shell .safe-alert-card-heading .buddy-upvote.is-voted {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .devices-sos-guide {
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell .kiki-devices-redesign {
+  display: grid;
+  max-width: 640px;
+  gap: 12px;
+  padding-bottom: 12px;
+  --device-ink: var(--text);
+  --device-plum: var(--accent);
+  --device-plum-light: var(--accent);
+  --device-lavender: var(--accent-bg);
+  --device-mute: var(--muted);
+  --device-line: var(--divider);
+  --device-green: var(--ok);
+}
+
+.account-shell .devices-heading-actions {
+  display: flex;
+  min-height: 40px;
+  justify-content: flex-end;
+}
+
+.account-shell .devices-link-button {
+  min-height: 42px;
+  border-radius: 12px;
+  background: var(--accent);
+  box-shadow: none;
+  color: #fff;
+  font-size: 14px;
+}
+
+.account-shell .devices-mode-switch {
+  margin: 0;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 4px;
+}
+
+.account-shell .devices-mode-switch button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.account-shell .devices-mode-switch button.active {
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.account-shell .devices-hero {
+  border: 0;
+  border-radius: 20px;
+  background: var(--accent-bg) !important;
+  box-shadow: none;
+}
+
+.account-shell .device-orbit {
+  display: none;
+}
+
+.account-shell .devices-hero .devices-hero-copy,
+.account-shell .devices-hero .devices-hero-copy h2,
+.account-shell .devices-hero .devices-hero-copy .devices-id {
+  color: var(--text) !important;
+}
+
+.account-shell .devices-hero-copy h2 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.account-shell .devices-status {
+  min-height: 26px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.account-shell .devices-status.connected {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell .devices-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 0;
+  padding: 4px;
+}
+
+.account-shell .devices-metric {
+  position: relative;
+  min-height: 94px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 12px 10px;
+}
+
+.account-shell .devices-metric + .devices-metric {
+  border-left: 1px solid var(--divider);
+}
+
+.account-shell .devices-metric > svg {
+  color: var(--accent);
+}
+
+.account-shell .devices-metric small,
+.account-shell .devices-metric b {
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.account-shell .devices-metric b {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-shell .devices-actions,
+.account-shell .devices-list {
+  overflow: hidden;
+  margin-top: 0;
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell .devices-actions > button,
+.account-shell .devices-actions > a {
+  min-height: 64px;
+  background: transparent;
+  padding: 10px 16px;
+  color: var(--text);
+}
+
+.account-shell .devices-actions > * + *::before,
+.account-shell .devices-list-row + .devices-list-row::before {
+  left: 68px;
+  background: var(--divider);
+}
+
+.account-shell .devices-action-icon,
+.account-shell .devices-list-art,
+.account-shell .everyday-device-icon,
+.account-shell .everyday-small-icon,
+.account-shell .everyday-heading-icon,
+.account-shell .everyday-empty-icon {
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .devices-actions b,
+.account-shell .devices-actions small,
+.account-shell .devices-list-copy b,
+.account-shell .devices-list-copy small {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-shell .devices-actions small,
+.account-shell .devices-list-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.account-shell .devices-list-row {
+  min-height: 64px;
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.account-shell .devices-list-row.selected {
+  background: var(--accent-bg);
+}
+
+.account-shell .devices-list-art {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}
+
+.account-shell .devices-list-art img {
+  width: 32px;
+  height: 32px;
+}
+
+.account-shell .devices-list-badge,
+.account-shell .everyday-status-chip {
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.account-shell .devices-list-badge.online,
+.account-shell .everyday-status-chip.connected {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell .devices-list-badge.low {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.account-shell .devices-list-title {
+  margin: 0;
+}
+
+.account-shell .devices-id-row {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 10px 16px 14px 68px;
+}
+
+.account-shell .devices-id-row::before {
+  position: absolute;
+  right: 0;
+  left: 68px;
+  height: 1px;
+  background: var(--divider);
+  content: "";
+}
+
+.account-shell .devices-id-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-shell .devices-id-row code {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.account-shell .everyday-devices-card {
+  gap: 12px;
+  --ed-ink: var(--text);
+  --ed-muted: var(--muted);
+  --ed-line: var(--divider);
+  --ed-plum: var(--accent);
+  --ed-deep: var(--accent);
+  --ed-lav: var(--accent-bg);
+  --ed-ok: var(--ok);
+  --ed-okbg: var(--ok-bg);
+}
+
+.account-shell .everyday-section-heading {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.account-shell .everyday-heading-copy {
+  display: none;
+}
+
+.account-shell .everyday-section-heading::before {
+  color: var(--muted);
+  content: "Phone-connected devices";
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.account-shell .everyday-primary-button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  padding: 0 14px;
+  color: #fff;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-shell .everyday-device-list,
+.account-shell .everyday-simple-list {
+  overflow: hidden;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell .everyday-device-entry {
+  grid-template-columns: 40px minmax(0, 1fr) auto 24px;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.account-shell .everyday-device-entry + .everyday-device-entry,
+.account-shell .everyday-simple-row + .everyday-simple-row {
+  border-color: var(--divider);
+}
+
+.account-shell .everyday-device-icon,
+.account-shell .everyday-small-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.account-shell .everyday-device-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--text);
+  text-align: left;
+}
+
+.account-shell .everyday-device-copy b {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.account-shell .everyday-device-copy span,
+.account-shell .everyday-device-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.account-shell .everyday-device-copy small:nth-of-type(1),
+.account-shell .everyday-device-copy small:nth-of-type(2) {
+  display: none;
+}
+
+.account-shell .everyday-device-chevron {
+  color: var(--muted);
+}
+
+.account-shell .everyday-device-actions {
+  display: none;
+}
+
+.account-shell .everyday-device-entry > .everyday-status-chip {
+  grid-column: 3;
+}
+
+.account-shell .everyday-action-button,
+.account-shell .everyday-more summary {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell .everyday-action-button.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.account-shell .everyday-action-button.remove {
+  color: var(--crit);
+}
+
+.account-shell .everyday-detail-actions {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.account-shell .everyday-sheet,
+.account-shell .safe-report-sheet,
+.account-shell .account-sos-dialog,
+.account-shell .kiki-overview-responders-sheet {
+  border: 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--surface-1);
+}
+
+.account-shell .hamba-page {
+  display: grid;
+  gap: 12px;
+}
+
+.account-shell .hamba-heading {
+  min-height: 24px;
+  margin: 0;
+}
+
+.account-shell .hamba-heading .page-title {
+  display: none;
+}
+
+.account-shell .hamba-trip-tabs,
+.account-shell .hamba-mode,
+.account-shell .buddies-modes {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 4px;
+  scrollbar-width: none;
+}
+
+.account-shell .hamba-trip-tabs button,
+.account-shell .hamba-mode button,
+.account-shell .buddies-modes button {
+  min-width: 0;
+  min-height: 42px;
+  flex: 1;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account-shell .hamba-trip-tabs button[aria-selected="true"],
+.account-shell .hamba-mode button.active,
+.account-shell .buddies-modes button[aria-pressed="true"] {
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.account-shell .hamba-map-stage {
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.account-shell .hamba-map-overlay {
+  border: 0;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 2px 10px rgb(34 23 43 / 14%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.account-shell .hamba-active-card {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.account-shell .hamba-stats-card,
+.account-shell .hamba-share-card {
+  overflow: hidden;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell .hamba-control-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+}
+
+.account-shell .hamba-control-stats > div {
+  min-height: 76px;
+  gap: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 12px 14px;
+}
+
+.account-shell .hamba-control-stats > div + div {
+  border-left: 1px solid var(--divider);
+}
+
+.account-shell .hamba-control-stats span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.account-shell .hamba-control-stats b {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.account-shell .hamba-stop-card {
+  min-height: 64px;
+  margin: 0;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell .hamba-stop-card .btn {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .hamba-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.account-shell .hamba-actions .btn {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  white-space: normal;
+}
+
+.account-shell .hamba-actions .hamba-arrive {
+  background: var(--accent);
+  color: #fff;
+}
+
+.account-shell .hamba-share-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.account-shell .hamba-share-card h2 {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.account-shell .hamba-share-card p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.account-shell .hamba-share-card .btn:not(.btn-primary) {
+  background: transparent;
+  color: var(--accent);
+}
+
+.account-shell .hamba-guardian-row,
+.account-shell .hamba-buddy-row {
+  min-height: 56px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 0;
+}
+
+.account-shell .hamba-guardian-row + .hamba-guardian-row,
+.account-shell .hamba-buddy-row + .hamba-buddy-row {
+  border-top: 1px solid var(--divider);
+}
+
+.account-shell .hamba-buddy-row.is-selected {
+  border-radius: 10px;
+  background: var(--accent-bg);
+  padding-inline: 8px;
+}
+
+.account-shell .hamba-tools button,
+.account-shell .hamba-engine,
+.account-shell .buddies-heading > span {
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  padding: 0 12px;
+}
+
+.account-shell .hamba-tools button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.account-shell .buddies-heading.buddies-tool-links {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.account-shell .buddies-tool-links > a {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell .buddies-tool-links .buddies-verified {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--ok-bg);
+  padding: 0 9px;
+  color: var(--ok);
+  font-size: 12px;
+}
+
+.account-shell .buddies-radar-panel {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.account-shell .buddies-radar-panel .gardenPond,
+.account-shell .buddies-radar-panel [class*="gardenPond"] {
+  width: min(100%, 300px);
+  max-height: 300px;
+  aspect-ratio: 1;
+  border: 0;
+}
+
+.account-shell .buddies-plan-widget {
+  display: grid;
+  gap: 12px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  padding: 16px;
+}
+
+.account-shell .buddies-plan-widget h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.account-shell .hamba-search,
+.account-shell .buddies-plan-widget input,
+.account-shell .buddies-plan-widget select {
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.account-shell .buddies-invite-notice {
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-shell .account-sheet-content > .safe-spots-sheet-body {
+  overflow: visible;
+  padding: 0 0 calc(32px + env(safe-area-inset-bottom));
+}
+
+.account-shell .safe-spots-page .account-bottom-sheet.level-0 {
+  height: 44%;
+}
+
+.account-shell .safe-spots-page .account-bottom-sheet.level-1 {
+  height: 68%;
+}
+
+.account-shell .safe-spots-page .account-bottom-sheet.level-2 {
+  height: calc(100% - 44px);
+}
+
+.account-shell .safe-spots-page .account-sheet-content {
+  padding: 0 14px calc(88px + env(safe-area-inset-bottom));
+}
+
+.account-shell .safe-spots-list-heading {
+  margin: 0;
+}
+
+.account-shell .safe-spots-list-heading h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.account-shell .safe-spots-list-heading p {
+  font-size: 12px;
+}
+
+.account-shell .safe-suggest-card {
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.account-shell .safe-report-layer .safe-report-sheet {
+  max-height: calc(100dvh - 24px);
+  border-radius: 24px 24px 0 0;
+  background: var(--surface-1);
+}
+
+.account-shell .safe-report-sheet header > button,
+.account-shell .everyday-sheet-close {
+  border: 0;
+  background: var(--surface-2);
+}
+
+@media (max-width: 767px) {
+  .account-shell .kiki-map-home {
+    height: calc(100dvh - 56px);
+  }
+
+  .account-shell .kiki-map-actions {
+    top: 62px;
+  }
+
+  .account-shell .kiki-profile-hub {
+    gap: 12px;
+  }
+
+  .account-shell .hamba-actions .btn {
+    font-size: 13px;
+  }
+}

@@ -15,7 +15,7 @@ import type { GeoPoint, RouteWatchState } from "@/lib/hamba/types";
 import { enablePushNotifications } from "@/lib/usePushNotifications";
 import { TravelTogetherPanel } from "@/components/TravelTogetherPanel";
 import { useAppDialog } from "@/components/AppDialogProvider";
-import { AccountListCard } from "@/components/account/AccountList";
+import { AccountBanner, AccountListCard } from "@/components/account/AccountList";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false, loading: () => <div className="hamba-map hamba-map-loading">Loading map...</div> });
 type Place = { label: string; lat: number; lng: number };
@@ -335,16 +335,13 @@ export default function TripsPage() {
   return (
     <div className="hamba-page">
       <div className="hamba-heading">
-        <div><h1 className="page-title">{activeTrip && tripTab === "route" ? "Active trip tracking" : "Where to?"}</h1></div>
         {tripTab === "route" && <span className={activeTrip ? "hamba-live" : "hamba-engine"}>{activeTrip ? <><i />{activeTrip.status === "active" ? "Trip active" : activeTrip.status}</> : "No active trip"}</span>}
       </div>
       <div className="hamba-trip-tabs" role="tablist" aria-label="Trip safety mode">
         <button type="button" role="tab" aria-selected={tripTab === "route"} onClick={() => setTripTab("route")}><Navigation size={16} />Route Watch</button>
         <button type="button" role="tab" aria-selected={tripTab === "travel"} onClick={() => setTripTab("travel")}><UsersRound size={16} />Travel Together</button>
       </div>
-      <Link href="/account/calm/winds?mode=quiet" className="my-3 flex min-h-12 items-center gap-3 rounded-2xl border border-[#e3d8eb] bg-white px-4 py-3 text-[#522868] shadow-sm">
-        <Wind size={19} /><span><b className="block">Need a minute?</b><small className="text-[#756583]">Open Gentle Winds in Quiet mode</small></span><ChevronRight size={17} className="ml-auto" />
-      </Link>
+      <AccountBanner href="/account/calm/winds?mode=quiet" icon={<Wind size={19} />}>Open Gentle Winds in Quiet mode<ChevronRight size={17} className="ml-auto" /></AccountBanner>
       {tripTab === "route" ? <>
       {activeTrip ? (
         <section className="hamba-active">

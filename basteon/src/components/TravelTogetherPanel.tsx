@@ -330,7 +330,11 @@ export function TravelTogetherPanel({
   }
 
   return <div className="buddies-page">
-    <div className="buddies-heading"><div><p className="eyebrow">Privacy-first matching</p><h1 className="page-title">Travel together</h1></div><div className="flex flex-wrap items-center gap-2"><Link className="btn" href="/account/buddies/safe-places"><MapPinned size={16} />Safe spots & reports</Link><Link className="btn" href="/account/buddies/history"><Clock3 size={16} />History</Link><span><ShieldCheck size={16} />Verified travel</span></div></div>
+    <div className="buddies-heading buddies-tool-links">
+      <Link href="/account/buddies/safe-places" aria-label="Safe spots and reports" title="Safe spots and reports"><MapPinned size={19} /></Link>
+      <Link href="/account/buddies/history" aria-label="Travel history" title="Travel history"><Clock3 size={19} /></Link>
+      <span className="buddies-verified"><ShieldCheck size={15} />Verified travel</span>
+    </div>
     <section className="buddies-panel buddies-radar-panel">
       <div className={radarStyles.gardenPond} aria-label="Approximate Travel Together zones, not geographic locations">
         <div className={radarStyles.pondWash} />

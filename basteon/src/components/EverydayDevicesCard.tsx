@@ -336,7 +336,7 @@ export default function EverydayDevicesCard() {
                 <span className={`everyday-device-icon${device.kind === "wired" ? " wired" : ""}`}>
                   {device.kind === "wired" ? <Headphones size={21} /> : <Bluetooth size={21} />}
                 </span>
-                <div className="everyday-device-copy">
+                <button className="everyday-device-copy" type="button" onClick={() => setInfoDevice(device)} aria-label={`View details for ${device.name}`}>
                   <b>{device.name}</b>
                   <span>{KIND_NAMES[device.kind]} · {statusText(device.status)}</span>
                   <small>
@@ -347,33 +347,11 @@ export default function EverydayDevicesCard() {
                   <small className={device.verifiedAt ? "verified" : "unverified"}>
                     {device.verifiedAt ? <><CheckCircle2 size={13} />Practice press verified</> : "Not tested yet"}
                   </small>
-                </div>
+                </button>
                 <span className={`everyday-status-chip${device.status === "connected" ? " connected" : ""}`}>
                   {device.verifiedAt ? "Practiced" : statusChipText(device.status)}
                 </span>
-                <div className="everyday-device-actions">
-                  <Link
-                    className="everyday-action-button"
-                    href={`/account/profile/triggers/lab?deviceRef=${encodeURIComponent(device.profileRef || device.ref)}`}
-                    onClick={() => setFlowStep(0)}
-                  >
-                    Gesture setup
-                  </Link>
-                  <button className="everyday-action-button primary" type="button" disabled={busy || practiceRef !== null} onClick={() => void startPractice(device)}>
-                    {practiceRef === device.ref ? "Listening…" : "Practice"}
-                  </button>
-                  <button className="everyday-action-button" type="button" onClick={() => setInfoDevice(device)}>How to use</button>
-                  {device.status !== "connected" && <button className="everyday-action-button" type="button" onClick={() => setReconnectDevice(device)}>Reconnect</button>}
-                  <details className="everyday-more">
-                    <summary aria-label={`More actions for ${device.name}`}>More<ChevronRight size={15} /></summary>
-                    <div>
-                      <button type="button" disabled={busy} onClick={() => void renameDevice(device)}>Rename</button>
-                      <button type="button" onClick={() => setReconnectDevice(device)}>Reconnect</button>
-                      <button type="button" onClick={() => void removeDevice(device)}>Remove</button>
-                    </div>
-                  </details>
-                  <button className="everyday-action-button remove" type="button" aria-label={`Remove ${device.name}`} disabled={busy} onClick={() => void removeDevice(device)}><Trash2 size={16} /></button>
-                </div>
+                <ChevronRight className="everyday-device-chevron" size={18} aria-hidden="true" />
               </li>
             ))}
           </ul>
@@ -533,6 +511,13 @@ export default function EverydayDevicesCard() {
               <h2>{infoDevice.name}</h2>
               <p>{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].press}</p>
               <p>{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].practice}</p>
+              <div className="everyday-detail-actions">
+                <Link className="everyday-action-button" href={`/account/profile/triggers/lab?deviceRef=${encodeURIComponent(infoDevice.profileRef || infoDevice.ref)}`} onClick={() => { setFlowStep(0); setInfoDevice(null); }}>Gesture setup</Link>
+                <button className="everyday-action-button primary" type="button" disabled={busy || practiceRef !== null} onClick={() => void startPractice(infoDevice)}>{practiceRef === infoDevice.ref ? "Listening…" : "Practice"}</button>
+                <button className="everyday-action-button" type="button" onClick={() => { setReconnectDevice(infoDevice); setInfoDevice(null); }}>Reconnect</button>
+                <button className="everyday-action-button" type="button" disabled={busy} onClick={() => void renameDevice(infoDevice)}>Rename</button>
+                <button className="everyday-action-button remove" type="button" disabled={busy} onClick={() => void removeDevice(infoDevice)}>Remove device</button>
+              </div>
               <h3 className="everyday-paired-title">Reconnect steps</h3>
               <ol className="everyday-reconnect-list">{EVERYDAY_DEVICE_GUIDES[infoDevice.kind].reconnect.map((step) => <li key={step}>{step}</li>)}</ol>
               <button className="everyday-secondary-button full" type="button" onClick={() => setInfoDevice(null)}>Close</button>

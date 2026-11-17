@@ -10,7 +10,7 @@ import { useAppDialog } from "@/components/AppDialogProvider";
 import { pinErrorMessage } from "@/lib/devicePin";
 import type { Device } from "@/lib/types";
 import EverydayDevicesCard from "@/components/EverydayDevicesCard";
-import { AccountListCard } from "@/components/account/AccountList";
+import { AccountListCard, AccountSectionLabel } from "@/components/account/AccountList";
 import "./devicesPage.css";
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
@@ -123,16 +123,10 @@ export default function DevicesPage() {
   }
 
   return <div className="kiki-devices-redesign">
-    <header className="devices-heading">
-      <div>
-        {activeScreen === "phone" && <span className="devices-heading-eyebrow">ANDROID ACCESSORIES</span>}
-        <h1>{activeScreen === "phone" ? "Devices" : "My devices"}</h1>
-        {activeScreen === "phone"
-          ? <p>Accessories connected to this phone</p>
-          : !loading && devices.length > 0 && <p>{devices.length} {devices.length === 1 ? "device" : "devices"} linked</p>}
-      </div>
+    <div className="devices-heading-actions">
       {activeScreen === "kiki" && <Link className="devices-link-button" href="/account/devices/link"><Plus size={16} />Link device</Link>}
-    </header>
+      {activeScreen === "phone" && <Link className="devices-link-button" href="/account/devices/link"><Plus size={16} />Add a device</Link>}
+    </div>
 
     <div className="devices-mode-switch" role="group" aria-label="Choose which devices to view">
       <button type="button" aria-controls="kiki-device-screen" aria-pressed={activeScreen === "kiki"} className={activeScreen === "kiki" ? "active" : ""} onClick={() => setActiveScreen("kiki")}>
@@ -169,7 +163,6 @@ export default function DevicesPage() {
           </div>
           <div className="devices-hero-copy">
             <h2>{selectedDevice.device_name}</h2>
-            <p className="devices-id">{selectedDevice.device_id}</p>
             <span className={`devices-status${selectedOnline ? " connected" : ""}`}><i />{selectedOnline ? "Connected" : selectedDevice.active ? "Offline" : "Inactive"}</span>
             {devices.length > 1 && <div className="devices-pagination" aria-label={`Device ${selectedIndex + 1} of ${devices.length}`}>
               {devices.map((device, index) => <button key={device.id} type="button" className={index === selectedIndex ? "selected" : ""} aria-label={`Show ${device.device_name}`} aria-current={index === selectedIndex ? "true" : undefined} onClick={() => selectDevice(index)} />)}
@@ -211,10 +204,11 @@ export default function DevicesPage() {
             <span><b>Remove device</b><small>Unlink it from your account</small></span>
             <ChevronRight size={18} />
           </button>
+          <div className="devices-id-row"><span>Device ID</span><code>{selectedDevice.device_id}</code></div>
         </AccountListCard>
 
         <section className="devices-all">
-          <div className="devices-list-title"><h2>All devices</h2><span>{devices.length}</span></div>
+          <AccountSectionLabel>All devices · {devices.length}</AccountSectionLabel>
           <AccountListCard className="devices-list">
             {devices.map((device, index) => {
               const online = isDeviceOnline(device);
