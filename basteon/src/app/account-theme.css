@@ -832,3 +832,636 @@
   background-color: var(--accent);
   color: var(--accent-ink);
 }
+
+/* Member account: warm aubergine palette and restrained, iOS-inspired surfaces. */
+.account-shell {
+  --chrome: #faf7fa;
+  --bg: #f7f4f7;
+  --surface-1: #fff;
+  --surface-2: #f0e8f4;
+  --surface-3: #fce9df;
+  --well: #faf7fa;
+  --divider: rgb(36 16 54 / 12%);
+  --text: #17101f;
+  --text-2: #43394b;
+  --muted: #6a6372;
+  --line: var(--divider);
+  --line-strong: #d7cbdc;
+  --line-focus: #8b3a66;
+  --accent: #3b1b5a;
+  --accent-ink: #fff;
+  --accent-bg: #f0e8f4;
+  --accent-line: #3b1b5a;
+  --crit: #d12a45;
+  --crit-bg: #fbe9ed;
+  --crit-line: #d12a45;
+  --warn: #a96812;
+  --warn-bg: #fff2dc;
+  --warn-line: #a96812;
+  --info: #3b1b5a;
+  --info-bg: #f0e8f4;
+  --info-line: #3b1b5a;
+  --violet: #8b3a66;
+  --violet-bg: #f7eaf1;
+  --violet-line: #8b3a66;
+  --ok: #247044;
+  --ok-bg: #e7f3e7;
+  --ok-line: #247044;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-display: var(--font-ui);
+  --font-data: var(--font-ui);
+  --elev-float: 0 1px 3px rgb(36 16 54 / 7%);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+.account-shell[data-theme="dark"] {
+  --chrome: #140c1e;
+  --bg: #120a1c;
+  --surface-1: #1c1030;
+  --surface-2: #2d1b47;
+  --surface-3: #38254f;
+  --well: #171020;
+  --divider: rgb(243 236 250 / 12%);
+  --text: #f3ecfa;
+  --text-2: #d3c6e1;
+  --muted: #bba5cc;
+  --line: var(--divider);
+  --line-strong: #503b65;
+  --line-focus: #d6a8c4;
+  --accent: #c5a2e3;
+  --accent-ink: #1f0e31;
+  --accent-bg: #2d1b47;
+  --accent-line: #c5a2e3;
+  --crit: #ff7188;
+  --crit-bg: #3b1d2b;
+  --crit-line: #ff7188;
+  --warn: #f2bd66;
+  --warn-bg: #382b1b;
+  --warn-line: #f2bd66;
+  --info: #c5a2e3;
+  --info-bg: #2d1b47;
+  --info-line: #c5a2e3;
+  --violet: #d6a8c4;
+  --violet-bg: #382036;
+  --violet-line: #d6a8c4;
+  --ok: #70d695;
+  --ok-bg: #183527;
+  --ok-line: #70d695;
+}
+
+.account-shell > div,
+.account-shell main {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.account-shell .sidebar {
+  border: 0;
+  background: #1f0e31;
+  color: #fff;
+}
+
+.account-shell .sidebar-head {
+  border-bottom-color: rgb(255 255 255 / 14%);
+  color: #fff;
+}
+
+.account-shell .sidebar-head .mark {
+  background: #8b3a66;
+  color: #fff;
+}
+
+.account-shell .sidebar-link {
+  min-height: 46px;
+  border: 0;
+  border-radius: 10px;
+  color: #d6cce2;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.account-shell .sidebar-link:hover,
+.account-shell .sidebar-link[aria-current="page"] {
+  background: rgb(255 255 255 / 14%);
+  color: #fff;
+}
+
+.account-shell .sidebar-link .nav-sigil,
+.account-shell .account-more-option .nav-sigil {
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+
+.account-shell .sidebar-link .nav-sigil::before,
+.account-shell .account-more-option .nav-sigil::before {
+  content: none;
+}
+
+.account-shell .appbar {
+  border-bottom: 1px solid var(--divider);
+  background: rgb(250 247 250 / 86%);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+
+.account-shell .account-user-summary {
+  border-radius: 10px;
+  background: transparent;
+}
+
+.account-shell .account-user-avatar {
+  border: 0;
+  background: linear-gradient(160deg, #6b3da3, #3a1b5f);
+  font-weight: 700;
+}
+
+.account-shell .account-user-name {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-shell .account-header-action {
+  border-radius: 50%;
+  background: rgb(120 120 128 / 14%);
+  color: var(--text);
+}
+
+.account-shell .account-header-action:hover {
+  background: rgb(120 120 128 / 22%);
+  color: var(--text);
+}
+
+.account-shell .account-mobile-nav {
+  border-color: var(--divider);
+  background: rgb(250 247 250 / 88%);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+}
+
+.account-shell .account-mobile-nav .nav-link {
+  color: #8b8791;
+}
+
+.account-shell .account-mobile-nav .nav-link[aria-current="page"] {
+  color: var(--accent);
+}
+
+.account-shell .account-mobile-nav .nav-link[aria-current="page"] .nav-sigil {
+  background: transparent;
+  color: inherit;
+}
+
+.account-shell .account-mobile-sos {
+  border-color: var(--bg);
+  background: var(--crit);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
+}
+
+.account-shell .account-mobile-sos:hover,
+.account-shell .account-desktop-sos:hover {
+  background: #b92039;
+}
+
+.account-shell .account-more-scrim {
+  background: rgb(0 0 0 / 38%);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.account-shell .account-more-sheet {
+  border: 1px solid var(--divider);
+  border-radius: 16px 0 0 0;
+  background: var(--bg);
+  box-shadow: 0 -10px 40px rgb(0 0 0 / 20%);
+}
+
+.account-shell .account-more-option {
+  border-bottom-color: var(--divider);
+  color: var(--text);
+}
+
+.account-shell .account-more-option:hover {
+  background: var(--surface-2);
+}
+
+.account-shell .account-more-option small,
+.account-shell .account-user-label {
+  color: var(--muted);
+}
+
+.account-shell .account-more-sheet .btn {
+  background: var(--surface-1);
+}
+
+.account-shell .account-page-transition :is(h1, h2, h3, h4, .page-title) {
+  color: var(--text);
+  letter-spacing: -.028em;
+}
+
+.account-shell .account-page-transition :is(p, small, label, .muted) {
+  color: var(--muted);
+}
+
+.account-shell .account-page-transition :is(.eyebrow, .kiki-profile-hub > header > span, .kiki-setting-page header > span, .devices-heading-eyebrow) {
+  color: #8b3a66;
+}
+
+.account-shell main :is(.panel, .glass, .tbl-wrap, .kiki-profile-card, .kiki-setting-page > section, .smart-safety-card, .kiki-reference-card, .hamba-planner, .hamba-active-card, .hamba-recent, .buddies-panel, .buddies-consent, .kiki-overview-group, .devices-hero, .devices-metric, .devices-actions, .devices-list, .devices-list-row, .devices-empty, .everyday-empty-card, .everyday-device-list, .everyday-simple-list) {
+  border-color: var(--divider);
+  border-radius: 12px;
+  box-shadow: var(--elev-float);
+}
+
+.account-shell .panel,
+.account-shell .glass,
+.account-shell .kiki-profile-card,
+.account-shell .kiki-reference-card,
+.account-shell .kiki-setting-page > section,
+.account-shell .smart-safety-card,
+.account-shell .hamba-planner,
+.account-shell .hamba-active-card,
+.account-shell .hamba-recent,
+.account-shell .buddies-panel,
+.account-shell .buddies-consent {
+  background: var(--surface-1);
+}
+
+.account-shell .pane-head {
+  border-color: var(--divider);
+  background: var(--well);
+  color: var(--text);
+}
+
+.account-shell .btn {
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: rgb(59 27 90 / 8%);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.account-shell .btn:hover {
+  background: rgb(59 27 90 / 14%);
+  color: var(--text);
+}
+
+.account-shell .btn-primary,
+.account-shell .btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.account-shell .btn-primary:hover,
+.account-shell .btn-primary:active {
+  background: #2a1243;
+  color: #fff;
+}
+
+.account-shell .btn-danger,
+.account-shell .account-desktop-sos {
+  background: var(--crit);
+  color: #fff;
+}
+
+.account-shell .input,
+.account-shell main :is(input, textarea, select) {
+  border-color: transparent;
+  border-radius: 10px;
+  background: rgb(59 27 90 / 5%);
+  color: var(--text);
+}
+
+.account-shell .input:focus,
+.account-shell main :is(input, textarea, select):focus {
+  border-color: var(--accent);
+  outline: 2px solid rgb(139 58 102 / 35%);
+  outline-offset: 1px;
+}
+
+.account-shell main :is(.page-title, .kiki-overview-title, .kiki-profile-hub > header h1, .kiki-setting-page h1, .devices-heading h1, .devices-hero-copy h2, .devices-list-title h2, .devices-empty h2) {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: -.028em;
+}
+
+.account-shell main :is(.kiki-profile-identity, .kiki-profile-menu a, .kiki-profile-menu button, .kiki-settings-list a, .kiki-ringtone-list > div, .kiki-device-summary, .kiki-stat-grid > div, .kiki-device-telemetry div, .kiki-device-actions button, .kiki-device-actions a) {
+  border-color: var(--divider);
+  border-radius: 12px;
+  background: var(--surface-1);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.account-shell main :is(.kiki-profile-identity h2, .kiki-profile-identity p, .kiki-profile-identity b, .kiki-card-heading h2, .kiki-device-summary h3, .kiki-device-summary p, .kiki-reference-title h1, .kiki-setting-page h1, .kiki-setting-page section h2, .kiki-setting-page section > p, .kiki-profile-menu span) {
+  color: var(--text);
+}
+
+.account-shell main :is(.kiki-profile-identity b, .kiki-profile-open-cue, .kiki-device-count, .kiki-active-pill, .kiki-profile-theme-toggle) {
+  border-color: transparent;
+  border-radius: 8px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell main :is(.kiki-profile-menu span svg, .kiki-security-icon, .kiki-card-icon, .kiki-device-art, .kiki-stat-grid span, .kiki-device-summary p span, .kiki-device-telemetry svg) {
+  color: var(--accent);
+}
+
+.account-shell .kiki-profile-logout,
+.account-shell .kiki-delete-account {
+  border-color: transparent;
+  border-radius: 12px;
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell .kiki-delete-data {
+  border-color: var(--divider);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.account-shell .kiki-overview {
+  color: var(--text);
+}
+
+.account-shell .kiki-overview-title {
+  color: var(--text);
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.account-shell .kiki-overview-hero {
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(160deg, #3f1e61 0%, #2a1243 100%);
+  box-shadow: none;
+}
+
+.account-shell .kiki-overview-hero-copy h2 {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.account-shell .kiki-overview-hero-copy p {
+  color: rgb(255 255 255 / 80%);
+}
+
+.account-shell .kiki-overview-cta {
+  min-height: 50px;
+  border-radius: 10px;
+  background: #fff;
+  color: #241036;
+  font-weight: 600;
+}
+
+.account-shell .kiki-overview-section-head h2,
+.account-shell .kiki-overview-status-copy strong,
+.account-shell .kiki-overview-trip-copy strong {
+  color: var(--text);
+}
+
+.account-shell .kiki-overview-section-head h2 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.account-shell .kiki-overview-section-head a {
+  color: var(--accent);
+}
+
+.account-shell .kiki-overview-group {
+  overflow: hidden;
+  background: var(--surface-1);
+  box-shadow: var(--elev-float);
+}
+
+.account-shell .kiki-overview-status-row,
+.account-shell .kiki-overview-trip-row {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.account-shell .kiki-overview-status-row:hover,
+.account-shell .kiki-overview-trip-row:hover {
+  background: var(--well);
+}
+
+.account-shell .kiki-overview-status-row + .kiki-overview-status-row::before,
+.account-shell .kiki-overview-trip-row + .kiki-overview-trip-row::before {
+  background: var(--divider);
+}
+
+.account-shell .kiki-overview-tile-icon {
+  border-radius: 8px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .kiki-overview-status-copy > span,
+.account-shell .kiki-overview-trip-copy > span:not(.kiki-overview-arrived),
+.account-shell .kiki-overview-trip-row time {
+  color: var(--muted);
+}
+
+.account-shell .hamba-engine,
+.account-shell .buddies-heading > span,
+.account-shell .hamba-mode,
+.account-shell .buddies-modes,
+.account-shell .devices-mode-switch {
+  border-color: var(--divider);
+  border-radius: 9px;
+  background: rgb(59 27 90 / 8%);
+  color: var(--text);
+}
+
+.account-shell .hamba-mode button[aria-pressed="true"],
+.account-shell .buddies-modes button[aria-pressed="true"],
+.account-shell .devices-mode-switch button.active {
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: 0 2px 6px rgb(36 16 54 / 10%);
+}
+
+.account-shell .hamba-search,
+.account-shell .hamba-route-summary div,
+.account-shell .hamba-trip-stats span,
+.account-shell .hamba-recent-item,
+.account-shell .buddies-consent,
+.account-shell .buddies-panel {
+  border-color: var(--divider);
+  background-color: var(--surface-1);
+}
+
+.account-shell .buddies-map {
+  border-color: var(--divider);
+  background: #f3eef6;
+}
+
+.account-shell .buddies-me {
+  box-shadow: 0 0 0 6px rgb(59 27 90 / 12%);
+}
+
+.account-shell .hamba-live,
+.account-shell .devices-status.connected,
+.account-shell .devices-list-badge.online,
+.account-shell .everyday-status-chip.connected {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell .kiki-devices-redesign {
+  --device-ink: #17101f;
+  --device-plum: #3b1b5a;
+  --device-plum-light: #563477;
+  --device-lavender: #f0e8f4;
+  --device-mute: #6a6372;
+  --device-line: rgb(36 16 54 / 12%);
+  --device-green: #247044;
+}
+
+.account-shell .devices-hero {
+  border: 0;
+  border-radius: 16px;
+  background: #1e0f30;
+  box-shadow: none;
+}
+
+.account-shell .devices-metric,
+.account-shell .devices-actions,
+.account-shell .devices-list,
+.account-shell .devices-empty {
+  border-color: var(--divider);
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: var(--elev-float);
+}
+
+.account-shell .device-pendant {
+  background: linear-gradient(120deg, #6a4690, #3f2360 60%, #2a1243);
+}
+
+.account-shell .account-sos-scrim {
+  background: rgb(18 10 28 / 82%);
+}
+
+.account-shell .account-sos-dialog {
+  border-color: rgb(209 42 69 / 25%);
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: 0 16px 42px rgb(0 0 0 / 24%);
+}
+
+.account-shell .account-sos-dialog h2 {
+  color: var(--text);
+  font-weight: 700;
+  text-transform: none;
+}
+
+.account-shell .account-sos-dialog > p {
+  color: var(--muted);
+}
+
+.account-shell .account-sos-icon {
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell .account-sos-type-switch button[aria-pressed="true"] {
+  border-color: var(--crit);
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell .account-sos-type-switch button:last-child[aria-pressed="true"] {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.account-shell[data-theme="dark"] .appbar,
+.account-shell[data-theme="dark"] .account-mobile-nav {
+  background: rgb(20 12 30 / 88%);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-hero {
+  border: 0;
+  background: linear-gradient(160deg, #3f1e61 0%, #2a1243 100%);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-hero-copy h2 {
+  color: #fff;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-hero-copy p {
+  color: rgb(255 255 255 / 80%);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-cta {
+  background: #fff;
+  color: #241036;
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-status-row,
+.account-shell[data-theme="dark"] .kiki-overview-trip-row {
+  background: var(--surface-1);
+}
+
+.account-shell[data-theme="dark"] .kiki-overview-status-row:hover,
+.account-shell[data-theme="dark"] .kiki-overview-trip-row:hover {
+  background: var(--surface-2);
+}
+
+.account-shell[data-theme="dark"] .devices-hero {
+  background: #1e0f30;
+}
+
+.account-shell[data-theme="dark"] .devices-heading p,
+.account-shell[data-theme="dark"] .devices-heading-eyebrow,
+.account-shell[data-theme="dark"] .devices-id,
+.account-shell[data-theme="dark"] .devices-metric small,
+.account-shell[data-theme="dark"] .devices-actions small,
+.account-shell[data-theme="dark"] .devices-list-copy small {
+  color: var(--muted);
+}
+
+.account-shell[data-theme="dark"] .devices-hero-copy,
+.account-shell[data-theme="dark"] .devices-hero-copy h2 {
+  color: #fff;
+}
+
+.account-shell[data-theme="dark"] .devices-list-row {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+@media (max-width: 767px) {
+  .account-shell .appbar {
+    background: rgb(250 247 250 / 88%);
+  }
+
+  .account-shell[data-theme="dark"] .appbar {
+    background: rgb(20 12 30 / 88%);
+  }
+
+  .account-shell main :is(.page-title, .kiki-overview-title, .kiki-profile-hub > header h1, .kiki-setting-page h1, .devices-heading h1) {
+    font-size: 28px;
+  }
+
+  .account-shell .account-more-sheet {
+    border-radius: 16px 16px 0 0;
+  }
+}
