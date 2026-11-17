@@ -10,6 +10,7 @@ import { useAppDialog } from "@/components/AppDialogProvider";
 import { pinErrorMessage } from "@/lib/devicePin";
 import type { Device } from "@/lib/types";
 import EverydayDevicesCard from "@/components/EverydayDevicesCard";
+import { AccountListCard } from "@/components/account/AccountList";
 import "./devicesPage.css";
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
@@ -176,7 +177,7 @@ export default function DevicesPage() {
           </div>
         </section>
 
-        <section className="devices-metrics" aria-label="Device status">
+        <AccountListCard className="devices-metrics" aria-label="Device status">
           <article className={`devices-metric${selectedDevice.battery != null && selectedDevice.battery < 20 ? " is-warning" : ""}`}>
             <BatteryCharging size={21} />
             <small>Battery</small>
@@ -192,9 +193,9 @@ export default function DevicesPage() {
             <small>Last seen</small>
             <b>{relativeTime(latestSignal)}</b>
           </article>
-        </section>
+        </AccountListCard>
 
-        <section className="devices-actions" aria-label="Device actions">
+        <AccountListCard className="devices-actions" aria-label="Device actions">
           <button type="button" onClick={() => void rename(selectedDevice)}>
             <span className="devices-action-icon"><Pencil size={18} /></span>
             <span><b>Rename</b><small>{selectedDevice.device_name}</small></span>
@@ -210,11 +211,11 @@ export default function DevicesPage() {
             <span><b>Remove device</b><small>Unlink it from your account</small></span>
             <ChevronRight size={18} />
           </button>
-        </section>
+        </AccountListCard>
 
         <section className="devices-all">
           <div className="devices-list-title"><h2>All devices</h2><span>{devices.length}</span></div>
-          <div className="devices-list">
+          <AccountListCard className="devices-list">
             {devices.map((device, index) => {
               const online = isDeviceOnline(device);
               const lowBattery = device.battery != null && device.battery < 20;
@@ -224,7 +225,7 @@ export default function DevicesPage() {
                 <span className={`devices-list-badge${online ? lowBattery ? " low" : " online" : ""}`}><i />{online ? lowBattery ? "Low battery" : "Connected" : "Offline"}</span>
               </button>;
             })}
-          </div>
+          </AccountListCard>
         </section>
 
         <Link className="devices-add-another" href="/account/devices/link"><Plus size={17} />Link another device</Link>

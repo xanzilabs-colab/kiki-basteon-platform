@@ -15,6 +15,7 @@ import type { GeoPoint, RouteWatchState } from "@/lib/hamba/types";
 import { enablePushNotifications } from "@/lib/usePushNotifications";
 import { TravelTogetherPanel } from "@/components/TravelTogetherPanel";
 import { useAppDialog } from "@/components/AppDialogProvider";
+import { AccountListCard } from "@/components/account/AccountList";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false, loading: () => <div className="hamba-map hamba-map-loading">Loading map...</div> });
 type Place = { label: string; lat: number; lng: number };
@@ -349,20 +350,23 @@ export default function TripsPage() {
         <section className="hamba-active">
           <div className="hamba-map-stage">
             <TripMap points={activeTrip.planned_route.points} position={position} recenter={recenter} avatarUrl={avatarUrl} stops={checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng }))} />
+            <button type="button" className="hamba-recenter" title="Center map on route" aria-label="Center map on route" onClick={() => setRecenter((current) => current + 1)}><LocateFixed size={18} /></button>
             <button type="button" className="hamba-map-expand-button" aria-label="Expand trip map" title="Expand map" onClick={() => setMapExpanded(true)}><Expand size={18} /></button>
-            <div className="hamba-map-overlay"><span className="hamba-overlay-icon"><ShieldCheck size={18} /></span><div><h2>{activeTrip.destination_label}</h2><p>{modeLabels[activeTrip.mode]} · {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min estimated</p></div><button type="button" className="hamba-recenter" title="Center map on route" aria-label="Center map on route" onClick={() => setRecenter((current) => current + 1)}><LocateFixed size={18} /></button></div>
+            <div className="hamba-map-overlay"><span className="hamba-overlay-icon"><ShieldCheck size={18} /></span><div><h2>{activeTrip.destination_label}</h2><p>{modeLabels[activeTrip.mode]} · {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min estimated</p></div></div>
           </div>
           <div className="hamba-active-card">
-            <div className="hamba-control-stats"><div><span>Next check-in</span><b><Timer size={20} />{countdown}</b></div><div><span>Planned distance</span><b>{formatDistance(activeTrip.route_distance_m / 1000)}</b></div></div>
-            {nextStop && <div className="hamba-stop-card"><div><span>Next stop</span><b>{nextStop.label ?? "Stop"}{nextStop.expected_at ? ` · ${new Date(nextStop.expected_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</b>{nextStop.status === "missed" && <small>We haven't heard from you. Tap to confirm you're OK.</small>}</div><button className="btn" disabled={busy} onClick={() => void checkIn(nextStop.id)}><CheckCircle2 size={16} />I'm here</button></div>}
+            <AccountListCard className="hamba-stats-card">
+              <div className="hamba-control-stats"><div><span>Next check-in</span><b><Timer size={20} />{countdown}</b></div><div><span>Planned distance</span><b>{formatDistance(activeTrip.route_distance_m / 1000)}</b></div></div>
+            </AccountListCard>
+            {nextStop && <div className="hamba-stop-card account-list-card"><div><span>Next stop</span><b>{nextStop.label ?? "Stop"}{nextStop.expected_at ? ` · ${new Date(nextStop.expected_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</b>{nextStop.status === "missed" && <small>We haven't heard from you. Tap to confirm you're OK.</small>}</div><button className="btn" disabled={busy} onClick={() => void checkIn(nextStop.id)}><CheckCircle2 size={16} />I'm here</button></div>}
             <div className="hamba-actions"><button className="btn" disabled={busy} onClick={() => void checkIn()}><CheckCircle2 size={16} />Check in now</button><button className="btn hamba-arrive" disabled={busy} onClick={() => void arrive()}><Flag size={16} />I've arrived</button></div>
-            <section className="mt-5 rounded-2xl border border-[#e8deed] bg-white p-4">
+            <AccountListCard className="hamba-share-card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div><h2 className="flex items-center gap-2 font-semibold"><UsersRound size={18} />Share this active walk</h2><p className="mt-1 text-sm text-[#756583]">Invite a saved buddy as a guardian. They see your live route only after accepting, and access ends when this trip ends or you revoke it.</p></div>
                 <Link href="/account/guardian-walks" className="btn">Shared walks</Link>
               </div>
               {tripGuardians.length > 0 && <div className="mt-4 grid gap-2">
-                {tripGuardians.map((guardian) => <div key={guardian.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#f8f5fa] px-3 py-2">
+                {tripGuardians.map((guardian) => <div key={guardian.id} className="hamba-guardian-row flex flex-wrap items-center justify-between gap-2">
                   <span><b>{guardian.buddy?.name ?? "Buddy"}</b><small className="ml-2 text-[#756583]">{guardian.status === "accepted" ? "Live location shared" : guardian.status === "pending" ? "Waiting for acceptance" : guardian.status}</small></span>
                   {(guardian.status === "accepted" || guardian.status === "pending") && <button type="button" className="btn" disabled={guardianBusy} onClick={() => void revokeGuardian(guardian.guardianId)}>Stop sharing</button>}
                 </div>)}
@@ -370,7 +374,7 @@ export default function TripsPage() {
               {buddyContacts.filter((buddy) => !tripGuardians.some((guardian) => guardian.guardianId === buddy.id && (guardian.status === "pending" || guardian.status === "accepted"))).length > 0 ? <div className="mt-4">
                 <h3 className="mb-2 text-sm font-semibold">Invite from your buddy list</h3>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {buddyContacts.filter((buddy) => !tripGuardians.some((guardian) => guardian.guardianId === buddy.id && (guardian.status === "pending" || guardian.status === "accepted"))).map((buddy) => <label key={buddy.id} className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e8deed] px-3 py-2">
+                  {buddyContacts.filter((buddy) => !tripGuardians.some((guardian) => guardian.guardianId === buddy.id && (guardian.status === "pending" || guardian.status === "accepted"))).map((buddy) => <label key={buddy.id} className={`hamba-buddy-row${selectedGuardianIds.includes(buddy.id) ? " is-selected" : ""}`}>
                     <input type="checkbox" checked={selectedGuardianIds.includes(buddy.id)} onChange={(event) => setSelectedGuardianIds((current) => event.target.checked ? [...current, buddy.id] : current.filter((id) => id !== buddy.id))} />
                     <span><b>{buddy.name}</b><small className="ml-2 text-[#756583]">{buddy.kikiId}</small></span>
                   </label>)}
@@ -378,7 +382,7 @@ export default function TripsPage() {
                 <button type="button" className="btn btn-primary mt-3" disabled={guardianBusy || selectedGuardianIds.length === 0} onClick={() => void inviteGuardians()}><UsersRound size={16} />{guardianBusy ? "Please wait..." : "Send guardian invite"}</button>
               </div> : buddyContacts.length === 0 && <p className="mt-3 text-sm text-[#756583]">Add buddies in your <Link href="/account/profile/buddies" className="underline">buddy list</Link> to invite them here.</p>}
               {guardianMessage && <p className="mt-3 text-sm" role="status">{guardianMessage}</p>}
-            </section>
+            </AccountListCard>
             {!position && <div className="hamba-note" role="status">
               <LocateFixed size={16} /><span>{locationError ?? "Allow location for this site to plan your route."}</span>
               <button className="btn" type="button" disabled={refreshingLocation} onClick={() => void refreshLocation()}>

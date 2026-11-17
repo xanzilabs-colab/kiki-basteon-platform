@@ -5,16 +5,18 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Flower2, KeyRound, LogIn, Mail, ShieldCheck, UserRoundPlus, UsersRound } from "lucide-react";
 import { KikiMark } from "@/components/KikiMark";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_PHONE_COUNTRY, getLocalizedPhoneCountries, PHONE_COUNTRIES, toE164PhoneNumber } from "@/lib/phone";
+import type { CountryCode } from "libphonenumber-js";
 
 type AuthMode = "signin" | "signup" | "forgot";
-
-const phoneValid = (value: string) => /^(?:\+27|0)[1-9]\d{8}$/.test(value.replace(/[\s-]/g, ""));
 
 export function AuthExperience({ initialMode }: { initialMode: "signin" | "signup" }) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
+  const [phoneCountries, setPhoneCountries] = useState(PHONE_COUNTRIES);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [consent, setConsent] = useState(false);
@@ -23,6 +25,10 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
   const [message, setMessage] = useState("");
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setPhoneCountries(getLocalizedPhoneCountries());
+  }, []);
 
   useEffect(() => {
     function syncModeFromLocation() {
@@ -61,8 +67,10 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
 
   async function signUp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!phoneValid(phone)) {
-      setError("Use a South African mobile number, for example +27 82 123 4567.");
+    const normalizedPhone = toE164PhoneNumber(phone, phoneCountry);
+    if (!normalizedPhone) {
+      const countryName = phoneCountries.find(({ country }) => country === phoneCountry)?.name;
+      setError(`Enter a valid phone number for ${countryName ?? "the selected country"}.`);
       return;
     }
     if (!consent) {
@@ -75,7 +83,7 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
     const { data, error: signUpError } = await createClient().auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: fullName.trim(), phone: phone.replace(/[\s-]/g, ""), consent: true } },
+      options: { data: { full_name: fullName.trim(), phone: normalizedPhone, consent: true } },
     });
     setLoading(false);
     if (signUpError) {
@@ -177,7 +185,33 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
             </label>
             <label className="auth-field">
               <span>Mobile number</span>
-              <input type="tel" autoComplete="tel" placeholder="+27 82 123 4567" required value={phone} onChange={(event) => setPhone(event.target.value)} />
+              <span className="auth-phone-row">
+                <select
+                  className="auth-phone-country"
+                  aria-label="Country calling code"
+                  autoComplete="tel-country-code"
+                  value={phoneCountry}
+                  onChange={(event) => {
+                    const selectedCountry = phoneCountries.find(({ country }) => country === event.target.value);
+                    if (selectedCountry) setPhoneCountry(selectedCountry.country);
+                    setError("");
+                  }}
+                >
+                  {phoneCountries.map(({ country, name, callingCode, flag }) => (
+                    <option key={country} value={country}>{flag} +{callingCode} — {name}</option>
+                  ))}
+                </select>
+                <input
+                  className="auth-phone-number"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                  placeholder={phoneCountry === "ZA" ? "82 123 4567" : "Phone number"}
+                  required
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+              </span>
             </label>
             <label className="auth-field">
               <span>Email</span>

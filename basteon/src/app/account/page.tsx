@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocationEligibility } from "@/hooks/useLocationEligibility";
 import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
+import { AccountListCard, AccountListRow } from "@/components/account/AccountList";
 
 type TripActivity = {
   id: string;
@@ -222,33 +223,36 @@ export default function AccountPage() {
 
     <section className="kiki-overview-section" aria-labelledby="safety-circle-title">
       <div className="kiki-overview-section-head"><h2 id="safety-circle-title">Your safety circle</h2></div>
-      <div className="kiki-overview-group">
-        <Link className="kiki-overview-status-row" href="/account/devices">
-          <span className="kiki-overview-tile-icon"><Radio size={22} /></span>
-          <span className="kiki-overview-status-copy"><strong>Kiki hardware</strong><span>{deviceCount} {deviceCount === 1 ? "device" : "devices"} linked</span></span>
-          <span className={`kiki-overview-state${connectedDeviceCount ? " is-on" : ""}`}><i />{readinessError ? "Unavailable" : connectedDeviceCount ? "Connected" : deviceCount ? "Offline" : "Not linked"}</span>
-          <ChevronRight className="kiki-overview-chevron" size={17} />
-        </Link>
-        <button type="button" className="kiki-overview-status-row" style={{ width: "100%", textAlign: "left" }} onClick={() => { setSheetOpen(true); refreshNearbyRef.current(); }} aria-haspopup="dialog">
-          <span className="kiki-overview-tile-icon"><ShieldCheck size={22} /></span>
-          <span className="kiki-overview-status-copy"><strong>Responders</strong><span>{nearbyError ? "Responder availability unavailable" : responderStatusCopy}</span></span>
-          <span className={`kiki-overview-state${nearby?.availableCount ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : responderStatusLabel}</span>
-          <ChevronRight className="kiki-overview-chevron" size={17} />
-        </button>
-
-        <Link className="kiki-overview-status-row" href="/account/buddies">
-          <span className="kiki-overview-tile-icon"><UsersRound size={22} /></span>
-          <span className="kiki-overview-status-copy"><strong>Buddy watch</strong><span>{buddy?.active ? buddy.visible ? "Visible to nearby Buddies" : "Buddy trip active · hidden" : "No Buddy trip active"}</span></span>
-          <span className={`kiki-overview-state${buddy?.active && buddy.visible ? " is-on" : ""}`}><i />{buddyError ? "Unavailable" : buddy?.active ? buddy.visible ? "Sharing" : "Hidden" : "Off"}</span>
-          <ChevronRight className="kiki-overview-chevron" size={17} />
-        </Link>
-        <Link className="kiki-overview-status-row" href="/account/trips">
-          <span className="kiki-overview-tile-icon"><Route size={22} /></span>
-          <span className="kiki-overview-status-copy"><strong>Route Watch</strong><span>{activeTrip ? `Monitoring trip to ${activeTrip.destination_label}` : "No active trip"}</span></span>
-          <span className={`kiki-overview-state${activeTrip ? " is-on" : ""}`}><i />{tripError ? "Unavailable" : activeTrip ? "Active" : "Off"}</span>
-          <ChevronRight className="kiki-overview-chevron" size={17} />
-        </Link>
-      </div>
+      <AccountListCard className="kiki-overview-group">
+        <AccountListRow
+          href="/account/devices"
+          icon={<Radio size={20} />}
+          title="Kiki hardware"
+          subtitle={`${deviceCount} ${deviceCount === 1 ? "device" : "devices"} linked`}
+          trailing={<><span className={`kiki-overview-state${connectedDeviceCount ? " is-on" : ""}`}><i />{readinessError ? "Unavailable" : connectedDeviceCount ? "Connected" : deviceCount ? "Offline" : "Not linked"}</span><ChevronRight className="kiki-overview-chevron" size={17} /></>}
+        />
+        <AccountListRow
+          onClick={() => { setSheetOpen(true); refreshNearbyRef.current(); }}
+          icon={<ShieldCheck size={20} />}
+          title="Responders"
+          subtitle={nearbyError ? "Responder availability unavailable" : responderStatusCopy}
+          trailing={<><span className={`kiki-overview-state${nearby?.availableCount ? " is-on" : ""}`}><i />{nearbyError ? "Unavailable" : responderStatusLabel}</span><ChevronRight className="kiki-overview-chevron" size={17} /></>}
+        />
+        <AccountListRow
+          href="/account/buddies"
+          icon={<UsersRound size={20} />}
+          title="Buddy watch"
+          subtitle={buddy?.active ? buddy.visible ? "Visible to nearby Buddies" : "Buddy trip active · hidden" : "No Buddy trip active"}
+          trailing={<><span className={`kiki-overview-state${buddy?.active && buddy.visible ? " is-on" : ""}`}><i />{buddyError ? "Unavailable" : buddy?.active ? buddy.visible ? "Sharing" : "Hidden" : "Off"}</span><ChevronRight className="kiki-overview-chevron" size={17} /></>}
+        />
+        <AccountListRow
+          href="/account/trips"
+          icon={<Route size={20} />}
+          title="Route Watch"
+          subtitle={activeTrip ? `Monitoring trip to ${activeTrip.destination_label}` : "No active trip"}
+          trailing={<><span className={`kiki-overview-state${activeTrip ? " is-on" : ""}`}><i />{tripError ? "Unavailable" : activeTrip ? "Active" : "Off"}</span><ChevronRight className="kiki-overview-chevron" size={17} /></>}
+        />
+      </AccountListCard>
     </section>
     {sheetOpen && <div className="kiki-overview-responders-scrim" role="dialog" aria-modal="true" aria-label="Nearby responders" onClick={() => setSheetOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div className="kiki-overview-responders-sheet" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%,520px)", maxHeight: "80vh", overflowY: "auto", borderRadius: "24px 24px 0 0", padding: 20 }}>
@@ -272,7 +276,7 @@ export default function AccountPage() {
 
     <section className="kiki-overview-section kiki-overview-recent" aria-labelledby="recent-trips-title">
       <div className="kiki-overview-section-head"><h2 id="recent-trips-title">Recent trips</h2><Link href="/account/trips">See all</Link></div>
-      <div className="kiki-overview-group">
+      <AccountListCard className="kiki-overview-group">
         {trips && trips.recent.length > 0
           ? trips.recent.slice(0, 3).map((trip) => <Link className="kiki-overview-trip-row" href={`/account/trips?destination=${encodeURIComponent(trip.id)}`} key={trip.id}>
             <span className="kiki-overview-route" aria-hidden="true"><i /><u /><i /></span>
@@ -282,7 +286,7 @@ export default function AccountPage() {
             <time dateTime={trip.ended_at ?? trip.created_at}>{formatTripDate(trip.ended_at ?? trip.created_at)}</time>
           </Link>)
           : <div className="kiki-overview-empty">{tripError ? "Recent trips are unavailable right now." : trips ? "Your completed trips will appear here." : "Loading recent trips…"}</div>}
-      </div>
+      </AccountListCard>
     </section>
   </div>;
 }

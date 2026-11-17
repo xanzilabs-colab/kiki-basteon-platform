@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
+import { AccountListCard, AccountListRow, AccountSectionLabel } from "@/components/account/AccountList";
 
 type AccountProfile = { full_name: string | null; avatar_path: string | null; dark_theme: boolean | null };
 
@@ -44,33 +45,36 @@ export default function ProfilePage() {
   return <div className="kiki-profile-hub">
     <header><span>MY ACCOUNT</span><h1>User Profile</h1></header>
     {error && <p className="kiki-profile-error" role="alert">{error}</p>}
-    <section className="kiki-profile-card">
-      <Link className="kiki-profile-identity" href="/account/profile/info">
-        <CachedProfileImage src={avatarUrl} alt="Your profile" fallback={<span>{name.charAt(0).toUpperCase()}</span>} />
-        <div className="kiki-profile-identity-copy">
-          <h2>{name}</h2>
-          <p>{email}</p>
-          <div className="kiki-profile-open-cue">View profile details <ChevronRight size={14} aria-hidden="true" /></div>
-          <b>Premium Safety Subscriber</b>
-        </div>
-        <ChevronRight className="kiki-profile-card-arrow" size={18} aria-hidden="true" />
-      </Link>
-      <nav className="kiki-profile-menu" aria-label="Account settings">
-        <Link href="/account/profile/medical"><span><FileText size={17} />Medical ID &amp; Emergency Info</span><ChevronRight size={17} /></Link>
-        <Link href="/account/organisations"><span><Building2 size={17} />My Organisations</span><ChevronRight size={17} /></Link>
-        <Link href="/account/profile/security"><span><Lock size={17} />Security &amp; PIN Code</span><ChevronRight size={17} /></Link>
-        <Link href="/account/profile/ringtones"><span><Volume2 size={17} />Ringtones</span><ChevronRight size={17} /></Link>
-        <Link href="/account/profile/triggers"><span><Bluetooth size={17} />Bluetooth Triggers</span><ChevronRight size={17} /></Link>
-        <Link href="/account/profile/buddies"><span><Users size={17} />My Buddies</span><ChevronRight size={17} /></Link>
-        <Link href="/account/guardian-walks"><span><Route size={17} />Shared Walks</span><ChevronRight size={17} /></Link>
+    <div className="kiki-profile-card">
+      <AccountListCard className="kiki-profile-identity-card">
+        <Link className="kiki-profile-identity" href="/account/profile/info">
+          <CachedProfileImage src={avatarUrl} alt="Your profile" fallback={<span>{name.charAt(0).toUpperCase()}</span>} />
+          <div className="kiki-profile-identity-copy">
+            <h2>{name}</h2>
+            <p>{email}</p>
+            <div className="kiki-profile-open-cue">View profile details <ChevronRight size={14} aria-hidden="true" /></div>
+            <b>Premium Safety Subscriber</b>
+          </div>
+          <ChevronRight className="kiki-profile-card-arrow" size={18} aria-hidden="true" />
+        </Link>
+      </AccountListCard>
+      <AccountSectionLabel>Account</AccountSectionLabel>
+      <nav className="kiki-profile-menu account-list-card" aria-label="Account settings">
+        <AccountListRow href="/account/profile/medical" icon={<FileText size={18} />} title="Medical ID & Emergency Info" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/organisations" icon={<Building2 size={18} />} title="My Organisations" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/profile/security" icon={<Lock size={18} />} title="Security &amp; PIN Code" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/profile/ringtones" icon={<Volume2 size={18} />} title="Ringtones" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/profile/triggers" icon={<Bluetooth size={18} />} title="Bluetooth Triggers" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/profile/buddies" icon={<Users size={18} />} title="My Buddies" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/guardian-walks" icon={<Route size={18} />} title="Shared Walks" trailing={<ChevronRight size={18} />} />
         <button type="button" className="kiki-profile-theme-toggle" role="switch" aria-checked={profile?.dark_theme ?? false} disabled={!profile || themeSaving} onClick={() => void toggleTheme()}>
           <span className="kiki-profile-theme-copy"><i>{profile?.dark_theme ? <Sun size={17} /> : <Moon size={17} />}</i><span><strong>Dark mode</strong><small>Use a softer look in low light</small></span></span>
           <span className="kiki-profile-switch" aria-hidden="true"><i /></span>
         </button>
-        <Link href="/account/guardians"><span><Shield size={17} />Guardian Circle</span><ChevronRight size={17} /></Link>
+        <AccountListRow href="/account/guardians" icon={<Shield size={18} />} title="Guardian Circle" trailing={<ChevronRight size={18} />} />
       </nav>
       <LocationPrivacyCard />
       <button type="button" className="kiki-profile-logout" onClick={() => void signOut()}>Log Out Account</button>
-    </section>
+    </div>
   </div>;
 }

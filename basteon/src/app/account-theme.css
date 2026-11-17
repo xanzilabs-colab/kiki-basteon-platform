@@ -1293,7 +1293,205 @@
 .account-shell .kiki-overview-group {
   overflow: hidden;
   background: var(--surface-1);
-  box-shadow: var(--elev-float);
+  box-shadow: none;
+}
+
+.account-shell .account-list-card,
+.account-shell .kiki-overview-group,
+.account-shell .smart-safety-card,
+.account-shell .devices-metrics,
+.account-shell .devices-actions,
+.account-shell .devices-list,
+.account-shell .hamba-stats-card,
+.account-shell .hamba-share-card {
+  overflow: hidden;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(53 25 79 / 5%);
+}
+
+.account-shell .account-section-label {
+  margin: 18px 4px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.account-shell .account-list-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--divider);
+  background: transparent;
+  padding: 14px 16px;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+}
+
+.account-shell .account-list-row:last-child {
+  border-bottom: 0;
+}
+
+.account-shell .account-list-row:hover {
+  background: rgb(74 36 114 / 2%);
+}
+
+.account-shell .account-list-row-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .account-list-row-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.account-shell .account-list-row-copy strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.account-shell .account-list-row-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.account-shell .account-list-row-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.account-shell .kiki-profile-menu {
+  display: grid;
+  margin-top: 12px;
+  gap: 0;
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+.account-shell .kiki-profile-menu > * + * {
+  border-top: 1px solid var(--divider);
+}
+
+.account-shell .smart-safety-card {
+  margin: 18px 0 12px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(53 25 79 / 5%);
+  padding: 16px;
+}
+
+.account-shell .smart-safety-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--divider);
+  padding: 13px 0;
+}
+
+.account-shell .smart-safety-setting:first-of-type {
+  border-top: 0;
+}
+
+.account-shell .smart-safety-setting b {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.account-shell .smart-safety-setting p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.account-shell .hamba-control-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.account-shell .hamba-control-stats > div {
+  display: grid;
+  gap: 6px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  padding: 12px 10px;
+}
+
+.account-shell .hamba-control-stats span,
+.account-shell .hamba-stop-card span,
+.account-shell .hamba-guardian-row small,
+.account-shell .hamba-buddy-row small {
+  color: var(--muted);
+}
+
+.account-shell .hamba-control-stats b,
+.account-shell .hamba-stop-card b,
+.account-shell .hamba-guardian-row b,
+.account-shell .hamba-buddy-row b {
+  color: var(--text);
+}
+
+.account-shell .hamba-stop-card,
+.account-shell .hamba-guardian-row,
+.account-shell .hamba-buddy-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 12px 14px;
+}
+
+.account-shell .hamba-buddy-row {
+  cursor: pointer;
+}
+
+.account-shell .hamba-buddy-row input {
+  accent-color: var(--accent);
+}
+
+.account-shell .hamba-buddy-row.is-selected {
+  background: var(--accent-bg);
+}
+
+.account-shell .hamba-recenter {
+  position: absolute;
+  right: 64px;
+  bottom: 12px;
+  z-index: 600;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--accent);
+  box-shadow: 0 12px 24px rgba(53, 25, 79, 0.12);
 }
 
 .account-shell .kiki-overview-status-row,
