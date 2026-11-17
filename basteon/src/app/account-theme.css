@@ -1254,14 +1254,15 @@
   color: #fff !important;
 }
 
-.account-shell .kiki-overview-hero-copy h2 {
-  color: #fff;
+.account-shell .kiki-overview .kiki-overview-hero .kiki-overview-hero-copy h2 {
+  color: #fff !important;
   font-size: 24px;
   font-weight: 700;
 }
 
-.account-shell .kiki-overview-hero-copy p {
-  color: rgb(255 255 255 / 80%);
+.account-shell .kiki-overview .kiki-overview-hero .kiki-overview-hero-copy p {
+  color: #f4edf8 !important;
+  font-weight: 500;
 }
 
 .account-shell .kiki-overview-cta {
