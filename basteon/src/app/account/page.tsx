@@ -68,11 +68,21 @@ export default function AccountPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeSos, setActiveSos] = useState<ActiveSos | null>(null);
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(0);
   const [mapLayerIndex, setMapLayerIndex] = useState(0);
   const [mapRecenter, setMapRecenter] = useState(0);
   const { allowed, reason: eligibility } = useLocationEligibility();
   const refreshNearbyRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/account/profile/avatar")
+      .then((response) => response.ok ? response.json() as Promise<{ url?: string | null }> : null)
+      .then((avatar) => { if (active) setProfileImageUrl(avatar?.url ?? null); })
+      .catch(() => { if (active) setProfileImageUrl(null); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,7 +215,7 @@ export default function AccountPage() {
   const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
 
   return <div className="kiki-map-home">
-    <KikiSafetyMap center={mapPoint} zoom={14} layer={currentMapLayer} recenter={mapRecenter} />
+    <KikiSafetyMap center={mapPoint} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} />
     <div className="kiki-map-status"><AccountStatusPill tone={mapStatus.tone}>{mapStatus.label}</AccountStatusPill></div>
     <div className="kiki-map-actions" aria-label="Map controls">
       <button type="button" aria-label="Recenter map on your location" title="Recenter map" onClick={() => { if (mapPoint) setMapRecenter((value) => value + 1); else refreshNearbyRef.current(); }}><LocateFixed size={20} /></button>

@@ -37,7 +37,7 @@ export function AccountIconBadge({ children, className = "" }: { children: React
 }
 
 export function AccountStatusPill({ children, tone = "neutral" }: { children: ReactNode; tone?: "positive" | "warning" | "critical" | "neutral" }) {
-  return <span className={`account-status-pill is-${tone}`}>{children}</span>;
+  return <span className={`account-status-pill is-${tone}`}><span className="account-status-pill-copy">{children}</span></span>;
 }
 
 export function AccountSegmented({

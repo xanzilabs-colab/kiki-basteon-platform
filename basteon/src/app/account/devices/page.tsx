@@ -216,7 +216,7 @@ export default function DevicesPage() {
               return <button type="button" key={device.id} className={`devices-list-row${index === selectedIndex ? " selected" : ""}`} onClick={() => selectDevice(index)} aria-current={index === selectedIndex ? "true" : undefined}>
                 <span className="devices-list-art"><Image src="/assets/devices-icon-link.png" alt="" width={45} height={45} /></span>
                 <span className="devices-list-copy"><b>{device.device_name}</b><small>{online && device.battery != null ? `Battery ${device.battery}%` : `Last seen ${relativeTime(device.telemetry_at ?? device.last_seen_at)}`}</small></span>
-                <span className={`devices-list-badge${online ? lowBattery ? " low" : " online" : ""}`}><i />{online ? lowBattery ? "Low battery" : "Connected" : "Offline"}</span>
+                <span className={`devices-list-badge${online ? lowBattery ? " low" : " online" : ""}`}><i /><span>{online ? lowBattery ? "Low battery" : "Connected" : "Offline"}</span></span>
               </button>;
             })}
           </AccountListCard>

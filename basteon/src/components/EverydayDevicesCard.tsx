@@ -349,7 +349,7 @@ export default function EverydayDevicesCard() {
                   </small>
                 </button>
                 <span className={`everyday-status-chip${device.status === "connected" ? " connected" : ""}`}>
-                  {device.verifiedAt ? "Practiced" : statusChipText(device.status)}
+                  <span>{device.verifiedAt ? "Practiced" : statusChipText(device.status)}</span>
                 </span>
                 <ChevronRight className="everyday-device-chevron" size={18} aria-hidden="true" />
               </li>

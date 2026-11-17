@@ -265,7 +265,7 @@ export function SosResponseScreen({
   ];
 
   return (
-    <main className="kiki-sos-response fixed inset-0 z-[2000] flex items-center justify-center overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="kiki-response-title">
+    <section className="kiki-sos-response fixed inset-0 z-[2000] flex items-center justify-center overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="kiki-response-title">
       <div className="kiki-sos-response-panel flex h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden">
         <header className="kiki-sos-response-header flex shrink-0 items-center gap-3 px-[18px] pb-3 pt-[max(24px,env(safe-area-inset-top))]">
           <span className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[15px] ${falseAlarm || closed ? "bg-[#e9dcf0] text-[#522868]" : onTheWay || onScene ? "bg-[#e6f3f0] text-[#12766a]" : "bg-[#fdeaee] text-[#d9435f]"}`}>
@@ -392,6 +392,6 @@ export function SosResponseScreen({
           {typeChangeError && <p className="rounded-xl bg-[#fdeaee] px-3 py-2 text-xs text-[#7d3341]" role="alert">{typeChangeError}</p>}
         </footer>
       </div>
-    </main>
+    </section>
   );
 }

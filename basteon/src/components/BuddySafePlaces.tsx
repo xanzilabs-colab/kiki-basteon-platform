@@ -222,7 +222,7 @@ export function BuddySafePlaces() {
       {bubbles.length > 0 ? <div className="safe-meeting-list account-list-card">{bubbles.map((bubble, index) => <Link className="safe-meeting-card" key={bubble.id} href={`/account/buddies/meeting/${bubble.id}`}>
         <span className="safe-meeting-icon"><UsersRound size={19} /></span>
         <span className="safe-meeting-copy"><b>Bubble {index + 1}</b><small>{bubble.member_count} {bubble.member_count === 1 ? "Buddy" : "Buddies"} · Active meeting</small></span>
-        <span className="safe-meeting-open">Open meeting<ChevronRight size={16} /></span>
+        <span className="safe-meeting-open"><span className="safe-meeting-open-copy">Open meeting</span><ChevronRight size={16} /></span>
       </Link>)}</div> : <div className="safe-empty-card"><span><Handshake size={21} /></span><b>No active Bubble meetings</b><p>Create or join a Bubble to choose a meeting spot together.</p><Link href="/account/trips?mode=travel-together">Go to Travel Together<ChevronRight size={15} /></Link></div>}
       <Link className="safe-meeting-create" href="/account/trips?mode=travel-together"><Handshake size={17} />Create or join a Bubble<ChevronRight size={16} /></Link>
       <section className="safe-meeting-note"><span><Check size={16} /></span><p>Meeting locations are shared with your Bubble members so everyone can make their way to the same public place.</p></section>

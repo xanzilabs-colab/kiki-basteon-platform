@@ -125,11 +125,11 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
     <div className="safe-report-categories" role="group" aria-label="Filter community reports by category">
       {reportCategories.map((item) => <button key={item.value} type="button" aria-pressed={category === item.value} onClick={() => setCategory(item.value)}>{item.label}</button>)}
     </div>
-    <button type="button" className="safe-report-open" onClick={() => setReportOpen(true)}><span><AlertTriangle size={17} />Report a concern</span><span>Share a local safety update<ChevronRight size={16} /></span></button>
+    <button type="button" className="safe-report-open" onClick={() => setReportOpen(true)}><span><AlertTriangle size={17} />Report a concern</span><span><span className="safe-report-copy">Share a local safety update</span><ChevronRight size={16} /></span></button>
     <div className="buddy-alert-list safe-alert-list">{filteredAlerts.map((alert) => <AccountFeedCard key={alert.id} className={`buddy-alert-card safe-alert-card${alert.kind === "poor_lighting" ? " is-lighting" : alert.kind === "harassment" ? " is-rose" : ""}`}>
       <div className="safe-alert-card-heading">
         <span className="safe-alert-meta">
-          <span className="safe-alert-kind"><i /><AlertTriangle size={12} />{titleCase(alert.kind)}</span>
+          <span className="safe-alert-kind"><i /><AlertTriangle size={12} /><span className="safe-alert-kind-copy">{titleCase(alert.kind)}</span></span>
           <time dateTime={alert.created_at}>Reported {formatReportAge(alert.created_at)}</time>
         </span>
         <button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.upvotes} helpful confirmations`}><ThumbsUp size={14} /><span>{alert.upvotes}</span></button>
