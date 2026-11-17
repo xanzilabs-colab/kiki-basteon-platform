@@ -783,20 +783,43 @@
     display: none;
   }
 
-  .overviewGrid,
-  .stats {
-    grid-template-columns: 1fr;
+  .responderRoot :global(.appbar) {
+    gap: 8px;
+    padding-right: 8px;
   }
 
-  .stats article + article {
-    border-top: 1px solid #26272b;
-    border-left: 0;
+  .responderRoot :global(.appbar .wordmark),
+  .responderRoot :global(.appbar .context) {
+    display: none;
+  }
+
+  .headerOrganisation {
+    max-width: 240px;
+    margin-left: 0;
+    padding-left: 12px;
+  }
+
+  .responderRoot :global(.appbar .slot) {
+    gap: 8px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .responderRoot :global(.appbar .slot:last-child .btn span) {
+    display: none;
+  }
+
+  .responderRoot :global(.appbar .slot:last-child .btn) {
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+    padding: 8px;
   }
 }
 
 @media (max-width: 760px) {
   .headerOrganisation,
-  .responderRoot :global(.appbar .context span),
+  .responderRoot :global(.appbar .context),
   .responderRoot :global(.appbar .wordmark) {
     display: none;
   }
@@ -831,8 +854,23 @@
     padding: 8px;
   }
 
-  .responderRoot :global(.appbar .slot:last-child) {
+  .responderRoot :global(.appbar .clock),
+  .responderRoot :global(.appbar .slot .btn[aria-label="Refresh app"]),
+  .responderRoot :global(.appbar .slot .data > span:last-child) {
     display: none;
+  }
+
+  .responderRoot :global(.appbar .slot:last-child) {
+    display: flex;
+    flex: none;
+  }
+
+  .responderRoot :global(.appbar .slot:last-child .btn) {
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+    padding: 8px;
   }
 
   .mobileSessionBar {
