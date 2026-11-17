@@ -9,7 +9,8 @@ export function isFreshPosition(position: Position | null, now = Date.now()): po
   return age >= 0 && age <= LOCATION_FIX_MAX_AGE_MS;
 }
 function hasUsableAccuracy(position: Position, maxAccuracyM: number): boolean {
-  return typeof position.accuracy === "number" &&
+  return hasLocation(position) &&
+    typeof position.accuracy === "number" &&
     Number.isFinite(position.accuracy) &&
     position.accuracy >= 0 &&
     position.accuracy <= maxAccuracyM;
@@ -23,4 +24,13 @@ export const haversineKm = (a: Position, b: Position) => {
   return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 };
 export const formatDistance = (km: number | null | undefined) => km == null ? "Distance unavailable" : km < 1 ? `${Math.round(km * 1000)} m away` : `${km.toFixed(1)} km away`;
-export const hasLocation = (value: { lat: number | null; lng: number | null }) => value.lat !== null && value.lng !== null;
+export function hasLocation(value: { lat: number | null; lng: number | null }): value is { lat: number; lng: number } {
+  return typeof value.lat === "number" &&
+    Number.isFinite(value.lat) &&
+    value.lat >= -90 &&
+    value.lat <= 90 &&
+    typeof value.lng === "number" &&
+    Number.isFinite(value.lng) &&
+    value.lng >= -180 &&
+    value.lng <= 180;
+}

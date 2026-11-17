@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { hasUsableLocationAccuracy, hasUsableMapLocationAccuracy, isFreshPosition, LOCATION_FIX_MAX_AGE_MS, MAX_LOCATION_ACCURACY_M, MAX_MAP_LOCATION_ACCURACY_M } from "./geo";
+import { hasLocation, hasUsableLocationAccuracy, hasUsableMapLocationAccuracy, isFreshPosition, LOCATION_FIX_MAX_AGE_MS, MAX_LOCATION_ACCURACY_M, MAX_MAP_LOCATION_ACCURACY_M } from "./geo";
 
 describe("responder location freshness", () => {
   const now = 1_800_000_000_000;
+
+  it("rejects non-finite and out-of-range coordinates", () => {
+    expect(hasLocation({ lat: -90, lng: 180 })).toBe(true);
+    expect(hasLocation({ lat: Number.NaN, lng: 28 })).toBe(false);
+    expect(hasLocation({ lat: -26, lng: Number.POSITIVE_INFINITY })).toBe(false);
+    expect(hasLocation({ lat: 91, lng: 28 })).toBe(false);
+    expect(hasLocation({ lat: -26, lng: -181 })).toBe(false);
+    expect(hasUsableLocationAccuracy({ lat: Number.NaN, lng: 28, accuracy: 10 })).toBe(false);
+  });
 
   it("accepts a recent GPS fix", () => {
     expect(isFreshPosition({ lat: -26.2, lng: 28, capturedAt: now - 5_000 }, now)).toBe(true);

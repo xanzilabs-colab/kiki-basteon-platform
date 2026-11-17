@@ -31,7 +31,7 @@ export function AlertCard({
   relativeTimeNow?: Date;
 }) {
   const km =
-    me && hasLocation(alert)
+    me && hasLocation(me) && hasLocation(alert)
       ? haversineKm(me, { lat: alert.lat!, lng: alert.lng! })
       : null;
   const health = locationHealth(alert);

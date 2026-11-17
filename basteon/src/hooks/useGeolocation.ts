@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { hasUsableLocationAccuracy, hasUsableMapLocationAccuracy, isFreshPosition, LOCATION_FIX_MAX_AGE_MS, type Position } from "@/lib/geo";
+import { hasLocation, hasUsableLocationAccuracy, hasUsableMapLocationAccuracy, isFreshPosition, LOCATION_FIX_MAX_AGE_MS, type Position } from "@/lib/geo";
 import { getCurrentLocation, locationErrorMessage, watchLocation } from "@/lib/platform/location";
 
 function locationAccuracyMessage(position: Position) {
@@ -22,6 +22,12 @@ export function useGeolocation() {
   const [watchVersion, setWatchVersion] = useState(0);
 
   const acceptPosition = useCallback((next: Position) => {
+    if (!hasLocation(next)) {
+      setPosition(null);
+      setApproximatePosition(null);
+      setError("Your device returned invalid location coordinates. Request your location again.");
+      return;
+    }
     setApproximatePosition(hasUsableMapLocationAccuracy(next) ? next : null);
     if (!hasUsableLocationAccuracy(next)) {
       setPosition(null);

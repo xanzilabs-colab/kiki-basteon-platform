@@ -42,19 +42,20 @@ export default function AlertMap({
   const onSelectRef = useRef(onSelect);
   selectedRef.current = selected;
   onSelectRef.current = onSelect;
+  const validMe = me && hasLocation(me) ? me : null;
   const lastRecenterTokenRef = useRef(0);
   const userInteractedRef = useRef(false);
   const centeredAccuracyRef = useRef<number | null>(
-    me && Number.isFinite(me.accuracy) && me.accuracy! >= 0 ? me.accuracy! : null,
+    validMe && Number.isFinite(validMe.accuracy) && validMe.accuracy! >= 0 ? validMe.accuracy! : null,
   );
   const initialView = useRef({
     center:
       selected && hasLocation(selected)
         ? ([selected.lat!, selected.lng!] as [number, number])
-        : me
-          ? ([me.lat, me.lng] as [number, number])
+        : validMe
+          ? ([validMe.lat, validMe.lng] as [number, number])
           : [-29, 24] as [number, number],
-    zoom: selected && hasLocation(selected) ? 14 : me ? 14 : 5,
+    zoom: selected && hasLocation(selected) ? 14 : validMe ? 14 : 5,
   });
   const [route, setRoute] = useState<[number, number][]>([]);
   const animatedMarkerRef = useRef<L.Marker | null>(null);
@@ -112,13 +113,13 @@ export default function AlertMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !me || selected || userInteractedRef.current) return;
-    const accuracy = Number.isFinite(me.accuracy) && me.accuracy! >= 0 ? me.accuracy! : null;
+    if (!map || !validMe || selected || userInteractedRef.current) return;
+    const accuracy = Number.isFinite(validMe.accuracy) && validMe.accuracy! >= 0 ? validMe.accuracy! : null;
     const previousAccuracy = centeredAccuracyRef.current;
     if (previousAccuracy !== null && (accuracy === null || accuracy > previousAccuracy / 2)) return;
     if (accuracy !== null) centeredAccuracyRef.current = accuracy;
-    map.flyTo([me.lat, me.lng], 14, { duration: 0.7 });
-  }, [me, selected]);
+    map.flyTo([validMe.lat, validMe.lng], 14, { duration: 0.7 });
+  }, [validMe, selected]);
 
   useEffect(() => {
     baseLayersRef.current?.select(baseLayer);
@@ -134,13 +135,13 @@ export default function AlertMap({
     setFollowMode(true);
     if (selected && hasLocation(selected)) {
       map.flyTo([selected.lat!, selected.lng!], 15, { duration: 0.7 });
-    } else if (me) {
-      centeredAccuracyRef.current = Number.isFinite(me.accuracy) ? me.accuracy! : null;
-      map.flyTo([me.lat, me.lng], 14, { duration: 0.7 });
+    } else if (validMe) {
+      centeredAccuracyRef.current = Number.isFinite(validMe.accuracy) ? validMe.accuracy! : null;
+      map.flyTo([validMe.lat, validMe.lng], 14, { duration: 0.7 });
     } else {
       map.flyTo(initialView.current.center, initialView.current.zoom, { duration: 0.7 });
     }
-  }, [me, recenterToken, selected]);
+  }, [validMe, recenterToken, selected]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -148,17 +149,17 @@ export default function AlertMap({
 
     const layers = L.layerGroup().addTo(map);
 
-    if (me) {
-      const accuracy = me.accuracy != null && Number.isFinite(me.accuracy) && me.accuracy > 0
-        ? ` · reported accuracy ±${Math.round(me.accuracy)} m`
+    if (validMe) {
+      const accuracy = validMe.accuracy != null && Number.isFinite(validMe.accuracy) && validMe.accuracy > 0
+        ? ` · reported accuracy ±${Math.round(validMe.accuracy)} m`
         : "";
       layers.addLayer(
-        L.marker([me.lat, me.lng], { icon: icon("#3b9cff", false) }).bindPopup(`Your location${accuracy}`),
+        L.marker([validMe.lat, validMe.lng], { icon: icon("#3b9cff", false) }).bindPopup(`Your location${accuracy}`),
       );
-      if (accuracy && me.accuracy != null) {
+      if (accuracy && validMe.accuracy != null) {
         layers.addLayer(
-          L.circle([me.lat, me.lng], {
-            radius: me.accuracy,
+          L.circle([validMe.lat, validMe.lng], {
+            radius: validMe.accuracy,
             color: "#3b9cff",
             fillColor: "#3b9cff",
             fillOpacity: 0.12,
@@ -168,7 +169,7 @@ export default function AlertMap({
     }
 
     const trailPoints = trail
-      .filter((point) => point.lat != null && point.lng != null)
+      .filter(hasLocation)
       .map((point) => [point.lat, point.lng] as [number, number]);
     if (trailPoints.length > 1) {
       layers.addLayer(
@@ -189,7 +190,7 @@ export default function AlertMap({
     return () => {
       layers.remove();
     };
-  }, [me, route, trail]);
+  }, [validMe, route, trail]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -213,7 +214,7 @@ export default function AlertMap({
     const now = performance.now();
     const prev = animToRef.current ?? { lat: selected.lat!, lng: selected.lng! };
     const next = { lat: selected.lat!, lng: selected.lng! };
-    const latestTrailPoint = [...trail].reverse().find((point) => point.lat != null && point.lng != null);
+    const latestTrailPoint = [...trail].reverse().find(hasLocation);
     const recordedAt = latestTrailPoint ? new Date(latestTrailPoint.recorded_at).getTime() : Date.now();
     const previousRecordedAt = latestPointAtRef.current || recordedAt;
     latestPointAtRef.current = recordedAt;
@@ -250,7 +251,7 @@ export default function AlertMap({
     animatedMarkerRef.current.setIcon(icon(selected.is_simulated_loc ? "#9CA3AF" : "#ff4d5a", true));
 
     const latestAccuracy = [...trail].reverse().find(
-      (point) => point.lat != null && point.lng != null && point.accuracy_m != null,
+      (point) => hasLocation(point) && point.accuracy_m != null,
     )?.accuracy_m ?? selected.accuracy_m;
     if (latestAccuracy != null && Number.isFinite(latestAccuracy) && latestAccuracy > 0) {
       if (!accuracyCircleRef.current) {
@@ -315,30 +316,36 @@ export default function AlertMap({
   }, []);
 
   useEffect(() => {
-    if (!me || !selected || !hasLocation(selected)) {
+    if (!validMe || !selected || !hasLocation(selected)) {
       setRoute([]);
       return;
     }
 
     const controller = new AbortController();
-    const url = `${process.env.NEXT_PUBLIC_OSRM_URL}/route/v1/driving/${me.lng},${me.lat};${selected.lng},${selected.lat}?overview=full&geometries=geojson`;
+    const url = `${process.env.NEXT_PUBLIC_OSRM_URL}/route/v1/driving/${validMe.lng},${validMe.lat};${selected.lng},${selected.lat}?overview=full&geometries=geojson`;
 
     fetch(url, { signal: controller.signal })
       .then((response) => response.json())
-      .then((data) =>
-        setRoute(
-          data.routes?.[0]?.geometry.coordinates.map(
-            ([lng, lat]: [number, number]) => [lat, lng],
-          ) ?? [],
-        ),
-      )
+      .then((data) => {
+        const coordinates: unknown = data.routes?.[0]?.geometry?.coordinates;
+        if (!Array.isArray(coordinates)) {
+          setRoute([]);
+          return;
+        }
+        setRoute(coordinates.flatMap((coordinate: unknown) => {
+          if (!Array.isArray(coordinate) || coordinate.length < 2) return [];
+          if (typeof coordinate[0] !== "number" || typeof coordinate[1] !== "number") return [];
+          const point = { lat: coordinate[1], lng: coordinate[0] };
+          return hasLocation(point) ? [[point.lat, point.lng] as [number, number]] : [];
+        }));
+      })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setRoute([[me.lat, me.lng], [selected.lat!, selected.lng!]]);
+        setRoute([[validMe.lat, validMe.lng], [selected.lat!, selected.lng!]]);
       });
 
     return () => controller.abort();
-  }, [me, selected]);
+  }, [validMe, selected]);
 
   return <div className="relative h-full"><div ref={containerRef} className="alert-map leaflet-container" />{showFollowButton && !followMode && <button className="btn absolute right-3 top-3 z-[1200]" onClick={() => { followRef.current = true; setFollowMode(true); if (selected && hasLocation(selected)) mapRef.current?.panTo([selected.lat!, selected.lng!], { animate: true }); }}>Re-center</button>}</div>;
 }
