@@ -1384,7 +1384,30 @@
 .auth-feedback.is-success,.auth-success { border-color:#BFDFBF;background:#BFDFBF;color:#294D2E; }
 .auth-consent input { accent-color:#4A2472; }
 .auth-recovery-icon { background:#EEE8F6;color:#4A2472; }
-@media(max-width:900px) { .auth-shell { background:#F8F4EC; } }
+@media(max-width:560px) {
+  .auth-shell {
+    display:block;
+    min-height:100svh;
+    padding:0;
+    background:#F8F4EC;
+  }
+  .auth-card {
+    box-sizing:border-box;
+    width:100%;
+    max-width:none;
+    min-height:100svh;
+    min-height:100dvh;
+    justify-content:flex-start;
+    margin:0;
+    border:0;
+    border-radius:0;
+    padding:max(26px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));
+    background:transparent;
+    box-shadow:none;
+    overflow:visible;
+  }
+  .auth-body { padding:0; }
+}
 
 .account-shell:not([data-theme="dark"]) .panel,
 .account-shell:not([data-theme="dark"]) .glass,
