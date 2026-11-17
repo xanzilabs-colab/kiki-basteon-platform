@@ -319,7 +319,7 @@ export default function EverydayDevicesCard() {
           setName("");
           setPairingMessage("");
           setError("");
-        }}><Plus size={19} />Add a device</button>
+        }}><Plus size={19} /><span>Add a device</span></button>
       </div>
 
       {error && flowStep === 0 && <p role="alert" className="everyday-error">{error}</p>}
@@ -363,11 +363,6 @@ export default function EverydayDevicesCard() {
             <h3>No everyday devices yet</h3>
             <p>Add earbuds or a headset to track its connection and practice triggering Kiki.</p>
           </div>
-          <button className="everyday-primary-button" type="button" disabled={busy} onClick={() => {
-            setFlowStep(1);
-            setSelected(null);
-            setName("");
-          }}><Plus size={19} />Add a device</button>
         </div>
       )}
 

@@ -158,6 +158,10 @@
 .everyday-action-button.primary { border-color:transparent; background:var(--ed-lav); }
 .everyday-action-button.remove { padding:6px 8px; color:#b3354c; }
 .everyday-action-button:disabled { opacity:.55; }
+.everyday-detail-actions { display:grid; gap:10px; margin:18px 0; }
+.everyday-detail-actions .everyday-action-button { width:100%; min-height:48px; justify-content:flex-start; border:0; border-radius:14px; background:#f6f1f8; padding:11px 15px; font-size:13px; text-align:left; }
+.everyday-detail-actions .everyday-action-button.primary { background:var(--ed-plum); color:#fff; }
+.everyday-detail-actions .everyday-action-button.remove { background:#fff0f2; color:#a82d48; }
 .everyday-more { position:relative; }
 .everyday-more summary { display:flex; min-height:34px; align-items:center; gap:3px; border:1px solid var(--ed-line); border-radius:11px; background:#fff; padding:6px 8px; color:var(--ed-deep); cursor:pointer; font-size:10px; font-weight:750; list-style:none; }
 .everyday-more summary::-webkit-details-marker { display:none; }

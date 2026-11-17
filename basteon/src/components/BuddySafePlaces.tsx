@@ -60,7 +60,7 @@ export function BuddySafePlaces() {
   const [message, setMessage] = useState("");
   const [messageIsError, setMessageIsError] = useState(false);
   const [tab, setTab] = useState<"spots" | "alerts" | "meetings">("spots");
-  const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(1);
+  const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(0);
   const [category, setCategory] = useState("all");
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
 
@@ -71,8 +71,10 @@ export function BuddySafePlaces() {
   );
   const activeAlerts = alerts;
   const mapPoints: SafetyMapPoint[] = tab === "spots"
-    ? filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot" }))
-    : activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report" }));
+    ? filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot", category: spot.category }))
+    : tab === "alerts"
+      ? activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report", category: alert.kind, createdAt: alert.created_at, upvotes: alert.upvotes }))
+      : [];
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get("tab");
@@ -164,6 +166,12 @@ export function BuddySafePlaces() {
         <span>{searched ? tab === "spots" ? `${filteredPlaces.length} spots nearby` : `${activeAlerts.length} reports nearby` : "Nearby map"}</span>
         {searched && <button className="safe-map-refresh" type="button" disabled={busy} onClick={() => void search()} aria-label="Refresh nearby places"><RefreshCw size={17} className={busy ? "is-spinning" : ""} /></button>}
       </div>
+      {searched && tab === "alerts" && activeAlerts.length > 0 && <div className="safe-risk-legend" role="note">
+        <span>Reported risk</span>
+        <i aria-hidden="true" />
+        <small>Fewer reports</small><small>More recent / frequent</small>
+        <small className="safe-risk-disclaimer">No reports does not confirm an area is safe.</small>
+      </div>}
     </div>
 
     <AccountBottomSheet level={sheetLevel} onLevelChange={setSheetLevel}>

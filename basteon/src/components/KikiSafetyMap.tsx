@@ -1,11 +1,48 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { Fragment, useEffect, useMemo } from "react";
 import { divIcon } from "leaflet";
-import { CircleMarker, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayers";
 
-export type SafetyMapPoint = { lat: number; lng: number; id?: string; kind?: "spot" | "report" };
+export type SafetyMapPoint = {
+  lat: number;
+  lng: number;
+  id?: string;
+  kind?: "spot" | "report";
+  category?: string;
+  createdAt?: string;
+  upvotes?: number;
+};
+
+const spotGlyphs: Record<string, string> = {
+  petrol_station: "P",
+  mall: "M",
+  police_station: "S",
+  hospital: "+",
+  cafe_restaurant: "C",
+  transit_hub: "T",
+  other_public: "•",
+  supermarket: "G",
+  school: "E",
+  place_of_worship: "W",
+  bus_stop: "B",
+  taxi_rank: "T",
+};
+
+const reportGlyphs: Record<string, string> = {
+  unsafe_area: "!",
+  poor_lighting: "☼",
+  harassment: "H",
+  road_hazard: "⚠",
+};
+
+const reportSeverity: Record<string, number> = {
+  unsafe_area: 1,
+  harassment: 1,
+  road_hazard: 0.72,
+  poor_lighting: 0.48,
+};
 
 function isValidPoint(point: SafetyMapPoint | null | undefined): point is SafetyMapPoint {
   return Boolean(point && Number.isFinite(point.lat) && Number.isFinite(point.lng)
@@ -72,6 +109,7 @@ export default function KikiSafetyMap({
   const safeCenter = isValidPoint(center) ? center : null;
   const mapCenter: [number, number] = safeCenter ? [safeCenter.lat, safeCenter.lng] : [-29, 24];
   const validPoints = points.filter(isValidPoint);
+  const reports = validPoints.filter((point) => point.kind === "report");
   const userIcon = useMemo(() => {
     const imageUrl = safeImageSource(profileImageUrl);
     const initials = escapeHtml(profileLabel.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase() || "K");
@@ -81,8 +119,8 @@ export default function KikiSafetyMap({
     return divIcon({
       className: "kiki-user-map-marker",
       html: `<span class="kiki-user-map-avatar">${content}</span>`,
-      iconSize: [58, 58],
-      iconAnchor: [29, 29],
+      iconSize: [72, 72],
+      iconAnchor: [36, 36],
     });
   }, [profileImageUrl, profileLabel]);
   return <div className={`kiki-safety-map ${className}`.trim()}>
@@ -90,17 +128,46 @@ export default function KikiSafetyMap({
       <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} maxZoom={selectedLayer.maxZoom} />
       <MapViewport center={safeCenter} zoom={zoom} recenter={recenter} />
       {safeCenter && <Marker position={mapCenter} icon={userIcon} title={`${profileLabel}'s location`} />}
-      {validPoints.map((point, index) => <CircleMarker
-        key={point.id ?? `${point.kind ?? "point"}-${point.lat}-${point.lng}-${index}`}
-        center={[point.lat, point.lng]}
-        radius={point.kind === "report" ? 7 : 6}
-        pathOptions={{
-          color: "#fff",
-          weight: 2,
-          fillColor: point.kind === "report" ? "#b4233d" : "#4A2472",
-          fillOpacity: 1,
-        }}
-      />)}
+      {reports.map((point, index) => {
+        const ageDays = point.createdAt ? Math.max(0, (Date.now() - Date.parse(point.createdAt)) / 86_400_000) : 30;
+        const freshness = Number.isFinite(ageDays) ? Math.exp(-ageDays / 30) : 0.25;
+        const severity = reportSeverity[point.category ?? ""] ?? 0.62;
+        const support = Math.min(1.3, 1 + Math.max(0, point.upvotes ?? 0) * 0.06);
+        const intensity = Math.min(1, freshness * severity * support);
+        const color = intensity > 0.62 ? "#b4233d" : intensity > 0.32 ? "#df793e" : "#d3ad45";
+        const radius = 180 + intensity * 220;
+        const markerGlyph = reportGlyphs[point.category ?? ""] ?? "!";
+        const marker = divIcon({
+          className: "kiki-safety-point-marker report",
+          html: `<span class="kiki-safety-point-marker-inner" aria-hidden="true"><span>${markerGlyph}</span></span>`,
+          iconSize: [36, 42],
+          iconAnchor: [18, 38],
+        });
+        return <Fragment key={point.id ?? `report-${point.lat}-${point.lng}-${index}`}>
+          <Circle
+            center={[point.lat, point.lng]}
+            radius={radius}
+            interactive={false}
+            pathOptions={{ color, weight: 1, opacity: 0.16 + intensity * 0.18, fillColor: color, fillOpacity: 0.06 + intensity * 0.12 }}
+          />
+          <Marker position={[point.lat, point.lng]} icon={marker} title={`${point.category?.replaceAll("_", " ") ?? "Community"} report`} />
+        </Fragment>;
+      })}
+      {validPoints.filter((point) => point.kind === "spot").map((point, index) => {
+        const markerGlyph = spotGlyphs[point.category ?? ""] ?? "•";
+        const marker = divIcon({
+          className: "kiki-safety-point-marker spot",
+          html: `<span class="kiki-safety-point-marker-inner" aria-hidden="true"><span>${markerGlyph}</span></span>`,
+          iconSize: [36, 42],
+          iconAnchor: [18, 38],
+        });
+        return <Marker
+          key={point.id ?? `spot-${point.lat}-${point.lng}-${index}`}
+          position={[point.lat, point.lng]}
+          icon={marker}
+          title={`${point.category?.replaceAll("_", " ") ?? "Safe"} spot`}
+        />;
+      })}
     </MapContainer>
     <small className="kiki-map-attribution">{selectedLayer.attribution}</small>
   </div>;

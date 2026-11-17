@@ -4394,3 +4394,233 @@ body:has(.account-shell) {
   min-width: 0;
   margin: 0 !important;
 }
+
+.account-shell .account-bottom-sheet {
+  transition: height 320ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.account-shell .account-sheet-handle {
+  min-height: 48px;
+  cursor: grab;
+}
+
+.account-shell .account-sheet-handle:active {
+  cursor: grabbing;
+}
+
+.account-shell .devices-metrics {
+  gap: 10px !important;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.account-shell .devices-metric {
+  min-width: 0;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-1);
+  padding: 12px 10px;
+  box-shadow: 0 2px 8px rgb(34 23 43 / 6%);
+}
+
+.account-shell .devices-metric + .devices-metric {
+  border-left: 0;
+}
+
+.account-shell .everyday-section-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.account-shell .everyday-section-heading::before {
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.account-shell .everyday-section-heading > .everyday-primary-button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.account-shell .everyday-section-heading > .everyday-primary-button > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.account-shell .devices-mode-switch,
+.account-shell .hamba-trip-tabs,
+.account-shell .hamba-mode {
+  border: 1px solid var(--divider);
+  box-shadow: inset 0 1px 2px rgb(34 23 43 / 5%);
+}
+
+.account-shell .devices-mode-switch button.active,
+.account-shell .hamba-trip-tabs button[aria-selected="true"],
+.account-shell .hamba-mode button.active {
+  box-shadow: 0 2px 5px rgb(34 23 43 / 10%);
+}
+
+.account-shell .safe-spots-page .account-bottom-sheet {
+  max-height: calc(100% - 24px);
+}
+
+.account-shell .safe-spots-page .account-bottom-sheet.level-0 {
+  height: 126px;
+}
+
+.account-shell .safe-spots-page .account-bottom-sheet.level-1 {
+  height: min(58%, 620px);
+}
+
+.account-shell .safe-spots-page .account-bottom-sheet.level-2 {
+  height: calc(100% - 36px);
+}
+
+.account-shell .account-user-summary {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.account-shell .account-user-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.account-shell .account-user-name {
+  max-width: none;
+}
+
+.account-shell .account-header-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.account-shell .account-mobile-nav .account-mobile-sos .kiki-mark {
+  width: 60px !important;
+  height: 60px !important;
+}
+
+.account-shell .kiki-profile-details-page .kiki-avatar-preview {
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 50% !important;
+}
+
+.account-shell .kiki-profile-details-page .kiki-avatar-preview > img {
+  display: block;
+  object-position: center;
+}
+
+.account-shell .kiki-safety-map .kiki-user-map-avatar {
+  width: 72px;
+  height: 72px;
+}
+
+.account-shell .kiki-safety-map .kiki-user-map-avatar > img {
+  display: block;
+  object-position: center;
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker-inner {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  transform: rotate(-45deg);
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50% 50% 50% 8px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 3px 10px rgb(34 23 43 / 28%);
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker-inner > span {
+  transform: rotate(45deg);
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker.spot .kiki-safety-point-marker-inner {
+  background: #32734b;
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker.report .kiki-safety-point-marker-inner {
+  background: #b4233d;
+}
+
+.account-shell .safe-risk-legend {
+  position: absolute;
+  z-index: 420;
+  top: 66px;
+  right: 14px;
+  display: grid;
+  width: min(252px, calc(100% - 28px));
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  border-radius: 14px;
+  background: rgb(255 253 249 / 94%);
+  padding: 10px 12px;
+  color: var(--text);
+  box-shadow: 0 2px 10px rgb(34 23 43 / 14%);
+}
+
+.account-shell .safe-risk-legend > span,
+.account-shell .safe-risk-legend > i,
+.account-shell .safe-risk-legend > .safe-risk-disclaimer {
+  grid-column: 1 / -1;
+}
+
+.account-shell .safe-risk-legend > span {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.account-shell .safe-risk-legend > i {
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d3ad45, #df793e 55%, #b4233d);
+}
+
+.account-shell .safe-risk-legend > small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.account-shell .safe-risk-legend > small:nth-of-type(2) {
+  text-align: right;
+}
+
+.account-shell .safe-risk-legend > .safe-risk-disclaimer {
+  border-top: 1px solid var(--divider);
+  padding-top: 5px;
+  font-size: 9px;
+}
+
+@media (max-width: 390px) {
+  .account-shell .everyday-section-heading {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account-shell .everyday-section-heading > .everyday-primary-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .account-shell main:has(.kiki-devices-redesign) {
+    padding-right: 8px !important;
+    padding-left: 8px !important;
+  }
+}

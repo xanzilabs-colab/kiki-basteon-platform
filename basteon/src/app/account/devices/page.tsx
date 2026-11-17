@@ -123,10 +123,9 @@ export default function DevicesPage() {
   }
 
   return <div className="kiki-devices-redesign">
-    <div className="devices-heading-actions">
-      {activeScreen === "kiki" && <Link className="devices-link-button" href="/account/devices/link"><Plus size={16} />Link device</Link>}
-      {activeScreen === "phone" && <Link className="devices-link-button" href="/account/devices/link"><Plus size={16} />Add a device</Link>}
-    </div>
+    {activeScreen === "kiki" && <div className="devices-heading-actions">
+      <Link className="devices-link-button" href="/account/devices/link"><Plus size={16} />Link device</Link>
+    </div>}
 
     <div className="devices-mode-switch" role="group" aria-label="Choose which devices to view">
       <button type="button" aria-controls="kiki-device-screen" aria-pressed={activeScreen === "kiki"} className={activeScreen === "kiki" ? "active" : ""} onClick={() => setActiveScreen("kiki")}>

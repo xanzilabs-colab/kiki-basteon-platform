@@ -111,6 +111,7 @@ export function AccountBottomSheet({
   children: ReactNode;
 }) {
   const startY = useRef<number | null>(null);
+  const suppressClick = useRef(false);
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     startY.current = event.clientY;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -119,15 +120,17 @@ export function AccountBottomSheet({
     if (startY.current === null) return;
     const delta = event.clientY - startY.current;
     startY.current = null;
-    if (Math.abs(delta) < 24) {
-      onLevelChange(level === 2 ? 0 : (level + 1) as 1 | 2);
-      return;
-    }
+    if (Math.abs(delta) < 18) return;
+    suppressClick.current = true;
+    window.setTimeout(() => { suppressClick.current = false; }, 0);
     onLevelChange(delta < 0 ? Math.min(2, level + 1) as 0 | 1 | 2 : Math.max(0, level - 1) as 0 | 1 | 2);
   };
 
   return <section className={`account-bottom-sheet level-${level}`} aria-label="Map details">
-    <button className="account-sheet-handle" type="button" aria-label="Expand or collapse map details" onPointerDown={handlePointerDown} onPointerUp={handlePointerUp} onPointerCancel={() => { startY.current = null; }}>
+    <button className="account-sheet-handle" type="button" aria-label="Expand or collapse map details" onPointerDown={handlePointerDown} onPointerUp={handlePointerUp} onPointerCancel={() => { startY.current = null; }} onClick={() => {
+      if (suppressClick.current) return;
+      onLevelChange(level === 2 ? 0 : (level + 1) as 1 | 2);
+    }}>
       <span aria-hidden="true" />
     </button>
     <div className="account-sheet-content">{children}</div>
