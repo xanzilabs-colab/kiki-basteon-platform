@@ -3834,18 +3834,24 @@ body:has(.account-shell) {
 }
 
 .account-shell .kiki-sos-response-footer {
-  border-top: 1px solid var(--divider);
+  border: 1px solid var(--divider);
+  border-radius: 18px;
   background: var(--surface-1);
-  box-shadow: 0 -4px 12px rgb(0 0 0 / 3%);
+  box-shadow: 0 4px 14px rgb(35 20 48 / 8%);
 }
 
 .account-shell .kiki-sos-response-footer > button,
 .account-shell .kiki-sos-response-footer > a {
+  min-width: 0;
   min-height: 48px;
   border: 0;
   border-radius: 13px;
+  padding: 10px 12px;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
 }
 
 .account-shell .kiki-sos-response-footer .kiki-sos-primary-action {
@@ -4603,6 +4609,10 @@ body:has(.account-shell) {
   height: 100%;
 }
 
+.map-screen-canvas {
+  z-index: 0;
+}
+
 .map-screen-topbar {
   position: absolute;
   z-index: 500;
@@ -5064,12 +5074,12 @@ body:has(.account-shell) {
   z-index: 2000;
   inset: 0;
   overflow: hidden;
-  background: #e9e7ed;
+  background: #fff;
 }
 
 .kiki-sos-response .map-screen {
   z-index: 1;
-  background: #e9e7ed;
+  background: #fff;
   color: #29231f;
 }
 
@@ -5150,7 +5160,9 @@ body:has(.account-shell) {
 }
 
 .kiki-sos-response .map-screen-controls {
-  top: calc(82px + env(safe-area-inset-top));
+  z-index: 430;
+  top: auto;
+  bottom: calc(148px + env(safe-area-inset-bottom));
   right: 12px;
   left: 12px;
   display: flex;
@@ -5337,8 +5349,9 @@ body:has(.account-shell) {
 .kiki-sos-complete-panel > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .kiki-sos-complete-panel > div > span { display: grid; gap: 4px; border-radius: 12px; background: #f8f4ec; padding: 10px; color: #756d66; font-size: 9px; text-transform: uppercase; }
 .kiki-sos-complete-panel > div b { color: #29231f; font-size: 15px; text-transform: none; }
-.kiki-sos-privacy-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: #756d66; font-size: 11px; line-height: 1.45; }
+.kiki-sos-privacy-note { display: flex; min-width: 0; align-items: flex-start; gap: 8px; margin: 0; padding: 12px; color: #756d66; font-size: 11px; line-height: 1.45; }
 .kiki-sos-privacy-note svg { flex: none; color: #4a2472; }
+.kiki-sos-privacy-note > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 
 .kiki-sos-response-footer {
   position: sticky;
@@ -5346,10 +5359,12 @@ body:has(.account-shell) {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  border-top: 1px solid #e8e0ec;
-  background: #f8f4ec;
-  padding: 10px 0 calc(8px + env(safe-area-inset-bottom));
+  gap: 10px;
+  border: 1px solid #e8e0ec;
+  border-radius: 18px;
+  background: #fffdf9;
+  padding: 12px;
+  box-shadow: 0 4px 14px rgb(35 20 48 / 8%);
 }
 
 .kiki-sos-response-footer button,

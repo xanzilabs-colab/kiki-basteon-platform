@@ -294,7 +294,7 @@ export function SosResponseScreen({
         </div>
         <button type="button" className="kiki-sos-close" onClick={onClose} aria-label={closed ? "Back" : "Close this view"} title={closed ? "Back" : "Your alert stays active."}><ArrowLeft size={18} /></button>
       </header>}
-      controls={<div className="kiki-sos-map-stat" role="status" aria-live="polite" data-map-ui="hide">
+      controls={<div className="kiki-sos-map-stat" role="status" aria-live="polite">
         <span className={`kiki-sos-map-status-icon${closed ? " is-closed" : ""}`}>
           {closed ? <Check size={17} /> : type === "medical" ? <HeartPulse size={17} /> : <Siren size={17} />}
         </span>
@@ -360,7 +360,7 @@ export function SosResponseScreen({
           <p>This alert is no longer active.</p>
           <div><span>Responders<b>{accepted}</b></span><span>Closed<b>{data?.alert.updatedAt ? new Date(data.alert.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</b></span></div>
         </section>}
-        {!closed && <p className="kiki-sos-privacy-note"><ShieldCheck size={17} />Your location is shared only with responders on this alert, and stops when it closes.</p>}
+        {!closed && <p className="kiki-sos-privacy-note"><ShieldCheck size={17} /><span>Your location is shared only with responders on this alert, and stops when it closes.</span></p>}
         <footer className="kiki-sos-response-footer">
           {closed ? <><Link href="/account/calm/winds?mode=quiet" className="kiki-sos-secondary-link">Need a minute? <span>Gentle Winds</span></Link><button type="button" className="kiki-sos-primary-action" onClick={onClose}><Check size={18} />Done</button></> : <>
             <button type="button" className="kiki-sos-primary-action" disabled={changingType} onClick={onChangeType}>
