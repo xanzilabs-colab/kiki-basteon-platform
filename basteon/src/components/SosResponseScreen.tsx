@@ -275,6 +275,25 @@ export function SosResponseScreen({
         : accepted
           ? `${accepted} responder${accepted === 1 ? "" : "s"} acknowledged · travel not confirmed.`
           : "Nearby responders are being notified.";
+  const arrivalTitle = nearest?.status === "on_scene" || onScene ? "Responder status" : "Estimated arrival";
+  const arrivalValue = nearest
+    ? formatResponseEta(nearest.route, nearest.status)
+    : onTheWay
+      ? "ETA updating…"
+      : onScene
+        ? "On scene"
+        : accepted
+          ? "Travel not confirmed"
+          : "Waiting for a responder";
+  const arrivalDetail = nearest
+    ? `${nearest.route!.roadRoute ? "Road distance" : "Approx. distance"} · ${nearest.route!.roadRoute ? "" : "~"}${formatDistance(nearest.route!.distanceM)}`
+    : onTheWay
+      ? "Waiting for a fresh responder location."
+      : onScene
+        ? "Responder location unavailable."
+        : accepted
+          ? "Responder travel has not been confirmed."
+          : "Distance appears when a responder is located.";
   const progressSteps = [
     { title: "Alert sent", detail: data?.alert.triggeredAt ? new Date(data.alert.triggeredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Your location is live" },
     { title: "Responder accepted", detail: nearest?.name ?? (accepted ? `${accepted} responder${accepted === 1 ? "" : "s"} responding` : "") },
@@ -303,10 +322,10 @@ export function SosResponseScreen({
           <b>{currentStatus}</b>
           <span>{statusDetail}</span>
         </div>
-        {nearest && <div className="kiki-sos-map-arrival">
-          <small>{nearest.status === "on_scene" ? "Responder status" : "Estimated arrival"}</small>
-          <b><Clock3 size={15} />{formatResponseEta(nearest.route, nearest.status)}</b>
-          <span>{nearest.route!.roadRoute ? "Road distance" : "Approx. distance"} · {nearest.route!.roadRoute ? "" : "~"}{formatDistance(nearest.route!.distanceM)}</span>
+        {!closed && <div className="kiki-sos-map-arrival">
+          <small>{arrivalTitle}</small>
+          <b><Clock3 size={15} />{arrivalValue}</b>
+          <span>{arrivalDetail}</span>
         </div>}
       </div>}
       onRecenter={() => setMapRecenter((value) => value + 1)}
@@ -316,7 +335,7 @@ export function SosResponseScreen({
       bottomSheet={<MapBottomSheet level={sheetLevel} onLevelChange={setSheetLevel} label="Emergency response details" className="kiki-sos-response-sheet">
         <div className="kiki-sos-sheet-peek">
           <span className={`kiki-sos-peek-icon${closed ? " is-closed" : ""}`}>{closed ? <Check size={18} /> : type === "medical" ? <HeartPulse size={18} /> : <Siren size={18} />}</span>
-          <div><strong>{currentStatus}</strong><small>{nearest ? `${nearest.name} · ${formatResponseEta(nearest.route, nearest.status)}` : statusDetail}</small></div>
+          <div><strong>{currentStatus}</strong><small>{nearest ? `${nearest.name} · ${arrivalValue}` : arrivalValue}</small></div>
         </div>
         <section className="kiki-sos-status-panel">
           <h2>Status</h2>

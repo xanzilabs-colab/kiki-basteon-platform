@@ -5170,11 +5170,12 @@ body:has(.account-shell) {
 }
 
 .kiki-sos-map-stat {
-  display: flex;
+  display: grid;
   width: min(480px, 100%);
-  min-height: 70px;
-  align-items: center;
-  gap: 10px;
+  min-height: 110px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 10px;
   border: 1px solid rgb(41 35 31 / 8%);
   border-radius: 18px;
   background: #fffdf9;
@@ -5190,6 +5191,8 @@ body:has(.account-shell) {
   width: 38px;
   height: 38px;
   flex: none;
+  grid-row: 1 / span 2;
+  align-self: center;
   place-items: center;
   border-radius: 50%;
   background: #fce9df;
@@ -5209,7 +5212,7 @@ body:has(.account-shell) {
 }
 
 .kiki-sos-map-status-copy {
-  flex: 1;
+  min-width: 0;
 }
 
 .kiki-sos-map-stat small {
@@ -5238,10 +5241,11 @@ body:has(.account-shell) {
 }
 
 .kiki-sos-map-arrival {
-  min-width: 112px;
-  justify-items: end;
-  border-left: 1px solid #e8e0ec;
-  padding-left: 10px;
+  min-width: 0;
+  grid-column: 2;
+  border-top: 1px solid #e8e0ec;
+  padding-top: 7px;
+  justify-items: start;
 }
 
 .kiki-sos-map-arrival b {
@@ -5684,8 +5688,8 @@ body:has(.account-shell) {
   }
 
   .kiki-sos-map-arrival {
-    min-width: 102px;
-    padding-left: 7px;
+    min-width: 0;
+    padding-left: 0;
   }
 
   .account-shell .everyday-section-heading {
