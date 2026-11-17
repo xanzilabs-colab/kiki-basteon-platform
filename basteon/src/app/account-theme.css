@@ -5162,7 +5162,7 @@ body:has(.account-shell) {
 .kiki-sos-response .map-screen-controls {
   z-index: 430;
   top: auto;
-  bottom: calc(148px + env(safe-area-inset-bottom));
+  bottom: calc(204px + env(safe-area-inset-bottom));
   right: 12px;
   left: 12px;
   display: flex;
