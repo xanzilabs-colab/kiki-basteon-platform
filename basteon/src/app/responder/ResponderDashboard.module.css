@@ -397,6 +397,9 @@
   overflow-x: auto;
   border-radius: 10px;
   padding: 4px;
+  background: #111214;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 28%);
+  backdrop-filter: none;
   pointer-events: auto;
 }
 
@@ -404,20 +407,22 @@
   min-height: 34px;
   flex: none;
   border: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
   padding: 0 11px;
-  color: #a2a5ab;
+  color: #c1c3c8;
   font-size: 12px;
+  font-weight: 600;
 }
 
 .mapTiles button:hover {
+  background: #24262a;
   color: #fff;
 }
 
 .mapTiles button[aria-pressed="true"] {
-  background: #fff;
-  color: #08090a;
+  background: #13a58f;
+  color: #fff;
 }
 
 .recenterButton {
