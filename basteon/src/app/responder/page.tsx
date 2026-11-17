@@ -65,7 +65,7 @@ export default function ResponderPage() {
   const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [movingOnly, setMovingOnly] = useState(false);
-  const [mapBaseLayer, setMapBaseLayer] = useState<(typeof MAP_BASE_LAYERS)[number]["name"]>("Street");
+  const [mapBaseLayer, setMapBaseLayer] = useState<(typeof MAP_BASE_LAYERS)[number]["name"]>("Light");
   const [mapRecenterToken, setMapRecenterToken] = useState(0);
   const [selfAvailability, setSelfAvailability] = useState<string | null>(null);
   const [selfResponseStatus, setSelfResponseStatus] = useState<string | null>(null);

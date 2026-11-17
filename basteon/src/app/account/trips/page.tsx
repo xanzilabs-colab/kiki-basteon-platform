@@ -66,7 +66,7 @@ export default function TripsPage() {
   const [guardianMessage, setGuardianMessage] = useState("");
   const nextStop = checkpoints.find((cp) => cp.status !== "checked_in" && cp.status !== "skipped" && cp.status !== "escalated") ?? null;
   const [tripTab, setTripTab] = useState<"route" | "travel">("route");
-  const [tripSheetLevel, setTripSheetLevel] = useState<0 | 1 | 2>(0);
+  const [tripSheetLevel, setTripSheetLevel] = useState<0 | 1 | 2>(1);
   const [tripMapLayer, setTripMapLayer] = useState<MapBaseLayerName>(MAP_BASE_LAYERS[0].name);
   const fixes = useRef<GeoPoint[]>([]);
   const previousWatchState = useRef<RouteWatchState>("normal");
@@ -445,7 +445,7 @@ export default function TripsPage() {
       onRecenter={() => setRecenter((current) => current + 1)}
       selectedLayer={tripMapLayer}
       onLayerChange={setTripMapLayer}
-      hiddenActions={<button type="button" className="map-screen-sos" onClick={() => window.dispatchEvent(new Event("kiki:open-sos"))}><Siren size={19} />SOS</button>}
+      hiddenActions={<button type="button" className="map-screen-sos" onClick={() => window.dispatchEvent(new Event("kiki:open-sos"))}><Siren size={30} strokeWidth={2.5} />SOS</button>}
       bottomSheet={<MapBottomSheet level={tripSheetLevel} onLevelChange={setTripSheetLevel} label="Route Watch details" className="hamba-route-map-sheet">{pageContent}</MapBottomSheet>}
     />
     : pageContent;

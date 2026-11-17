@@ -47,7 +47,7 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
   const onChangeRef = useRef(onChange);
   const [mode, setMode] = useState<Mode>("view");
   const [editMode, setEditMode] = useState<EditMode>(null);
-  const [baseLayer, setBaseLayer] = useState<MapBaseLayerName>("Street");
+  const [baseLayer, setBaseLayer] = useState<MapBaseLayerName>("Light");
   const [draftPoints, setDraftPoints] = useState<[number, number][]>([]);
   const [expanded, setExpanded] = useState(false);
 
@@ -67,9 +67,9 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
       name: layer.name,
       layer: L.tileLayer(layer.url, { attribution: layer.attribution, maxZoom: layer.maxZoom }),
     }));
-    const street = baseLayers[0];
-    if (!street) throw new Error("At least one map layer must be configured.");
-    street.layer.addTo(map);
+    const defaultLayer = baseLayers[0];
+    if (!defaultLayer) throw new Error("At least one map layer must be configured.");
+    defaultLayer.layer.addTo(map);
     selectionLayerRef.current = L.layerGroup().addTo(map);
 
     map.on("click", ({ latlng }) => {

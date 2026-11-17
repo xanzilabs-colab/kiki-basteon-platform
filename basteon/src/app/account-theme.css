@@ -4586,8 +4586,18 @@ body:has(.account-shell) {
   inset: 0;
   overflow: hidden;
   isolation: isolate;
-  background: #e9e7ed;
+  background: #fff;
   color: var(--text, #29231f);
+}
+
+.map-screen .leaflet-container,
+.alert-map,
+.alert-map .leaflet-container {
+  background: #fff;
+}
+
+.alert-map .leaflet-tile-pane {
+  filter: none;
 }
 
 .map-screen.is-ui-hidden {

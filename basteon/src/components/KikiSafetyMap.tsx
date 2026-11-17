@@ -122,7 +122,7 @@ function MapViewport({ center, zoom, recenter }: { center: SafetyMapPoint | null
 export default function KikiSafetyMap({
   center,
   points = [],
-  layer = "Street",
+  layer = "Light",
   zoom = 13,
   recenter = 0,
   profileImageUrl = null,

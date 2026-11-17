@@ -93,7 +93,7 @@ const avatarIcon = (url: string | null | undefined, initial: string) => L.divIco
   iconAnchor: [19, 19],
 });
 
-export default function TripMap({ points, position, recenter = 0, stops = [], drawn = [], avatarUrl, initial = "Y", onMapClick, drawing = false, onDraw, layer = "Street" }: Props) {
+export default function TripMap({ points, position, recenter = 0, stops = [], drawn = [], avatarUrl, initial = "Y", onMapClick, drawing = false, onDraw, layer = "Light" }: Props) {
   const center: [number, number] = points.length
     ? [points[0].lat, points[0].lng]
     : position
