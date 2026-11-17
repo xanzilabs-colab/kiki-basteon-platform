@@ -18,6 +18,34 @@ const icon = (color: string, selected: boolean) =>
     iconAnchor: [selected ? 12 : 8, selected ? 12 : 8],
   });
 
+function hasRenderableSize(map: L.Map) {
+  const size = map.getSize();
+  return size.x > 0 && size.y > 0;
+}
+
+function flyToWhenSized(
+  map: L.Map,
+  center: [number, number],
+  zoom: number,
+  pendingView: { current: boolean },
+) {
+  if (!hasRenderableSize(map)) {
+    pendingView.current = true;
+    return;
+  }
+  pendingView.current = false;
+  map.flyTo(center, zoom, { duration: 0.7 });
+}
+
+function panToWhenSized(map: L.Map, center: [number, number], pendingView: { current: boolean }) {
+  if (!hasRenderableSize(map)) {
+    pendingView.current = true;
+    return;
+  }
+  pendingView.current = false;
+  map.panTo(center, { animate: true, duration: 0.6 });
+}
+
 export default function AlertMap({
   selected,
   me,
@@ -40,9 +68,12 @@ export default function AlertMap({
   const baseLayersRef = useRef<ReturnType<typeof installMapBaseLayers> | null>(null);
   const selectedRef = useRef(selected);
   const onSelectRef = useRef(onSelect);
+  const validMeRef = useRef<Position | null>(null);
+  const pendingViewRef = useRef(false);
   selectedRef.current = selected;
   onSelectRef.current = onSelect;
   const validMe = me && hasLocation(me) ? me : null;
+  validMeRef.current = validMe;
   const lastRecenterTokenRef = useRef(0);
   const userInteractedRef = useRef(false);
   const centeredAccuracyRef = useRef<number | null>(
@@ -83,7 +114,21 @@ export default function AlertMap({
     const baseLayers = installMapBaseLayers(map);
     baseLayersRef.current = baseLayers;
 
-    const resize = () => map.invalidateSize({ animate: false, pan: false });
+    const resize = () => {
+      map.invalidateSize({ animate: false, pan: false });
+      if (!pendingViewRef.current || !hasRenderableSize(map)) return;
+
+      pendingViewRef.current = false;
+      const currentSelected = selectedRef.current;
+      const currentMe = validMeRef.current;
+      if (currentSelected && hasLocation(currentSelected)) {
+        map.flyTo([currentSelected.lat, currentSelected.lng], 15, { duration: 0.7 });
+      } else if (currentMe) {
+        map.flyTo([currentMe.lat, currentMe.lng], 14, { duration: 0.7 });
+      } else {
+        map.flyTo(initialView.current.center, initialView.current.zoom, { duration: 0.7 });
+      }
+    };
     const observer = new ResizeObserver(resize);
     observer.observe(container);
     const frame = requestAnimationFrame(resize);
@@ -118,7 +163,7 @@ export default function AlertMap({
     const previousAccuracy = centeredAccuracyRef.current;
     if (previousAccuracy !== null && (accuracy === null || accuracy > previousAccuracy / 2)) return;
     if (accuracy !== null) centeredAccuracyRef.current = accuracy;
-    map.flyTo([validMe.lat, validMe.lng], 14, { duration: 0.7 });
+    flyToWhenSized(map, [validMe.lat, validMe.lng], 14, pendingViewRef);
   }, [validMe, selected]);
 
   useEffect(() => {
@@ -134,12 +179,12 @@ export default function AlertMap({
     followRef.current = true;
     setFollowMode(true);
     if (selected && hasLocation(selected)) {
-      map.flyTo([selected.lat!, selected.lng!], 15, { duration: 0.7 });
+      flyToWhenSized(map, [selected.lat!, selected.lng!], 15, pendingViewRef);
     } else if (validMe) {
       centeredAccuracyRef.current = Number.isFinite(validMe.accuracy) ? validMe.accuracy! : null;
-      map.flyTo([validMe.lat, validMe.lng], 14, { duration: 0.7 });
+      flyToWhenSized(map, [validMe.lat, validMe.lng], 14, pendingViewRef);
     } else {
-      map.flyTo(initialView.current.center, initialView.current.zoom, { duration: 0.7 });
+      flyToWhenSized(map, initialView.current.center, initialView.current.zoom, pendingViewRef);
     }
   }, [validMe, recenterToken, selected]);
 
@@ -295,7 +340,7 @@ export default function AlertMap({
         predictedMarkerRef.current = null;
       }
 
-      if (followRef.current && followMode) map.panTo([lat, lng], { animate: true, duration: 0.6 });
+      if (followRef.current && followMode) panToWhenSized(map, [lat, lng], pendingViewRef);
       if (progress < 1) rafRef.current = requestAnimationFrame(animate);
     };
 
@@ -347,5 +392,5 @@ export default function AlertMap({
     return () => controller.abort();
   }, [validMe, selected]);
 
-  return <div className="relative h-full"><div ref={containerRef} className="alert-map leaflet-container" />{showFollowButton && !followMode && <button className="btn absolute right-3 top-3 z-[1200]" onClick={() => { followRef.current = true; setFollowMode(true); if (selected && hasLocation(selected)) mapRef.current?.panTo([selected.lat!, selected.lng!], { animate: true }); }}>Re-center</button>}</div>;
+  return <div className="relative h-full"><div ref={containerRef} className="alert-map leaflet-container" />{showFollowButton && !followMode && <button className="btn absolute right-3 top-3 z-[1200]" onClick={() => { followRef.current = true; setFollowMode(true); if (selected && hasLocation(selected) && mapRef.current) panToWhenSized(mapRef.current, [selected.lat!, selected.lng!], pendingViewRef); }}>Re-center</button>}</div>;
 }
