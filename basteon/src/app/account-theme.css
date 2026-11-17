@@ -4898,11 +4898,15 @@ body:has(.account-shell) {
 }
 
 .account-shell .safe-spots-page .safe-map-search {
+  display: grid;
+  width: 40px;
+  height: 40px;
   min-height: 38px;
   flex: none;
   grid-column: auto;
-  border-radius: 12px;
-  padding: 0 12px;
+  place-items: center;
+  border-radius: 50%;
+  padding: 0;
   background: #4a2472;
   color: #fff;
 }
@@ -4925,7 +4929,7 @@ body:has(.account-shell) {
 .account-shell .safe-spots-page .safe-risk-legend > i {
   height: 7px;
   border-radius: 99px;
-  background: linear-gradient(90deg, #bfdfbf, #f3c568, #ba334b);
+  background: linear-gradient(90deg, #58c77e, #f0d95d 35%, #f69a47 65%, #e84e4e 82%, #8f1d45);
 }
 
 .account-shell .safe-spots-page .safe-risk-legend small {
@@ -5136,27 +5140,96 @@ body:has(.account-shell) {
 
 .kiki-sos-response .map-screen-controls {
   top: calc(82px + env(safe-area-inset-top));
-  right: auto;
+  right: 12px;
   left: 12px;
+  display: flex;
+  justify-content: center;
 }
 
 .kiki-sos-map-stat {
   display: flex;
-  min-height: 56px;
+  width: min(480px, 100%);
+  min-height: 70px;
   align-items: center;
-  gap: 22px;
+  gap: 10px;
   border: 1px solid rgb(41 35 31 / 8%);
-  border-radius: 16px;
-  background: rgb(255 253 249 / 94%);
-  padding: 8px 14px;
+  border-radius: 18px;
+  background: #fffdf9;
+  padding: 10px 12px;
   color: #29231f;
-  box-shadow: 0 3px 12px rgb(35 20 48 / 13%);
+  box-shadow: 0 5px 18px rgb(35 20 48 / 20%);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 
-.kiki-sos-map-stat > div { display: grid; gap: 2px; }
-.kiki-sos-map-stat small { color: #756d66; font-size: 10px; }
-.kiki-sos-map-stat b { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; }
-.kiki-sos-map-stat p { max-width: 28ch; margin: 0; color: #756d66; font-size: 11px; }
+.kiki-sos-map-status-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: #fce9df;
+  color: #a91f39;
+}
+
+.kiki-sos-map-status-icon.is-closed {
+  background: #eee8f6;
+  color: #4a2472;
+}
+
+.kiki-sos-map-status-copy,
+.kiki-sos-map-arrival {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.kiki-sos-map-status-copy {
+  flex: 1;
+}
+
+.kiki-sos-map-stat small {
+  color: #756d66;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.kiki-sos-map-status-copy b {
+  overflow: hidden;
+  color: #29231f;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kiki-sos-map-status-copy > span,
+.kiki-sos-map-arrival > span {
+  overflow: hidden;
+  color: #756d66;
+  font-size: 9px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kiki-sos-map-arrival {
+  min-width: 112px;
+  justify-items: end;
+  border-left: 1px solid #e8e0ec;
+  padding-left: 10px;
+}
+
+.kiki-sos-map-arrival b {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #4a2472;
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+}
 
 .kiki-sos-response .kiki-sos-hidden-cancel {
   bottom: calc(48px + env(safe-area-inset-bottom));
@@ -5175,7 +5248,7 @@ body:has(.account-shell) {
 
 .kiki-sos-response-sheet .account-sheet-content {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   padding: 0 14px calc(12px + env(safe-area-inset-bottom));
 }
 
@@ -5240,13 +5313,14 @@ body:has(.account-shell) {
 .kiki-sos-nearest-panel p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kiki-sos-team-empty strong { font-size: 13px; }
 .kiki-sos-team-empty p { margin-top: 5px; }
-.kiki-sos-team-panel ul { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.kiki-sos-team-panel li { display: flex; align-items: flex-start; gap: 9px; }
-.kiki-sos-team-dot { width: 8px; height: 8px; flex: none; margin-top: 5px; border-radius: 50%; background: #4a2472; }
+.kiki-sos-team-panel h2 { margin-bottom: 10px; }
+.kiki-sos-team-panel ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.kiki-sos-team-panel li { display: flex; align-items: center; gap: 9px; border-radius: 14px; background: #f8f4ec; padding: 10px; }
+.kiki-sos-team-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #4a2472; }
 .kiki-sos-team-panel li > div { display: grid; min-width: 0; flex: 1; gap: 3px; }
 .kiki-sos-team-panel li strong { font-size: 12px; }
-.kiki-sos-team-panel li small { color: #756d66; font-size: 10px; }
-.kiki-sos-team-eta { flex: none; color: #29231f; font-size: 10px; text-align: right; }
+.kiki-sos-team-panel li small { overflow-wrap: anywhere; color: #756d66; font-size: 10px; line-height: 1.35; }
+.kiki-sos-team-eta { max-width: 96px; flex: none; color: #29231f; font-size: 10px; line-height: 1.35; text-align: right; }
 .kiki-sos-team-eta small { display: block; margin-top: 3px; color: #756d66; }
 .kiki-sos-complete-panel > strong { display: flex; align-items: center; gap: 7px; color: #4a2472; font-size: 14px; }
 .kiki-sos-complete-panel > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
@@ -5569,6 +5643,25 @@ body:has(.account-shell) {
 }
 
 @media (max-width: 390px) {
+  .kiki-sos-map-stat {
+    gap: 7px;
+    padding: 9px;
+  }
+
+  .kiki-sos-map-status-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .kiki-sos-map-status-copy b {
+    font-size: 11px;
+  }
+
+  .kiki-sos-map-arrival {
+    min-width: 102px;
+    padding-left: 7px;
+  }
+
   .account-shell .everyday-section-heading {
     grid-template-columns: minmax(0, 1fr);
   }

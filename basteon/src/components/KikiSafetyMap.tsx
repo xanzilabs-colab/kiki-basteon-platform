@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { divIcon } from "leaflet";
-import { Circle, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import * as L from "leaflet";
+import "leaflet.heat";
+import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayers";
 
 export type SafetyMapPoint = {
@@ -71,34 +72,36 @@ function safeImageSource(value: string | null | undefined) {
   }
 }
 
-type ReportHeatCell = { key: string; lat: number; lng: number; intensity: number; count: number };
+function reportWeight(point: SafetyMapPoint, now: number): number {
+  const ageDays = point.createdAt ? Math.max(0, (now - Date.parse(point.createdAt)) / 86_400_000) : 30;
+  const freshness = Number.isFinite(ageDays) ? Math.exp(-ageDays / 30) : 0.25;
+  const severity = reportSeverity[point.category ?? ""] ?? 0.62;
+  const support = Math.min(1.3, 1 + Math.max(0, point.upvotes ?? 0) * 0.06);
+  return freshness * severity * support;
+}
 
-function aggregateReportHeat(reports: SafetyMapPoint[]): ReportHeatCell[] {
-  const cells = new Map<string, { lat: number; lng: number; weight: number; count: number }>();
-  const now = Date.now();
-  for (const point of reports) {
-    const ageDays = point.createdAt ? Math.max(0, (now - Date.parse(point.createdAt)) / 86_400_000) : 30;
-    const freshness = Number.isFinite(ageDays) ? Math.exp(-ageDays / 30) : 0.25;
-    const severity = reportSeverity[point.category ?? ""] ?? 0.62;
-    const support = Math.min(1.3, 1 + Math.max(0, point.upvotes ?? 0) * 0.06);
-    const weight = freshness * severity * support;
-    const latitudeMeters = point.lat * 111_320;
-    const longitudeMeters = point.lng * 111_320 * Math.cos(point.lat * Math.PI / 180);
-    const key = `${Math.floor(latitudeMeters / 250)}:${Math.floor(longitudeMeters / 250)}`;
-    const cell = cells.get(key) ?? { lat: 0, lng: 0, weight: 0, count: 0 };
-    cell.lat += point.lat * weight;
-    cell.lng += point.lng * weight;
-    cell.weight += weight;
-    cell.count += 1;
-    cells.set(key, cell);
-  }
-  return [...cells].map(([key, cell]) => ({
-    key,
-    lat: cell.lat / cell.weight,
-    lng: cell.lng / cell.weight,
-    intensity: Math.min(1, 1 - Math.exp(-cell.weight / 1.6)),
-    count: cell.count,
-  }));
+function ReportHeatmapLayer({ points }: { points: Array<[number, number, number]> }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!points.length) return;
+    const heatmap = L.heatLayer(points, {
+      radius: 38,
+      blur: 30,
+      minOpacity: 0.28,
+      max: 1.3,
+      maxZoom: 14,
+      gradient: {
+        0.2: "#58c77e",
+        0.4: "#f0d95d",
+        0.6: "#f69a47",
+        0.8: "#e84e4e",
+        1: "#8f1d45",
+      },
+    });
+    map.addLayer(heatmap);
+    return () => { map.removeLayer(heatmap); };
+  }, [map, points]);
+  return null;
 }
 
 function MapViewport({ center, zoom, recenter }: { center: SafetyMapPoint | null; zoom: number; recenter: number }) {
@@ -138,16 +141,19 @@ export default function KikiSafetyMap({
   const selectedLayer = useMemo(() => MAP_BASE_LAYERS.find((item) => item.name === layer) ?? MAP_BASE_LAYERS[0], [layer]);
   const safeCenter = isValidPoint(center) ? center : null;
   const mapCenter: [number, number] = safeCenter ? [safeCenter.lat, safeCenter.lng] : [-29, 24];
-  const validPoints = points.filter(isValidPoint);
-  const reports = validPoints.filter((point) => point.kind === "report");
-  const reportHeat = useMemo(() => aggregateReportHeat(reports), [reports]);
+  const validPoints = useMemo(() => points.filter(isValidPoint), [points]);
+  const reports = useMemo(() => validPoints.filter((point) => point.kind === "report"), [validPoints]);
+  const heatPoints = useMemo(() => {
+    const now = Date.now();
+    return reports.map((point): [number, number, number] => [point.lat, point.lng, reportWeight(point, now)]);
+  }, [reports]);
   const userIcon = useMemo(() => {
     const imageUrl = safeImageSource(profileImageUrl);
     const initials = escapeHtml(profileLabel.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase() || "K");
     const content = imageUrl
       ? `<img src="${imageUrl}" alt="" />`
       : `<span aria-hidden="true">${initials}</span>`;
-    return divIcon({
+    return L.divIcon({
       className: "kiki-user-map-marker",
       html: `<span class="kiki-user-map-avatar">${content}</span>`,
       iconSize: [72, 72],
@@ -159,20 +165,10 @@ export default function KikiSafetyMap({
       <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} maxZoom={selectedLayer.maxZoom} />
       <MapViewport center={safeCenter} zoom={zoom} recenter={recenter} />
       {safeCenter && <Marker position={mapCenter} icon={userIcon} title={`${profileLabel}'s location`} />}
-      {reportHeat.map((cell) => {
-        const color = cell.intensity > 0.62 ? "#b4233d" : cell.intensity > 0.32 ? "#df793e" : "#bfdfbf";
-        const radius = 180 + cell.intensity * 220 + Math.min(cell.count - 1, 8) * 24;
-        return <Circle
-          key={cell.key}
-          center={[cell.lat, cell.lng]}
-          radius={radius}
-          interactive={false}
-          pathOptions={{ color, weight: 1, opacity: 0.16 + cell.intensity * 0.18, fillColor: color, fillOpacity: 0.06 + cell.intensity * 0.12 }}
-        />;
-      })}
+      <ReportHeatmapLayer points={heatPoints} />
       {reports.map((point, index) => {
         const markerGlyph = reportGlyphs[point.category ?? ""] ?? "!";
-        const marker = divIcon({
+        const marker = L.divIcon({
           className: "kiki-safety-point-marker report",
           html: `<span class="kiki-safety-point-marker-inner" aria-hidden="true"><span>${markerGlyph}</span></span>`,
           iconSize: [36, 42],
@@ -182,7 +178,7 @@ export default function KikiSafetyMap({
       })}
       {validPoints.filter((point) => point.kind === "spot").map((point, index) => {
         const markerGlyph = spotGlyphs[point.category ?? ""] ?? "•";
-        const marker = divIcon({
+        const marker = L.divIcon({
           className: "kiki-safety-point-marker spot",
           html: `<span class="kiki-safety-point-marker-inner" aria-hidden="true"><span>${markerGlyph}</span></span>`,
           iconSize: [36, 42],

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   AlertTriangle, BusFront, Building2, Check, ChevronRight, Church, Clock3, Coffee,
-  Fuel, Handshake, Hospital, LocateFixed, MapPin, MapPinned, Navigation, RefreshCw,
+  Fuel, Handshake, Hospital, LocateFixed, MapPin, MapPinned, Navigation, RefreshCw, Search,
   School, ShieldCheck, ShoppingBag, Store, UsersRound,
   type LucideIcon,
 } from "lucide-react";
@@ -73,10 +73,10 @@ export function BuddySafePlaces() {
     [category, places],
   );
   const activeAlerts = alerts;
-  const mapPoints: SafetyMapPoint[] = [
+  const mapPoints = useMemo<SafetyMapPoint[]>(() => [
     ...filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot" as const, category: spot.category })),
     ...activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report" as const, category: alert.kind, createdAt: alert.created_at, upvotes: alert.upvotes })),
-  ];
+  ], [activeAlerts, filteredPlaces]);
   const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
 
   useEffect(() => {
@@ -167,8 +167,8 @@ export function BuddySafePlaces() {
             : `${bubbles.length} meetings`
         : "Nearby map"}</span>
       {searched
-        ? <button className="safe-map-refresh" type="button" disabled={busy} onClick={() => void search()} aria-label="Refresh nearby places"><RefreshCw size={17} className={busy ? "is-spinning" : ""} /></button>
-        : <button type="button" className="safe-map-search" disabled={busy} onClick={() => void search()}>{busy ? "Finding…" : "Search nearby"}<ChevronRight size={16} /></button>}
+        ? <button className="safe-map-refresh" type="button" disabled={busy} onClick={() => void search()} aria-label="Refresh nearby places" title="Refresh nearby places"><RefreshCw size={17} className={busy ? "is-spinning" : ""} /></button>
+        : <button type="button" className="safe-map-search" disabled={busy} onClick={() => void search()} aria-label={busy ? "Searching nearby" : "Search nearby"} title="Search nearby"><Search size={18} className={busy ? "is-spinning" : ""} /></button>}
     </div>}
     controls={searched && activeAlerts.length > 0 ? <div className="safe-risk-legend" role="note" data-map-ui="hide">
       <span>Reported risk</span>

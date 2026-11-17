@@ -34,7 +34,7 @@
 .safe-map-topline > span svg { color:var(--safe-plum); }
 .safe-map-refresh { display:grid; width:34px; height:34px; flex:none; place-items:center; border:1px solid var(--safe-line); border-radius:50%; background:#fff; color:var(--safe-plum); }
 .safe-map-refresh:disabled { opacity:.55; }
-.safe-map-refresh .is-spinning { animation:safe-spin .8s linear infinite; }
+.safe-map-refresh .is-spinning,.safe-map-search .is-spinning { animation:safe-spin .8s linear infinite; }
 .safe-map-canvas { position:relative; height:242px; overflow:hidden; background-color:#eee9ee; background-image:linear-gradient(26deg,transparent 48%,#fff 48%,#fff 51%,transparent 51%),linear-gradient(108deg,transparent 43%,#fff 43%,#fff 46%,transparent 46%),linear-gradient(166deg,transparent 70%,#fff 70%,#fff 73%,transparent 73%),linear-gradient(90deg,rgba(199,187,206,.19) 1px,transparent 1px),linear-gradient(rgba(199,187,206,.19) 1px,transparent 1px); background-size:100% 100%,100% 100%,100% 100%,31px 31px,31px 31px; }
 .safe-map-block { position:absolute; border:1px solid rgba(157,184,155,.35); border-radius:11px; background:rgba(196,218,190,.67); }
 .safe-map-block-one { top:13%; left:9%; width:19%; height:18%; }
