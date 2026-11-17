@@ -24,7 +24,7 @@ import { fmtRelativeTime } from "@/lib/datetime";
 import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
 import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
-import { AlertTriangle, LayoutDashboard, LocateFixed, Settings } from "lucide-react";
+import { AlertTriangle, ArrowLeft, LayoutDashboard, LocateFixed, LockKeyhole, Map as MapIcon, Settings } from "lucide-react";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
 import { toast } from "sonner";
@@ -52,6 +52,8 @@ export default function ResponderPage() {
   const { position, error, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailCleared, setDetailCleared] = useState(false);
+  const [mobileAlertPane, setMobileAlertPane] = useState<"queue" | "map" | "detail">("queue");
+  const [mobileReturnPane, setMobileReturnPane] = useState<"queue" | "map">("queue");
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"active" | "all">("active");
   const [profile, setProfile] = useState<ProfileContact | null>(null);
@@ -259,8 +261,10 @@ export default function ResponderPage() {
   );
 
   const selectAlert = (alert: Alert) => {
+    if (mobileAlertPane !== "detail") setMobileReturnPane(mobileAlertPane);
     setSelectedId(alert.id);
     setDetailCleared(false);
+    setMobileAlertPane("detail");
   };
   const selected = detailCleared
     ? null
@@ -308,6 +312,7 @@ export default function ResponderPage() {
       if (selectedId === alert.id) {
         setSelectedId(null);
         setDetailCleared(true);
+        setMobileAlertPane("queue");
       }
       toast.success("Alert removed from your active queue. It remains active for other responders.");
     } catch {
@@ -332,12 +337,19 @@ export default function ResponderPage() {
         <NotificationBell />
         <SoundToggle />
       </Navbar>
+      <div className={styles.mobileSessionBar}>
+        <LockKeyhole size={14} aria-hidden="true" />
+        <span><b>Secure session</b><small>{organisationName || "Response console"}{operatorName && ` · ${operatorName}`}</small></span>
+      </div>
 
       <main className={styles.shell}>
         <div className={styles.navRail} role="tablist" aria-label="Responder console sections">
-          <button type="button" role="tab" aria-selected={responderView === "alerts"} className={styles.navButton} onClick={() => setResponderView("alerts")}>
+          <button type="button" role="tab" aria-selected={responderView === "alerts" && mobileAlertPane !== "map" && !(mobileAlertPane === "detail" && mobileReturnPane === "map")} className={styles.navButton} onClick={() => { setResponderView("alerts"); setMobileAlertPane("queue"); }}>
             <AlertTriangle size={19} /><span>Alerts</span>
             {unacked.length > 0 && <b className={styles.navCount}>{unacked.length > 9 ? "9+" : unacked.length}</b>}
+          </button>
+          <button type="button" role="tab" aria-selected={responderView === "alerts" && (mobileAlertPane === "map" || (mobileAlertPane === "detail" && mobileReturnPane === "map"))} className={`${styles.navButton} ${styles.mobileMapNav}`} onClick={() => { setResponderView("alerts"); setMobileAlertPane("map"); }}>
+            <MapIcon size={19} /><span>Map</span>
           </button>
           <button type="button" role="tab" aria-selected={responderView === "overview"} className={styles.navButton} onClick={() => setResponderView("overview")}>
             <LayoutDashboard size={19} /><span>Overview</span>
@@ -361,8 +373,8 @@ export default function ResponderPage() {
           {alertError && <div className={`${styles.notice} ${styles.errorNotice}`} role="alert">Alert stream degraded — {alertError}</div>}
 
           {responderView === "alerts" && (
-            <section className={styles.alertsLayout} aria-label="Incident dispatch">
-              <aside className={styles.queue} aria-label="Incident queue">
+            <section className={styles.alertsLayout} data-mobile-pane={mobileAlertPane} aria-label="Incident dispatch">
+              <aside id="responder-queue" className={styles.queue} aria-label="Incident queue">
                 <header className={styles.queueHeader}>
                   <h1>Incident queue</h1>
                   <span>{active.length} active</span>
@@ -390,7 +402,7 @@ export default function ResponderPage() {
                 </div>}
               </aside>
 
-              <section className={styles.mapArea} aria-label="Incident map">
+              <section id="responder-map" className={styles.mapArea} aria-label="Incident map">
                 <div className={styles.mapCanvas}>
                   <AlertMap
                     selected={selected}
@@ -414,7 +426,10 @@ export default function ResponderPage() {
                 </div>
               </section>
 
-              <aside className={styles.detailPanel} aria-label="Incident detail">
+              <aside id="responder-detail" className={styles.detailPanel} aria-label="Incident detail">
+                <button type="button" className={styles.mobileDetailBack} onClick={() => setMobileAlertPane(mobileReturnPane)}>
+                  <ArrowLeft size={17} aria-hidden="true" /> Back to {mobileReturnPane === "map" ? "map" : "alerts"}
+                </button>
                 <AlertDetailPanel
                   alert={selected}
                   events={events}
@@ -422,7 +437,7 @@ export default function ResponderPage() {
                   organisationId={organisationId}
                   canDispatch={canDispatch}
                   onViewProfile={(alert) => setProfile(alert.device?.owner ?? null)}
-                  onClear={() => { setSelectedId(null); setDetailCleared(true); }}
+                  onClear={() => { setSelectedId(null); setDetailCleared(true); setMobileAlertPane("queue"); }}
                 />
               </aside>
             </section>

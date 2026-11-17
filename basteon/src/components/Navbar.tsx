@@ -76,6 +76,7 @@ export function Navbar({
         <button
           className="btn btn-ghost"
           title="Sign out"
+          aria-label="Sign out"
           onClick={async () => {
             await createClient().auth.signOut();
             router.replace("/login");
