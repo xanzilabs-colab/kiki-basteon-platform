@@ -1220,13 +1220,13 @@
 .account-shell .kiki-overview-alert {
   border-color: transparent;
   border-radius: 12px;
-  background: linear-gradient(115deg, #8d243e 0%, #611c3d 100%);
-  color: #fff;
+  background: linear-gradient(115deg, #8d243e 0%, #611c3d 100%) !important;
+  color: #fff !important;
   box-shadow: var(--elev-float);
 }
 
 .account-shell .kiki-overview-alert:hover {
-  background: linear-gradient(115deg, #9a2946 0%, #702045 100%);
+  background: linear-gradient(115deg, #9a2946 0%, #702045 100%) !important;
 }
 
 .account-shell .kiki-overview-alert:focus-visible {
@@ -1240,15 +1240,18 @@
 }
 
 .account-shell .kiki-overview-alert-copy strong {
-  color: #fff;
+  color: #fff !important;
+  font-size: 16px;
 }
 
 .account-shell .kiki-overview-alert-copy span {
-  color: rgb(255 255 255 / 84%);
+  color: #f9e9ee !important;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .account-shell .kiki-overview-alert-action {
-  color: #fff;
+  color: #fff !important;
 }
 
 .account-shell .kiki-overview-hero-copy h2 {
@@ -1379,7 +1382,7 @@
 .account-shell .devices-hero {
   border: 0;
   border-radius: 16px;
-  background: radial-gradient(85% 70% at 50% 32%, #fffdf9 0%, #f0e8f4 72%, #eadff0 100%);
+  background: radial-gradient(85% 70% at 50% 32%, #fffdf9 0%, #f0e8f4 72%, #eadff0 100%) !important;
   box-shadow: none;
 }
 
@@ -1389,6 +1392,21 @@
 
 .account-shell .device-floor {
   background: radial-gradient(closest-side, rgb(36 16 54 / 22%), transparent);
+}
+
+.account-shell .devices-hero .devices-hero-copy,
+.account-shell .devices-hero .devices-hero-copy h2,
+.account-shell .devices-hero .devices-hero-copy .devices-id {
+  color: #241036 !important;
+}
+
+.account-shell .devices-hero .devices-hero-copy .devices-id {
+  font-weight: 600;
+}
+
+.account-shell .devices-hero .devices-status.connected {
+  background: #e7f3e7 !important;
+  color: #245c35 !important;
 }
 
 .account-shell .devices-metric,
@@ -1477,7 +1495,7 @@
 }
 
 .account-shell[data-theme="dark"] .devices-hero {
-  background: radial-gradient(85% 70% at 50% 32%, #fffdf9 0%, #f0e8f4 72%, #eadff0 100%);
+  background: radial-gradient(85% 70% at 50% 32%, #fffdf9 0%, #f0e8f4 72%, #eadff0 100%) !important;
 }
 
 .account-shell[data-theme="dark"] .device-orbit {
@@ -1495,7 +1513,16 @@
 
 .account-shell[data-theme="dark"] .devices-hero-copy,
 .account-shell[data-theme="dark"] .devices-hero-copy h2 {
-  color: #17101f;
+  color: #241036 !important;
+}
+
+.account-shell[data-theme="dark"] .devices-hero .devices-hero-copy .devices-id {
+  color: #51445a !important;
+}
+
+.account-shell[data-theme="dark"] .devices-hero .devices-status.connected {
+  background: #e7f3e7 !important;
+  color: #245c35 !important;
 }
 
 .account-shell[data-theme="dark"] .devices-list-row {
