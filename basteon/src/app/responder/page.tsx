@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { activeStatuses } from "@/lib/status";
 import { useRealtimeAlerts } from "@/hooks/useRealtimeAlerts";
 import { useAlertTrail } from "@/hooks/useAlertTrail";
@@ -24,7 +25,7 @@ import { fmtRelativeTime } from "@/lib/datetime";
 import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
 import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
-import { AlertTriangle, ArrowLeft, LayoutDashboard, LocateFixed, LockKeyhole, Map as MapIcon, Settings } from "lucide-react";
+import { AlertTriangle, ArrowLeft, LayoutDashboard, LocateFixed, LockKeyhole, LogOut, Map as MapIcon, Settings } from "lucide-react";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
 });
 
 export default function ResponderPage() {
+  const router = useRouter();
   const [responderView, setResponderView] = useState<"alerts" | "overview" | "settings">("alerts");
   const [organisationId, setOrganisationId] = useState("");
   const [organisationLoading, setOrganisationLoading] = useState(true);
@@ -448,7 +450,7 @@ export default function ResponderPage() {
               <div className={styles.pageViewInner}>
                 <header className={styles.pageTitle}>
                   <div><h1>Responder overview</h1><p>{organisationName || "Response console"} · updated live</p></div>
-                  <button type="button" className={styles.actionButton} onClick={() => setResponderView("alerts")}>Open alerts</button>
+                  <button type="button" className={styles.actionButton} onClick={() => { setMobileAlertPane("queue"); setResponderView("alerts"); }}>Open alerts</button>
                 </header>
                 <div className={styles.stats}>
                   <article className={styles.statHot}><span>Needs a response now</span><b>{unacked.length}</b><small>{unacked.length} unacknowledged {unacked.length === 1 ? "alert" : "alerts"} in the queue</small></article>
@@ -457,7 +459,7 @@ export default function ResponderPage() {
                 </div>
                 <div className={styles.overviewGrid}>
                   <section className={styles.overviewBlock}>
-                    <header><h2>Latest alert</h2><button type="button" onClick={() => setResponderView("alerts")}>View on map</button></header>
+                    <header><h2>Latest alerts</h2><button type="button" onClick={() => { setMobileAlertPane("map"); setResponderView("alerts"); }}>View on map</button></header>
                     {recentAlerts.length > 0 ? (
                       <div className={styles.overviewTableWrap}>
                         <table className={styles.overviewTable}>
@@ -471,6 +473,21 @@ export default function ResponderPage() {
                           ))}</tbody>
                         </table>
                       </div>
+                    ) : null}
+                    {recentAlerts.length > 0 ? (
+                      <div className={styles.mobileOverviewAlerts}>
+                        {recentAlerts.map((alert) => (
+                          <button key={alert.id} type="button" className={styles.mobileOverviewAlert} onClick={() => { selectAlert(alert); setResponderView("alerts"); }}>
+                            <span className={styles.mobileOverviewAlertMeta}>
+                              <AlertTypeBadge typeCode={alert.type_code} />
+                              <time>{fmtRelativeTime(alert.triggered_at, serverNow)}</time>
+                            </span>
+                            <strong>{alertDeviceLabel(alert)}</strong>
+                            <span className={styles.mobileOverviewAlertOwner}>{alertOwnerName(alert) ?? "Unassigned"}</span>
+                            <span className={styles.mobileOverviewAlertStatus}>{alert.status.replaceAll("_", " ")}</span>
+                          </button>
+                        ))}
+                      </div>
                     ) : <p className={styles.emptyOverview}>No alerts have been reported.</p>}
                   </section>
                   <section className={styles.overviewBlock}>
@@ -481,6 +498,13 @@ export default function ResponderPage() {
                       <div><b>{active.filter((alert) => alert.status === "on_scene").length}</b><span>On scene</span></div>
                     </div>
                     <p>Full incident timelines remain live in the Alerts view.</p>
+                  </section>
+                  <section className={styles.overviewBlock}>
+                    <header><h2>System status</h2><ConnectionIndicator state={connection} /></header>
+                    <div className={styles.systemStatus}>
+                      <div><i data-state={connection === "live" ? "ok" : "wait"} /><span>Live alert feed</span><b>{connection === "live" ? "Connected" : "Reconnecting"}</b></div>
+                      <div><i data-state={position ? "ok" : error ? "warn" : "wait"} /><span>Responder location</span><b>{position ? "Sharing" : error ? "Needs attention" : "Waiting"}</b></div>
+                    </div>
                   </section>
                 </div>
               </div>
@@ -508,18 +532,28 @@ export default function ResponderPage() {
                 </section>
                 <section className={styles.settingsBlock}>
                   <header><h2>Support contacts</h2></header>
-                  <div className="tbl-wrap">
+                  <div className={`${styles.supportContacts} tbl-wrap`}>
                     <table className="tbl">
                       <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>Purpose</th></tr></thead>
                       <tbody>
                         {supportContacts.map((contact) => (
                           <tr key={contact.id}>
-                            <td>{contact.contact_name}</td><td>{contact.contact_type}</td><td>{contact.contact_value}</td><td>{contact.purpose}</td>
+                            <td data-label="Name">{contact.contact_name}</td><td data-label="Type">{contact.contact_type}</td><td data-label="Value">{contact.contact_value}</td><td data-label="Purpose">{contact.purpose}</td>
                           </tr>
                         ))}
                         {supportContacts.length === 0 && <tr><td colSpan={4} className="muted text-center">No support contacts available.</td></tr>}
                       </tbody>
                     </table>
+                  </div>
+                </section>
+                <section className={styles.settingsBlock}>
+                  <header><h2>Secure session</h2></header>
+                  <div className={styles.sessionCard}>
+                    <span><LockKeyhole size={18} aria-hidden="true" /></span>
+                    <div><b>{operatorName || "Responder"}</b><small>{organisationName || "Response console"} · Actions are logged</small></div>
+                    <button type="button" onClick={async () => { await createClient().auth.signOut(); router.replace("/login"); }}>
+                      <LogOut size={17} aria-hidden="true" /> Sign out
+                    </button>
                   </div>
                 </section>
               </div>
