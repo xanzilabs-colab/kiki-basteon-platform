@@ -949,17 +949,26 @@
   color: #fff;
 }
 
-.account-shell .sidebar-link .nav-sigil,
-.account-shell .account-more-option .nav-sigil {
+.account-shell .sidebar-link .nav-sigil {
   border-color: transparent;
   border-radius: 8px;
   background: transparent;
   color: inherit;
 }
 
-.account-shell .sidebar-link .nav-sigil::before,
-.account-shell .account-more-option .nav-sigil::before {
+.account-shell .sidebar-link .nav-sigil::before {
   content: none;
+}
+
+.account-shell .account-more-option .nav-sigil {
+  width: 29px;
+  height: 29px;
+  flex-basis: 29px;
+  color: var(--accent);
+}
+
+.account-shell .account-more-option .nav-sigil::before {
+  content: "";
 }
 
 .account-shell .appbar {
@@ -1208,6 +1217,40 @@
   box-shadow: none;
 }
 
+.account-shell .kiki-overview-alert {
+  border-color: transparent;
+  border-radius: 12px;
+  background: linear-gradient(115deg, #8d243e 0%, #611c3d 100%);
+  color: #fff;
+  box-shadow: var(--elev-float);
+}
+
+.account-shell .kiki-overview-alert:hover {
+  background: linear-gradient(115deg, #9a2946 0%, #702045 100%);
+}
+
+.account-shell .kiki-overview-alert:focus-visible {
+  outline-color: #d6a8c4;
+}
+
+.account-shell .kiki-overview-alert-icon {
+  border-radius: 10px;
+  background: rgb(255 255 255 / 14%);
+  color: #fff;
+}
+
+.account-shell .kiki-overview-alert-copy strong {
+  color: #fff;
+}
+
+.account-shell .kiki-overview-alert-copy span {
+  color: rgb(255 255 255 / 84%);
+}
+
+.account-shell .kiki-overview-alert-action {
+  color: #fff;
+}
+
 .account-shell .kiki-overview-hero-copy h2 {
   color: #fff;
   font-size: 24px;
@@ -1336,8 +1379,16 @@
 .account-shell .devices-hero {
   border: 0;
   border-radius: 16px;
-  background: #1e0f30;
+  background: radial-gradient(85% 70% at 50% 32%, #fffdf9 0%, #f0e8f4 72%, #eadff0 100%);
   box-shadow: none;
+}
+
+.account-shell .device-orbit {
+  border-color: rgb(59 27 90 / 16%);
+}
+
+.account-shell .device-floor {
+  background: radial-gradient(closest-side, rgb(36 16 54 / 22%), transparent);
 }
 
 .account-shell .devices-metric,
@@ -1426,7 +1477,11 @@
 }
 
 .account-shell[data-theme="dark"] .devices-hero {
-  background: #1e0f30;
+  background: radial-gradient(85% 70% at 50% 32%, #fffdf9 0%, #f0e8f4 72%, #eadff0 100%);
+}
+
+.account-shell[data-theme="dark"] .device-orbit {
+  border-color: rgb(59 27 90 / 16%);
 }
 
 .account-shell[data-theme="dark"] .devices-heading p,
@@ -1440,7 +1495,7 @@
 
 .account-shell[data-theme="dark"] .devices-hero-copy,
 .account-shell[data-theme="dark"] .devices-hero-copy h2 {
-  color: #fff;
+  color: #17101f;
 }
 
 .account-shell[data-theme="dark"] .devices-list-row {
