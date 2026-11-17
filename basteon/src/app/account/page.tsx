@@ -207,18 +207,12 @@ export default function AccountPage() {
     : nearby.count == null
       ? nearby.availableCount ? "On duty" : "None on duty"
       : nearby.count ? "Nearby" : "None nearby";
-  const mapStatus = activeSos
-    ? { label: "Alert active", tone: "critical" as const }
-    : allowed && mapPoint
-      ? { label: "Protected", tone: "positive" as const }
-      : { label: "Limited location", tone: "warning" as const };
   const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
 
   return <><MapScreen
     screenId="account-home"
     className="kiki-map-home"
     map={<KikiSafetyMap center={mapPoint} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} />}
-    topBar={<div className="kiki-map-status"><AccountStatusPill tone={mapStatus.tone}>{mapStatus.label}</AccountStatusPill></div>}
     controls={<div className="kiki-map-actions" aria-label="Map shortcuts" data-map-ui="hide">
       <Link href="/account/buddies/safe-places?tab=spots" aria-label="Safe spots" title="Safe spots"><MapPin size={20} /></Link>
       <Link href="/account/buddies/safe-places?tab=alerts" aria-label="Community reports" title="Community reports"><AlertTriangle size={20} /></Link>
@@ -233,7 +227,7 @@ export default function AccountPage() {
           <strong>{readiness?.fullName || "Your Kiki account"}</strong>
           <small>{activeTrip ? `Trip active · ${activeTrip.destination_label}` : hasSafetySetup ? "Your safety setup is ready" : "Complete your safety setup"}</small>
         </span>
-        <AccountStatusPill tone={activeTrip ? "positive" : mapStatus.tone}>{activeTrip ? "On trip" : mapStatus.label}</AccountStatusPill>
+        {activeTrip && <AccountStatusPill tone="positive">On trip</AccountStatusPill>}
       </div>
       <div className="kiki-map-sheet-details">
         {activeSos && <button type="button" className="kiki-overview-alert" onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>

@@ -33,12 +33,15 @@ export function MapBottomSheet({
     startY.current = null;
     if (Math.abs(delta) < 18) return;
     suppressClick.current = true;
-    window.setTimeout(() => { suppressClick.current = false; }, 0);
+    window.setTimeout(() => { suppressClick.current = false; }, 300);
     onLevelChange(delta < 0 ? Math.min(2, level + 1) as SheetLevel : Math.max(0, level - 1) as SheetLevel);
   }
 
   function onClickHandle() {
-    if (suppressClick.current) return;
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
     onLevelChange(level === 2 ? 0 : (level + 1) as SheetLevel);
   }
 
