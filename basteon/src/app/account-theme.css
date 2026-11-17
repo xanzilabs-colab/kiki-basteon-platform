@@ -1296,6 +1296,11 @@
   box-shadow: none;
 }
 
+.account-shell .kiki-profile-card {
+  display: grid;
+  gap: 16px;
+}
+
 .account-shell .account-list-card,
 .account-shell .kiki-overview-group,
 .account-shell .smart-safety-card,
