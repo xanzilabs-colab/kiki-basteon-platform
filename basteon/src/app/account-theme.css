@@ -3924,14 +3924,16 @@ body:has(.account-shell) {
 }
 
 .account-shell .account-mobile-nav .account-mobile-sos {
-  width: 56px;
-  min-width: 56px;
-  max-width: 56px;
-  height: 56px;
-  min-height: 56px;
-  flex: 0 0 56px;
+  width: 78px;
+  min-width: 78px;
+  max-width: 78px;
+  height: 78px;
+  min-height: 78px;
+  flex: 0 0 78px;
   aspect-ratio: 1;
-  margin: 0 2px 8px;
+  top: auto;
+  margin: -30px 2px 0;
+  border: 4px solid #fcf9f3;
   border-radius: 50%;
 }
 
@@ -3971,17 +3973,6 @@ body:has(.account-shell) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.account-shell .account-sign-out {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  padding: 0;
 }
 
 .account-shell .account-header-actions {
@@ -4106,21 +4097,35 @@ body:has(.account-shell) {
 }
 
 .account-shell .account-list-row-trailing {
+  display: flex;
   min-width: 0;
   max-width: 48%;
   flex: 0 1 auto;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   overflow: hidden;
+  white-space: nowrap;
 }
 
-.account-shell .account-list-row-trailing > svg {
-  flex: 0 0 auto;
+.account-shell .account-list-row-trailing > svg,
+.account-shell .account-list-row-trailing .kiki-overview-chevron {
+  flex: 0 0 18px;
+}
+
+.account-shell .account-list-row-trailing > .account-status-pill {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.account-shell .account-list-row-trailing > :not(svg) {
+  min-width: 0;
 }
 
 .account-shell .account-status-pill {
   min-width: 0;
   max-width: clamp(72px, 30vw, 140px);
   overflow: hidden;
+  flex-shrink: 1;
 }
 
 .account-shell .account-status-pill-copy {
@@ -4292,10 +4297,6 @@ body:has(.account-shell) {
     padding: 32px 24px 32px !important;
   }
 
-  .account-shell .account-sign-out {
-    display: none;
-  }
-
   .account-shell .safe-spots-page .account-bottom-sheet {
     right: 24px;
     bottom: 24px;
@@ -4379,4 +4380,17 @@ body:has(.account-shell) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-shell .safe-alert-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px !important;
+  row-gap: 16px !important;
+}
+
+.account-shell .safe-alert-list > .safe-alert-card {
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Flower2, Gamepad2, HeartPulse, LogOut, Map, MapPinned, Menu, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, Menu, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
@@ -345,9 +345,6 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
               <RefreshCw size={17} aria-hidden="true" />
             </button>
           </div>
-          <button type="button" className="btn btn-ghost account-sign-out md:hidden" title="Sign out" aria-label="Sign out" onClick={() => void signOut()}>
-            <LogOut size={17} aria-hidden="true" />
-          </button>
         </header>
         <main key={pathname} className="account-page-transition mx-auto max-w-4xl p-5 md:p-6">{children}</main>
       </div>
