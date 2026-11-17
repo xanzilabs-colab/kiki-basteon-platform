@@ -47,7 +47,7 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
   const onChangeRef = useRef(onChange);
   const [mode, setMode] = useState<Mode>("view");
   const [editMode, setEditMode] = useState<EditMode>(null);
-  const [baseLayer, setBaseLayer] = useState<MapBaseLayerName>("Light");
+  const [baseLayer, setBaseLayer] = useState<MapBaseLayerName>("Street");
   const [draftPoints, setDraftPoints] = useState<[number, number][]>([]);
   const [expanded, setExpanded] = useState(false);
 

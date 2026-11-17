@@ -2273,11 +2273,6 @@ body:has(.account-shell) {
   box-shadow: 0 4px 12px rgb(180 35 61 / 25%);
 }
 
-.account-shell .account-mobile-nav .account-mobile-sos .kiki-mark {
-  width: 42px !important;
-  height: 42px !important;
-}
-
 .account-shell main:has(.kiki-map-home) {
   width: 100%;
   max-width: none;
@@ -4563,11 +4558,6 @@ body:has(.account-shell) {
   margin-left: auto;
 }
 
-.account-shell .account-mobile-nav .account-mobile-sos .kiki-mark {
-  width: 60px !important;
-  height: 60px !important;
-}
-
 .account-shell .kiki-profile-details-page .kiki-avatar-preview {
   display: grid;
   overflow: hidden;
@@ -5031,6 +5021,17 @@ body:has(.account-shell) {
   border-radius: 11px;
   padding: 0 10px;
   font-size: 11px;
+}
+
+.account-shell main:has(.hamba-trip-map-screen) {
+  position: static;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0 !important;
+  animation: none;
 }
 
 .account-shell .hamba-route-map-sheet {
