@@ -419,7 +419,10 @@ export default function ResponderPage() {
                 <div className={styles.mapControls}>
                   <div className={styles.mapTiles} role="group" aria-label="Map tiles">
                     {MAP_BASE_LAYERS.map(({ name }) => (
-                      <button key={name} type="button" aria-pressed={mapBaseLayer === name} onClick={() => setMapBaseLayer(name)}>{name}</button>
+                      <button key={name} type="button" aria-label={name} title={name} aria-pressed={mapBaseLayer === name} onClick={() => setMapBaseLayer(name)}>
+                        <span className={styles.mapLayerFullLabel}>{name}</span>
+                        <span className={styles.mapLayerCompactLabel}>{name === "Satellite" ? "Sat" : name === "Terrain" ? "Topo" : name === "Humanitarian" ? "Human" : name}</span>
+                      </button>
                     ))}
                   </div>
                   <button type="button" className={styles.recenterButton} onClick={() => setMapRecenterToken((token) => token + 1)}>

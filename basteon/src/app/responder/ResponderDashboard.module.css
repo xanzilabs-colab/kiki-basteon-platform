@@ -403,6 +403,10 @@
   pointer-events: auto;
 }
 
+.mapLayerCompactLabel {
+  display: none;
+}
+
 .mapTiles button {
   min-height: 34px;
   flex: none;
@@ -1054,7 +1058,33 @@
     padding: 0 10px;
   }
 
+  .mapTiles {
+    width: 100%;
+    max-width: none;
+    gap: 2px;
+    overflow: hidden;
+  }
+
+  .mapTiles button {
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 0 2px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .mapLayerFullLabel {
+    display: none;
+  }
+
+  .mapLayerCompactLabel {
+    display: inline;
+  }
+
   .recenterButton {
+    position: absolute;
+    right: 0;
+    bottom: 0;
     min-height: 44px;
   }
 
