@@ -24,10 +24,12 @@ import { membershipTypeOptionsForOrganisation, roleHintForMembershipType } from 
 import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
 import { useAppDialog } from "@/components/AppDialogProvider";
 import { createClient } from "@/lib/supabase/client";
+import { extractLogoColorSuggestions } from "@/lib/logoColorSuggestions";
+import { BASTEON_BRAND_PRIMARY, BRAND_HEX_PATTERN, brandCssProperties, resolveBrandColors, type OrganisationBranding } from "@/lib/organisationBranding";
 
 type MeResponse = {
   userId?: string;
-  organisation: any;
+  organisation: OrganisationBranding & Record<string, any>;
   memberships: Array<{ role: string; organisation_id: string }>;
   branches: Array<any>;
   members: Array<any>;
@@ -237,6 +239,12 @@ export function OrganisationConsole() {
   const [editMemberAvailability, setEditMemberAvailability] = useState("off_duty");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [brandPrimaryColor, setBrandPrimaryColor] = useState(BASTEON_BRAND_PRIMARY);
+  const [brandAccentColor, setBrandAccentColor] = useState("");
+  const [suggestedBrandColors, setSuggestedBrandColors] = useState<string[]>([]);
+  const [brandSuggestionError, setBrandSuggestionError] = useState("");
+  const [suggestingBrandColors, setSuggestingBrandColors] = useState(false);
+  const [savingBrandColors, setSavingBrandColors] = useState(false);
   const [generatedCredentials, setGeneratedCredentials] = useState<{ email: string; password: string; fullName: string } | null>(null);
   const [generatedCredentialPdfUrl, setGeneratedCredentialPdfUrl] = useState("");
   const [coverageTypeCode, setCoverageTypeCode] = useState("general");
@@ -373,6 +381,10 @@ export function OrganisationConsole() {
     return () => { void client.removeChannel(channel); };
   }, [organisationId]);
   useEffect(() => { setLogoUrl(state?.organisation?.logo_url ?? ""); }, [state?.organisation?.logo_url]);
+  useEffect(() => {
+    setBrandPrimaryColor(state?.organisation?.brand_primary_color ?? BASTEON_BRAND_PRIMARY);
+    setBrandAccentColor(state?.organisation?.brand_accent_color ?? "");
+  }, [state?.organisation?.brand_primary_color, state?.organisation?.brand_accent_color]);
   useEffect(() => {
     if (!state?.settings) return;
     setAllowEmailDomain(Boolean(state.settings.allow_email_domain));
@@ -894,6 +906,7 @@ export function OrganisationConsole() {
             ? "Image storage is temporarily unavailable. The upload was retried; please try again shortly."
             : "The image storage service rejected this logo. Please try a PNG, JPEG, or WebP image under 2 MB.");
         }
+
         throw new Error(body?.error ?? "Could not upload organisation logo.");
       }
       setState((current) => current ? { ...current, organisation: { ...current.organisation, logo_url: body.logoUrl } } : current);
@@ -904,6 +917,93 @@ export function OrganisationConsole() {
       setError(failure instanceof Error ? failure.message : "Could not upload organisation logo.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveBrandColors() {
+    if (!organisationId) return;
+    if (!BRAND_HEX_PATTERN.test(brandPrimaryColor)) {
+      setError("Primary colour must use #RRGGBB format.");
+      return;
+    }
+    if (brandAccentColor && !BRAND_HEX_PATTERN.test(brandAccentColor)) {
+      setError("Accent colour must be empty or use #RRGGBB format.");
+      return;
+    }
+    setSavingBrandColors(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/organisation/branding", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organisationId,
+          primaryColor: brandPrimaryColor,
+          accentColor: brandAccentColor || null,
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Could not save organisation branding.");
+      setBrandPrimaryColor(body.primaryColor ?? BASTEON_BRAND_PRIMARY);
+      setBrandAccentColor(body.accentColor ?? "");
+      setState((current) => current ? {
+        ...current,
+        organisation: {
+          ...current.organisation,
+          brand_primary_color: body.primaryColor,
+          brand_accent_color: body.accentColor,
+        },
+      } : current);
+      setMessage("Organisation branding saved.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save organisation branding.");
+    } finally {
+      setSavingBrandColors(false);
+    }
+  }
+
+  async function resetBrandColors() {
+    if (!organisationId) return;
+    setSavingBrandColors(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/organisation/branding", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organisationId, primaryColor: null, accentColor: null }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Could not reset organisation branding.");
+      setBrandPrimaryColor(BASTEON_BRAND_PRIMARY);
+      setBrandAccentColor("");
+      setState((current) => current ? {
+        ...current,
+        organisation: { ...current.organisation, brand_primary_color: null, brand_accent_color: null },
+      } : current);
+      setMessage("Branding reset to Basteon defaults.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not reset organisation branding.");
+    } finally {
+      setSavingBrandColors(false);
+    }
+  }
+
+  async function suggestBrandColors() {
+    const source = logoUrl.trim() || state?.organisation?.logo_url;
+    if (!source) {
+      setBrandSuggestionError("Upload or add a logo before requesting colour suggestions.");
+      return;
+    }
+    setSuggestingBrandColors(true);
+    setBrandSuggestionError("");
+    try {
+      setSuggestedBrandColors(await extractLogoColorSuggestions(source));
+    } catch (failure) {
+      setBrandSuggestionError(failure instanceof Error ? failure.message : "Could not sample colours from this logo.");
+    } finally {
+      setSuggestingBrandColors(false);
     }
   }
 
@@ -1239,6 +1339,15 @@ export function OrganisationConsole() {
   const alertAuditTrail = state?.alertAuditTrail ?? [];
   const topResponders = [...responderPerformance].sort((a, b) => (b.completedAssignments + b.onSceneAssignments) - (a.completedAssignments + a.onSceneAssignments)).slice(0, 3);
   const roleLabel = String(state?.memberships?.[0]?.role ?? "owner").toLowerCase();
+  const canEditBranding = roleLabel === "owner" || roleLabel === "admin";
+  const primaryColorValid = BRAND_HEX_PATTERN.test(brandPrimaryColor);
+  const accentColorValid = !brandAccentColor || BRAND_HEX_PATTERN.test(brandAccentColor);
+  const previewPrimary = primaryColorValid ? brandPrimaryColor : BASTEON_BRAND_PRIMARY;
+  const previewAccent = accentColorValid ? brandAccentColor || null : null;
+  const resolvedBrand = primaryColorValid && accentColorValid
+    ? resolveBrandColors(brandPrimaryColor, brandAccentColor || null)
+    : null;
+  const previewBrandStyle = brandCssProperties(previewPrimary, previewAccent);
   const orgTypeLabel = String(state?.organisation?.organisation_type ?? "business").toLowerCase();
   const currentUser = members.find((member) => member.user_id === state?.userId);
   const currentUserName = currentUser?.profiles?.full_name?.trim() || currentUser?.profiles?.email || "Organisation account";
@@ -1656,19 +1765,83 @@ export function OrganisationConsole() {
             {state.organisation.logo_url
               ? <img src={state.organisation.logo_url} alt={`${state.organisation.name} logo`} className="h-14 w-14 rounded-xl border border-[var(--line)] bg-white object-contain p-1" />
               : <div className="grid h-14 w-14 place-items-center rounded-xl border border-[var(--line)] text-lg font-bold">{String(state.organisation.name ?? "O").trim().charAt(0).toUpperCase()}</div>}
-            <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={(event) => void saveOrganisationLogo(event)}>
+            <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); if (canEditBranding) void saveOrganisationLogo(event); }}>
               <label className="field min-w-[220px] flex-1">Logo image URL
-                <input type="url" value={logoUrl} maxLength={2048} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://example.org/logo.png" />
+                <input type="url" value={logoUrl} maxLength={2048} disabled={!canEditBranding} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://example.org/logo.png" />
               </label>
-              <button className="btn self-end" disabled={busy}>Save link</button>
+              <button className="btn self-end" disabled={!canEditBranding || busy}>Save link</button>
             </form>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Choose organisation logo image" onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)} />
-            <button type="button" className="btn" disabled={busy || !logoFile} onClick={() => void uploadOrganisationLogo()}>Upload selected logo</button>
+            <input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Choose organisation logo image" disabled={!canEditBranding} onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)} />
+            <button type="button" className="btn" disabled={!canEditBranding || busy || !logoFile} onClick={() => void uploadOrganisationLogo()}>Upload selected logo</button>
             <span className="muted text-xs">PNG, JPEG or WebP · max 2 MB</span>
+            {!canEditBranding && <span className="muted text-xs">Only organisation owners and admins can edit branding.</span>}
           </div>
         </div>
+          <section className="space-y-4 border-b border-[var(--line)] pb-4">
+            <div>
+              <h2 className="org-tab-title">Responder dashboard branding</h2>
+              <p className="muted mt-1 text-xs">Choose your organisation’s dashboard colours. Emergency, warning, success, and live-location statuses remain standardised.</p>
+            </div>
+            <fieldset disabled={!canEditBranding || savingBrandColors} className="space-y-4 disabled:opacity-70">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="field">Primary colour
+                  <div className="flex items-center gap-2">
+                    <input aria-label="Choose primary brand colour" type="color" value={primaryColorValid ? brandPrimaryColor : BASTEON_BRAND_PRIMARY} onChange={(event) => setBrandPrimaryColor(event.target.value.toUpperCase())} className="h-10 w-12 cursor-pointer rounded border border-[var(--line)] bg-transparent p-1" style={{ width: "48px", minWidth: "48px", flex: "none" }} />
+                    <input aria-label="Primary brand colour hex" type="text" inputMode="text" autoCapitalize="characters" maxLength={7} value={brandPrimaryColor} onChange={(event) => setBrandPrimaryColor(event.target.value.toUpperCase())} placeholder="#RRGGBB" />
+                  </div>
+                </label>
+                <label className="field">Accent colour <span className="font-normal">Optional · defaults to primary</span>
+                  <div className="flex items-center gap-2">
+                    <input aria-label="Choose accent brand colour" type="color" value={accentColorValid && brandAccentColor ? brandAccentColor : previewPrimary} onChange={(event) => setBrandAccentColor(event.target.value.toUpperCase())} className="h-10 w-12 cursor-pointer rounded border border-[var(--line)] bg-transparent p-1" style={{ width: "48px", minWidth: "48px", flex: "none" }} />
+                    <input aria-label="Accent brand colour hex" type="text" inputMode="text" autoCapitalize="characters" maxLength={7} value={brandAccentColor} onChange={(event) => setBrandAccentColor(event.target.value.toUpperCase())} placeholder="Optional · #RRGGBB" />
+                    {brandAccentColor && <button type="button" className="btn" onClick={() => setBrandAccentColor("")}>Clear</button>}
+                  </div>
+                </label>
+              </div>
+              {!primaryColorValid && <p className="text-sm text-red-600" role="alert">Primary colour must use #RRGGBB format.</p>}
+              {!accentColorValid && <p className="text-sm text-red-600" role="alert">Accent colour must be empty or use #RRGGBB format.</p>}
+              {resolvedBrand?.primaryAdjusted && <p className="text-sm text-amber-700" role="status">Primary colour is too dark for the dashboard; the preview and saved colour are lightened to meet 3:1 contrast.</p>}
+              {resolvedBrand?.primaryText === "#000000" && <p className="text-sm text-amber-700" role="status">Dark text is used on primary controls to meet 4.5:1 contrast.</p>}
+              {resolvedBrand?.primaryNearEmergencyRed && <p className="text-sm text-amber-700" role="status">This primary hue is close to emergency red. Alert and emergency indicators will remain fixed red.</p>}
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className="btn" disabled={!canEditBranding || suggestingBrandColors || !(logoUrl.trim() || state.organisation.logo_url)} onClick={() => void suggestBrandColors()}>
+                  {suggestingBrandColors ? "Sampling logo…" : "Suggest from my logo"}
+                </button>
+                <button type="button" className="btn btn-primary" disabled={!canEditBranding || savingBrandColors || !primaryColorValid || !accentColorValid} onClick={() => void saveBrandColors()}>
+                  {savingBrandColors ? "Saving…" : "Save branding"}
+                </button>
+                <button type="button" className="btn" disabled={!canEditBranding || savingBrandColors} onClick={() => void resetBrandColors()}>Reset to Basteon default</button>
+                {!canEditBranding && <span className="muted text-xs">Only organisation owners and admins can edit branding.</span>}
+              </div>
+            </fieldset>
+            {brandSuggestionError && <p className="text-sm text-red-600" role="alert">{brandSuggestionError}</p>}
+            {suggestedBrandColors.length > 0 && (
+              <div className="flex flex-wrap gap-3" aria-label="Suggested logo colours">
+                {suggestedBrandColors.map((color) => (
+                  <div key={color} className="flex items-center gap-2 rounded-lg border border-[var(--line)] p-2">
+                    <span aria-hidden="true" className="h-7 w-7 rounded-full border border-black/10" style={{ backgroundColor: color }} />
+                    <code className="text-xs">{color}</code>
+                    <button type="button" className="btn" disabled={!canEditBranding || savingBrandColors} onClick={() => setBrandPrimaryColor(color)}>Use as primary</button>
+                    <button type="button" className="btn" disabled={!canEditBranding || savingBrandColors} onClick={() => setBrandAccentColor(color)}>Use as accent</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="overflow-hidden rounded-xl border border-[var(--line)]" style={previewBrandStyle}>
+              <header className="flex items-center gap-3 px-4 py-3" style={{ backgroundColor: "var(--brand-primary)", color: "var(--on-primary)" }}>
+                {state.organisation.logo_url && <img src={state.organisation.logo_url} alt="" className="h-8 w-8 rounded bg-white object-contain p-1" />}
+                <strong>{state.organisation.display_name || state.organisation.name} · Response console</strong>
+              </header>
+              <div className="grid gap-3 p-4">
+                <div><button type="button" className="rounded-lg px-4 py-2 font-semibold" style={{ backgroundColor: "var(--brand-primary)", color: "var(--on-primary)" }}>Primary action</button></div>
+                <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-1)] p-3" style={{ borderLeft: `4px solid ${resolvedBrand?.accent ?? BASTEON_BRAND_PRIMARY}` }}>
+                  <strong>Sample responder alert</strong><p className="muted mt-1 text-xs">Accent indicator · incident status remains standardised</p>
+                </div>
+              </div>
+            </div>
+          </section>
         <div>
           <h2 className="org-tab-title">Linking Configuration</h2>
           <p className="muted mt-1 text-xs">Choose which identifier types people can use and whether eligible requests need approval.</p>

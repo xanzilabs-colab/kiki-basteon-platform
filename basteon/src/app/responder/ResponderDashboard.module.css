@@ -24,11 +24,21 @@
   --muted: #8d9097;
   --crit: #e5323b;
   --crit-bg: rgb(229 50 59 / 14%);
-  --accent: #13a58f;
-  --accent-bg: rgb(19 165 143 / 14%);
+  --accent: var(--brand-primary, #13a58f);
+  --accent-bg: color-mix(in srgb, var(--brand-primary, #13a58f) 14%, transparent);
   --appbar: 56px;
   color: var(--text);
   font-family: "Barlow", system-ui, sans-serif;
+}
+
+.responderRoot :global(.btn-primary) {
+  background: var(--brand-primary, #13a58f);
+  color: var(--on-primary, #000);
+}
+
+.responderRoot :global(.btn-primary:hover),
+.responderRoot :global(.btn-primary:active) {
+  background: var(--brand-primary-hover, #0e8f7e);
 }
 
 .responderRoot :global(.appbar) {
@@ -69,6 +79,26 @@
   align-items: center;
   margin-left: 0;
   flex: none;
+}
+
+.organisationBrandLogo {
+  width: 44px;
+  height: 40px;
+  max-width: 44px;
+  object-fit: contain;
+}
+
+.organisationBrandWordmark {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #f4f4f5;
+  font-family: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .headerOrganisation {
@@ -174,7 +204,7 @@
   left: -8px;
   width: 3px;
   border-radius: 2px;
-  background: #e5323b;
+  background: var(--brand-primary, #13a58f);
   content: "";
 }
 
@@ -425,8 +455,8 @@
 }
 
 .mapTiles button[aria-pressed="true"] {
-  background: #13a58f;
-  color: #fff;
+  background: var(--brand-primary, #13a58f);
+  color: var(--on-primary, #000);
 }
 
 .recenterButton {
@@ -445,6 +475,13 @@
 
 .recenterButton:hover {
   background: #000;
+}
+
+.poweredBy {
+  padding: 18px 4px 4px;
+  color: #8d9097;
+  font-size: 11px;
+  text-align: center;
 }
 
 .mapArea :global(.leaflet-top.leaflet-left) {
@@ -597,7 +634,7 @@
 .overviewBlock > header button {
   border: 0;
   background: transparent;
-  color: #13a58f;
+  color: var(--brand-accent, var(--brand-primary, #13a58f));
   font-size: 12px;
 }
 
@@ -722,7 +759,7 @@
 }
 
 .overviewTable td button:hover {
-  color: #13a58f;
+  color: var(--brand-accent, var(--brand-primary, #13a58f));
 }
 
 .overviewTable td:last-child {
@@ -833,6 +870,15 @@
     display: none;
   }
 
+  .responderRoot[data-branded="true"] :global(.appbar .wordmark) {
+    display: flex;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    flex: 1;
+    overflow: hidden;
+  }
+
   .responderRoot {
     --appbar: 52px;
     height: 100dvh;
@@ -896,7 +942,7 @@
 
   .mobileSessionBar > svg {
     flex: none;
-    color: #13a58f;
+    color: var(--brand-accent, var(--brand-primary, #13a58f));
   }
 
   .mobileSessionBar > span {
@@ -918,6 +964,11 @@
   .mobileSessionBar small {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .organisationBrandWordmark {
+    width: 100%;
+    font-size: 14px;
   }
 
   .shell {
@@ -977,7 +1028,7 @@
   .queueTabs button:focus-visible,
   .mapTiles button:focus-visible,
   .recenterButton:focus-visible {
-    outline: 2px solid #13a58f;
+    outline: 2px solid var(--brand-primary, #13a58f);
     outline-offset: 2px;
   }
 
@@ -1110,7 +1161,7 @@
   }
 
   .mobileDetailBack:focus-visible {
-    outline: 2px solid #13a58f;
+    outline: 2px solid var(--brand-primary, #13a58f);
     outline-offset: -2px;
   }
 
@@ -1209,7 +1260,7 @@
   }
 
   .mobileOverviewAlert:focus-visible {
-    outline: 2px solid #13a58f;
+    outline: 2px solid var(--brand-primary, #13a58f);
     outline-offset: 2px;
   }
 

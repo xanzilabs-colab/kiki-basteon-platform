@@ -19,7 +19,7 @@ describe("PATCH /api/organisation/logo", () => {
     vi.clearAllMocks();
     mocks.access.mockResolvedValue({
       userId: managerId,
-      memberships: [{ organisation_id: organisationId, role: "manager" }],
+      memberships: [{ organisation_id: organisationId, role: "admin" }],
     });
   });
 
@@ -28,7 +28,7 @@ describe("PATCH /api/organisation/logo", () => {
       vi.clearAllMocks();
       mocks.access.mockResolvedValue({
         userId: managerId,
-        memberships: [{ organisation_id: organisationId, role: "manager" }],
+        memberships: [{ organisation_id: organisationId, role: "admin" }],
       });
     });
 
@@ -87,7 +87,7 @@ describe("PATCH /api/organisation/logo", () => {
     });
   });
 
-  it("persists an organisation logo URL for an authorised manager", async () => {
+  it("persists an organisation logo URL for an authorised administrator", async () => {
     const db = fakeSupabase((call: FakeCall) =>
       call.table === "organisations" && call.action === "update"
         ? { data: { logo_url: "https://images.example.org/logo.webp" } }
@@ -131,5 +131,19 @@ describe("PATCH /api/organisation/logo", () => {
 
     expect(response.status).toBe(403);
     expect(db.calls).toHaveLength(0);
+  });
+
+  it("does not allow managers to edit organisation branding", async () => {
+    mocks.access.mockResolvedValue({
+      userId: managerId,
+      memberships: [{ organisation_id: organisationId, role: "manager" }],
+    });
+
+    const response = await PATCH(jsonRequest("http://localhost/api/organisation/logo", {
+      organisationId,
+      logoUrl: "https://images.example.org/logo.webp",
+    }, "PATCH"));
+
+    expect(response.status).toBe(403);
   });
 });

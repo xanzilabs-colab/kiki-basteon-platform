@@ -9,9 +9,10 @@ type OperationsLoginProps = {
   consoleName: string;
   destination: string;
   allowedRoles: string[];
+  showPoweredBy?: boolean;
 };
 
-export function OperationsLogin({ consoleName, destination, allowedRoles }: OperationsLoginProps) {
+export function OperationsLogin({ consoleName, destination, allowedRoles, showPoweredBy = false }: OperationsLoginProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,6 +80,7 @@ export function OperationsLogin({ consoleName, destination, allowedRoles }: Oper
         </button>
         <Link className="ops-login-customer" href="/organisation/login">Organisation sign up / sign in</Link>
         <Link className="ops-login-customer" href="/login">Customer sign in</Link>
+        {showPoweredBy && <small className="ops-login-powered-by">Powered by Basteon</small>}
       </form>
     </main>
   );

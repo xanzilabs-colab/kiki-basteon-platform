@@ -584,6 +584,7 @@
 .ops-login-submit:disabled { cursor: not-allowed; opacity: .6; }
 .ops-login-customer { display: block; padding: 10px 24px 14px; color: #8f959c; font-size: 13px; text-align: center; text-decoration: none; }
 .ops-login-customer:hover { color: #f1f2f3; }
+.ops-login-powered-by { display: block; padding: 8px 24px 4px; color: #737980; font-size: 11px; text-align: center; }
 .ops-login-card--wide { width: min(100%, 980px); }
 .ops-signup-progress { margin: 0 24px 12px; border: 1px solid #2b2e32; border-radius: 10px; background: #15181a; padding: 14px; }
 .ops-signup-progress-mobile { display: none; color: #8f959c; font-size: 12px; font-weight: 700; }

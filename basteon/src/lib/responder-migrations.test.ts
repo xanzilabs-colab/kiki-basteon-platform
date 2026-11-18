@@ -14,6 +14,10 @@ const syncAndLogoSql = readFileSync(
   fileURLToPath(new URL("../../supabase/migrations/20261112000000_responder_sync_and_org_logos.sql", import.meta.url)),
   "utf8",
 );
+const brandingSql = readFileSync(
+  fileURLToPath(new URL("../../supabase/migrations/20261118000000_organisation_branding.sql", import.meta.url)),
+  "utf8",
+);
 
 describe("responder migrations", () => {
   it("keeps GPS freshness separate from on-duty heartbeats", () => {
@@ -35,5 +39,17 @@ describe("responder migrations", () => {
     expect(syncAndLogoSql).toContain("tablename = 'responder_presence'");
     expect(syncAndLogoSql).toContain("alter publication supabase_realtime add table public.responder_presence");
     expect(syncAndLogoSql).toContain("values ('organisation-logos', 'organisation-logos', true");
+  });
+
+  it("scopes organisation branding read and update policies to active memberships and admins", () => {
+    expect(brandingSql).toContain("add column if not exists brand_primary_color text");
+    expect(brandingSql).toContain("add column if not exists brand_accent_color text");
+    expect(brandingSql).toContain("brand_primary_color is null or brand_primary_color ~ '^#[0-9A-Fa-f]{6}$'");
+    expect(brandingSql).toContain("brand_accent_color is null or brand_accent_color ~ '^#[0-9A-Fa-f]{6}$'");
+    expect(brandingSql).toContain("for select to authenticated");
+    expect(brandingSql).toContain("membership.user_id = auth.uid()");
+    expect(brandingSql).toContain("membership.status = 'active'");
+    expect(brandingSql).toContain("membership.role in ('owner', 'admin')");
+    expect(brandingSql).toContain("grant update (brand_primary_color, brand_accent_color)");
   });
 });

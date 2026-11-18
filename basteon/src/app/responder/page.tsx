@@ -17,6 +17,7 @@ import { Navbar } from "@/components/Navbar";
 import { BasteonBrand } from "@/components/BasteonBrand";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserProfileDrawer } from "@/components/UserProfileDrawer";
+import { useResponderBrandingSeed } from "@/components/ResponderBrandingProvider";
 import { useAppDialog } from "@/components/AppDialogProvider";
 import type { Alert, ProfileContact } from "@/lib/types";
 import { useEmergencyTypes } from "@/hooks/useEmergencyTypes";
@@ -24,6 +25,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fmtRelativeTime } from "@/lib/datetime";
 import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
+import { BASTEON_BRAND_PRIMARY, BRAND_HEX_PATTERN, brandCssProperties } from "@/lib/organisationBranding";
 import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
 import { AlertTriangle, ArrowLeft, LayoutDashboard, LocateFixed, LockKeyhole, LogOut, Map as MapIcon, Settings } from "lucide-react";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
@@ -40,10 +42,55 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
   ),
 });
 
+type CachedResponderBranding = {
+  id: string;
+  name: string;
+  displayName: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  accentColor: string | null;
+  branchName: string;
+};
+
+function readCachedResponderBranding(organisationId: string): CachedResponderBranding | null {
+  if (!organisationId) return null;
+  const key = `basteon-responder-branding:${organisationId}`;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<CachedResponderBranding>;
+    const valid = value.id === organisationId
+      && typeof value.name === "string"
+      && typeof value.displayName === "string"
+      && (value.logoUrl === null || typeof value.logoUrl === "string")
+      && (value.primaryColor === null || (typeof value.primaryColor === "string" && BRAND_HEX_PATTERN.test(value.primaryColor)))
+      && (value.accentColor === null || (typeof value.accentColor === "string" && BRAND_HEX_PATTERN.test(value.accentColor)))
+      && typeof value.branchName === "string";
+    if (!valid) {
+      console.warn("Ignoring invalid cached responder branding for organisation", organisationId);
+      window.sessionStorage.removeItem(key);
+      return null;
+    }
+    return value as CachedResponderBranding;
+  } catch (error) {
+    console.warn("Could not read cached responder branding.", error);
+    return null;
+  }
+}
+
+function cacheResponderBranding(value: CachedResponderBranding) {
+  try {
+    window.sessionStorage.setItem(`basteon-responder-branding:${value.id}`, JSON.stringify(value));
+  } catch (error) {
+    console.warn("Could not cache responder branding.", error);
+  }
+}
+
 export default function ResponderPage() {
   const router = useRouter();
+  const initialBranding = useResponderBrandingSeed();
   const [responderView, setResponderView] = useState<"alerts" | "overview" | "settings">("alerts");
-  const [organisationId, setOrganisationId] = useState("");
+  const [organisationId, setOrganisationId] = useState(initialBranding.id);
   const [organisationLoading, setOrganisationLoading] = useState(true);
   const [organisationLoadError, setOrganisationLoadError] = useState("");
   const [organisationLoadAttempt, setOrganisationLoadAttempt] = useState(0);
@@ -59,9 +106,14 @@ export default function ResponderPage() {
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"active" | "all">("active");
   const [profile, setProfile] = useState<ProfileContact | null>(null);
-  const [operatorName, setOperatorName] = useState("");
-  const [organisationName, setOrganisationName] = useState("");
-  const [organisationLogo, setOrganisationLogo] = useState<string | null>(null);
+  const [operatorName, setOperatorName] = useState(initialBranding.operatorName);
+  const [organisationName, setOrganisationName] = useState(initialBranding.name);
+  const [organisationDisplayName, setOrganisationDisplayName] = useState(initialBranding.displayName);
+  const [organisationLogo, setOrganisationLogo] = useState<string | null>(initialBranding.logoUrl);
+  const [logoLoadFailedUrl, setLogoLoadFailedUrl] = useState<string | null>(null);
+  const [branchName, setBranchName] = useState(initialBranding.branchName);
+  const [brandPrimaryColor, setBrandPrimaryColor] = useState(initialBranding.primaryColor);
+  const [brandAccentColor, setBrandAccentColor] = useState(initialBranding.accentColor);
   const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [movingOnly, setMovingOnly] = useState(false);
@@ -75,6 +127,18 @@ export default function ResponderPage() {
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const [supportContacts, setSupportContacts] = useState<Array<any>>([]);
   const emergencyTypes = useEmergencyTypes();
+
+  useEffect(() => {
+    setOrganisationId(initialBranding.id);
+    setOrganisationName(initialBranding.name);
+    setOrganisationDisplayName(initialBranding.displayName);
+    setOrganisationLogo(initialBranding.logoUrl);
+    setBranchName(initialBranding.branchName);
+    setOperatorName(initialBranding.operatorName);
+    setBrandPrimaryColor(initialBranding.primaryColor);
+    setBrandAccentColor(initialBranding.accentColor);
+    setLogoLoadFailedUrl(null);
+  }, [initialBranding]);
 
   useEffect(() => {
     let active = true;
@@ -111,6 +175,12 @@ export default function ResponderPage() {
           if (active) {
             setOrganisationId("");
             setOrganisationName("");
+            setOrganisationDisplayName("");
+            setOrganisationLogo(null);
+            setLogoLoadFailedUrl(null);
+            setBranchName("");
+            setBrandPrimaryColor(null);
+            setBrandAccentColor(null);
             setOrganisationBlocked(false);
             setSelfAvailability(null);
             setSelfResponseStatus(null);
@@ -122,17 +192,47 @@ export default function ResponderPage() {
         if (!active) return;
         setStatusRefreshError("");
         setOrganisationBlocked(Boolean(body?.blocked?.isBlocked));
+        const organisation = body?.organisation ?? {};
+        const resolvedOrganisationId = typeof organisation.id === "string" ? organisation.id : "";
+        const membership = (body?.memberships ?? []).find((item: any) => item.organisation_id === resolvedOrganisationId);
+        const resolvedBranchName = (body?.branches ?? []).find((branch: any) => branch.id === membership?.branch_id)?.name ?? "";
+        const resolvedName = organisation.display_name?.trim() || organisation.name || "";
+        const legalName = organisation.name ?? "";
+        const resolvedLogo = organisation.logo_url ?? null;
+        const resolvedPrimary = organisation.brand_primary_color ?? null;
+        const resolvedAccent = organisation.brand_accent_color ?? null;
         if (body?.blocked?.isBlocked) {
-          setOrganisationName(body?.organisation?.name ?? "");
-          setOrganisationLogo(body?.organisation?.logo_url ?? null);
+          setOrganisationName(resolvedName);
+          setOrganisationDisplayName(resolvedName);
+          setOrganisationLogo(resolvedLogo);
+          setLogoLoadFailedUrl(null);
+          setBranchName(resolvedBranchName);
+          setBrandPrimaryColor(resolvedPrimary);
+          setBrandAccentColor(resolvedAccent);
           setOrganisationId("");
           setSelfAvailability(null);
           setSelfResponseStatus(null);
           return;
         }
-        setOrganisationName(body?.organisation?.name ?? "");
-        setOrganisationLogo(body?.organisation?.logo_url ?? null);
-        setOrganisationId(body?.organisation?.id ?? "");
+        setOrganisationName(legalName);
+        setOrganisationDisplayName(resolvedName);
+        setOrganisationLogo(resolvedLogo);
+        setLogoLoadFailedUrl(null);
+        setBranchName(resolvedBranchName);
+        setBrandPrimaryColor(resolvedPrimary);
+        setBrandAccentColor(resolvedAccent);
+        setOrganisationId(resolvedOrganisationId);
+        if (resolvedOrganisationId) {
+          cacheResponderBranding({
+            id: resolvedOrganisationId,
+            name: legalName,
+            displayName: resolvedName,
+            logoUrl: resolvedLogo,
+            primaryColor: resolvedPrimary,
+            accentColor: resolvedAccent,
+            branchName: resolvedBranchName,
+          });
+        }
         setCanDispatch(["owner", "admin", "manager", "dispatcher"].includes(body?.memberships?.[0]?.role ?? ""));
         setSupportContacts([...(body?.supportContacts?.organisation ?? []), ...(body?.supportContacts?.global ?? [])]);
         const ownPresence = (body?.responderPresence ?? []).find((row: any) => row.user_id === user.id);
@@ -140,13 +240,25 @@ export default function ResponderPage() {
         setSelfResponseStatus(typeof body?.currentResponseStatus === "string" ? body.currentResponseStatus : null);
       } catch (failure) {
         console.error("Responder organisation load failed", failure);
-        if (active) setOrganisationLoadError("Organisation details couldn’t be loaded. Check your connection and retry.");
+        if (active) {
+          const cached = readCachedResponderBranding(initialBranding.id);
+          if (cached) {
+            setOrganisationId(cached.id);
+            setOrganisationName(cached.name);
+            setOrganisationDisplayName(cached.displayName);
+            setOrganisationLogo(cached.logoUrl);
+            setBranchName(cached.branchName);
+            setBrandPrimaryColor(cached.primaryColor);
+            setBrandAccentColor(cached.accentColor);
+          }
+          setOrganisationLoadError("Organisation details couldn’t be loaded. Check your connection and retry.");
+        }
       } finally {
         if (active) setOrganisationLoading(false);
       }
     })();
     return () => { active = false; };
-  }, [organisationLoadAttempt]);
+  }, [initialBranding.id, organisationLoadAttempt]);
 
   useEffect(() => {
     if (!organisationId) return;
@@ -322,16 +434,36 @@ export default function ResponderPage() {
     }
   }
 
+  const showOrgBrand = Boolean(organisationLogo && logoLoadFailedUrl !== organisationLogo);
+  const themeStyle = brandCssProperties(brandPrimaryColor, brandAccentColor);
+  const mobileSessionDetail = showOrgBrand
+    ? [operatorName, branchName].filter(Boolean).join(" · ")
+    : [organisationName || "Response console", operatorName].filter(Boolean).join(" · ");
+
   return (
-    <div className={`responder-console ${styles.responderRoot} h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]`}>
+    <div
+      className={`responder-console ${styles.responderRoot} h-screen grid grid-rows-[auto_1fr] overflow-hidden bg-[var(--bg)]`}
+      data-branded={showOrgBrand ? "true" : "false"}
+      style={themeStyle}
+    >
       <Navbar
         brandClassName={styles.brandBox}
-        brandMark={<BasteonBrand markOnly />}
-        brandWordmark={<BasteonBrand variant="dark" wordmarkOnly />}
+        brandMark={showOrgBrand
+          ? <img className={styles.organisationBrandLogo} src={organisationLogo ?? ""} alt="" onError={() => setLogoLoadFailedUrl(organisationLogo)} />
+          : <BasteonBrand markOnly />}
+        brandWordmark={showOrgBrand
+            ? <span className={styles.organisationBrandWordmark} title={organisationDisplayName}>{organisationDisplayName}</span>
+          : <BasteonBrand variant="dark" wordmarkOnly />}
         beforeSpacer={organisationName ? (
           <div className={styles.headerOrganisation}>
-            {organisationLogo ? <img src={organisationLogo} alt="" /> : <i>{organisationName.slice(0, 2).toUpperCase()}</i>}
-            <span>{organisationName}{operatorName && <> · Operator <b>{operatorName}</b></>}</span>
+            {showOrgBrand
+              ? <span>Operator <b>{operatorName || "Responder"}</b>{branchName && <> · {branchName}</>}</span>
+              : <>
+                  {organisationLogo && logoLoadFailedUrl !== organisationLogo
+                    ? <img src={organisationLogo} alt="" onError={() => setLogoLoadFailedUrl(organisationLogo)} />
+                    : <i>{organisationName.slice(0, 2).toUpperCase()}</i>}
+                  <span>{organisationName}{operatorName && <> · Operator <b>{operatorName}</b></>}</span>
+                </>}
           </div>
         ) : null}
       >
@@ -341,7 +473,7 @@ export default function ResponderPage() {
       </Navbar>
       <div className={styles.mobileSessionBar}>
         <LockKeyhole size={14} aria-hidden="true" />
-        <span><b>Secure session</b><small>{organisationName || "Response console"}{operatorName && ` · ${operatorName}`}</small></span>
+        <span><b>Secure session</b><small>{mobileSessionDetail ? `· ${mobileSessionDetail}` : ""}</small></span>
       </div>
 
       <main className={styles.shell}>
@@ -559,6 +691,7 @@ export default function ResponderPage() {
                     </button>
                   </div>
                 </section>
+                <footer className={styles.poweredBy}>Powered by Basteon</footer>
               </div>
             </section>
           )}

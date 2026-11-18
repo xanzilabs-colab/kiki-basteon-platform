@@ -16,9 +16,10 @@ const patchSchema = z.object({
 }).strict();
 
 async function authorisedOrganisation(organisationId: string) {
-  const { userId, memberships } = await requireOrganisationAccess(["owner", "admin", "manager"]);
+  const { userId, memberships } = await requireOrganisationAccess(["owner", "admin"]);
   if (!userId) return { error: "unauthenticated" as const };
-  if (!memberships.some((membership: { organisation_id: string }) => membership.organisation_id === organisationId)) {
+  if (!memberships.some((membership: { organisation_id: string; role?: string }) =>
+    membership.organisation_id === organisationId && ["owner", "admin"].includes(membership.role ?? ""))) {
     return { error: "forbidden" as const };
   }
   return { userId };
