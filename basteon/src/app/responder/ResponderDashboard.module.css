@@ -881,8 +881,10 @@
   }
 
   .mapTiles button {
+    display: flex;
     min-width: 0;
     flex: 1 1 0;
+    align-items: center;
     justify-content: center;
     padding: 0 2px;
   }
