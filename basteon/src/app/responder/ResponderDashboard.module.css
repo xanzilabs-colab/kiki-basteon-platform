@@ -374,11 +374,10 @@
   z-index: 500;
   top: 16px;
   right: 16px;
-  bottom: 16px;
   left: 16px;
   display: flex;
   align-items: flex-start;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 10px;
   pointer-events: none;
 }
@@ -393,8 +392,7 @@
 
 .mapTiles {
   display: flex;
-  width: 100%;
-  max-width: none;
+  max-width: calc(100% - 112px);
   gap: 2px;
   overflow-x: auto;
   border-radius: 10px;
@@ -407,8 +405,7 @@
 
 .mapTiles button {
   min-height: 34px;
-  min-width: max-content;
-  flex: 1 0 auto;
+  flex: none;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -429,9 +426,6 @@
 }
 
 .recenterButton {
-  position: absolute;
-  right: 0;
-  bottom: 0;
   display: inline-flex;
   min-height: 42px;
   flex: none;
