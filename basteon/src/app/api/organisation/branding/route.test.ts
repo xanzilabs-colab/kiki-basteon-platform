@@ -16,6 +16,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 import { PATCH } from "./route";
 
 const organisationId = "00000000-0000-0000-0000-000000000001";
+const otherOrganisationId = "00000000-0000-0000-0000-000000000003";
 const userId = "00000000-0000-0000-0000-000000000002";
 
 describe("PATCH /api/organisation/branding", () => {
@@ -39,7 +40,10 @@ describe("PATCH /api/organisation/branding", () => {
   });
 
   it("does not allow an administrator to update another organisation", async () => {
-    mocks.access.mockResolvedValue({ userId, memberships: [] });
+    mocks.access.mockResolvedValue({
+      userId,
+      memberships: [{ organisation_id: otherOrganisationId, role: "admin" }],
+    });
 
     const response = await PATCH(jsonRequest("http://localhost/api/organisation/branding", {
       organisationId,
