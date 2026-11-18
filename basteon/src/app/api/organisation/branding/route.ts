@@ -30,7 +30,28 @@ export async function PATCH(request: Request) {
     brand_accent_color: payload.data.accentColor?.toUpperCase() ?? null,
   }).eq("id", payload.data.organisationId)
     .select("brand_primary_color,brand_accent_color").single();
-  if (error) return NextResponse.json({ error: "branding_save_failed" }, { status: 500 });
+  if (error) {
+    console.error("organisation branding update failed", {
+      organisationId: payload.data.organisationId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    const schemaUnavailable = error.code === "42703"
+      || error.code === "PGRST204"
+      || /brand_(primary|accent)_color.*(column|schema cache)/i.test(error.message);
+    if (schemaUnavailable) {
+      return NextResponse.json({
+        error: "branding_migration_required",
+        message: "Apply Supabase migration 20261118000000_organisation_branding.sql before saving branding.",
+      }, { status: 503 });
+    }
+    return NextResponse.json({
+      error: "branding_save_failed",
+      message: "Could not save branding. See the server log for the database error.",
+    }, { status: 500 });
+  }
   return NextResponse.json({
     primaryColor: data.brand_primary_color as string | null,
     accentColor: data.brand_accent_color as string | null,

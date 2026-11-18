@@ -433,7 +433,7 @@
   pointer-events: auto;
 }
 
-.mapLayerCompactLabel {
+.mapLayerIcon {
   display: none;
 }
 
@@ -863,6 +863,28 @@
   }
 }
 
+@media (max-width: 900px) {
+  .mapTiles {
+    overflow: hidden;
+  }
+
+  .mapTiles button {
+    min-width: 0;
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 0 2px;
+  }
+
+  .mapLayerIcon {
+    display: block;
+    flex: none;
+  }
+
+  .mapLayerLabel {
+    display: none;
+  }
+}
+
 @media (max-width: 760px) {
   .headerOrganisation,
   .responderRoot :global(.appbar .context),
@@ -1098,44 +1120,28 @@
   }
 
   .mapControls {
-    top: 10px;
-    right: 10px;
-    bottom: 10px;
-    left: 10px;
-  }
-
-  .mapTiles button {
-    min-height: 42px;
-    padding: 0 10px;
+    inset: 0;
   }
 
   .mapTiles {
-    width: 100%;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    width: auto;
     max-width: none;
     gap: 2px;
     overflow: hidden;
   }
 
   .mapTiles button {
-    min-width: 0;
-    flex: 1 1 0;
-    padding: 0 2px;
-    font-size: 10px;
-    white-space: nowrap;
-  }
-
-  .mapLayerFullLabel {
-    display: none;
-  }
-
-  .mapLayerCompactLabel {
-    display: inline;
+    min-height: 42px;
   }
 
   .recenterButton {
     position: absolute;
-    right: 0;
-    bottom: 0;
+    right: 16px;
+    bottom: 16px;
     min-height: 44px;
   }
 

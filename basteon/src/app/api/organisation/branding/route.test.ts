@@ -75,4 +75,29 @@ describe("PATCH /api/organisation/branding", () => {
     expect(saved.brand_accent_color).toBe("#AABBCC");
     expect((await response.json()).primaryColor).toBe(saved.brand_primary_color);
   });
+
+  it("explains when the branding migration is missing from the database", async () => {
+    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const db = fakeSupabase(() => ({
+      error: {
+        code: "42703",
+        message: "column organisations.brand_primary_color does not exist",
+      },
+    }));
+    mocks.admin.mockReturnValue(db.client);
+
+    const response = await PATCH(jsonRequest("http://localhost/api/organisation/branding", {
+      organisationId,
+      primaryColor: "#663399",
+      accentColor: null,
+    }));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: "branding_migration_required",
+      message: expect.stringContaining("20261118000000_organisation_branding.sql"),
+    });
+    expect(logError).toHaveBeenCalled();
+    logError.mockRestore();
+  });
 });

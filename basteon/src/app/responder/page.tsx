@@ -27,7 +27,7 @@ import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
 import { BASTEON_BRAND_PRIMARY, BRAND_HEX_PATTERN, brandCssProperties } from "@/lib/organisationBranding";
 import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
-import { AlertTriangle, ArrowLeft, LayoutDashboard, LocateFixed, LockKeyhole, LogOut, Map as MapIcon, Settings } from "lucide-react";
+import { AlertTriangle, ArrowLeft, HeartHandshake, LayoutDashboard, LocateFixed, LockKeyhole, LogOut, Map as MapIcon, Mountain, Moon, Satellite, Settings } from "lucide-react";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
 import { toast } from "sonner";
@@ -41,6 +41,14 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
     </div>
   ),
 });
+
+const MAP_LAYER_ICONS = {
+  Street: MapIcon,
+  Satellite,
+  Terrain: Mountain,
+  Humanitarian: HeartHandshake,
+  Dark: Moon,
+};
 
 type CachedResponderBranding = {
   id: string;
@@ -550,12 +558,15 @@ export default function ResponderPage() {
                 </div>
                 <div className={styles.mapControls}>
                   <div className={styles.mapTiles} role="group" aria-label="Map tiles">
-                    {MAP_BASE_LAYERS.map(({ name }) => (
-                      <button key={name} type="button" aria-label={name} title={name} aria-pressed={mapBaseLayer === name} onClick={() => setMapBaseLayer(name)}>
-                        <span className={styles.mapLayerFullLabel}>{name}</span>
-                        <span className={styles.mapLayerCompactLabel}>{name === "Satellite" ? "Sat" : name === "Terrain" ? "Topo" : name === "Humanitarian" ? "Human" : name}</span>
-                      </button>
-                    ))}
+                    {MAP_BASE_LAYERS.map(({ name }) => {
+                      const LayerIcon = MAP_LAYER_ICONS[name];
+                      return (
+                        <button key={name} type="button" aria-label={name} title={name} aria-pressed={mapBaseLayer === name} onClick={() => setMapBaseLayer(name)}>
+                          <LayerIcon className={styles.mapLayerIcon} size={18} aria-hidden="true" />
+                          <span className={styles.mapLayerLabel}>{name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                   <button type="button" className={styles.recenterButton} onClick={() => setMapRecenterToken((token) => token + 1)}>
                     <LocateFixed size={16} />Re-center

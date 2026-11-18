@@ -944,7 +944,7 @@ export function OrganisationConsole() {
         }),
       });
       const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.error ?? "Could not save organisation branding.");
+      if (!response.ok) throw new Error(body?.message ?? body?.error ?? "Could not save organisation branding.");
       setBrandPrimaryColor(body.primaryColor ?? BASTEON_BRAND_PRIMARY);
       setBrandAccentColor(body.accentColor ?? "");
       setState((current) => current ? {
