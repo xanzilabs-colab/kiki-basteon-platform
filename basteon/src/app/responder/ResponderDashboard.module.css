@@ -87,6 +87,7 @@
 }
 
 .responderRoot[data-branded="true"] :global(.appbar .wordmark) {
+  align-self: center;
   width: clamp(180px, 22vw, 320px);
   min-width: 0;
   flex: 0 1 auto;
