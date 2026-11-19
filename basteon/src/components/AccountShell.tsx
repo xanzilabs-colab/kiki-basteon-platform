@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, Menu, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
@@ -45,8 +46,6 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
   const [ringtoneUrl, setRingtoneUrl] = useState<string | null>(null);
   const ringtoneUrlRef = useRef<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [moreClosing, setMoreClosing] = useState(false);
   const desktopLinks = [
     links[0],
     links[1],
@@ -56,6 +55,12 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
     ...(calmEnabled ? [{ href: "/account/calm", label: "Calm", icon: Flower2 }] : []),
     { href: "/w", label: "Journal", icon: BookOpen },
     { href: "/account/guardians", label: "Guardians", icon: ShieldCheck },
+    links[2],
+  ];
+  const mobileNavLinks = [
+    links[0],
+    { href: "/account/trips", label: "Trips", icon: Route },
+    links[1],
     links[2],
   ];
 
@@ -301,16 +306,6 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
     return () => window.removeEventListener("kiki:start-safety-call", start);
   }, [safetyCall]);
 
-  function closeMore(after?: () => void) {
-    if (!moreOpen || moreClosing) return;
-    setMoreClosing(true);
-    window.setTimeout(() => { setMoreOpen(false); setMoreClosing(false); after?.(); }, 220);
-  }
-
-  function navigate(path: string) {
-    closeMore(() => router.push(path));
-  }
-
   const callDuration = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
   return (
     <div
@@ -366,40 +361,22 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
       </div>
 
       <nav inert={sosOpen || Boolean(sosSent)} className="account-mobile-nav fixed inset-x-0 bottom-0 z-20 flex h-[68px] border-t border-[var(--line)] bg-[var(--chrome)] md:hidden">
-        {links.slice(0, 2).map((link) => (
+        {mobileNavLinks.slice(0, 2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 text-[11px]" aria-current={isActiveLink(pathname, link.href) ? "page" : undefined}>
-            <NavSigil><link.icon size={20} strokeWidth={2} aria-hidden="true" /></NavSigil>
+            <NavSigil>{link.href === "/account/devices" ? <Image src="/assets/devices-icon-link.png" alt="" width={30} height={30} aria-hidden="true" /> : <link.icon size={20} strokeWidth={2} aria-hidden="true" />}</NavSigil>
             <span>{link.label}</span>
           </Link>
         ))}
         <SosActionButton className="account-mobile-sos" title="Send SOS" onSelect={openSos}>
           <KikiMark size={70} zoom={2.2} />
         </SosActionButton>
-        <button type="button" className="account-mobile-more nav-link flex-1 flex-col justify-center gap-1 text-[11px]" title="More options" aria-label="Open more options" onClick={() => setMoreOpen(true)}>
-          <NavSigil><Menu size={20} strokeWidth={2} aria-hidden="true" /></NavSigil>
-          <span>More</span>
-        </button>
-        {links.slice(2).map((link) => (
+        {mobileNavLinks.slice(2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 text-[11px]" aria-current={isActiveLink(pathname, link.href) ? "page" : undefined}>
-            <NavSigil><link.icon size={20} strokeWidth={2} aria-hidden="true" /></NavSigil>
+            <NavSigil>{link.href === "/account/devices" ? <Image src="/assets/devices-icon-link.png" alt="" width={30} height={30} aria-hidden="true" /> : <link.icon size={20} strokeWidth={2} aria-hidden="true" />}</NavSigil>
             <span>{link.label}</span>
           </Link>
         ))}
       </nav>
-      {moreOpen && (
-        <div className={`account-more-scrim ${moreClosing ? "is-closing" : ""}`} role="presentation" onClick={() => closeMore()}>
-          <section className="account-more-sheet" role="dialog" aria-modal="true" aria-label="More account options" onClick={(event) => event.stopPropagation()}>
-            <button type="button" className="account-more-option" onClick={() => navigate("/account/trips")}><span><NavSigil><Route size={17} /></NavSigil> Trips</span><small>Route Watch and Travel Together</small></button>
-            <button type="button" className="account-more-option" onClick={() => navigate("/account/buddies/safe-places")}><span><NavSigil><MapPinned size={17} /></NavSigil> Safe spots &amp; reports</span><small>Browse spots and community reports</small></button>
-            {stoepEnabled && <button type="button" className="account-more-option" onClick={() => navigate("/games")}><span><NavSigil><Gamepad2 size={17} /></NavSigil> Stoep &amp; games</span><small>Unwind and play</small></button>}
-            {calmEnabled && <button type="button" className="account-more-option" onClick={() => navigate("/account/calm")}><span><NavSigil><Flower2 size={17} /></NavSigil> Calm</span><small>Breathing and body check-ins</small></button>}
-            <button type="button" className="account-more-option" onClick={() => navigate("/w")}><span><NavSigil><BookOpen size={17} /></NavSigil> Journal</span><small>Your private garden</small></button>
-            <button type="button" className="account-more-option" onClick={() => navigate("/account/guardians")}><span><NavSigil><ShieldCheck size={17} /></NavSigil> Guardians</span><small>Your private Guardian Circle</small></button>
-            <button type="button" className="account-more-option" onClick={() => closeMore(() => void startSafetyCall())}><span><NavSigil><PhoneCall size={17} /></NavSigil> Safety call</span><small>Start a discreet in-app call</small></button>
-            <button type="button" className="btn w-full" onClick={() => closeMore()}>Close</button>
-          </section>
-        </div>
-      )}
       {sosOpen && (
         <div className="account-sos-scrim" role="presentation">
           <section ref={sosDialog} className="account-sos-dialog" role="dialog" aria-modal="true" aria-labelledby="sos-title" aria-describedby="sos-description" onKeyDown={(event) => {

@@ -6025,3 +6025,14 @@ body:has(.account-shell) {
   background: var(--divider);
   content: "";
 }
+
+.account-shell .kiki-map-home .map-screen-sheet-handle {
+  height: 32px;
+  min-height: 32px;
+  align-items: end;
+  padding-bottom: 4px;
+}
+
+.account-shell .kiki-map-home .kiki-map-sheet-peek {
+  min-height: 42px;
+}
