@@ -1,6 +1,6 @@
 "use client";
 
-import { Bluetooth, BookOpen, Building2, CheckCircle2, ChevronRight, FileText, Flower2, Gamepad2, Lock, MapPinned, Moon, PhoneCall, Shield, Sun, Users, Volume2 } from "lucide-react";
+import { Bluetooth, BookOpen, Building2, CheckCircle2, ChevronRight, CircleHelp, CreditCard, FileText, Flower2, Gamepad2, Lock, LogOut, Mail, MapPinned, Moon, PhoneCall, Shield, Sun, Users, Volume2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -118,8 +118,27 @@ export default function ProfilePage() {
       </AccountListCard>
     </section>
 
+    <section className="kiki-profile-section">
+      <AccountSectionLabel>Help &amp; support</AccountSectionLabel>
+      <AccountListCard aria-label="Help and support">
+        <AccountListRow href="/account/help" icon={<CircleHelp size={20} />} title="FAQs" subtitle="Answers to common questions" trailing={<ChevronRight size={18} />} />
+        <a className="account-list-row" href="mailto:xanzitech@gmail.com">
+          <span className="account-icon-badge" aria-hidden="true"><Mail size={20} /></span>
+          <span className="account-list-row-copy"><strong>Contact support</strong><small>Email xanzitech@gmail.com</small></span>
+          <span className="account-list-row-trailing"><ChevronRight size={18} aria-hidden="true" /></span>
+        </a>
+      </AccountListCard>
+    </section>
+
+    <section className="kiki-profile-section">
+      <AccountSectionLabel>Plans &amp; cover</AccountSectionLabel>
+      <AccountListCard aria-label="Plans and cover">
+        <AccountListRow href="/account/plans" icon={<CreditCard size={20} />} title="My plans &amp; cover" subtitle="View Kiki plan options" trailing={<ChevronRight size={18} />} />
+      </AccountListCard>
+    </section>
+
     <AccountListCard className="kiki-profile-logout-card">
-      <button type="button" className="kiki-profile-logout" onClick={() => void signOut()}>Log out</button>
+      <button type="button" className="kiki-profile-logout" onClick={() => void signOut()}><LogOut size={18} aria-hidden="true" /><span>Log out</span></button>
     </AccountListCard>
   </div>;
 }

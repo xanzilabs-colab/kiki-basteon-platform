@@ -2557,20 +2557,163 @@ body:has(.account-shell) {
 }
 
 .account-shell .kiki-profile-logout {
+  display: flex;
   width: 100%;
   min-height: 56px;
-  border: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid var(--crit);
   border-radius: 20px;
-  background: var(--surface-1);
+  background: transparent;
   padding: 12px 16px;
   color: var(--crit);
   font-size: 15px;
   font-weight: 600;
-  text-align: left;
+  text-align: center;
 }
 
 .account-shell .kiki-profile-logout:hover {
   background: var(--crit-bg);
+}
+
+.account-shell .kiki-help-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.account-shell .kiki-help-question {
+  border-bottom: 1px solid var(--divider);
+  padding: 4px 0 12px;
+}
+
+.account-shell .kiki-help-question:last-of-type {
+  border-bottom: 0;
+}
+
+.account-shell .kiki-help-question summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  list-style: none;
+  cursor: pointer;
+}
+
+.account-shell .kiki-help-question summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-shell .kiki-help-question summary svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.account-shell .kiki-help-question p {
+  margin: 8px 0 0 28px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.account-shell .kiki-help-contact {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  background: var(--accent-bg);
+  padding: 0 14px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.account-shell .kiki-plans-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  background: var(--surface-1);
+  padding: 14px;
+  color: var(--text-2);
+}
+
+.account-shell .kiki-plans-notice svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.account-shell .kiki-plans-notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.account-shell .kiki-setting-page > .kiki-plan-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.account-shell .kiki-plan-card {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  border: 1px solid var(--divider);
+  border-radius: 18px;
+  background: var(--surface-1);
+  padding: 18px;
+}
+
+.account-shell .kiki-plan-card > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+
+.account-shell .kiki-plan-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.account-shell .kiki-plan-card p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.account-shell .kiki-plan-card b {
+  justify-self: start;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  padding: 5px 9px;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+@media (max-width: 560px) {
+  .account-shell .kiki-setting-page > .kiki-plan-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .account-shell main :is(.panel, .glass, .tbl-wrap, .kiki-setting-page > section, .hamba-planner, .hamba-recent, .buddies-panel:not(.buddies-radar-panel), .buddies-consent, .devices-empty, .everyday-empty-card, .everyday-device-list, .everyday-simple-list) {
