@@ -238,7 +238,6 @@ export default function LinkDevicePage() {
       <div className="kiki-link-page">
         <Link className="kiki-link-back" href="/account/devices"><ChevronLeft size={18} />Devices</Link>
         <div className="kiki-link-title">
-          <span>HARDWARE GUARD</span>
           <h1>Link a Kiki device</h1>
         </div>
         <section className="kiki-link-card kiki-link-guide">
@@ -259,7 +258,6 @@ export default function LinkDevicePage() {
     <div className="kiki-link-page">
       <Link className="kiki-link-back" href="/account/devices"><ChevronLeft size={18} />Devices</Link>
       <div className="kiki-link-title">
-        <span>HARDWARE GUARD</span>
         <h1>Link a Kiki device</h1>
         <p>Pair your Kiki Smart Clip securely with your account.</p>
       </div>
