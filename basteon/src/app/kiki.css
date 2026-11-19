@@ -1393,6 +1393,11 @@ body:has(.auth-shell) { background:#fff!important; }
 .auth-consent a { color:#4A2472;font-weight:700;text-decoration:underline;text-underline-offset:2px; }
 .auth-submit { background:#4A2472;color:#fff;box-shadow:0 8px 18px -8px rgba(74,36,114,.55); }
 .auth-submit:hover:not(:disabled) { background:#35194F;box-shadow:0 12px 22px -9px rgba(53,25,79,.62); }
+.auth-submit[aria-busy="true"] { gap:10px; }
+.auth-loading-bubble { display:grid;width:25px;height:25px;flex:none;place-items:center;border:1px solid rgba(255,255,255,.35);border-radius:50%;background:rgba(255,255,255,.15); }
+.auth-loading-bubble svg { animation:auth-submit-spin .85s linear infinite; }
+@keyframes auth-submit-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .auth-loading-bubble svg { animation:none; } }
 .auth-feedback.is-success,.auth-success { border-color:#BFDFBF;background:#BFDFBF;color:#294D2E; }
 .auth-consent input { accent-color:#4A2472; }
 .auth-recovery-icon { background:#EEE8F6;color:#4A2472; }

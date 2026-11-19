@@ -69,3 +69,16 @@
 @media (prefers-reduced-motion: reduce) {
   .spinner { animation: none; border-top-color: #eaddf0; border-left-color: #875aa0; }
 }
+
+.page { background: var(--bg); color: var(--text); }
+.header { border-bottom-color: var(--divider); background: rgb(243 244 246 / 94%); }
+.header > a, .panel, .tools button, .sectionTitle button, .field select, .form input, .form textarea, .subtle, .tipCard {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+.quickExit, .note, .partners > div, .hint, .feedback p span, .scoreRow p, .report {
+  background: var(--surface-3);
+}
+.report { color: #873b35; }
+.error > button { border-color: #d9a9a9; background: var(--surface-1); }
+.spinner { border-color: var(--surface-3); border-top-color: var(--accent); }

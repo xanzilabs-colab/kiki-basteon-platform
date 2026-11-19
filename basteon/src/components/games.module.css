@@ -997,10 +997,10 @@
 .chatHeading span, .ownMessage small, .buddyMessage small { color: #66546e; font-size: 0.75rem; }
 .chatMessages { display: flex; flex-direction: column; gap: 8px; overflow: auto; overscroll-behavior: contain; padding: 2px; }
 .ownMessage, .buddyMessage { display: grid; gap: 3px; max-width: 90%; margin: 0; padding: 8px 10px; border-radius: 12px; line-height: 1.4; overflow-wrap: anywhere; }
-.ownMessage { align-self: end; background: #eee3f5; }
+.ownMessage { align-self: end; background: var(--surface-3); }
 .buddyMessage { align-self: start; background: #f8e9e7; }
 .chatForm { display: flex; gap: 8px; }
-.chatForm input { min-width: 0; flex: 1; border: 1px solid #cbb9d4; border-radius: 12px; padding: 0.7rem 0.8rem; background: #fff; color: #2d173a; font: inherit; }
+.chatForm input { min-width: 0; flex: 1; border: 1px solid var(--divider); border-radius: 12px; padding: 0.7rem 0.8rem; background: var(--well); color: #2d173a; font: inherit; }
 
 .morabarabaPage {
   overflow-x: clip;

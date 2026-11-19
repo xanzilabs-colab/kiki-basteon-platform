@@ -6073,3 +6073,388 @@ body:has(.account-shell) {
   width: 46px;
   height: 46px;
 }
+
+:root {
+  --chrome: #F3F4F6;
+  --bg: #F3F4F6;
+  --surface-1: #F9FAFB;
+  --surface-2: #F3F4F6;
+  --surface-3: #E5E7EB;
+  --well: #F3F4F6;
+  --divider: #D1D5DB;
+  --line: var(--divider);
+  --line-strong: #CBD5E1;
+  --line-focus: #4A2472;
+  --accent: #4A2472;
+  --accent-bg: #E5E7EB;
+  --kiki-lavender: #E5E7EB;
+  --kiki-lavender-soft: #F3F4F6;
+}
+
+.account-shell:not([data-theme="dark"]) {
+  --chrome: #F3F4F6;
+  --bg: #F3F4F6;
+  --surface-1: #F9FAFB;
+  --surface-2: #F3F4F6;
+  --surface-3: #E5E7EB;
+  --well: #F3F4F6;
+  --divider: #D1D5DB;
+  --line: var(--divider);
+  --line-strong: #CBD5E1;
+  --line-focus: #4A2472;
+  --accent: #4A2472;
+  --accent-bg: #E5E7EB;
+  background: var(--bg);
+}
+
+html:has(.account-shell:not([data-theme="dark"])),
+body:has(.account-shell:not([data-theme="dark"])) {
+  background: #F3F4F6;
+}
+
+.account-shell:not([data-theme="dark"]) > div,
+.account-shell:not([data-theme="dark"]) main {
+  background: var(--bg);
+}
+
+.account-shell:not([data-theme="dark"]) .sidebar {
+  border-right: 1px solid var(--divider);
+  background: var(--surface-2);
+}
+
+.account-shell:not([data-theme="dark"]) .sidebar-head {
+  border-bottom-color: var(--divider);
+  color: var(--text);
+}
+
+.account-shell:not([data-theme="dark"]) .sidebar-link {
+  color: var(--text-2);
+}
+
+.account-shell:not([data-theme="dark"]) .sidebar-link:hover,
+.account-shell:not([data-theme="dark"]) .sidebar-link[aria-current="page"] {
+  background: var(--surface-3);
+  color: var(--accent);
+}
+
+.account-shell:not([data-theme="dark"]) .sidebar-link .nav-sigil {
+  color: var(--accent);
+}
+
+.account-shell:not([data-theme="dark"]) .appbar,
+.account-shell:not([data-theme="dark"]) .account-mobile-nav {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) .account-mobile-appbar {
+  background: rgb(243 244 246 / 94%) !important;
+}
+
+.account-shell:not([data-theme="dark"]) .account-sos-dialog {
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) .safe-report-sheet,
+.account-shell:not([data-theme="dark"]) .account-more-sheet {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) main :is(
+  .panel,
+  .glass,
+  .tbl-wrap,
+  .account-list-card,
+  .account-bottom-sheet,
+  .account-more-sheet,
+  .account-sos-dialog,
+  .safe-report-sheet,
+  .kiki-profile-card,
+  .kiki-setting-page > section,
+  .smart-safety-card,
+  .kiki-reference-card,
+  .kiki-device-card,
+  .kiki-empty-device,
+  .hamba-planner,
+  .hamba-active-card,
+  .hamba-recent,
+  .buddies-panel,
+  .buddies-consent,
+  .kiki-overview-group,
+  .devices-hero,
+  .devices-metric,
+  .devices-actions,
+  .devices-list,
+  .devices-list-row,
+  .devices-empty,
+  .everyday-empty-card,
+  .everyday-device-list,
+  .everyday-simple-list,
+  .account-feed-card
+) {
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) :is(
+  .map-screen-action,
+  .map-layer-sheet,
+  .kiki-map-actions button,
+  .kiki-map-actions a,
+  .safe-spots-map-actions,
+  .safe-risk-legend,
+  .hamba-map-tools .btn,
+  .hamba-trip-map-screen .hamba-tools,
+  .kiki-sos-map-stat,
+  .kiki-sos-status-panel,
+  .kiki-sos-team-empty,
+  .kiki-sos-team-panel,
+  .kiki-sos-complete-panel,
+  .kiki-sos-response-footer
+) {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) :is(
+  .map-screen-action:hover,
+  .map-screen-action[aria-pressed="true"],
+  .map-layer-sheet-heading button,
+  .hamba-map-topbar-icon,
+  .kiki-sos-response .kiki-sos-close,
+  .kiki-sos-peek-icon.is-closed
+) {
+  background: var(--surface-3);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-sos-nearest-panel,
+.account-shell:not([data-theme="dark"]) .kiki-sos-team-panel li,
+.account-shell:not([data-theme="dark"]) .kiki-sos-complete-panel > div > span,
+.account-shell:not([data-theme="dark"]) .kiki-sos-response-footer .kiki-sos-secondary-link {
+  background: var(--surface-2);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-sos-timeline li:not(:last-child)::after {
+  background: var(--divider);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-sos-timeline li > span {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) .devices-loading,
+.account-shell:not([data-theme="dark"]) .devices-mode-switch {
+  border-color: var(--divider);
+  background: var(--surface-2);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-devices-redesign {
+  --device-line: var(--divider);
+  --device-lavender: var(--surface-3);
+}
+
+.account-shell:not([data-theme="dark"]) .devices-carousel-arrow,
+.account-shell:not([data-theme="dark"]) .devices-list-art,
+.account-shell:not([data-theme="dark"]) .devices-empty-art,
+.account-shell:not([data-theme="dark"]) .devices-list-title > span,
+.account-shell:not([data-theme="dark"]) .devices-list-row.selected,
+.account-shell:not([data-theme="dark"]) .everyday-action-button,
+.account-shell:not([data-theme="dark"]) .everyday-more summary,
+.account-shell:not([data-theme="dark"]) .everyday-more > div,
+.account-shell:not([data-theme="dark"]) .everyday-sheet,
+.account-shell:not([data-theme="dark"]) .everyday-sheet-close,
+.account-shell:not([data-theme="dark"]) .everyday-type-tile,
+.account-shell:not([data-theme="dark"]) .everyday-paired-row,
+.account-shell:not([data-theme="dark"]) .everyday-name-input {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) .devices-actions > button:active,
+.account-shell:not([data-theme="dark"]) .devices-actions > a:active,
+.account-shell:not([data-theme="dark"]) .everyday-message,
+.account-shell:not([data-theme="dark"]) .everyday-detail-actions .everyday-action-button,
+.account-shell:not([data-theme="dark"]) .everyday-practice-status {
+  background: var(--surface-2);
+}
+
+.account-shell:not([data-theme="dark"]) .everyday-type-tile.selected,
+.account-shell:not([data-theme="dark"]) .everyday-paired-row.selected {
+  border-color: var(--accent);
+  background: var(--surface-3);
+}
+
+.account-shell:not([data-theme="dark"]) .everyday-devices-card,
+.account-shell:not([data-theme="dark"]) .everyday-sheet-backdrop {
+  --ed-line: var(--divider);
+  --ed-lav: var(--surface-3);
+}
+
+.account-shell:not([data-theme="dark"]) .devices-mode-switch::before,
+.account-shell:not([data-theme="dark"]) .hamba-trip-tabs::before {
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) .account-user-summary,
+.account-shell:not([data-theme="dark"]) .account-segmented,
+.account-shell:not([data-theme="dark"]) .account-chip,
+.account-shell:not([data-theme="dark"]) .hamba-search,
+.account-shell:not([data-theme="dark"]) .hamba-mode,
+.account-shell:not([data-theme="dark"]) .buddies-modes,
+.account-shell:not([data-theme="dark"]) .hamba-engine,
+.account-shell:not([data-theme="dark"]) .buddies-heading > span,
+.account-shell:not([data-theme="dark"]) .hamba-route-summary div,
+.account-shell:not([data-theme="dark"]) .hamba-trip-stats span,
+.account-shell:not([data-theme="dark"]) .kiki-profile-open-cue,
+.account-shell:not([data-theme="dark"]) .kiki-profile-identity b,
+.account-shell:not([data-theme="dark"]) .kiki-button-pair a:not(:last-child),
+.account-shell:not([data-theme="dark"]) .kiki-device-actions button,
+.account-shell:not([data-theme="dark"]) .kiki-empty-device a,
+.account-shell:not([data-theme="dark"]) .kiki-card-icon,
+.account-shell:not([data-theme="dark"]) .devices-list-badge:not(.online):not(.low),
+.account-shell:not([data-theme="dark"]) .account-page-transition .pane-head {
+  background: var(--surface-2);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-profile-identity {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-button-pair a:not(:last-child),
+.account-shell:not([data-theme="dark"]) .kiki-profile-open-cue {
+  border-color: var(--divider);
+  color: var(--accent);
+}
+
+.account-shell:not([data-theme="dark"]) .account-segmented button[aria-pressed="true"] {
+  background: var(--surface-1);
+  color: var(--accent);
+}
+
+.account-shell:not([data-theme="dark"]) .hamba-engine,
+.account-shell:not([data-theme="dark"]) .buddies-heading > span {
+  border-color: var(--divider);
+}
+
+.account-shell:not([data-theme="dark"]) .buddies-map {
+  background: var(--surface-2);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-overview-cta {
+  background: var(--surface-3);
+  color: var(--accent);
+}
+
+.account-shell:not([data-theme="dark"]) .map-screen,
+.account-shell:not([data-theme="dark"]) .kiki-sos-response,
+.account-shell:not([data-theme="dark"]) .kiki-sos-response .map-screen,
+.account-shell:not([data-theme="dark"]) .kiki-sos-response .leaflet-container,
+.account-shell:not([data-theme="dark"]) .alert-map,
+.account-shell:not([data-theme="dark"]) .leaflet-container {
+  background: var(--bg);
+}
+
+.account-shell:not([data-theme="dark"]) .map-screen-attribution {
+  background: rgb(249 250 251 / 88%);
+}
+
+.account-shell:not([data-theme="dark"]) .hamba-map-topbar {
+  border-color: var(--divider);
+  background: rgb(249 250 251 / 94%);
+}
+
+.account-shell:not([data-theme="dark"]) main :is(input, textarea, select),
+.account-shell:not([data-theme="dark"]) .input {
+  background: var(--well);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-profile-logout {
+  background: var(--surface-2);
+}
+
+.account-shell .account-mobile-nav .account-mobile-sos {
+  border-color: var(--surface-1);
+  background: #4A2472;
+  box-shadow: 0 4px 12px rgb(74 36 114 / 28%);
+}
+
+.account-shell .account-mobile-nav .account-mobile-sos:hover {
+  background: #35194F;
+}
+
+.account-shell .kiki-profile-hub .account-icon-badge {
+  position: relative;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  isolation: isolate;
+}
+
+.account-shell .kiki-profile-hub .account-icon-badge::before {
+  position: absolute;
+  z-index: -1;
+  width: 27px;
+  height: 25px;
+  transform: rotate(25deg);
+  border-radius: 50% 50% 4px 50%;
+  background: currentColor;
+  content: "";
+  opacity: .13;
+}
+
+.account-shell .kiki-profile-hub .account-icon-badge > svg {
+  position: relative;
+  z-index: 1;
+  stroke-width: 2.1;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-profile-menu a,
+.account-shell:not([data-theme="dark"]) .kiki-profile-menu button,
+.account-shell:not([data-theme="dark"]) .kiki-settings-list a,
+.account-shell:not([data-theme="dark"]) .kiki-profile-theme-toggle,
+.account-shell:not([data-theme="dark"]) .kiki-ringtone-list > div,
+.account-shell:not([data-theme="dark"]) .kiki-device-summary,
+.account-shell:not([data-theme="dark"]) .kiki-notice,
+.account-shell:not([data-theme="dark"]) .kiki-stat-grid > div,
+.account-shell:not([data-theme="dark"]) .kiki-device-telemetry div {
+  border-color: var(--divider);
+  background: var(--surface-2);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-profile-theme-copy > i,
+.account-shell:not([data-theme="dark"]) .kiki-security-icon,
+.account-shell:not([data-theme="dark"]) .kiki-stat-grid > div:nth-child(2) span {
+  background: var(--surface-3);
+}
+
+.account-shell:not([data-theme="dark"]) .org-screen,
+.account-shell:not([data-theme="dark"]) .org-sheet-layer {
+  --org-bg: #F3F4F6;
+  --org-card: #F9FAFB;
+  --org-tonal: #E5E7EB;
+  --org-tonal-2: #E5E7EB;
+  --org-line: #D1D5DB;
+}
+
+.account-shell:not([data-theme="dark"]) .org-screen {
+  background: var(--org-bg);
+}
+
+.account-shell:not([data-theme="dark"]) .org-sheet {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell:not([data-theme="dark"]) .org-screen :is(.org-segment, .org-details, .org-linked-icon, .org-empty-icon) {
+  border-color: var(--divider);
+  background: var(--surface-2);
+}
+
+.account-shell:not([data-theme="dark"]) .org-screen .org-segment button.selected {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, Flower2, KeyRound, LogIn, Mail, ShieldCheck, UserRoundPlus, UsersRound } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Flower2, KeyRound, LoaderCircle, LogIn, Mail, ShieldCheck, UserRoundPlus, UsersRound } from "lucide-react";
 import { KikiMark } from "@/components/KikiMark";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_PHONE_COUNTRY, getLocalizedPhoneCountries, PHONE_COUNTRIES, toE164PhoneNumber } from "@/lib/phone";
@@ -55,14 +55,19 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
     setLoading(true);
     setError("");
     setMessage("");
-    const { error: signInError } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
-    setLoading(false);
-    if (signInError) {
-      setError(signInError.message);
-      return;
+    try {
+      const { error: signInError } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+      await fetch("/api/verification/device/rotate", { method: "POST" });
+      router.replace("/");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Sign in could not be completed. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    await fetch("/api/verification/device/rotate", { method: "POST" });
-    router.replace("/");
   }
 
   async function signUp(event: React.FormEvent<HTMLFormElement>) {
@@ -80,21 +85,26 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
     setLoading(true);
     setError("");
     setMessage("");
-    const { data, error: signUpError } = await createClient().auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { full_name: fullName.trim(), phone: normalizedPhone, consent: true } },
-    });
-    setLoading(false);
-    if (signUpError) {
-      setError(signUpError.message);
-      return;
+    try {
+      const { data, error: signUpError } = await createClient().auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { full_name: fullName.trim(), phone: normalizedPhone, consent: true } },
+      });
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+      if (!data.session) {
+        setCheckingEmail(true);
+        return;
+      }
+      router.replace("/account");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Account creation could not be completed. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    if (!data.session) {
-      setCheckingEmail(true);
-      return;
-    }
-    router.replace("/account");
   }
 
   async function sendPasswordReset(event: React.FormEvent<HTMLFormElement>) {
@@ -172,7 +182,7 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
             <span className="auth-input-wrap"><KeyRound size={18} /><input type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" required value={password} onChange={(event) => setPassword(event.target.value)} /><button className="auth-password-toggle" type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((shown) => !shown)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></span>
           </label>
           {error && <p className="auth-feedback is-error" role="alert">{error}</p>}
-          <button className="auth-submit" type="submit" disabled={loading}>{loading ? "Signing in…" : <>Sign in<ArrowRight size={18} /></>}</button>
+          <button className="auth-submit" type="submit" disabled={loading} aria-busy={loading}>{loading ? <><span className="auth-loading-bubble" aria-hidden="true"><LoaderCircle size={16} /></span>Signing in…</> : <>Sign in<ArrowRight size={18} /></>}</button>
           <p className="auth-switch-copy">New to Kiki? <button type="button" onClick={() => switchMode("signup")}>Create an account</button></p>
         </form>}
 
@@ -228,7 +238,7 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
               </span>
             </div>
             {error && <p className="auth-feedback is-error" role="alert">{error}</p>}
-            <button className="auth-submit" type="submit" disabled={loading}>{loading ? "Creating account…" : <>Create account<ArrowRight size={18} /></>}</button>
+            <button className="auth-submit" type="submit" disabled={loading} aria-busy={loading}>{loading ? <><span className="auth-loading-bubble" aria-hidden="true"><LoaderCircle size={16} /></span>Creating account…</> : <>Create account<ArrowRight size={18} /></>}</button>
             <p className="auth-switch-copy">Already registered? <button type="button" onClick={() => switchMode("signin")}>Sign in</button></p>
           </>}
         </form>}

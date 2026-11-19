@@ -63,3 +63,14 @@
 @media (prefers-reduced-motion: reduce) {
   .spinner, .celebration { animation: none; }
 }
+
+.page { background: var(--bg); color: var(--text); }
+.header { border-bottom: 1px solid var(--divider); background: rgb(243 244 246 / 94%); }
+.header > a, .panel, .picks article { border-color: var(--divider); background: var(--surface-1); }
+.exit { background: var(--surface-3); color: var(--text); }
+.players > div > span, .prompt, .comparison, .reportBox select { background: var(--surface-2); }
+.choices fieldset, .options button, .responseOptions button { border-color: var(--divider); }
+.options button, .responseOptions button { background: var(--surface-1); color: var(--text); }
+.options .selected, .responseOptions .selected { border-color: var(--accent); background: var(--surface-3); box-shadow: none; }
+.reportBox { border-top-color: var(--divider); }
+.reportBox button, .celebration { background: var(--surface-3); }
