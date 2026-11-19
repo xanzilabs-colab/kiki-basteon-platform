@@ -7334,87 +7334,12 @@ body:has(.account-shell:not([data-theme="dark"])) {
   padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
 
-.account-shell .kiki-explore-segmented {
-  position: sticky;
-  z-index: 4;
-  top: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
-  border-radius: 14px;
-  background: var(--surface-2);
-  padding: 4px;
-}
-
-.account-shell .kiki-explore-segmented button {
-  display: flex;
-  min-height: 40px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 0;
-  border-radius: 11px;
-  background: transparent;
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: 500;
-  transition: background-color 180ms var(--ease-spatial), color 180ms var(--ease-spatial);
-}
-
-.account-shell .kiki-explore-segmented button[aria-pressed="true"] {
-  background: var(--surface-1);
-  color: var(--accent);
-  box-shadow: 0 1px 3px rgb(17 24 39 / 10%);
-}
-
-.account-shell .kiki-explore-segmented button > span {
-  color: var(--muted);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
 .account-shell .kiki-explore-panel {
   display: grid;
   gap: 10px;
   padding-top: 10px;
 }
 
-.account-shell .kiki-explore-section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 2px 2px 4px;
-}
-
-.account-shell .kiki-explore-section-heading > div {
-  display: grid;
-  gap: 2px;
-}
-
-.account-shell .kiki-explore-section-heading strong {
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.account-shell .kiki-explore-section-heading small,
-.account-shell .kiki-explore-status-copy {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.account-shell .kiki-explore-section-heading > a {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--surface-2);
-  color: var(--accent);
-}
-
-.account-shell .kiki-haven-row,
 .account-shell .kiki-walk-entry-row {
   display: flex;
   min-height: 64px;
@@ -7425,18 +7350,6 @@ body:has(.account-shell:not([data-theme="dark"])) {
   padding: 10px 12px;
 }
 
-.account-shell .kiki-haven-icon {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  flex: none;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--accent-bg);
-  color: var(--accent);
-}
-
-.account-shell .kiki-haven-copy,
 .account-shell .kiki-walk-entry-row > span {
   display: grid;
   min-width: 0;
@@ -7444,7 +7357,6 @@ body:has(.account-shell:not([data-theme="dark"])) {
   gap: 2px;
 }
 
-.account-shell .kiki-haven-copy strong,
 .account-shell .kiki-walk-entry-row strong {
   overflow: hidden;
   color: var(--text);
@@ -7454,29 +7366,12 @@ body:has(.account-shell:not([data-theme="dark"])) {
   white-space: nowrap;
 }
 
-.account-shell .kiki-haven-copy small,
 .account-shell .kiki-walk-entry-row small {
   overflow: hidden;
   color: var(--muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.account-shell .kiki-haven-reviewed {
-  flex: none;
-  color: var(--ok);
-}
-
-.account-shell .kiki-haven-directions {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  flex: none;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--surface-2);
-  color: var(--accent);
 }
 
 .account-shell .kiki-walk-live-card {
@@ -7583,26 +7478,6 @@ body:has(.account-shell:not([data-theme="dark"])) {
   font-size: 12px;
 }
 
-.account-shell .kiki-explore-error button {
-  min-height: 36px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--surface-1);
-  padding: 0 12px;
-  color: var(--crit);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.account-shell .kiki-explore-message {
-  margin: 4px 0 0;
-  border-radius: 12px;
-  background: var(--surface-2);
-  padding: 9px 12px;
-  color: var(--text-2);
-  font-size: 12px;
-}
-
 .account-shell .kiki-explore-quick-links {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7610,8 +7485,7 @@ body:has(.account-shell:not([data-theme="dark"])) {
   padding-top: 2px;
 }
 
-.account-shell .kiki-explore-quick-links > a,
-.account-shell .kiki-explore-quick-links > button {
+.account-shell .kiki-explore-quick-links > a {
   display: flex;
   min-height: 42px;
   align-items: center;
@@ -7625,14 +7499,12 @@ body:has(.account-shell:not([data-theme="dark"])) {
   text-decoration: none;
 }
 
-.account-shell .kiki-explore-quick-links > a > svg:first-child,
-.account-shell .kiki-explore-quick-links > button > svg:first-child {
+.account-shell .kiki-explore-quick-links > a > svg:first-child {
   flex: none;
   color: var(--accent);
 }
 
-.account-shell .kiki-explore-quick-links > a > svg:last-child,
-.account-shell .kiki-explore-quick-links > button > svg:last-child {
+.account-shell .kiki-explore-quick-links > a > svg:last-child {
   flex: none;
   margin-left: auto;
   color: var(--muted);
@@ -7654,7 +7526,6 @@ body:has(.account-shell:not([data-theme="dark"])) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .account-shell .kiki-explore-segmented button,
   .account-shell .kiki-map-home .account-bottom-sheet {
     transition: none;
   }
