@@ -5699,7 +5699,7 @@ body:has(.account-shell) {
 }
 
 .account-shell .safe-spots-page .map-screen-topbar {
-  position: fixed;
+  position: absolute;
   top: calc(10px + env(safe-area-inset-top));
   right: 68px;
   left: 12px;
@@ -6035,4 +6035,41 @@ body:has(.account-shell) {
 
 .account-shell .kiki-map-home .kiki-map-sheet-peek {
   min-height: 42px;
+}
+
+.account-shell .kiki-map-home .account-bottom-sheet.level-0 {
+  height: 224px;
+}
+
+.account-shell .safe-spots-page .safe-spots-map-actions {
+  position: static;
+}
+
+.account-shell .account-mobile-nav .nav-sigil {
+  width: 29px;
+  height: 29px;
+  flex: 0 0 29px;
+  overflow: hidden;
+  border: 1px solid currentColor;
+  border-radius: 10px 4px 10px 4px;
+  background: transparent;
+  color: var(--accent);
+}
+
+.account-shell .account-mobile-nav .nav-sigil::before {
+  display: block;
+}
+
+.account-shell .account-mobile-nav .nav-link[aria-current="page"] .nav-sigil {
+  background: transparent;
+  color: var(--accent);
+}
+
+.account-shell .account-mobile-nav .nav-device-sigil {
+  overflow: visible;
+}
+
+.account-shell .account-mobile-nav .nav-device-sigil > img {
+  width: 46px;
+  height: 46px;
 }

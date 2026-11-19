@@ -41,6 +41,7 @@ type ReadinessData = {
   connectedDeviceCount: number;
   responderCount: number;
   fullName: string | null;
+  homeAddress: string | null;
 };
 
 type NearbyResponderItem = { id: string; name: string; role: string; organisation: string; distanceKm: number };
@@ -169,7 +170,7 @@ export default function AccountPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Could not load account readiness.");
       const [{ data: profile, error: profileError }, { data: devices, error: deviceError }, { count: guardianCount, error: guardianError }] = await Promise.all([
-        supabase.from("profiles").select("full_name,phone,emergency_contact_name,emergency_contact_phone").eq("id", user.id).single(),
+        supabase.from("profiles").select("full_name,home_address,phone,emergency_contact_name,emergency_contact_phone").eq("id", user.id).single(),
         supabase.from("devices").select("active,last_seen_at"),
         supabase.from("guardians").select("id", { count: "exact", head: true }),
       ]);
@@ -185,6 +186,7 @@ export default function AccountPage() {
         connectedDeviceCount,
         responderCount: (guardianCount ?? 0) + Number(Boolean(profile?.emergency_contact_name?.trim() && profile.emergency_contact_phone?.trim())),
         fullName: profile?.full_name ?? null,
+        homeAddress: profile?.home_address?.trim() || null,
       });
     })().catch(() => {
       if (!cancelled) setReadinessError(true);
@@ -196,7 +198,15 @@ export default function AccountPage() {
   const deviceCount = readiness?.deviceCount ?? 0;
   const connectedDeviceCount = readiness?.connectedDeviceCount ?? 0;
   const responderCount = readiness?.responderCount ?? 0;
-  const hasSafetySetup = deviceCount > 0 && responderCount > 0;
+  const mapPeekSubtitle = activeTrip
+    ? `Trip active · ${activeTrip.destination_label}`
+    : activeSos
+      ? `Active ${activeSos.type === "medical" ? "medical alert" : "SOS"}`
+      : buddy?.active
+        ? buddy.visible ? "Buddy walk active" : "Buddy walk active · hidden"
+        : readinessError
+          ? "Location address unavailable"
+          : readiness?.homeAddress || "Add your home address in Profile";
   const responderStatusCopy = !nearby
     ? "Checking responders…"
     : nearby.count == null
@@ -225,7 +235,7 @@ export default function AccountPage() {
         <span className="kiki-map-avatar" aria-hidden="true">{readiness?.fullName?.trim().charAt(0).toUpperCase() || "K"}</span>
         <span className="kiki-map-peek-copy">
           <strong>{readiness?.fullName || "Your Kiki account"}</strong>
-          <small>{activeTrip ? `Trip active · ${activeTrip.destination_label}` : hasSafetySetup ? "Your safety setup is ready" : "Complete your safety setup"}</small>
+          <small>{mapPeekSubtitle}</small>
         </span>
         {activeTrip && <AccountStatusPill tone="positive">On trip</AccountStatusPill>}
       </div>

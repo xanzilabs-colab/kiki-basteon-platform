@@ -363,7 +363,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
       <nav inert={sosOpen || Boolean(sosSent)} className="account-mobile-nav fixed inset-x-0 bottom-0 z-20 flex h-[68px] border-t border-[var(--line)] bg-[var(--chrome)] md:hidden">
         {mobileNavLinks.slice(0, 2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 text-[11px]" aria-current={isActiveLink(pathname, link.href) ? "page" : undefined}>
-            <NavSigil>{link.href === "/account/devices" ? <Image src="/assets/devices-icon-link.png" alt="" width={30} height={30} aria-hidden="true" /> : <link.icon size={20} strokeWidth={2} aria-hidden="true" />}</NavSigil>
+            <NavSigil className={link.href === "/account/devices" ? "nav-device-sigil" : ""}>{link.href === "/account/devices" ? <Image src="/assets/devices-icon.png" alt="" width={46} height={46} aria-hidden="true" /> : <link.icon size={22} strokeWidth={2.2} aria-hidden="true" />}</NavSigil>
             <span>{link.label}</span>
           </Link>
         ))}
@@ -372,7 +372,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
         </SosActionButton>
         {mobileNavLinks.slice(2).map((link) => (
           <Link key={link.href} href={link.href} className="nav-link flex-1 flex-col justify-center gap-1 text-[11px]" aria-current={isActiveLink(pathname, link.href) ? "page" : undefined}>
-            <NavSigil>{link.href === "/account/devices" ? <Image src="/assets/devices-icon-link.png" alt="" width={30} height={30} aria-hidden="true" /> : <link.icon size={20} strokeWidth={2} aria-hidden="true" />}</NavSigil>
+            <NavSigil className={link.href === "/account/devices" ? "nav-device-sigil" : ""}>{link.href === "/account/devices" ? <Image src="/assets/devices-icon.png" alt="" width={46} height={46} aria-hidden="true" /> : <link.icon size={22} strokeWidth={2.2} aria-hidden="true" />}</NavSigil>
             <span>{link.label}</span>
           </Link>
         ))}

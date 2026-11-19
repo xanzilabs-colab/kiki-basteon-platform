@@ -1365,8 +1365,8 @@
   .auth-mode-switch button,.auth-mode-indicator,.auth-copy,.auth-body,.auth-submit { transition: none; animation: none; }
 }
 
-.auth-shell { --chrome:#F8F4EC;--bg:#F8F4EC;--surface-1:#FFFDF9;--surface-2:#EEE8F6;--surface-3:#FCE9DF;--well:#FFFDF9;--divider:#E8DED3;--text:#29231F;--text-2:#756D66;--muted:#756D66;--line-focus:#EC7AAE;--accent:#4A2472;--accent-ink:#fff;--accent-bg:#EEE8F6;background:radial-gradient(ellipse at 18% 0,#FCE9DF 0,transparent 48%),#F8F4EC; }
-.auth-card { border-color:#E8DED3;background:#FFFDF9;box-shadow:0 24px 70px rgba(53,25,79,.13); }
+.auth-shell { --chrome:#fff;--bg:#fff;--surface-1:#fff;--surface-2:#EEE8F6;--surface-3:#FCE9DF;--well:#fff;--divider:#E8DED3;--text:#29231F;--text-2:#756D66;--muted:#756D66;--line-focus:#EC7AAE;--accent:#4A2472;--accent-ink:#fff;--accent-bg:#EEE8F6;background:#fff; }
+.auth-card { border-color:#E8DED3;background:#fff;box-shadow:0 24px 70px rgba(53,25,79,.13); }
 .auth-promo,.auth-brand b,.auth-copy h1 { color:#29231F; }
 .auth-promo-brand,.auth-promo-copy > span,.auth-promo-trust,.auth-brand > div > span svg,.auth-eyebrow { color:#4A2472; }
 .auth-promo-copy h2 { color:#35194F; }
@@ -1395,7 +1395,7 @@
     display:block;
     min-height:100svh;
     padding:0;
-    background:#F8F4EC;
+    background:#fff;
   }
   .auth-card {
     box-sizing:border-box;
