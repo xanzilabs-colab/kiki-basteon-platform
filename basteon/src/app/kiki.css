@@ -1365,6 +1365,10 @@
   .auth-mode-switch button,.auth-mode-indicator,.auth-copy,.auth-body,.auth-submit { transition: none; animation: none; }
 }
 
+html:has(.auth-shell) { background:#fff;scrollbar-color:#D1D5DB #fff; }
+html:has(.auth-shell)::-webkit-scrollbar-thumb { background:#D1D5DB; }
+html:has(.auth-shell)::-webkit-scrollbar-track { background:#fff; }
+body:has(.auth-shell) { background:#fff!important; }
 .auth-shell { --chrome:#fff;--bg:#fff;--surface-1:#fff;--surface-2:#EEE8F6;--surface-3:#FCE9DF;--well:#fff;--divider:#4A2472;--text:#29231F;--text-2:#756D66;--muted:#756D66;--line-focus:#4A2472;--accent:#4A2472;--accent-ink:#fff;--accent-bg:#EEE8F6;background:#fff!important;background-image:none!important; }
 .auth-card { border-color:#4A2472;background:#fff;box-shadow:0 24px 70px rgba(53,25,79,.13); }
 .auth-promo,.auth-brand b,.auth-copy h1 { color:#29231F; }
