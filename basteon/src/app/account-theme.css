@@ -7195,3 +7195,467 @@ body:has(.account-shell:not([data-theme="dark"])) {
   background: #3b82f6;
   box-shadow: 0 0 0 2px #fff, 0 2px 8px rgb(15 23 42 / 25%);
 }
+
+:root {
+  --glass: rgb(255 255 255 / 84%);
+  --glass-strong: rgb(255 255 255 / 94%);
+  --glass-blur: saturate(1.8) blur(22px);
+  --r-card: 16px;
+  --r-sheet: 28px;
+  --r-pill: 999px;
+  --ease-spatial: cubic-bezier(.22, 1, .36, 1);
+}
+
+.account-shell[data-theme="dark"] {
+  --glass: rgb(24 24 32 / 82%);
+  --glass-strong: rgb(24 24 32 / 94%);
+}
+
+.account-shell .account-mobile-nav {
+  border-top: 1px solid rgb(255 255 255 / 58%);
+  background: var(--glass) !important;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.account-shell[data-theme="dark"] .account-mobile-nav {
+  border-top-color: rgb(255 255 255 / 10%);
+  background: var(--glass) !important;
+}
+
+.account-shell .map-screen.kiki-map-home .map-screen-topbar {
+  top: calc(10px + env(safe-area-inset-top));
+  right: 68px;
+  left: 12px;
+}
+
+.account-shell .kiki-explore-hud {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--r-pill);
+  background: var(--glass-strong);
+  padding: 6px 8px;
+  box-shadow: inset 0 0 0 .5px rgb(255 255 255 / 70%), 0 8px 24px -10px rgb(17 24 39 / 30%);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.account-shell .kiki-explore-circle-link {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.account-shell .kiki-explore-circle-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .kiki-explore-circle-link > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.account-shell .kiki-explore-circle-link strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-explore-circle-link small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-explore-circle-link > svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.account-shell .kiki-explore-status {
+  display: inline-flex;
+  min-height: 34px;
+  flex: none;
+  align-items: center;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  padding: 0 10px;
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-explore-status.has-reports {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.account-shell .kiki-explore-hud .account-notifications {
+  flex: none;
+}
+
+.account-shell .kiki-explore-hud .account-header-action {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-shell .kiki-map-home .account-bottom-sheet {
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  background: var(--glass-strong);
+  box-shadow: 0 -8px 32px rgb(35 20 48 / 12%);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  transition-timing-function: var(--ease-spatial);
+}
+
+.account-shell .kiki-map-home .account-sheet-content {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+
+.account-shell .kiki-explore-segmented {
+  position: sticky;
+  z-index: 4;
+  top: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 4px;
+}
+
+.account-shell .kiki-explore-segmented button {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 180ms var(--ease-spatial), color 180ms var(--ease-spatial);
+}
+
+.account-shell .kiki-explore-segmented button[aria-pressed="true"] {
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(17 24 39 / 10%);
+}
+
+.account-shell .kiki-explore-segmented button > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.account-shell .kiki-explore-panel {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.account-shell .kiki-explore-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 2px 4px;
+}
+
+.account-shell .kiki-explore-section-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.account-shell .kiki-explore-section-heading strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.account-shell .kiki-explore-section-heading small,
+.account-shell .kiki-explore-status-copy {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-shell .kiki-explore-section-heading > a {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.account-shell .kiki-haven-row,
+.account-shell .kiki-walk-entry-row {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  background: var(--surface-1);
+  padding: 10px 12px;
+}
+
+.account-shell .kiki-haven-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .kiki-haven-copy,
+.account-shell .kiki-walk-entry-row > span {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.account-shell .kiki-haven-copy strong,
+.account-shell .kiki-walk-entry-row strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-haven-copy small,
+.account-shell .kiki-walk-entry-row small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-haven-reviewed {
+  flex: none;
+  color: var(--ok);
+}
+
+.account-shell .kiki-haven-directions {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.account-shell .kiki-walk-live-card {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  background: var(--surface-1);
+  padding: 12px;
+}
+
+.account-shell .kiki-walk-live-indicator {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 5px var(--ok-bg);
+}
+
+.account-shell .kiki-walk-live-card > div {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.account-shell .kiki-walk-live-card > div > small,
+.account-shell .kiki-walk-live-card > div > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.account-shell .kiki-walk-live-card > div > strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .kiki-walk-live-card > a,
+.account-shell .kiki-walk-entry-row > svg:last-child {
+  flex: none;
+  color: var(--muted);
+}
+
+.account-shell .kiki-walk-entry-row {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.account-shell .kiki-walk-entry-row > svg:first-child {
+  flex: none;
+}
+
+.account-shell .kiki-explore-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  border-radius: 14px;
+  background: var(--surface-1);
+  padding: 20px 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.account-shell .kiki-explore-empty > svg {
+  color: var(--accent);
+}
+
+.account-shell .kiki-explore-empty > strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-shell .kiki-explore-empty > span {
+  font-size: 12px;
+}
+
+.account-shell .kiki-explore-empty > a {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.account-shell .kiki-explore-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 12px;
+  background: var(--crit-bg);
+  padding: 10px 12px;
+  color: var(--crit);
+  font-size: 12px;
+}
+
+.account-shell .kiki-explore-error button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-1);
+  padding: 0 12px;
+  color: var(--crit);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.account-shell .kiki-explore-message {
+  margin: 4px 0 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  padding: 9px 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.account-shell .kiki-explore-quick-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.account-shell .kiki-explore-quick-links > a,
+.account-shell .kiki-explore-quick-links > button {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  padding: 0 10px;
+  color: var(--text-2);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.account-shell .kiki-explore-quick-links > a > svg:first-child,
+.account-shell .kiki-explore-quick-links > button > svg:first-child {
+  flex: none;
+  color: var(--accent);
+}
+
+.account-shell .kiki-explore-quick-links > a > svg:last-child,
+.account-shell .kiki-explore-quick-links > button > svg:last-child {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.account-shell[data-header-hidden="true"] .account-mobile-appbar {
+  display: none;
+}
+
+@media (max-width: 390px) {
+  .account-shell .kiki-explore-status {
+    min-width: 0;
+    max-width: 82px;
+    flex: 0 1 82px;
+    overflow: hidden;
+    padding-inline: 8px;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-shell .kiki-explore-segmented button,
+  .account-shell .kiki-map-home .account-bottom-sheet {
+    transition: none;
+  }
+}

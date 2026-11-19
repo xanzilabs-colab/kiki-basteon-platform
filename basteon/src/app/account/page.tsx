@@ -3,10 +3,13 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
+  ArrowRight,
   AlertTriangle,
+  CheckCircle2,
   ChevronRight,
   LocateFixed,
   MapPin,
+  MapPinned,
   Navigation,
   Radio,
   Route,
@@ -15,13 +18,17 @@ import {
   X,
   UsersRound,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocationEligibility } from "@/hooks/useLocationEligibility";
 import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
-import { AccountListCard, AccountListRow, AccountSectionLabel, AccountStatusPill } from "@/components/account/AccountList";
+import { NotificationBell } from "@/components/NotificationBell";
+import { CommunityAlertsPanel } from "@/components/CommunityAlertsPanel";
+import { AccountStatusPill } from "@/components/account/AccountList";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 import { MapBottomSheet, MapScreen } from "@/components/account/MapScreen";
+import { categoryLabel, directionsUrl, type CommunityAlert, type PublicSpot } from "@/lib/buddies/meeting/client";
+import type { SafetyMapPoint } from "@/components/KikiSafetyMap";
 
 const KikiSafetyMap = dynamic(() => import("@/components/KikiSafetyMap"), { ssr: false, loading: () => <div className="kiki-safety-map-loading" role="status">Loading map…</div> });
 
@@ -49,14 +56,8 @@ type NearbyData = { count: number | null; availableCount: number; scope: "linked
 type ActiveSos = { id: string; type: "sos" | "medical"; status: string; acknowledged: number; enRoute: number; onScene: number };
 const DEVICE_ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
-function formatTripDate(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "Recently"
-    : date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-}
-
 export default function AccountPage() {
+  const [exploreSegment, setExploreSegment] = useState<"pulse" | "havens" | "walks">("pulse");
   const [trips, setTrips] = useState<{ trip: TripActivity | null; recent: TripActivity[] } | null>(null);
   const [tripError, setTripError] = useState(false);
   const [buddy, setBuddy] = useState<BuddyActivity | null>(null);
@@ -73,8 +74,26 @@ export default function AccountPage() {
   const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(0);
   const [mapLayerIndex, setMapLayerIndex] = useState(0);
   const [mapRecenter, setMapRecenter] = useState(0);
+  const [communityReports, setCommunityReports] = useState<CommunityAlert[]>([]);
+  const [safeHavens, setSafeHavens] = useState<PublicSpot[]>([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communityError, setCommunityError] = useState("");
+  const [communityBusy, setCommunityBusy] = useState(false);
+  const [communityMessage, setCommunityMessage] = useState("");
   const { allowed, reason: eligibility } = useLocationEligibility();
   const refreshNearbyRef = useRef<() => void>(() => {});
+  const mapPoints = useMemo<SafetyMapPoint[]>(() => [
+    ...communityReports.map((report) => ({
+      id: report.id,
+      lat: report.lat,
+      lng: report.lng,
+      kind: "report" as const,
+      category: report.kind,
+      createdAt: report.created_at,
+      upvotes: report.upvotes,
+    })),
+    ...safeHavens.map((place) => ({ id: place.id, lat: place.lat, lng: place.lng, kind: "spot" as const, category: place.category })),
+  ], [communityReports, safeHavens]);
 
   useEffect(() => {
     let active = true;
@@ -148,6 +167,50 @@ export default function AccountPage() {
   }, [allowed, eligibility]);
 
   useEffect(() => {
+    if (!mapPoint) return;
+    let active = true;
+    const query = new URLSearchParams({ lat: String(mapPoint.lat), lng: String(mapPoint.lng) });
+    const loadNearby = async () => {
+      try {
+        const [reportsResponse, havensResponse] = await Promise.all([
+          fetch(`/api/buddies/community-alerts?${query}`, { cache: "no-store" }),
+          fetch(`/api/buddies/safe-places?${query}`, { cache: "no-store" }),
+        ]);
+        if (!reportsResponse.ok || !havensResponse.ok) throw new Error("Nearby community data is temporarily unavailable.");
+        const [reportsData, havensData] = await Promise.all([
+          reportsResponse.json() as Promise<{ alerts?: CommunityAlert[] }>,
+          havensResponse.json() as Promise<{ places?: PublicSpot[] }>,
+        ]);
+        if (!active) return;
+        setCommunityReports(reportsData.alerts ?? []);
+        setSafeHavens(havensData.places ?? []);
+        setCommunityError("");
+      } catch (error) {
+        if (active) setCommunityError(error instanceof Error ? error.message : "Nearby community data is temporarily unavailable.");
+      } finally {
+        if (active) setCommunityLoading(false);
+      }
+    };
+    setCommunityLoading(true);
+    void loadNearby();
+    const supabase = createClient();
+    const channel = supabase.channel("explore-community-data")
+      .on("broadcast", { event: "changed" }, () => { void loadNearby(); })
+      .subscribe();
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") void loadNearby();
+    };
+    const timer = window.setInterval(refreshVisible, 60_000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [mapPoint]);
+
+  useEffect(() => {
     let cancelled = false;
     void fetch("/api/trips")
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Trip data unavailable")))
@@ -195,9 +258,6 @@ export default function AccountPage() {
   }, []);
 
   const activeTrip = trips?.trip ?? null;
-  const deviceCount = readiness?.deviceCount ?? 0;
-  const connectedDeviceCount = readiness?.connectedDeviceCount ?? 0;
-  const responderCount = readiness?.responderCount ?? 0;
   const mapPeekSubtitle = activeTrip
     ? `Trip active · ${activeTrip.destination_label}`
     : activeSos
@@ -207,22 +267,25 @@ export default function AccountPage() {
         : readinessError
           ? "Location address unavailable"
           : readiness?.homeAddress || "Add your home address in Profile";
-  const responderStatusCopy = !nearby
-    ? "Checking responders…"
-    : nearby.count == null
-      ? `${nearby.availableCount} on duty · enable location to check nearby responders`
-      : `${nearby.count} available within ${nearby.radiusKm} km`;
-  const responderStatusLabel = !nearby
-    ? "Checking"
-    : nearby.count == null
-      ? nearby.availableCount ? "On duty" : "None on duty"
-      : nearby.count ? "Nearby" : "None nearby";
   const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
+
+  const reportCountLabel = `${communityReports.length} ${communityReports.length === 1 ? "report" : "reports"} nearby`;
 
   return <><MapScreen
     screenId="account-home"
     className="kiki-map-home"
-    map={<KikiSafetyMap center={mapPoint} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} />}
+    map={<KikiSafetyMap center={mapPoint} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} userLocationStyle="dot" />}
+    topBar={<div className="kiki-explore-hud">
+      <Link href="/account/guardians" className="kiki-explore-circle-link">
+        <span className="kiki-explore-circle-icon"><UsersRound size={19} aria-hidden="true" /></span>
+        <span><strong>Guardian Circle</strong><small>{activeTrip ? "Your walk is active" : buddy?.active ? "Buddy walk active" : "Your trusted people"}</small></span>
+        <ChevronRight size={17} aria-hidden="true" />
+      </Link>
+      <span className={`kiki-explore-status${communityReports.length ? " has-reports" : ""}`}>
+        {communityLoading ? "Updating nearby" : communityError ? "Community unavailable" : communityReports.length ? reportCountLabel : "No reports nearby"}
+      </span>
+      <NotificationBell />
+    </div>}
     controls={<div className="kiki-map-actions" aria-label="Map shortcuts" data-map-ui="hide">
       <Link href="/account/buddies/safe-places?tab=spots" aria-label="Safe spots" title="Safe spots"><MapPin size={20} /></Link>
       <Link href="/account/buddies/safe-places?tab=alerts" aria-label="Community reports" title="Community reports"><AlertTriangle size={20} /></Link>
@@ -239,58 +302,63 @@ export default function AccountPage() {
         </span>
         {activeTrip && <AccountStatusPill tone="positive">On trip</AccountStatusPill>}
       </div>
-      <div className="kiki-map-sheet-details">
-        {activeSos && <button type="button" className="kiki-overview-alert" onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>
-          <span className="kiki-overview-alert-icon"><Siren size={20} aria-hidden="true" /></span>
-          <span className="kiki-overview-alert-copy"><strong>Active {activeSos.type === "medical" ? "medical alert" : "SOS"}</strong><span>{activeSos.onScene ? "A responder has arrived" : activeSos.enRoute ? `${activeSos.enRoute} responder${activeSos.enRoute === 1 ? "" : "s"} en route` : activeSos.acknowledged ? `${activeSos.acknowledged} acknowledged` : "Waiting for a responder"}</span></span>
-          <ChevronRight size={18} />
-        </button>}
-        {activeTrip && <Link className="kiki-overview-cta" href="/account/trips"><Navigation size={18} />Open active trip</Link>}
-        <section className="kiki-overview-section" aria-labelledby="safety-circle-title">
-          <AccountSectionLabel>Safety circle</AccountSectionLabel>
-          <AccountListCard className="kiki-overview-group" aria-label="Safety circle">
-        <AccountListRow
-          href="/account/devices"
-          icon={<Radio size={20} />}
-          title="Kiki hardware"
-          subtitle={`${deviceCount} ${deviceCount === 1 ? "device" : "devices"} linked`}
-          trailing={<><AccountStatusPill tone={readinessError ? "warning" : connectedDeviceCount ? "positive" : "neutral"}>{readinessError ? "Unavailable" : connectedDeviceCount ? "Connected" : deviceCount ? "Offline" : "Not linked"}</AccountStatusPill><ChevronRight className="kiki-overview-chevron" size={17} /></>}
-        />
-        <AccountListRow
-          onClick={() => { setSheetOpen(true); refreshNearbyRef.current(); }}
-          icon={<ShieldCheck size={20} />}
-          title="Responders"
-          subtitle={nearbyError ? "Availability unavailable" : responderStatusCopy}
-          trailing={<><AccountStatusPill tone={nearbyError ? "warning" : nearby?.count ? "positive" : nearby?.count === 0 ? "neutral" : "warning"}>{nearbyError ? "Unavailable" : responderStatusLabel}</AccountStatusPill><ChevronRight className="kiki-overview-chevron" size={17} /></>}
-        />
-        <AccountListRow
-          href="/account/buddies"
-          icon={<UsersRound size={20} />}
-          title="Buddy watch"
-          subtitle={buddy?.active ? buddy.visible ? "Visible to nearby Buddies" : "Trip active but hidden" : "No trip active"}
-          trailing={<><AccountStatusPill tone={buddyError ? "warning" : buddy?.active && buddy.visible ? "positive" : "neutral"}>{buddyError ? "Unavailable" : buddy?.active ? buddy.visible ? "Sharing" : "Hidden" : "Off"}</AccountStatusPill><ChevronRight className="kiki-overview-chevron" size={17} /></>}
-        />
-        <AccountListRow
-          href="/account/trips"
-          icon={<Route size={20} />}
-          title="Route Watch"
-          subtitle={activeTrip ? `Monitoring trip to ${activeTrip.destination_label}` : "No active trip"}
-          trailing={<><AccountStatusPill tone={tripError ? "warning" : activeTrip ? "positive" : "neutral"}>{tripError ? "Unavailable" : activeTrip ? "Active" : "Off"}</AccountStatusPill><ChevronRight className="kiki-overview-chevron" size={17} /></>}
-        />
-          </AccountListCard>
-        </section>
-        <section className="kiki-overview-section kiki-overview-recent" aria-labelledby="recent-trips-title">
-          <div className="kiki-overview-section-head"><AccountSectionLabel>Recent trips</AccountSectionLabel><Link href="/account/trips">See all</Link></div>
-          <AccountListCard className="kiki-overview-group" aria-label="Recent trips">
-            {trips && trips.recent.length > 0
-              ? trips.recent.slice(0, 3).map((trip) => <Link className="kiki-overview-trip-row" href={`/account/trips?destination=${encodeURIComponent(trip.id)}`} key={trip.id}>
-                <span className="kiki-overview-route" aria-hidden="true"><i /><u /><i /></span>
-                <span className="kiki-overview-trip-copy"><strong>{trip.destination_label}</strong></span>
-                <time dateTime={trip.ended_at ?? trip.created_at}>{formatTripDate(trip.ended_at ?? trip.created_at)}</time>
-              </Link>)
-              : <div className="kiki-overview-empty">{tripError ? "Recent trips are unavailable." : trips ? "No completed trips yet." : "Loading recent trips…"}</div>}
-          </AccountListCard>
-        </section>
+      <div className="kiki-explore-segmented" role="group" aria-label="Explore map views">
+        <button type="button" aria-pressed={exploreSegment === "pulse"} onClick={() => setExploreSegment("pulse")}>Pulse{communityReports.length > 0 && <span>{communityReports.length}</span>}</button>
+        <button type="button" aria-pressed={exploreSegment === "havens"} onClick={() => setExploreSegment("havens")}>Havens{safeHavens.length > 0 && <span>{safeHavens.length}</span>}</button>
+        <button type="button" aria-pressed={exploreSegment === "walks"} onClick={() => setExploreSegment("walks")}>Walks</button>
+      </div>
+      {communityMessage && <p className="kiki-explore-message" role="status">{communityMessage}</p>}
+      {exploreSegment === "pulse" && <section className="kiki-explore-panel" aria-label="Pulse">
+        {communityError && <div className="kiki-explore-error" role="alert"><span>{communityError}</span><button type="button" onClick={() => { if (mapPoint) setMapPoint({ ...mapPoint }); }}>Retry</button></div>}
+        {!mapPoint && <div className="kiki-explore-empty"><MapPin size={20} /><strong>Location is needed for nearby reports</strong><span>Enable location sharing to see community updates around you.</span></div>}
+        {mapPoint && <CommunityAlertsPanel
+          alerts={communityReports}
+          busy={communityBusy}
+          initialPoint={mapPoint}
+          onBusyChange={setCommunityBusy}
+          onAlertsChange={setCommunityReports}
+          onLocationChange={setMapPoint}
+          onMessage={setCommunityMessage}
+        />}
+      </section>}
+      {exploreSegment === "havens" && <section className="kiki-explore-panel" aria-label="Safe havens">
+        <div className="kiki-explore-section-heading"><div><strong>Nearby havens</strong><small>Reviewed public places in your area</small></div><Link href="/account/buddies/safe-places?tab=spots" aria-label="See all havens"><ArrowRight size={18} /></Link></div>
+        {communityError && <div className="kiki-explore-error" role="alert"><span>{communityError}</span><button type="button" onClick={() => { if (mapPoint) setMapPoint({ ...mapPoint }); }}>Retry</button></div>}
+        {communityLoading && <p className="kiki-explore-status-copy">Loading nearby places…</p>}
+        {!communityLoading && !communityError && safeHavens.length === 0 && <div className="kiki-explore-empty"><MapPinned size={20} /><strong>No havens listed nearby yet</strong><span>Check again later or suggest a public place.</span><Link href="/account/buddies/safe-places?tab=spots">Explore safe places</Link></div>}
+        {safeHavens.slice(0, 8).map((place) => <article className="kiki-haven-row" key={place.id}>
+          <span className="kiki-haven-icon"><MapPin size={18} aria-hidden="true" /></span>
+          <span className="kiki-haven-copy"><strong>{place.name}</strong><small>{categoryLabel(place.category)}{place.open_24h ? " · Open 24 hours" : ""}</small></span>
+          {!place.is_demo && <CheckCircle2 className="kiki-haven-reviewed" size={16} aria-label="Reviewed" />}
+          {!place.is_demo && <a className="kiki-haven-directions" href={directionsUrl(place.lat, place.lng)} target="_blank" rel="noreferrer" aria-label={`Directions to ${place.name}`}><Navigation size={17} /></a>}
+        </article>)}
+      </section>}
+      {exploreSegment === "walks" && <section className="kiki-explore-panel" aria-label="Walks">
+        {(tripError || buddyError) && <p className="kiki-explore-error" role="alert">Some walk status could not be loaded. Open Trips to check your active walks.</p>}
+        {activeTrip && <article className="kiki-walk-live-card">
+          <span className="kiki-walk-live-indicator" />
+          <div><small>Route Watch</small><strong>{activeTrip.destination_label}</strong><span>{activeTrip.mode} · {activeTrip.status}</span></div>
+          <Link href="/account/trips" aria-label="Open active walk"><ChevronRight size={19} /></Link>
+        </article>}
+        {buddy?.active && <article className="kiki-walk-live-card">
+          <span className="kiki-walk-live-indicator" />
+          <div><small>Travel Together</small><strong>{buddy.alias ?? "Buddy walk"}</strong><span>{buddy.visible ? "Visible to nearby Buddies" : "Location sharing is hidden"}</span></div>
+          <Link href="/account/trips?mode=travel-together" aria-label="Open Buddy walk"><ChevronRight size={19} /></Link>
+        </article>}
+        {!activeTrip && !buddy?.active && !tripError && !buddyError && <div className="kiki-explore-empty"><Route size={20} /><strong>No active walks</strong><span>Start Route Watch or plan a walk with your Buddies.</span></div>}
+        <Link className="kiki-walk-entry-row" href="/account/trips"><Route size={19} /><span><strong>Route Watch</strong><small>Plan a route and check in along the way</small></span><ChevronRight size={18} /></Link>
+        <Link className="kiki-walk-entry-row" href="/account/trips?mode=travel-together"><UsersRound size={19} /><span><strong>Travel Together</strong><small>Create or join a Bubble</small></span><ChevronRight size={18} /></Link>
+      </section>}
+      {activeSos && <button type="button" className="kiki-overview-alert" onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>
+        <span className="kiki-overview-alert-icon"><Siren size={20} aria-hidden="true" /></span>
+        <span className="kiki-overview-alert-copy"><strong>Active {activeSos.type === "medical" ? "medical alert" : "SOS"}</strong><span>{activeSos.onScene ? "A responder has arrived" : activeSos.enRoute ? `${activeSos.enRoute} responder${activeSos.enRoute === 1 ? "" : "s"} en route` : activeSos.acknowledged ? `${activeSos.acknowledged} acknowledged` : "Waiting for a responder"}</span></span>
+        <ChevronRight size={18} />
+      </button>}
+      {/* Safety status stays available as a quick destination beneath the map segments. */}
+      <div className="kiki-explore-quick-links">
+        <Link href="/account/devices"><Radio size={17} />Kiki devices<ChevronRight size={16} /></Link>
+        <Link href="/account/profile"><ShieldCheck size={17} />Safety tools<ChevronRight size={16} /></Link>
+        <button type="button" onClick={() => { setSheetOpen(true); refreshNearbyRef.current(); }}><UsersRound size={17} />Responders nearby<ChevronRight size={16} /></button>
       </div>
     </MapBottomSheet>}
     hiddenActions={<button type="button" className="map-screen-sos" onClick={() => window.dispatchEvent(new Event("kiki:open-sos"))}><Siren size={30} strokeWidth={2.5} />SOS</button>}

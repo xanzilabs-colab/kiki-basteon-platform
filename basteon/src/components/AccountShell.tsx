@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, UsersRound, Volume2, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
@@ -18,9 +18,9 @@ import type { SosType } from "@/lib/sos/sosGesture";
 import { enqueueSos, flushSosOutbox, removeQueuedSos, type SosRequest } from "@/lib/sos/outbox";
 
 const links = [
-  { href: "/account", label: "Map", icon: Map },
-  { href: "/account/devices", label: "Devices", icon: Smartphone },
-  { href: "/account/profile", label: "Profile", icon: UserRound },
+  { href: "/account", label: "Explore", icon: Map },
+  { href: "/account/devices", label: "Kiki", icon: Smartphone },
+  { href: "/account/profile", label: "You", icon: UserRound },
 ];
 
 const AccountMenuFeatureContext = createContext({ stoepEnabled: false, calmEnabled: false });
@@ -65,7 +65,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
   ];
   const mobileNavLinks = [
     links[0],
-    { href: "/account/trips", label: "Trips", icon: Route },
+    { href: "/account/guardians", label: "Circle", icon: UsersRound },
     links[1],
     links[2],
   ];
@@ -318,7 +318,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
       className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]"
       data-theme={darkTheme ? "dark" : "light"}
       data-map-ui-hidden={mapUiHidden}
-      data-header-hidden={pathname.startsWith("/account/trips") || pathname === "/account/buddies/safe-places"}
+      data-header-hidden={pathname === "/account" || pathname.startsWith("/account/trips") || pathname === "/account/buddies/safe-places"}
     >
       <aside inert={sosOpen || Boolean(sosSent)} className="sidebar hidden md:flex md:h-[106%] md:min-h-0 md:flex-col">
         <div className="sidebar-head">
