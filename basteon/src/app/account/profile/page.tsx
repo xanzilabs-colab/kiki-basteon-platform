@@ -122,7 +122,7 @@ export default function ProfilePage() {
       <AccountSectionLabel>Help &amp; support</AccountSectionLabel>
       <AccountListCard aria-label="Help and support">
         <AccountListRow href="/account/help" icon={<CircleHelp size={20} />} title="FAQs" subtitle="Answers to common questions" trailing={<ChevronRight size={18} />} />
-        <AccountListRow href="/account/terms" icon={<FileText size={20} />} title="Terms of Service" subtitle="Read the Kiki service terms" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/terms" icon={<FileText size={20} />} title="Terms of Service" trailing={<ChevronRight size={18} />} />
         <a className="account-list-row" href="mailto:xanzitech@gmail.com">
           <span className="account-icon-badge" aria-hidden="true"><Mail size={20} /></span>
           <span className="account-list-row-copy"><strong>Contact support</strong><small>Email xanzitech@gmail.com</small></span>

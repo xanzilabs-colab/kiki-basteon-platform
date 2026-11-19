@@ -313,7 +313,12 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
 
   const callDuration = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
   return (
-    <div className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]" data-theme={darkTheme ? "dark" : "light"} data-map-ui-hidden={mapUiHidden}>
+    <div
+      className="account-shell min-h-screen bg-[var(--bg)] md:grid md:h-screen md:grid-cols-[260px_1fr]"
+      data-theme={darkTheme ? "dark" : "light"}
+      data-map-ui-hidden={mapUiHidden}
+      data-header-hidden={pathname.startsWith("/account/trips") || pathname === "/account/buddies/safe-places"}
+    >
       <aside inert={sosOpen || Boolean(sosSent)} className="sidebar hidden md:flex md:h-[106%] md:min-h-0 md:flex-col">
         <div className="sidebar-head">
           <KikiMark size={100} zoom={2} />

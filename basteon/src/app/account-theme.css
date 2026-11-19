@@ -5877,10 +5877,11 @@ body:has(.account-shell) {
   padding-bottom: 24px;
 }
 
-.account-shell main .kiki-profile-logout {
+.account-shell main .kiki-profile-hub > .kiki-profile-logout-card > .kiki-profile-logout {
   display: flex;
-  height: 44px;
-  min-height: 44px;
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 40px;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -5895,7 +5896,17 @@ body:has(.account-shell) {
   text-align: center;
 }
 
-.account-shell main .kiki-profile-logout:hover {
+.account-shell main .kiki-profile-hub > .kiki-profile-logout-card > .kiki-profile-logout svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.account-shell main .kiki-profile-hub > .kiki-profile-logout-card > .kiki-profile-logout span {
+  display: block;
+  line-height: 1;
+}
+
+.account-shell main .kiki-profile-hub > .kiki-profile-logout-card > .kiki-profile-logout:hover {
   background: var(--crit-bg);
 }
 
@@ -5953,4 +5964,30 @@ body:has(.account-shell) {
   .account-shell main:has(.kiki-profile-hub) {
     padding-bottom: calc(68px + env(safe-area-inset-bottom) + 8px);
   }
+
+  .account-shell:has(.kiki-profile-hub) > div {
+    padding-bottom: 0;
+  }
+}
+
+.account-shell .account-mobile-appbar {
+  position: sticky;
+  z-index: 40;
+  top: 0;
+}
+
+.account-shell[data-header-hidden="true"] .account-mobile-appbar {
+  display: none;
+}
+
+.account-shell[data-header-hidden="true"] main:has(.safe-spots-page) {
+  height: 100dvh;
+}
+
+.account-shell[data-header-hidden="true"] .map-screen-topbar {
+  top: calc(10px + env(safe-area-inset-top));
+}
+
+.account-shell[data-header-hidden="true"] .hamba-route-map-sheet {
+  max-height: calc(100dvh - 24px);
 }
