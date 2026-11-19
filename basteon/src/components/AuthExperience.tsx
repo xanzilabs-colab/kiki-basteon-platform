@@ -154,7 +154,6 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
         </div>
 
         <div className="auth-copy" key={mode}>
-          {mode === "signup" && <span className="auth-eyebrow">PERSONAL SAFETY</span>}
           <h1>{heading}</h1>
           <p>{mode === "signup"
             ? "Create your account and keep support close."
@@ -221,7 +220,13 @@ export function AuthExperience({ initialMode }: { initialMode: "signin" | "signu
               <span>Password</span>
               <span className="auth-input-wrap"><KeyRound size={18} /><input type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Enter a password" required value={password} onChange={(event) => setPassword(event.target.value)} /><button className="auth-password-toggle" type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((shown) => !shown)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></span>
             </label>
-            <label className="auth-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required /><span>I consent to Kiki Connect storing my profile and contact information for device ownership and emergency response.</span></label>
+            <div className="auth-consent">
+              <input id="signup-consent" type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required />
+              <span>
+                <label htmlFor="signup-consent">I consent to Kiki Connect storing my profile and contact information for device ownership and emergency response.</label>{" "}
+                See our <a href="/privacy-policy">Privacy Policy</a> and <a href="/terms-of-use">Terms of Use</a>.
+              </span>
+            </div>
             {error && <p className="auth-feedback is-error" role="alert">{error}</p>}
             <button className="auth-submit" type="submit" disabled={loading}>{loading ? "Creating account…" : <>Create account<ArrowRight size={18} /></>}</button>
             <p className="auth-switch-copy">Already registered? <button type="button" onClick={() => switchMode("signin")}>Sign in</button></p>
