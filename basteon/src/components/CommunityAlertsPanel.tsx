@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { useAppDialog } from "@/components/AppDialogProvider";
-import { AlertTriangle, Check, ChevronRight, MapPin, MapPinned, ThumbsUp, Trash2, X } from "lucide-react";
+import { Check, MapPin, MapPinned, Shield, ThumbsUp, Trash2, X } from "lucide-react";
 import { categoryLabel, meetingFetch, type CommunityAlert } from "@/lib/buddies/meeting/client";
 import type { ReportLocation } from "./CommunityReportMap";
 import { AccountFeedCard } from "@/components/account/AccountList";
@@ -29,11 +29,11 @@ function formatReportAge(value: string) {
   if (!Number.isFinite(createdAt)) return "time unavailable";
   const minutes = Math.max(0, Math.floor((Date.now() - createdAt) / 60_000));
   if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `${days}d`;
 }
 
 export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange, onAlertsChange, onLocationChange, onMessage }: Props) {
@@ -64,7 +64,7 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
     }, 300);
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [address]);
-  useEffect(() => { if (!reportOpen) return; function onKeyDown(event: KeyboardEvent) { if (event.key === "Escape" && !busy) setReportOpen(false); } window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [busy, reportOpen]);
+  useEffect(() => { if (!reportOpen) return; function onKeyDown(event: KeyboardEvent) { if (event.key === "Escape" && !busy) void closeReportForm(); } window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [busy, reportOpen, closeReportForm]);
   function choose(place: Place) {
     setAddress(place.label);
     setSelectedAddressLabel(place.label);
@@ -118,37 +118,54 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
       onBusyChange(false);
     }
   }
+  async function closeReportForm() {
+    if (busy) return;
+    if ((detail.trim() || address.trim() || mapSelection.point || mapSelection.region) && !(await confirm("Discard this report draft?", {
+      title: "Discard draft?",
+      confirmLabel: "Discard",
+      danger: true,
+    }))) return;
+    setReportOpen(false);
+  }
   const filteredAlerts = alerts.filter((alert) => category === "all" || alert.kind === category);
-  const reportCount = `${filteredAlerts.length} ${filteredAlerts.length === 1 ? "Report" : "Reports"}`;
+  const reportCount = `${filteredAlerts.length} ${filteredAlerts.length === 1 ? "report" : "reports"} nearby`;
   return <section id="community-alerts" className="safe-alerts-panel">
-    <div className="safe-alerts-header"><span className="safe-alert-count">{reportCount}</span></div>
+    <div className="safe-alerts-header"><span>{reportCount}</span></div>
     {alerts.some((alert) => alert.is_demo) && <div className="safe-demo-notice" role="note"><b>Demo data — not real reports.</b> These fictional samples are shown only for demonstration and do not describe actual incidents.</div>}
     <div className="safe-report-categories" role="group" aria-label="Filter community reports by category">
       {reportCategories.map((item) => <button key={item.value} type="button" aria-pressed={category === item.value} onClick={() => setCategory(item.value)}>{item.label}</button>)}
     </div>
-    <button type="button" className="safe-report-open" onClick={() => setReportOpen(true)}><span><AlertTriangle size={17} />Report a concern</span><span><span className="safe-report-copy">Share a local safety update</span><ChevronRight size={16} /></span></button>
+    <button type="button" className="safe-report-composer" onClick={() => setReportOpen(true)}>
+      <span className="safe-report-composer-avatar"><Shield size={19} aria-hidden="true" /></span>
+      <span className="safe-report-composer-placeholder">Share a safety update…</span>
+      <span className="safe-report-composer-action">Post</span>
+    </button>
     <div className="buddy-alert-list safe-alert-list">{filteredAlerts.map((alert) => <AccountFeedCard key={alert.id} className={`buddy-alert-card safe-alert-card${alert.is_demo ? " is-demo" : ""}${alert.kind === "poor_lighting" ? " is-lighting" : alert.kind === "harassment" ? " is-rose" : ""}`}>
       <div className="safe-alert-card-heading">
-        <span className="safe-alert-meta">
-          <span className="safe-alert-kind"><i /><AlertTriangle size={12} /><span className="safe-alert-kind-copy">{titleCase(alert.kind)}</span></span>
-          {alert.is_demo ? <span className="safe-alert-demo-badge">DEMO ONLY</span> : <time dateTime={alert.created_at}>Reported {formatReportAge(alert.created_at)}</time>}
-        </span>
-        {!alert.is_demo && <button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.upvotes} helpful confirmations`}><ThumbsUp size={14} /><span>{alert.upvotes}</span></button>}
+        <span className="safe-alert-author-avatar"><Shield size={17} aria-hidden="true" /></span>
+        <span className="safe-alert-author"><b>Anonymous neighbour</b><small>{alert.location_label ?? "Nearby area"} · <time dateTime={alert.created_at}>{formatReportAge(alert.created_at)}</time></small></span>
+        <span className={`safe-alert-kind${alert.kind === "poor_lighting" ? " is-lighting" : ""}`}><i /><span className="safe-alert-kind-copy">{titleCase(alert.kind)}</span></span>
       </div>
       <p>{alert.detail ?? "Community report"}</p>
-      <div className="safe-alert-card-footer"><MapPin size={14} /><span>{alert.location_label ?? "Nearby location"}{alert.region ? " · Area marked" : ""}</span>
-        {alert.mine && <button type="button" className="safe-alert-delete" disabled={busy} onClick={() => void deleteAlert(alert)}><Trash2 size={13} />Delete</button>}
+      {alert.region && <span className="safe-alert-area-note"><MapPinned size={14} />Area marked on map</span>}
+      <div className="safe-alert-card-footer">
+        <button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy || alert.is_demo} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.voted ? "Remove confirmation" : "Confirm"}: seen this too, ${alert.upvotes} confirmations`}><ThumbsUp size={16} /><span>Seen this too</span>{alert.upvotes > 0 && <span className="safe-alert-vote-count">{alert.upvotes}</span>}</button>
+        {alert.mine && <button type="button" className="safe-alert-delete" disabled={busy} onClick={() => void deleteAlert(alert)} aria-label="Delete your report"><Trash2 size={15} /><span>Delete</span></button>}
+        <span className="safe-alert-verification">Unverified</span>
       </div>
     </AccountFeedCard>)}</div>
-    {filteredAlerts.length === 0 && <div className="safe-alert-empty"><span><Check size={17} /></span><p>{alerts.length === 0 ? "No reports nearby. If you notice a concern, share it with the community." : "No reports in this category. Choose another category to see more."}</p></div>}
+    {filteredAlerts.length === 0 && <div className="safe-alert-empty"><span><Check size={19} /></span><b>{alerts.length === 0 ? "No reports near you" : "No reports in this category"}</b><p>{alerts.length === 0 ? "Share a local update to help others nearby." : "Try another filter to see more."}</p>{alerts.length === 0 && <button type="button" onClick={() => setReportOpen(true)}>Post an update</button>}</div>}
 
     {typeof document !== "undefined" && reportOpen && createPortal(<div className="safe-report-layer">
-      <button className="safe-report-backdrop" type="button" aria-label="Close report form" onClick={() => !busy && setReportOpen(false)} />
+      <button className="safe-report-backdrop" type="button" aria-label="Close report form" onClick={() => void closeReportForm()} />
       <section className="safe-report-sheet" role="dialog" aria-modal="true" aria-labelledby="safe-report-title">
-        <div className="safe-report-sheet-grabber" />
-        <header><span className="safe-alerts-icon"><AlertTriangle size={19} /></span><div><h2 id="safe-report-title">Report a concern</h2><p>Share a useful, respectful update with nearby people.</p></div><button type="button" aria-label="Close" disabled={busy} onClick={() => setReportOpen(false)}><X size={19} /></button></header>
-        <form className="buddy-places buddy-report-form safe-report-form" onSubmit={(event) => void submit(event)}>
-          <label className="field">Concern<select value={kind} onChange={(event) => setKind(event.target.value)}>{concerns.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></label>
+        <form id="community-report-form" className="buddy-places buddy-report-form safe-report-form" onSubmit={(event) => void submit(event)}>
+          <header className="safe-report-composer-header"><button type="button" aria-label="Close report composer" disabled={busy} onClick={() => void closeReportForm()}><X size={20} /></button><h2 id="safe-report-title">New report</h2><button className="safe-report-submit" type="submit" disabled={busy || (address.trim().length < 3 && !mapSelection.point) || detail.trim().length < 4}>{busy ? "Posting…" : "Post"}</button></header>
+          <div className="safe-report-author-row"><span className="safe-report-composer-avatar"><Shield size={18} aria-hidden="true" /></span><span><b>Anonymous neighbour</b><small>Your identity is not shown on reports.</small></span></div>
+          <div className="safe-report-category-picker" role="group" aria-label="Report category">
+            {concerns.map((value) => <button key={value} type="button" aria-pressed={kind === value} onClick={() => setKind(value)}>{titleCase(value)}</button>)}
+          </div>
+          <label className="field safe-report-detail">What’s happening?<textarea value={detail} maxLength={300} onChange={(event) => setDetail(event.target.value)} placeholder="Share a short, useful update…" /><small>{detail.length}/300</small></label>
           <label className="field buddy-report-location">Address or place<input maxLength={300} value={address} onChange={(event) => {
             const nextAddress = event.target.value;
             setAddress(nextAddress);
@@ -159,14 +176,12 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
           }} placeholder="Street address, suburb, city (optional with map pin)" autoComplete="street-address" />{suggestions.length > 0 && <div className="buddy-address-results">{suggestions.map((place) => <button type="button" key={`${place.lat}-${place.lng}`} onClick={() => choose(place)}><MapPin size={15} />{place.label}</button>)}</div>}{lookupMessage && <small className="community-report-lookup-message" role="status">{lookupMessage}</small>}</label>
           <div className="community-report-map-actions">
             <button type="button" className="community-report-map-toggle" aria-expanded={mapOpen} onClick={() => setMapOpen((open) => !open)}>
-              <MapPinned size={16} />{mapOpen ? "Hide map" : "Choose or adjust location on map"}
+              <MapPinned size={16} />{mapOpen ? "Close map picker" : "Pin or draw an area"}
             </button>
             {mapSelection.point && <span>{mapSelection.region ? "Area selected" : "Pin selected"} · {mapSelection.point.lat.toFixed(4)}, {mapSelection.point.lng.toFixed(4)}</span>}
           </div>
           {mapOpen && <CommunityReportMap initialPoint={initialPoint} value={mapSelection} onChange={setMapSelection} />}
-          <label className="field">What happened?<textarea value={detail} maxLength={500} onChange={(event) => setDetail(event.target.value)} placeholder="A short description helps others understand the concern." /></label>
-          <p className="safe-report-privacy">Only share information that may help others stay safe. Do not include personal details.</p>
-          <button className="safe-report-submit" type="submit" disabled={busy || (address.trim().length < 3 && !mapSelection.point) || detail.trim().length < 4}><AlertTriangle size={16} />{busy ? "Sharing report…" : "Share local report"}</button>
+          <p className="safe-report-privacy">Don’t include names or personal details.</p>
         </form>
       </section>
     </div>, document.body)}

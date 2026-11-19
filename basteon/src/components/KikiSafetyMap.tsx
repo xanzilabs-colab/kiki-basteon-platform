@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import * as L from "leaflet";
-import "leaflet.heat";
+import { useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayers";
 
@@ -72,35 +72,62 @@ function safeImageSource(value: string | null | undefined) {
   }
 }
 
-function reportWeight(point: SafetyMapPoint, now: number): number {
-  const ageDays = point.createdAt ? Math.max(0, (now - Date.parse(point.createdAt)) / 86_400_000) : 30;
-  const freshness = Number.isFinite(ageDays) ? Math.exp(-ageDays / 30) : 0.25;
-  const severity = reportSeverity[point.category ?? ""] ?? 0.62;
-  const support = Math.min(1.3, 1 + Math.max(0, point.upvotes ?? 0) * 0.06);
-  return freshness * severity * support;
-}
-
-function ReportHeatmapLayer({ points }: { points: Array<[number, number, number]> }) {
+function ReportRiskZones({ points }: { points: SafetyMapPoint[] }) {
   const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+
   useEffect(() => {
-    if (!points.length) return;
-    const heatmap = L.heatLayer(points, {
-      radius: 38,
-      blur: 30,
-      minOpacity: 0.28,
-      max: 1.3,
-      maxZoom: 14,
-      gradient: {
-        0.2: "#58c77e",
-        0.4: "#f0d95d",
-        0.6: "#f69a47",
-        0.8: "#e84e4e",
-        1: "#8f1d45",
-      },
+    const updateZoom = () => setZoom(map.getZoom());
+    map.on("zoomend", updateZoom);
+    return () => { map.off("zoomend", updateZoom); };
+  }, [map]);
+
+  const zones = useMemo(() => {
+    const latitudeStep = zoom >= 12 ? 0.002 : zoom >= 9 ? 0.008 : 0.03;
+    const cells = new Map<string, { south: number; west: number; north: number; east: number; weight: number }>();
+    for (const point of points) {
+      const longitudeStep = latitudeStep / Math.max(0.2, Math.cos(point.lat * Math.PI / 180));
+      const row = Math.floor(point.lat / latitudeStep);
+      const column = Math.floor(point.lng / longitudeStep);
+      const key = `${row}:${column}`;
+      const cell = cells.get(key) ?? {
+        south: row * latitudeStep,
+        west: column * longitudeStep,
+        north: (row + 1) * latitudeStep,
+        east: (column + 1) * longitudeStep,
+        weight: 0,
+      };
+      cell.weight += reportSeverity[point.category ?? ""] ?? 0.62;
+      cells.set(key, cell);
+    }
+    return Array.from(cells.values()).map((cell) => ({
+      ...cell,
+      color: cell.weight >= 3 ? "#e84e4e" : cell.weight >= 2 ? "#f69a47" : cell.weight >= 1.4 ? "#f0b84c" : "#f0d95d",
+      opacity: Math.min(0.27, 0.12 + cell.weight * 0.035),
+    }));
+  }, [points, zoom]);
+
+  useEffect(() => {
+    if (!zones.length) return;
+    const layer = L.featureGroup();
+    zones.forEach((zone) => {
+      L.polygon([
+        [zone.south, zone.west],
+        [zone.south, zone.east],
+        [zone.north, zone.east],
+        [zone.north, zone.west],
+      ], {
+        stroke: false,
+        fillColor: zone.color,
+        fillOpacity: zone.opacity,
+        interactive: false,
+        className: "kiki-risk-zone",
+      }).addTo(layer);
     });
-    map.addLayer(heatmap);
-    return () => { map.removeLayer(heatmap); };
-  }, [map, points]);
+    layer.addTo(map);
+    return () => { map.removeLayer(layer); };
+  }, [map, zones]);
+
   return null;
 }
 
@@ -127,6 +154,7 @@ export default function KikiSafetyMap({
   recenter = 0,
   profileImageUrl = null,
   profileLabel = "Kiki",
+  userLocationStyle = "avatar",
   className = "",
 }: {
   center: SafetyMapPoint | null;
@@ -136,6 +164,7 @@ export default function KikiSafetyMap({
   recenter?: number;
   profileImageUrl?: string | null;
   profileLabel?: string;
+  userLocationStyle?: "avatar" | "dot";
   className?: string;
 }) {
   const selectedLayer = useMemo(() => MAP_BASE_LAYERS.find((item) => item.name === layer) ?? MAP_BASE_LAYERS[0], [layer]);
@@ -143,11 +172,15 @@ export default function KikiSafetyMap({
   const mapCenter: [number, number] = safeCenter ? [safeCenter.lat, safeCenter.lng] : [-29, 24];
   const validPoints = useMemo(() => points.filter(isValidPoint), [points]);
   const reports = useMemo(() => validPoints.filter((point) => point.kind === "report"), [validPoints]);
-  const heatPoints = useMemo(() => {
-    const now = Date.now();
-    return reports.map((point): [number, number, number] => [point.lat, point.lng, reportWeight(point, now)]);
-  }, [reports]);
   const userIcon = useMemo(() => {
+    if (userLocationStyle === "dot") {
+      return L.divIcon({
+        className: "kiki-user-map-marker location-dot",
+        html: '<span class="kiki-user-location-dot" aria-hidden="true"></span>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+    }
     const imageUrl = safeImageSource(profileImageUrl);
     const initials = escapeHtml(profileLabel.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase() || "K");
     const content = imageUrl
@@ -159,20 +192,23 @@ export default function KikiSafetyMap({
       iconSize: [72, 72],
       iconAnchor: [36, 36],
     });
-  }, [profileImageUrl, profileLabel]);
+  }, [profileImageUrl, profileLabel, userLocationStyle]);
   return <div className={`kiki-safety-map ${className}`.trim()}>
     <MapContainer center={mapCenter} zoom={safeCenter ? zoom : 5} scrollWheelZoom attributionControl={false} zoomControl={false} className="kiki-safety-map-canvas">
       <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} maxZoom={selectedLayer.maxZoom} />
       <MapViewport center={safeCenter} zoom={zoom} recenter={recenter} />
       {safeCenter && <Marker position={mapCenter} icon={userIcon} title={`${profileLabel}'s location`} />}
-      <ReportHeatmapLayer points={heatPoints} />
+      <ReportRiskZones points={reports} />
       {reports.map((point, index) => {
         const markerGlyph = reportGlyphs[point.category ?? ""] ?? "!";
+        const categoryClass = ["unsafe_area", "poor_lighting", "harassment", "road_hazard"].includes(point.category ?? "")
+          ? ` kind-${point.category}`
+          : "";
         const marker = L.divIcon({
-          className: "kiki-safety-point-marker report",
+          className: `kiki-safety-point-marker report${categoryClass}`,
           html: `<span class="kiki-safety-point-marker-inner" aria-hidden="true"><span>${markerGlyph}</span></span>`,
-          iconSize: [36, 42],
-          iconAnchor: [18, 38],
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
         });
         return <Marker key={point.id ?? `report-${point.lat}-${point.lng}-${index}`} position={[point.lat, point.lng]} icon={marker} title={`${point.category?.replaceAll("_", " ") ?? "Community"} report`} />;
       })}
@@ -181,8 +217,8 @@ export default function KikiSafetyMap({
         const marker = L.divIcon({
           className: "kiki-safety-point-marker spot",
           html: `<span class="kiki-safety-point-marker-inner" aria-hidden="true"><span>${markerGlyph}</span></span>`,
-          iconSize: [36, 42],
-          iconAnchor: [18, 38],
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
         });
         return <Marker
           key={point.id ?? `spot-${point.lat}-${point.lng}-${index}`}
