@@ -27,7 +27,7 @@ import { isMovingAlert } from "@/lib/motion";
 import { MAP_BASE_LAYERS } from "@/lib/mapLayers";
 import { BASTEON_BRAND_PRIMARY, BRAND_HEX_PATTERN, brandCssProperties } from "@/lib/organisationBranding";
 import { formatCurrentResponderStatus } from "@/lib/currentResponderStatus";
-import { AlertTriangle, ArrowLeft, HeartHandshake, LayoutDashboard, LocateFixed, LockKeyhole, LogOut, Map as MapIcon, Mountain, Moon, Satellite, Settings } from "lucide-react";
+import { AlertTriangle, ArrowLeft, LayoutDashboard, LocateFixed, LockKeyhole, LogOut, Map as MapIcon, Moon, Settings } from "lucide-react";
 import { alertDeviceLabel, alertOwnerName } from "@/lib/alertDisplay";
 import { AlertTypeBadge } from "@/components/alerts/AlertTypeBadge";
 import { toast } from "sonner";
@@ -43,11 +43,9 @@ const AlertMap = dynamic(() => import("@/components/AlertMap"), {
 });
 
 const MAP_LAYER_ICONS = {
-  Street: MapIcon,
-  Satellite,
-  Terrain: Mountain,
-  Humanitarian: HeartHandshake,
-  Dark: Moon,
+  Positron: MapIcon,
+  OpenStreetMap: MapIcon,
+  "Dark Matter": Moon,
 };
 
 type CachedResponderBranding = {
@@ -125,7 +123,7 @@ export default function ResponderPage() {
   const [canDispatch, setCanDispatch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [movingOnly, setMovingOnly] = useState(false);
-  const [mapBaseLayer, setMapBaseLayer] = useState<(typeof MAP_BASE_LAYERS)[number]["name"]>("Street");
+  const [mapBaseLayer, setMapBaseLayer] = useState<(typeof MAP_BASE_LAYERS)[number]["name"]>("Positron");
   const [mapRecenterToken, setMapRecenterToken] = useState(0);
   const [selfAvailability, setSelfAvailability] = useState<string | null>(null);
   const [selfResponseStatus, setSelfResponseStatus] = useState<string | null>(null);

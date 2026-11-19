@@ -8,6 +8,8 @@ export function installMapBaseLayers(map: L.Map) {
     config,
     layer: L.tileLayer(config.url, {
       attribution: config.attribution,
+      subdomains: config.subdomains,
+      maxNativeZoom: config.maxNativeZoom,
       maxZoom: config.maxZoom,
     }),
   }));
