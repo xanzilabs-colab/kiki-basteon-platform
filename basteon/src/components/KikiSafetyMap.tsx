@@ -122,7 +122,7 @@ function MapViewport({ center, zoom, recenter }: { center: SafetyMapPoint | null
 export default function KikiSafetyMap({
   center,
   points = [],
-  layer = "Positron",
+  layer = "Street",
   zoom = 13,
   recenter = 0,
   profileImageUrl = null,
@@ -162,7 +162,7 @@ export default function KikiSafetyMap({
   }, [profileImageUrl, profileLabel]);
   return <div className={`kiki-safety-map ${className}`.trim()}>
     <MapContainer center={mapCenter} zoom={safeCenter ? zoom : 5} scrollWheelZoom attributionControl={false} zoomControl={false} className="kiki-safety-map-canvas">
-      <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} subdomains={selectedLayer.subdomains} maxNativeZoom={selectedLayer.maxNativeZoom} maxZoom={selectedLayer.maxZoom} />
+      <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} maxZoom={selectedLayer.maxZoom} />
       <MapViewport center={safeCenter} zoom={zoom} recenter={recenter} />
       {safeCenter && <Marker position={mapCenter} icon={userIcon} title={`${profileLabel}'s location`} />}
       <ReportHeatmapLayer points={heatPoints} />

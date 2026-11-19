@@ -47,7 +47,7 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
   const onChangeRef = useRef(onChange);
   const [mode, setMode] = useState<Mode>("view");
   const [editMode, setEditMode] = useState<EditMode>(null);
-  const [baseLayer, setBaseLayer] = useState<MapBaseLayerName>("Positron");
+  const [baseLayer, setBaseLayer] = useState<MapBaseLayerName>("Street");
   const [draftPoints, setDraftPoints] = useState<[number, number][]>([]);
   const [expanded, setExpanded] = useState(false);
 
@@ -65,7 +65,7 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
     mapRef.current = map;
     const baseLayers = MAP_BASE_LAYERS.map((layer) => ({
       name: layer.name,
-      layer: L.tileLayer(layer.url, { attribution: layer.attribution, subdomains: layer.subdomains, maxNativeZoom: layer.maxNativeZoom, maxZoom: layer.maxZoom }),
+      layer: L.tileLayer(layer.url, { attribution: layer.attribution, maxZoom: layer.maxZoom }),
     }));
     const defaultLayer = baseLayers[0];
     if (!defaultLayer) throw new Error("At least one map layer must be configured.");
@@ -106,7 +106,7 @@ export default function CommunityReportMap({ initialPoint, value, onChange }: Pr
     map.eachLayer((layer) => {
       if (layer instanceof L.TileLayer) map.removeLayer(layer);
     });
-    L.tileLayer(selected.url, { attribution: selected.attribution, subdomains: selected.subdomains, maxNativeZoom: selected.maxNativeZoom, maxZoom: selected.maxZoom }).addTo(map);
+    L.tileLayer(selected.url, { attribution: selected.attribution, maxZoom: selected.maxZoom }).addTo(map);
   }, [baseLayer]);
 
   useEffect(() => {

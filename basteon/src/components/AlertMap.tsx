@@ -50,7 +50,7 @@ export default function AlertMap({
   selected,
   me,
   trail = [],
-  baseLayer = "Positron",
+  baseLayer = "Street",
   recenterToken = 0,
   showFollowButton = true,
   onSelect,

@@ -93,7 +93,7 @@ const avatarIcon = (url: string | null | undefined, initial: string) => L.divIco
   iconAnchor: [19, 19],
 });
 
-export default function TripMap({ points, position, recenter = 0, stops = [], drawn = [], avatarUrl, initial = "Y", onMapClick, drawing = false, onDraw, layer = "Positron" }: Props) {
+export default function TripMap({ points, position, recenter = 0, stops = [], drawn = [], avatarUrl, initial = "Y", onMapClick, drawing = false, onDraw, layer = "Street" }: Props) {
   const center: [number, number] = points.length
     ? [points[0].lat, points[0].lng]
     : position
@@ -103,7 +103,7 @@ export default function TripMap({ points, position, recenter = 0, stops = [], dr
   const selectedLayer = MAP_BASE_LAYERS.find((item) => item.name === layer) ?? MAP_BASE_LAYERS[0];
   return (
     <MapContainer center={center} zoom={points.length || position ? 13 : 5} scrollWheelZoom attributionControl={false} zoomControl={false} className="hamba-map">
-      <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} subdomains={selectedLayer.subdomains} maxNativeZoom={selectedLayer.maxNativeZoom} maxZoom={selectedLayer.maxZoom} />
+      <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} maxZoom={selectedLayer.maxZoom} />
       <FitRoute points={points} position={position} recenter={recenter} />
       <Clicks onMapClick={drawing ? undefined : onMapClick} />
       <FreeDraw active={drawing} onDraw={onDraw} />
