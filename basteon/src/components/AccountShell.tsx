@@ -373,7 +373,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
           </Link>
         ))}
         <SosActionButton className="account-mobile-sos" title="Send SOS" onSelect={openSos}>
-          <KikiMark size={70} />
+          <KikiMark size={70} zoom={2.2} />
         </SosActionButton>
         <button type="button" className="account-mobile-more nav-link flex-1 flex-col justify-center gap-1 text-[11px]" title="More options" aria-label="Open more options" onClick={() => setMoreOpen(true)}>
           <NavSigil><Menu size={20} strokeWidth={2} aria-hidden="true" /></NavSigil>

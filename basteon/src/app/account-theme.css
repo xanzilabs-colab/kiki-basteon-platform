@@ -3798,7 +3798,7 @@ body:has(.account-shell) {
 }
 
 .account-shell .safe-spots-page .account-bottom-sheet.level-0 {
-  height: 180px;
+  height: 224px;
 }
 
 .account-shell .safe-spots-page .account-bottom-sheet.level-1 {
@@ -4550,25 +4550,26 @@ body:has(.account-shell) {
 }
 
 .account-shell .devices-metrics {
-  gap: 10px !important;
-  overflow: visible;
+  gap: 0;
+  overflow: hidden;
   border: 0;
-  background: transparent;
+  border-radius: 18px;
+  background: var(--surface-1);
   padding: 0;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgb(53 25 79 / 5%);
 }
 
 .account-shell .devices-metric {
   min-width: 0;
   border: 0;
-  border-radius: 16px;
-  background: var(--surface-1);
+  border-radius: 0;
+  background: transparent;
   padding: 12px 10px;
-  box-shadow: 0 2px 8px rgb(34 23 43 / 6%);
+  box-shadow: none;
 }
 
 .account-shell .devices-metric + .devices-metric {
-  border-left: 0;
+  border-left: 1px solid var(--divider);
 }
 
 .account-shell .devices-screen:not([hidden]) {
@@ -4577,37 +4578,38 @@ body:has(.account-shell) {
 
 .account-shell .devices-actions {
   display: grid;
-  gap: 10px;
-  overflow: visible;
+  gap: 0;
+  overflow: hidden;
   border: 0;
-  background: transparent;
+  border-radius: 18px;
+  background: var(--surface-1);
   padding: 0;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgb(53 25 79 / 5%);
 }
 
 .account-shell .devices-actions > button,
 .account-shell .devices-actions > a {
-  min-height: 72px;
-  border: 1px solid var(--divider);
-  border-radius: 17px;
-  background: var(--surface-1);
-  padding: 14px 16px;
-  box-shadow: 0 2px 8px rgb(34 23 43 / 6%);
+  min-height: 64px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 16px;
+  box-shadow: none;
 }
 
 .account-shell .devices-actions > * + *::before {
-  display: none;
+  display: block;
 }
 
 .account-shell .devices-id-row {
-  border: 1px solid var(--divider);
-  border-radius: 16px;
-  background: var(--surface-1);
-  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 16px 14px 68px;
 }
 
 .account-shell .devices-id-row::before {
-  display: none;
+  display: block;
 }
 
 .account-shell .devices-list {
@@ -4635,7 +4637,7 @@ body:has(.account-shell) {
 
 .account-shell .everyday-section-heading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -4674,7 +4676,7 @@ body:has(.account-shell) {
 }
 
 .account-shell .safe-spots-page .account-bottom-sheet.level-0 {
-  height: 180px;
+  height: 224px;
 }
 
 .account-shell .safe-spots-page .account-bottom-sheet.level-1 {
@@ -5697,7 +5699,16 @@ body:has(.account-shell) {
 }
 
 .account-shell .safe-spots-page .map-screen-topbar {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
   right: 68px;
+  left: 12px;
+}
+
+@media (min-width: 768px) {
+  .account-shell .safe-spots-page .map-screen-topbar {
+    left: 272px;
+  }
 }
 
 .account-shell .map-screen.hamba-trip-map-screen .map-screen-topbar {
@@ -5864,7 +5875,7 @@ body:has(.account-shell) {
   gap: 8px;
   border: 1px solid var(--crit);
   border-radius: 12px;
-  background: transparent;
+  background: #fff;
   padding: 0 12px;
   color: var(--crit);
   font-size: 14px;
@@ -5967,4 +5978,29 @@ body:has(.account-shell) {
 
 .account-shell[data-header-hidden="true"] .hamba-route-map-sheet {
   max-height: calc(100dvh - 24px);
+}
+
+.account-shell .safe-spots-page .map-screen-sheet-handle {
+  height: 32px;
+  min-height: 32px;
+}
+
+.account-shell .safe-spots-page .account-bottom-sheet.level-0 .account-sheet-content {
+  padding-bottom: 0;
+}
+
+.account-shell main .kiki-devices-redesign .devices-heading-actions {
+  width: 100%;
+}
+
+.account-shell main .kiki-devices-redesign .devices-link-button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.account-shell main .kiki-devices-redesign .everyday-section-heading > .everyday-primary-button {
+  width: 100%;
 }
