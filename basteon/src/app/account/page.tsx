@@ -16,7 +16,7 @@ import { useLocationEligibility } from "@/hooks/useLocationEligibility";
 import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
-import { AccountStatusPill } from "@/components/account/AccountList";
+import { AccountListCard, AccountSectionLabel, AccountStatusPill } from "@/components/account/AccountList";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 import { MapBottomSheet, MapScreen } from "@/components/account/MapScreen";
 import type { CommunityAlert, PublicSpot } from "@/lib/buddies/meeting/client";
@@ -47,6 +47,13 @@ type NearbyResponderItem = { id: string; name: string; role: string; organisatio
 type NearbyData = { count: number | null; availableCount: number; scope: "linked" | "partners" | null; radiusKm: number; responders: NearbyResponderItem[] };
 type ActiveSos = { id: string; type: "sos" | "medical"; status: string; acknowledged: number; enRoute: number; onScene: number };
 const DEVICE_ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+function formatTripDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Recently"
+    : date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
 
 export default function AccountPage() {
   const [trips, setTrips] = useState<{ trip: TripActivity | null; recent: TripActivity[] } | null>(null);
@@ -316,6 +323,29 @@ export default function AccountPage() {
         <Link href="/account/guardians"><UsersRound size={17} />Guardian Circle<ChevronRight size={16} /></Link>
         <Link href="/account/trips"><Route size={17} />All walks<ChevronRight size={16} /></Link>
       </div>
+      <section className="kiki-overview-section kiki-overview-recent" aria-label="Recent trips">
+        <div className="kiki-overview-section-head">
+          <AccountSectionLabel>Recent trips</AccountSectionLabel>
+          <Link href="/account/trips">See all</Link>
+        </div>
+        <AccountListCard className="kiki-overview-group" aria-label="Recent trips">
+          {tripError
+            ? <div className="kiki-overview-empty">Recent trips are unavailable.</div>
+            : trips
+              ? trips.recent.slice(0, 3).map((trip) => <Link
+                className="kiki-overview-trip-row"
+                href={`/account/trips?destination=${encodeURIComponent(trip.id)}`}
+                key={trip.id}
+                aria-label={`Plan another trip to ${trip.destination_label}`}
+              >
+                <span className="kiki-overview-route" aria-hidden="true"><i /><u /><i /></span>
+                <span className="kiki-overview-trip-copy"><strong>{trip.destination_label}</strong></span>
+                <time dateTime={trip.ended_at ?? trip.created_at}>{formatTripDate(trip.ended_at ?? trip.created_at)}</time>
+              </Link>)
+              : <div className="kiki-overview-empty">Loading recent trips…</div>}
+          {trips && !tripError && trips.recent.length === 0 && <div className="kiki-overview-empty">No completed trips yet.</div>}
+        </AccountListCard>
+      </section>
     </MapBottomSheet>}
     hiddenActions={<button type="button" className="map-screen-sos" onClick={() => window.dispatchEvent(new Event("kiki:open-sos"))}><Siren size={30} strokeWidth={2.5} />SOS</button>}
   />

@@ -24,7 +24,18 @@ type RouteOrigin = { lat: number; lng: number };
 type CheckpointView = { id: string; lat: number; lng: number; label: string | null; expected_at: string | null; status: string };
 type Route = { points: Place[]; distanceM: number; durationS: number };
 type ActiveTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; planned_route: Route; route_distance_m: number; route_duration_s: number; started_at: string; expected_arrival_at: string; next_check_in_at: string | null; status: string };
-type RecentTrip = { id: string; destination_label: string; destination_lat: number; destination_lng: number; mode: TripMode; status: string; created_at: string; ended_at: string | null };
+type RecentTrip = {
+  id: string;
+  destination_label: string;
+  destination_lat: number;
+  destination_lng: number;
+  mode: TripMode;
+  status: string;
+  created_at: string;
+  ended_at: string | null;
+  route_tools?: string[] | null;
+  checkpoints?: { position: number; lat: number; lng: number; label: string | null }[];
+};
 type Buddy = { id: string; kikiId: string; name: string; avatarUrl: string | null };
 type TripGuardian = { id: string; guardianId: string; status: "pending" | "accepted" | "declined" | "revoked"; buddy: Buddy | null; createdAt: string; respondedAt: string | null };
 const transitModes = [
@@ -101,10 +112,30 @@ export default function TripsPage() {
       setRecentTrips(recent);
       const selectedId = new URLSearchParams(window.location.search).get("destination");
       const selected = recent.find((trip) => trip.id === selectedId);
-      if (selected) {
+      if (selected && !data.trip) {
+        const selectedStops = (selected.checkpoints ?? []).map((checkpoint) => ({
+          lat: checkpoint.lat,
+          lng: checkpoint.lng,
+          n: checkpoint.position,
+        }));
+        const selectedTools = selected.route_tools ?? [];
         setDestination({ label: selected.destination_label, lat: selected.destination_lat, lng: selected.destination_lng });
         setQuery(selected.destination_label);
         setMode(selected.mode);
+        setStops(selectedStops);
+        setDrawn([]);
+        setTools({
+          auto: selected.route_tools == null || selectedTools.includes("auto"),
+          stops: selectedTools.includes("stops") || selectedStops.length > 0,
+          draw: selectedTools.includes("draw"),
+        });
+        setRoutes([]);
+        setSelectedRoute(0);
+        setPlaces([]);
+        setMessage("");
+        setTripTab("route");
+      } else if (selected && data.trip) {
+        setMessage("Finish your active trip before planning another route.");
         setTripTab("route");
       }
     }).catch(() => undefined);

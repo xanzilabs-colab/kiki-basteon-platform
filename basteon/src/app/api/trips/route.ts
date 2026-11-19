@@ -19,12 +19,29 @@ export async function GET() {
   const access = await requireTripUser();
   if ("error" in access) return access.error;
   const db = createAdminClient();
-  const [{ data, error }, { data: recent }] = await Promise.all([
+  const [{ data, error }, { data: recent, error: recentError }] = await Promise.all([
     db.from("trips").select("*").eq("owner_id", access.user.id).in("status", ["planned", "active", "concern", "alert"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    db.from("trips").select("id,destination_label,destination_lat,destination_lng,mode,status,created_at,ended_at").eq("owner_id", access.user.id).in("status", ["arrived", "cancelled"]).order("created_at", { ascending: false }).limit(5),
+    db.from("trips").select("id,destination_label,destination_lat,destination_lng,mode,status,created_at,ended_at,route_tools").eq("owner_id", access.user.id).in("status", ["arrived", "cancelled"]).order("created_at", { ascending: false }).limit(5),
   ]);
-  const { data: checkpoints } = data ? await db.from("trip_checkpoints").select("id,lat,lng,label,expected_at,status").eq("trip_id", data.id).order("position") : { data: [] };
-  return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ trip: data, recent: recent ?? [], checkpoints: checkpoints ?? [] });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (recentError) return NextResponse.json({ error: recentError.message }, { status: 500 });
+  const [{ data: checkpoints, error: checkpointsError }, { data: recentCheckpoints, error: recentCheckpointsError }] = await Promise.all([
+    data
+      ? db.from("trip_checkpoints").select("id,lat,lng,label,expected_at,status").eq("trip_id", data.id).order("position")
+      : Promise.resolve({ data: [], error: null }),
+    recent?.length
+      ? db.from("trip_checkpoints").select("trip_id,position,lat,lng,label").in("trip_id", recent.map((trip) => trip.id)).order("position")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (checkpointsError) return NextResponse.json({ error: checkpointsError.message }, { status: 500 });
+  if (recentCheckpointsError) return NextResponse.json({ error: recentCheckpointsError.message }, { status: 500 });
+  const recentWithCheckpoints = (recent ?? []).map((trip) => ({
+    ...trip,
+    checkpoints: (recentCheckpoints ?? [])
+      .filter((checkpoint) => checkpoint.trip_id === trip.id)
+      .map(({ position, lat, lng, label }) => ({ position, lat, lng, label })),
+  }));
+  return NextResponse.json({ trip: data, recent: recentWithCheckpoints, checkpoints: checkpoints ?? [] });
 }
 
 export async function POST(request: Request) {
