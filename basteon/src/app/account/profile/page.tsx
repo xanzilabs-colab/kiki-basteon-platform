@@ -94,6 +94,7 @@ export default function ProfilePage() {
         <AccountListRow href="/account/organisations" icon={<Building2 size={20} />} title="Organisations" trailing={<ChevronRight size={18} />} />
         <AccountListRow href="/account/profile/security" icon={<Lock size={20} />} title="Security and PIN" trailing={<ChevronRight size={18} />} />
         <AccountListRow href="/account/guardians" icon={<Shield size={20} />} title="Guardian Circle" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/communities" icon={<Users size={20} />} title="Communities" subtitle="Anonymous safety conversations" trailing={<ChevronRight size={18} />} />
       </AccountListCard>
     </section>
 

@@ -1480,3 +1480,90 @@ body:has(.auth-shell) { background:#fff!important; }
 .account-shell:not([data-theme="dark"]) .btn-primary:active {
   background-color:#35194F;
 }
+
+.kiki-communities-page { display:grid;max-width:780px;gap:16px;color:var(--text); }
+.kiki-communities-heading > span { color:var(--accent);font-size:11px;font-weight:850;letter-spacing:.12em; }
+.kiki-communities-heading h1 { margin:4px 0;color:var(--text);font-size:30px;font-weight:800;letter-spacing:-.03em; }
+.kiki-communities-heading p,.kiki-community-feed-heading p { margin:0;color:var(--muted);font-size:14px;line-height:1.5; }
+.kiki-communities-tabs { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;border-radius:14px;background:var(--surface-2);padding:4px; }
+.kiki-communities-tabs button { min-height:40px;border:0;border-radius:11px;background:transparent;padding:0 6px;color:var(--text-2);font-size:12px;font-weight:750; }
+.kiki-communities-tabs button[aria-pressed="true"] { background:var(--surface-1);color:var(--accent);box-shadow:0 1px 5px rgba(48,26,62,.12); }
+.kiki-communities-page button { transition:background-color .15s ease,transform .15s ease; }
+.kiki-communities-page button:focus-visible { outline:3px solid var(--accent);outline-offset:2px; }
+.kiki-communities-page button:disabled { cursor:not-allowed;opacity:.6; }
+.kiki-communities-alert,.kiki-communities-notice { margin:0;border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.5; }
+.kiki-communities-alert { background:var(--crit-bg);color:var(--crit); }
+.kiki-communities-notice { background:var(--ok-bg);color:var(--ok); }
+.kiki-communities-loading,.kiki-communities-intro { margin:0;color:var(--muted);font-size:13px; }
+.kiki-communities-switcher { display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:thin; }
+.kiki-communities-switcher button { display:inline-flex;min-height:36px;flex:none;align-items:center;gap:6px;border:1px solid var(--divider);border-radius:999px;background:var(--surface-1);padding:0 12px;color:var(--text-2);font-size:12px;font-weight:700; }
+.kiki-communities-switcher button[aria-pressed="true"] { border-color:var(--accent);background:var(--accent-bg);color:var(--accent); }
+.kiki-community-feed-heading { display:flex;align-items:center;gap:12px; }
+.kiki-community-feed-heading h2,.kiki-community-scope-card h2 { display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:0;color:var(--text);font-size:19px;font-weight:800; }
+.kiki-community-card-icon { display:grid;width:44px;height:44px;flex:none;place-items:center;border-radius:15px;background:var(--accent-bg);color:var(--accent); }
+.kiki-community-system-badge { display:inline-flex;align-items:center;border-radius:999px;background:var(--accent-bg);padding:3px 8px;color:var(--accent);font-size:10px;font-weight:800; }
+.kiki-community-anonymity { display:flex;align-items:center;gap:6px;margin:0;border:1px solid var(--divider);border-radius:13px;background:var(--surface-1);padding:10px 12px;color:var(--text-2);font-size:12px;line-height:1.45; }
+.kiki-community-anonymity svg { flex:none;color:var(--accent); }
+.kiki-community-post,.kiki-community-scope-card,.kiki-community-guard-rules,.kiki-community-guard-event,.kiki-community-guard-preview,.kiki-community-create-form,.kiki-community-composer { display:grid;gap:12px;border:1px solid var(--divider);border-radius:18px;background:var(--surface-1);padding:16px;box-shadow:var(--elev-float); }
+.kiki-community-post-list,.kiki-communities-list { display:grid;gap:12px; }
+.kiki-community-post-author { display:flex;align-items:center;gap:6px;margin:0;color:var(--text-2);font-size:12px;font-weight:800; }
+.kiki-community-post-author svg { color:var(--accent); }
+.kiki-community-author-dot { width:9px;height:9px;border-radius:50%;background:var(--accent); }
+.kiki-community-post-body { margin:0;color:var(--text);font-size:14px;line-height:1.6;overflow-wrap:anywhere;white-space:pre-wrap; }
+.kiki-community-post time { color:var(--muted);font-size:10px; }
+.kiki-community-post-actions { display:flex;flex-wrap:wrap;gap:7px;border-top:1px solid var(--divider);padding-top:10px; }
+.kiki-community-post-actions button,.kiki-community-reply button,.kiki-community-composer-footer button,.kiki-community-post button,.kiki-community-scope-card > button,.kiki-community-create-form > button,.kiki-community-guard-preview button { display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:6px;border:0;border-radius:11px;background:var(--accent);padding:0 12px;color:#fff;font-size:12px;font-weight:750; }
+.kiki-community-post-actions button { min-height:34px;background:var(--surface-2);color:var(--accent); }
+.kiki-community-post-actions button[aria-pressed="true"] { background:var(--accent);color:#fff; }
+.kiki-community-welcome { border-color:color-mix(in srgb,var(--accent) 25%,var(--divider)); }
+.kiki-community-welcome > button { justify-self:start; }
+.kiki-community-scope-note { margin:0;border-radius:11px;background:var(--surface-2);padding:10px;color:var(--text-2);font-size:12px;line-height:1.5; }
+.kiki-community-composer label,.kiki-community-reply label,.kiki-community-create-form label { display:grid;gap:7px;color:var(--text);font-size:13px;font-weight:750; }
+.kiki-community-composer textarea,.kiki-community-reply textarea,.kiki-community-create-form textarea,.kiki-community-create-form input { width:100%;min-height:92px;border:1px solid var(--divider);border-radius:12px;outline:none;background:var(--surface-2);padding:12px;color:var(--text);font:inherit;font-size:13px;line-height:1.5;resize:vertical; }
+.kiki-community-create-form input { min-height:44px; }
+.kiki-community-composer textarea:focus,.kiki-community-reply textarea:focus,.kiki-community-create-form textarea:focus,.kiki-community-create-form input:focus { border-color:var(--accent);outline:2px solid color-mix(in srgb,var(--accent) 20%,transparent); }
+.kiki-community-composer-footer,.kiki-community-reply > div,.kiki-community-guard-preview > div { display:flex;align-items:center;justify-content:space-between;gap:10px; }
+.kiki-community-composer-footer small { color:var(--muted);font-size:10px; }
+.kiki-community-composer-footer button { flex:none; }
+.kiki-community-guard-preview { border-color:var(--accent);background:var(--accent-bg); }
+.kiki-community-guard-preview h3,.kiki-community-guard-rules h3,.kiki-community-history-title { display:flex;align-items:center;gap:7px;margin:0;color:var(--text);font-size:15px;font-weight:800; }
+.kiki-community-guard-preview h3 svg { color:var(--accent); }
+.kiki-community-guard-preview p,.kiki-community-guard-rules p { margin:0;color:var(--text-2);font-size:12px;line-height:1.55; }
+.kiki-community-guard-preview blockquote { margin:0;border-left:3px solid var(--accent);padding:8px 11px;color:var(--text);font-size:13px;line-height:1.5;white-space:pre-wrap; }
+.kiki-community-guard-preview button.secondary,.kiki-community-reply button.secondary { background:var(--surface-1);color:var(--accent); }
+.kiki-community-comment { display:grid;gap:6px;margin-left:12px;border-left:2px solid var(--divider);padding:8px 0 8px 12px; }
+.kiki-community-comment p:last-child { margin:0;color:var(--text-2);font-size:13px;line-height:1.5;white-space:pre-wrap; }
+.kiki-community-reply { display:grid;gap:9px;border-top:1px solid var(--divider);padding-top:12px; }
+.kiki-community-scope-card { justify-items:start; }
+.kiki-community-scope-card > p { margin:0;color:var(--text-2);font-size:13px;line-height:1.55; }
+.kiki-community-scope-card h3 { margin:2px 0 -7px;color:var(--text);font-size:12px;font-weight:800; }
+.kiki-community-discovery-card { display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:11px;border:1px solid var(--divider);border-radius:16px;background:var(--surface-1);padding:13px; }
+.kiki-community-discovery-copy { min-width:0; }
+.kiki-community-discovery-copy h2 { display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:1px 0 4px;color:var(--text);font-size:14px;font-weight:800; }
+.kiki-community-discovery-copy p,.kiki-community-discovery-copy small { display:block;margin:0;color:var(--text-2);font-size:12px;line-height:1.45; }
+.kiki-community-discovery-copy small { margin-top:7px;color:var(--muted);font-size:10px; }
+.kiki-community-discovery-card > button { min-height:34px;align-self:center;border:0;border-radius:10px;background:var(--accent-bg);padding:0 10px;color:var(--accent);font-size:11px;font-weight:800; }
+.kiki-community-guard-page { display:grid;gap:14px; }
+.kiki-community-guard-hero { display:flex;align-items:flex-start;gap:12px;border:1px solid var(--divider);border-radius:18px;background:var(--surface-1);padding:16px; }
+.kiki-community-guard-hero > span { display:grid;width:42px;height:42px;flex:none;place-items:center;border-radius:14px;background:var(--accent-bg);color:var(--accent); }
+.kiki-community-guard-hero h2 { margin:1px 0 4px;color:var(--text);font-size:16px;font-weight:800; }
+.kiki-community-guard-hero p { margin:0;color:var(--text-2);font-size:12px;line-height:1.5; }
+.kiki-community-guard-rules ul { display:grid;gap:8px;margin:0;padding-left:18px;color:var(--text-2);font-size:12px;line-height:1.5; }
+.kiki-community-history-title { margin-top:3px; }
+.kiki-community-guard-event { grid-template-columns:auto 1fr;align-items:center;gap:10px;padding:12px;box-shadow:none; }
+.kiki-community-guard-event > svg { color:var(--accent); }
+.kiki-community-guard-event strong { color:var(--text);font-size:12px; }
+.kiki-community-guard-event p { margin:3px 0 0;color:var(--muted);font-size:10px; }
+.kiki-community-create-form label { font-size:12px; }
+.kiki-community-create-form textarea { min-height:75px; }
+.kiki-communities-empty { display:grid;justify-items:center;gap:8px;margin:0;border:1px dashed var(--divider);border-radius:16px;background:var(--surface-1);padding:22px;color:var(--muted);font-size:12px;line-height:1.5;text-align:center; }
+.kiki-communities-empty p { margin:0; }
+.kiki-communities-empty svg { color:var(--accent); }
+@media(max-width:480px) {
+  .kiki-communities-heading h1 { font-size:27px; }
+  .kiki-communities-tabs button { font-size:10px; }
+  .kiki-community-discovery-card { grid-template-columns:auto minmax(0,1fr); }
+  .kiki-community-discovery-card > button { grid-column:2;justify-self:start; }
+  .kiki-community-composer-footer { align-items:flex-start;flex-direction:column; }
+  .kiki-community-composer-footer button { align-self:stretch; }
+}

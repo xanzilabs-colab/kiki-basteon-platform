@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
+import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Users, Volume2, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
@@ -61,6 +61,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
     ...(calmEnabled ? [{ href: "/account/calm", label: "Calm", icon: Flower2 }] : []),
     { href: "/w", label: "Journal", icon: BookOpen },
     { href: "/account/guardians", label: "Guardians", icon: ShieldCheck },
+    { href: "/account/communities", label: "Communities", icon: Users },
     links[2],
   ];
   const mobileNavLinks = [
