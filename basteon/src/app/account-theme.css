@@ -6482,3 +6482,39 @@ body:has(.account-shell:not([data-theme="dark"])) {
 ) {
   bottom: calc(192px + env(safe-area-inset-bottom));
 }
+
+.account-shell .account-mobile-nav .nav-sigil {
+  position: relative;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+}
+
+.account-shell .account-mobile-nav .nav-link[aria-current="page"] .nav-sigil::after {
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  width: 18px;
+  height: 8px;
+  transform: translateX(-50%);
+  border: 1.5px solid currentColor;
+  border-top: 0;
+  border-radius: 0 0 999px 999px;
+  content: "";
+  pointer-events: none;
+}
+
+.account-shell .account-mobile-nav .nav-link[aria-current="page"] .nav-device-sigil::after {
+  bottom: -8px;
+}
+
+.account-shell .kiki-map-home .kiki-overview-cta {
+  border-color: transparent;
+  background: #4A2472;
+  color: #fff;
+}
+
+.account-shell .kiki-map-home .kiki-overview-cta:hover {
+  background: #35194F;
+  color: #fff;
+}
