@@ -5983,6 +5983,8 @@ body:has(.account-shell) {
 .account-shell .safe-spots-page .map-screen-sheet-handle {
   height: 32px;
   min-height: 32px;
+  align-items: end;
+  padding-bottom: 4px;
 }
 
 .account-shell .safe-spots-page .account-bottom-sheet.level-0 .account-sheet-content {
@@ -6003,4 +6005,23 @@ body:has(.account-shell) {
 
 .account-shell main .kiki-devices-redesign .everyday-section-heading > .everyday-primary-button {
   width: 100%;
+}
+
+.account-shell main .devices-metrics > .devices-metric {
+  border-radius: 0;
+}
+
+.account-shell main .devices-metrics > .devices-metric + .devices-metric {
+  border-left: 0;
+}
+
+.account-shell main .devices-metrics > .devices-metric + .devices-metric::before {
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 0;
+  width: 1px;
+  border-radius: 0;
+  background: var(--divider);
+  content: "";
 }
