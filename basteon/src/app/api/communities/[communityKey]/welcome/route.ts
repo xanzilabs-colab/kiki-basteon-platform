@@ -4,15 +4,15 @@ import { communityAccount } from "@/lib/communities/server";
 
 const idSchema = z.string().uuid();
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ communityKey: string }> }) {
   const access = await communityAccount(request);
   if ("response" in access) return access.response;
-  const { id } = await params;
-  if (!idSchema.safeParse(id).success) return NextResponse.json({ error: "community_not_found" }, { status: 404 });
+  const { communityKey } = await params;
+  if (!idSchema.safeParse(communityKey).success) return NextResponse.json({ error: "community_not_found" }, { status: 404 });
 
   const { data, error } = await access.db.from("community_memberships")
     .update({ welcome_read_at: new Date().toISOString() })
-    .eq("community_id", id)
+    .eq("community_id", communityKey)
     .eq("user_id", access.user.id)
     .is("welcome_read_at", null)
     .select("welcome_read_at")
@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!data) {
     const { data: membership, error: membershipError } = await access.db.from("community_memberships")
       .select("welcome_read_at")
-      .eq("community_id", id)
+      .eq("community_id", communityKey)
       .eq("user_id", access.user.id)
       .maybeSingle();
     if (membershipError) {

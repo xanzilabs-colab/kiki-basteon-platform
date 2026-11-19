@@ -3,14 +3,14 @@ import { communityAccount } from "@/lib/communities/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(_request: Request, { params }: { params: Promise<{ communityKey: string }> }) {
   const access = await communityAccount();
   if ("response" in access) return access.response;
-  const { slug } = await params;
+  const { communityKey } = await params;
 
   const { data: community, error: communityError } = await access.db.from("communities")
     .select("id,slug,name,description,scope,icon_key,is_system")
-    .eq("slug", slug)
+    .eq("slug", communityKey)
     .eq("is_active", true)
     .eq("is_public", true)
     .maybeSingle();

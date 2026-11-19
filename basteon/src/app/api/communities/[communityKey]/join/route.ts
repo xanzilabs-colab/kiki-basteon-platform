@@ -4,14 +4,14 @@ import { communityAccount } from "@/lib/communities/server";
 
 const idSchema = z.string().uuid();
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ communityKey: string }> }) {
   const access = await communityAccount(request);
   if ("response" in access) return access.response;
-  const { id } = await params;
-  if (!idSchema.safeParse(id).success) return NextResponse.json({ error: "community_not_found" }, { status: 404 });
+  const { communityKey } = await params;
+  if (!idSchema.safeParse(communityKey).success) return NextResponse.json({ error: "community_not_found" }, { status: 404 });
 
   const { data, error } = await access.db.rpc("join_community", {
-    p_community_id: id,
+    p_community_id: communityKey,
     p_user_id: access.user.id,
   });
   if (error || !Array.isArray(data) || !data[0]) {
