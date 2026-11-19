@@ -138,9 +138,7 @@ export default function ProfilePage() {
       </AccountListCard>
     </section>
 
-    <AccountListCard className="kiki-profile-logout-card">
-      <button type="button" className="kiki-profile-logout" onClick={() => void signOut()}><LogOut size={18} aria-hidden="true" /><span>Log out</span></button>
-    </AccountListCard>
+    <button type="button" className="kiki-profile-logout" onClick={() => void signOut()}><LogOut size={18} aria-hidden="true" /><span>Log out</span></button>
     <p className="kiki-profile-version">Kiki app · v1.10</p>
   </div>;
 }

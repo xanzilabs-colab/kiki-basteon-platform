@@ -2552,31 +2552,6 @@ body:has(.account-shell) {
   font-size: 12px;
 }
 
-.account-shell .kiki-profile-logout-card {
-  overflow: hidden;
-}
-
-.account-shell .kiki-profile-logout {
-  display: flex;
-  width: 100%;
-  min-height: 56px;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  border: 1px solid var(--crit);
-  border-radius: 20px;
-  background: transparent;
-  padding: 12px 16px;
-  color: var(--crit);
-  font-size: 15px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.account-shell .kiki-profile-logout:hover {
-  background: var(--crit-bg);
-}
-
 .account-shell .kiki-help-back {
   display: inline-flex;
   align-items: center;
@@ -5877,11 +5852,13 @@ body:has(.account-shell) {
   padding-bottom: 24px;
 }
 
-.account-shell main .kiki-profile-hub > .kiki-profile-logout-card > .kiki-profile-logout {
+.account-shell main .kiki-profile-hub > .kiki-profile-logout {
   display: flex;
   box-sizing: border-box;
+  width: 100%;
   height: 40px;
   min-height: 40px;
+  margin: 0;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -5896,22 +5873,22 @@ body:has(.account-shell) {
   text-align: center;
 }
 
-.account-shell main .kiki-profile-hub > .kiki-profile-logout-card > .kiki-profile-logout svg {
+.account-shell main .kiki-profile-hub > .kiki-profile-logout svg {
   display: block;
   flex: 0 0 auto;
 }
 
-.account-shell main .kiki-profile-hub > .kiki-profile-logout-card > .kiki-profile-logout span {
+.account-shell main .kiki-profile-hub > .kiki-profile-logout span {
   display: block;
   line-height: 1;
 }
 
-.account-shell main .kiki-profile-hub > .kiki-profile-logout-card > .kiki-profile-logout:hover {
+.account-shell main .kiki-profile-hub > .kiki-profile-logout:hover {
   background: var(--crit-bg);
 }
 
 .account-shell .kiki-profile-version {
-  margin: -6px 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
