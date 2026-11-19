@@ -6458,3 +6458,27 @@ body:has(.account-shell:not([data-theme="dark"])) {
   border-color: var(--divider);
   background: var(--surface-1);
 }
+
+.account-shell .map-screen > .map-screen-sheet {
+  z-index: 900;
+}
+
+.account-shell .map-screen:has(> .map-screen-sheet:not(.level-0)) > :is(
+  .map-screen-topbar,
+  .map-screen-controls,
+  .map-screen-tools,
+  .map-screen-floating-actions,
+  .map-screen-hidden-actions,
+  .map-screen-attribution
+) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.account-shell .map-screen:has(> .map-screen-sheet.level-0) > :is(
+  .map-screen-tools,
+  .map-screen-hidden-actions
+) {
+  bottom: calc(192px + env(safe-area-inset-bottom));
+}

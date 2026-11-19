@@ -4,6 +4,7 @@ import { Bluetooth, BookOpen, Building2, CheckCircle2, ChevronRight, CircleHelp,
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAccountMenuFeatures } from "@/components/AccountShell";
 import { createClient } from "@/lib/supabase/client";
 import { LocationPrivacyCard } from "@/components/LocationPrivacyCard";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
@@ -13,6 +14,7 @@ type AccountProfile = { full_name: string | null; avatar_path: string | null; da
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { stoepEnabled, calmEnabled } = useAccountMenuFeatures();
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [email, setEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -105,8 +107,8 @@ export default function ProfilePage() {
         <AccountListRow href="/account/profile/triggers" icon={<Bluetooth size={20} />} title="Bluetooth triggers" trailing={<ChevronRight size={18} />} />
         <AccountListRow href="/account/profile/buddies" icon={<Users size={20} />} title="My Buddies" trailing={<ChevronRight size={18} />} />
         <AccountListRow href="/account/profile/ringtones" icon={<Volume2 size={20} />} title="Ringtones" trailing={<ChevronRight size={18} />} />
-        <AccountListRow href="/games" icon={<Gamepad2 size={20} />} title="Stoep" trailing={<ChevronRight size={18} />} />
-        <AccountListRow href="/account/calm" icon={<Flower2 size={20} />} title="Calm" trailing={<ChevronRight size={18} />} />
+        {stoepEnabled && <AccountListRow href="/games" icon={<Gamepad2 size={20} />} title="Stoep" trailing={<ChevronRight size={18} />} />}
+        {calmEnabled && <AccountListRow href="/account/calm" icon={<Flower2 size={20} />} title="Calm" trailing={<ChevronRight size={18} />} />}
       </AccountListCard>
     </section>
 

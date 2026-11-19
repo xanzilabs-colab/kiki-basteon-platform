@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Volume2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
 import { KikiMark } from "@/components/KikiMark";
@@ -22,6 +22,12 @@ const links = [
   { href: "/account/devices", label: "Devices", icon: Smartphone },
   { href: "/account/profile", label: "Profile", icon: UserRound },
 ];
+
+const AccountMenuFeatureContext = createContext({ stoepEnabled: false, calmEnabled: false });
+
+export function useAccountMenuFeatures() {
+  return useContext(AccountMenuFeatureContext);
+}
 
 export function AccountShell({ name, children, initialDarkTheme = false, stoepEnabled = false, calmEnabled = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean; stoepEnabled?: boolean; calmEnabled?: boolean }) {
   const pathname = usePathname(); const router = useRouter();
@@ -357,7 +363,11 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
             </button>
           </div>
         </header>
-        <main key={pathname} className="account-page-transition mx-auto max-w-4xl p-5 md:p-6">{children}</main>
+        <main key={pathname} className="account-page-transition mx-auto max-w-4xl p-5 md:p-6">
+          <AccountMenuFeatureContext.Provider value={{ stoepEnabled, calmEnabled }}>
+            {children}
+          </AccountMenuFeatureContext.Provider>
+        </main>
       </div>
 
       <nav inert={sosOpen || Boolean(sosSent)} className="account-mobile-nav fixed inset-x-0 bottom-0 z-20 flex h-[68px] border-t border-[var(--line)] bg-[var(--chrome)] md:hidden">
