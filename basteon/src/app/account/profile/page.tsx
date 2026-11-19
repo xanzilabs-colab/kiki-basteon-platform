@@ -122,6 +122,7 @@ export default function ProfilePage() {
       <AccountSectionLabel>Help &amp; support</AccountSectionLabel>
       <AccountListCard aria-label="Help and support">
         <AccountListRow href="/account/help" icon={<CircleHelp size={20} />} title="FAQs" subtitle="Answers to common questions" trailing={<ChevronRight size={18} />} />
+        <AccountListRow href="/account/terms" icon={<FileText size={20} />} title="Terms of Service" subtitle="Read the Kiki service terms" trailing={<ChevronRight size={18} />} />
         <a className="account-list-row" href="mailto:xanzitech@gmail.com">
           <span className="account-icon-badge" aria-hidden="true"><Mail size={20} /></span>
           <span className="account-list-row-copy"><strong>Contact support</strong><small>Email xanzitech@gmail.com</small></span>
@@ -140,5 +141,6 @@ export default function ProfilePage() {
     <AccountListCard className="kiki-profile-logout-card">
       <button type="button" className="kiki-profile-logout" onClick={() => void signOut()}><LogOut size={18} aria-hidden="true" /><span>Log out</span></button>
     </AccountListCard>
+    <p className="kiki-profile-version">Kiki app · v1.10</p>
   </div>;
 }

@@ -2701,6 +2701,28 @@ body:has(.account-shell) {
   font-size: 13px;
 }
 
+.account-shell .kiki-plan-card ul {
+  display: grid;
+  gap: 9px;
+  margin: 5px 0 0;
+  padding: 0;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.account-shell .kiki-plan-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.account-shell .kiki-plan-card li svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
 .account-shell .kiki-plan-card b {
   justify-self: start;
   border-radius: 999px;
@@ -5848,5 +5870,87 @@ body:has(.account-shell) {
   .account-shell main:has(.kiki-devices-redesign) {
     padding-right: 8px !important;
     padding-left: 8px !important;
+  }
+}
+
+.account-shell main:has(.kiki-profile-hub) {
+  padding-bottom: 24px;
+}
+
+.account-shell main .kiki-profile-logout {
+  display: flex;
+  height: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--crit);
+  border-radius: 12px;
+  background: transparent;
+  padding: 0 12px;
+  color: var(--crit);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1;
+  text-align: center;
+}
+
+.account-shell main .kiki-profile-logout:hover {
+  background: var(--crit-bg);
+}
+
+.account-shell .kiki-profile-version {
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.account-shell .kiki-setting-page:is(.kiki-help-page, .kiki-plans-page, .kiki-legal-page) > header > span {
+  display: block;
+}
+
+.account-shell .kiki-setting-page:is(.kiki-help-page, .kiki-plans-page, .kiki-legal-page) h1 {
+  display: block;
+}
+
+.account-shell .kiki-legal-intro,
+.account-shell .kiki-legal-section p,
+.account-shell .kiki-legal-contact {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.account-shell .kiki-legal-intro {
+  margin: 0;
+  font-weight: 600;
+}
+
+.account-shell .kiki-legal-section {
+  display: grid;
+  gap: 7px;
+}
+
+.account-shell .kiki-legal-section h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.account-shell .kiki-legal-section p,
+.account-shell .kiki-legal-contact {
+  margin: 0;
+}
+
+.account-shell .kiki-legal-contact a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .account-shell main:has(.kiki-profile-hub) {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom) + 8px);
   }
 }

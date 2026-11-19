@@ -16,11 +16,11 @@ const questions = [
   },
   {
     question: "Where can I see the Kiki plans?",
-    answer: "Open Profile, then My plans & cover. The two plan cards are placeholders while plan information is being prepared; they do not activate a plan or cover.",
+    answer: "Open Profile, then My plans & cover to compare the safety features listed for Kiki Essentials and Kiki Plus. Plan purchases and management are not currently available in the app.",
   },
   {
     question: "Where can I read the Terms and Privacy Policy?",
-    answer: "The official document links have not been added to the app yet. Privacy controls are available from Profile; the Terms and Privacy links will be added when their approved destinations are provided.",
+    answer: "The Terms of Service are available from Profile. Privacy controls are also in Profile; the Privacy Policy link will be added when its approved destination is provided.",
   },
 ];
 
