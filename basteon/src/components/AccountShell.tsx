@@ -356,7 +356,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
           </Link>
           <div className="account-header-actions">
             <div className="md:hidden"><button type="button" className="account-header-action" title="Start safety call" aria-label="Start safety call" onClick={() => void startSafetyCall()}><Volume2 size={17} /></button></div>
-            <NotificationBell />
+            {pathname !== "/account" && <NotificationBell />}
             <SafetyIntelWatcher />
             <button type="button" className="account-header-action" title="Refresh app" aria-label="Refresh app" onClick={() => window.location.reload()}>
               <RefreshCw size={17} aria-hidden="true" />
