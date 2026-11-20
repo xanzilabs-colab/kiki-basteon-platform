@@ -466,9 +466,9 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
         {filteredCommunities.map((community) => <article className="kiki-community-discovery-card" key={community.id}>
           <div className={`kiki-community-discovery-icon is-${community.iconKey}`}><CommunityIcon iconKey={community.iconKey} size={22} /></div>
           <div className="kiki-community-discovery-copy"><h2>{community.name}{community.isSystem && <span className="kiki-community-system-badge">Kiki</span>}</h2><p>{community.description}</p>
-            <div className="kiki-community-discovery-scope"><span><Users size={13} aria-hidden="true" />{community.memberCount.toLocaleString()} members</span><p>{community.scope}</p></div>
             {community.isMember && community.pseudonym && <small>Your alias: <strong>{community.pseudonym}</strong></small>}
           </div>
+          <div className="kiki-community-discovery-scope"><span><Users size={13} aria-hidden="true" />{community.memberCount.toLocaleString()} members</span><p>{community.scope}</p></div>
           <button type="button" disabled={busy} onClick={() => community.isMember ? openCommunity(community.slug) : void joinCommunity(community)}>{community.isMember ? "Open" : "Join"}</button>
         </article>)}
         {filteredCommunities.length === 0 && <div className="kiki-communities-empty"><Users size={22} aria-hidden="true" /><p>No communities match this search.</p></div>}

@@ -9541,12 +9541,19 @@ body:has(.account-shell:not([data-theme="dark"])) {
 }
 
 .account-shell .hamba-route-map-sheet .hamba-active-card,
-.account-shell .hamba-route-map-sheet .hamba-route-stats,
 .account-shell .hamba-route-map-sheet .hamba-route-stat,
 .account-shell .hamba-route-map-sheet .hamba-actions {
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-route-stats {
+  border: 0 !important;
+  border-radius: 18px;
+  background: var(--surface-1) !important;
+  padding: 4px;
+  box-shadow: 0 4px 14px rgb(35 20 48 / 7%) !important;
 }
 
 .account-shell .hamba-route-map-sheet .hamba-actions .btn,
@@ -9867,7 +9874,7 @@ body:has(.account-shell:not([data-theme="dark"])) {
 .account-shell .kiki-communities-page {
   display: grid;
   width: 100%;
-  max-width: 430px;
+  max-width: 860px;
   gap: 12px;
   margin: 0 auto;
   border-radius: 0;
@@ -9877,9 +9884,13 @@ body:has(.account-shell:not([data-theme="dark"])) {
 }
 
 .account-shell:not([data-theme="dark"]) .kiki-communities-page {
-  max-width: 430px;
+  max-width: 860px;
   background: transparent;
   padding: 10px 10px 28px;
+}
+
+.account-shell main:has(.kiki-communities-page) {
+  background: #f8f4ec !important;
 }
 
 .account-shell .kiki-community-stories {
@@ -10562,6 +10573,7 @@ body:has(.account-shell:not([data-theme="dark"])) {
 .kiki-community-discover,
 .kiki-community-create-page {
   display: grid;
+  min-width: 0;
   gap: 12px;
 }
 
@@ -10582,13 +10594,13 @@ body:has(.account-shell:not([data-theme="dark"])) {
 
 .kiki-community-search {
   display: flex;
-  min-height: 40px;
+  min-height: 48px;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   border: 1px solid #e5e7eb;
-  border-radius: 15px;
+  border-radius: 16px;
   background: #fffdf9;
-  padding: 0 12px;
+  padding: 0 15px;
   color: #928b97;
 }
 
@@ -10600,7 +10612,7 @@ body:has(.account-shell:not([data-theme="dark"])) {
   background: transparent;
   color: #29231f;
   font: inherit;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .kiki-community-search:focus-within {
@@ -10633,20 +10645,21 @@ body:has(.account-shell:not([data-theme="dark"])) {
   color: #fff;
 }
 
-.kiki-community-discovery-card {
+.account-shell .kiki-community-discovery-card {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 48px minmax(0, 1fr);
   align-items: start;
-  gap: 10px;
+  gap: 12px;
+  border-radius: 20px;
+  padding: 18px;
 }
 
 .kiki-community-discovery-icon {
   display: grid;
-  width: 42px;
-  height: 42px;
-  grid-row: span 2;
+  width: 48px;
+  height: 48px;
   place-items: center;
-  border-radius: 15px;
+  border-radius: 16px;
   background: linear-gradient(135deg, #6d35e8, #491d9e);
   color: #fff;
 }
@@ -10668,24 +10681,26 @@ body:has(.account-shell:not([data-theme="dark"])) {
   gap: 5px;
   margin: 0;
   color: #29231f;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 800;
 }
 
 .kiki-community-discovery-copy > p {
   margin: 0;
   color: #5e5665;
-  font-size: 9px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .kiki-community-discovery-scope {
   display: grid;
   gap: 4px;
-  margin-top: 4px;
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: 0;
   border-radius: 13px;
   background: #f7f6fb;
-  padding: 8px;
+  padding: 11px 12px;
 }
 
 .kiki-community-discovery-scope > span {
@@ -10693,15 +10708,15 @@ body:has(.account-shell:not([data-theme="dark"])) {
   align-items: center;
   gap: 4px;
   color: #491d9e;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 750;
 }
 
 .kiki-community-discovery-scope p {
   margin: 0;
   color: #625a69;
-  font-size: 8px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .kiki-community-discovery-copy > small {
