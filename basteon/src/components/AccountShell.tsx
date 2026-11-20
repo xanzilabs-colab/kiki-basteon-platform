@@ -408,14 +408,11 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
             <button type="button" className="account-header-action" title="Refresh app" aria-label="Refresh app" onClick={() => window.location.reload()}>
               <RefreshCw size={17} aria-hidden="true" />
             </button>
-          </div>
-          {isCommunitiesPage && <div className="kiki-community-modebar">
-            <span className="kiki-community-mode-pill"><MapPinned size={15} aria-hidden="true" />Social · Spatial · Anonymous</span>
-            <details className="kiki-communities-info">
-              <summary className="kiki-community-help-trigger" aria-label="How Kiki Works" aria-describedby="kiki-communities-info-tooltip"><Info size={14} aria-hidden="true" />How Kiki Works</summary>
+            {isCommunitiesPage && <details className="kiki-communities-info">
+              <summary className="account-header-action kiki-community-header-info" aria-label="Community information" aria-describedby="kiki-communities-info-tooltip"><Info size={18} aria-hidden="true" /></summary>
               <div id="kiki-communities-info-tooltip" className="kiki-communities-info-tooltip" role="tooltip">Share practical ideas anonymously. There’s no following, public profile, or direct messaging.</div>
-            </details>
-          </div>}
+            </details>}
+          </div>
         </header>
         <main key={pathname} className="account-page-transition mx-auto max-w-4xl p-5 md:p-6">
           <AccountMenuFeatureContext.Provider value={{ stoepEnabled, calmEnabled }}>

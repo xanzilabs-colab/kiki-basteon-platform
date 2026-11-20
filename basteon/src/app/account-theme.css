@@ -9778,86 +9778,15 @@ body:has(.account-shell:not([data-theme="dark"])) {
   }
 }
 
-.account-shell .account-mobile-appbar:has(.kiki-community-modebar) {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "profile actions"
-    "mode mode";
-  gap: 7px 10px;
-  height: auto;
-  min-height: 112px;
-  align-content: center;
-  padding-block: 10px;
-}
-
-.account-shell .account-mobile-appbar:has(.kiki-community-modebar) .account-user-summary {
-  grid-area: profile;
-  margin: 0;
-}
-
-.account-shell .account-mobile-appbar:has(.kiki-community-modebar) .account-header-actions {
-  grid-area: actions;
-  margin-left: 0;
-}
-
-.kiki-community-modebar {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  grid-area: mode;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.kiki-community-mode-pill,
-.kiki-community-help-trigger {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 7px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.kiki-community-mode-pill {
-  overflow: hidden;
-  border: 1px solid rgb(110 71 151 / 15%);
-  background: #eee8f6;
-  padding: 0 10px;
-  color: #35194f;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .07em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-}
-
-.kiki-community-mode-pill svg {
-  flex: none;
-  color: #4a2472;
-}
-
-.kiki-community-help-trigger {
-  justify-content: center;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  padding: 0 10px;
-  color: #4a2472;
+.account-shell .account-header-actions .kiki-community-header-info {
+  width: 36px;
+  height: 36px;
+  padding: 0;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 750;
 }
 
-.kiki-communities-info .kiki-community-help-trigger {
-  display: inline-flex;
-  place-items: initial;
-}
-
-.kiki-community-help-trigger:focus-visible {
-  outline: 3px solid #ec7aae;
+.account-shell .kiki-community-header-info:focus-visible {
+  outline: 2px solid #4a2472;
   outline-offset: 2px;
 }
 
@@ -9944,10 +9873,6 @@ body:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
 
 .kiki-community-story-ring.is-kiki {
   background: linear-gradient(135deg, #10b981, #059669 52%, #5822c8);
-}
-
-.kiki-community-story-ring.is-explore {
-  background: linear-gradient(135deg, #d6c9e8, #8b70ac);
 }
 
 .kiki-community-story:active .kiki-community-story-ring {
@@ -10042,12 +9967,6 @@ body:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
   border-color: #4a2472;
   background: #4a2472;
   color: #fff;
-}
-
-.account-shell .kiki-communities-switcher .kiki-communities-explore {
-  border-color: transparent;
-  background: #eee8f6;
-  color: #4a2472;
 }
 
 .kiki-community-hero {
@@ -10601,28 +10520,33 @@ body:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
   line-height: 1.5;
 }
 
-.kiki-community-search {
+.account-shell .kiki-community-search {
   display: flex;
-  min-height: 52px;
+  width: 100% !important;
+  height: 68px !important;
+  min-height: 68px !important;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   border: 1px solid #d1d5db;
-  border-radius: 17px;
+  border-radius: 18px;
   background: #fff;
-  padding: 0 16px;
+  padding: 0 18px;
   color: #928b97;
-  box-shadow: 0 3px 10px rgb(35 20 48 / 6%);
+  box-shadow: 0 4px 12px rgb(35 20 48 / 8%);
 }
 
-.kiki-community-search input {
-  width: 100%;
+.account-shell .kiki-community-search input {
+  flex: 1;
+  width: 100% !important;
   min-width: 0;
+  height: 48px !important;
+  min-height: 48px !important;
   border: 0;
   outline: 0;
   background: transparent;
   color: #29231f;
   font: inherit;
-  font-size: 16px;
+  font-size: 17px !important;
 }
 
 .kiki-community-search:focus-within {
@@ -10950,14 +10874,6 @@ body:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
   font-size: 13px;
 }
 
-@media (max-width: 767px) {
-  .account-shell .account-mobile-appbar:has(.kiki-community-modebar) {
-    min-height: calc(112px + env(safe-area-inset-top));
-    padding-top: calc(8px + env(safe-area-inset-top));
-    padding-bottom: 8px;
-  }
-}
-
 @media (max-width: 360px) {
   .account-shell .kiki-communities-page {
     padding-right: 7px;
@@ -10965,17 +10881,6 @@ body:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
   }
 
   .account-shell .kiki-communities-tabs button {
-    font-size: 11px;
-  }
-
-  .kiki-community-mode-pill {
-    font-size: 10px;
-    letter-spacing: .04em;
-  }
-
-  .kiki-community-help-trigger {
-    gap: 4px;
-    padding-inline: 7px;
     font-size: 11px;
   }
 }

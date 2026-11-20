@@ -351,10 +351,6 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
           </span>
           <span className="kiki-community-story-title">{community.name}</span>
         </button>)}
-        <button type="button" className="kiki-community-story" onClick={() => setTab("discover")}>
-          <span className="kiki-community-story-ring is-explore"><span className="kiki-community-story-core"><Users size={21} aria-hidden="true" /></span></span>
-          <span className="kiki-community-story-title">Explore</span>
-        </button>
       </div>
     </section>
 
@@ -373,7 +369,6 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
         {joinedCommunities.map((community) => <button key={community.id} type="button" aria-pressed={activeSlug === community.slug} onClick={() => openCommunity(community.slug)}>
           <CommunityIcon iconKey={community.iconKey} size={15} />{community.name}
         </button>)}
-        <button type="button" className="kiki-communities-explore" onClick={() => setTab("discover")}>+ Explore</button>
       </div>}
       {loading || feedLoading ? <p className="kiki-communities-loading" role="status">Loading community…</p> : feed && !feed.isMember ? <article className="kiki-community-scope-card">
         <div className="kiki-community-card-icon"><CommunityIcon iconKey={feed.community.iconKey} /></div>
@@ -458,7 +453,7 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
 
     {tab === "discover" && <section className="kiki-community-discover">
       <header className="kiki-community-section-heading"><h1>Discover safe circles</h1><p>Browse public, anonymous communities moderated by Kiki Guard.</p></header>
-      <label className="kiki-community-search"><span className="sr-only">Search communities</span><Users size={17} aria-hidden="true" /><input value={discoverQuery} onChange={(event) => setDiscoverQuery(event.target.value)} placeholder="Search communities..." /></label>
+      <label className="kiki-community-search"><span className="sr-only">Search communities</span><Users size={20} aria-hidden="true" /><input value={discoverQuery} onChange={(event) => setDiscoverQuery(event.target.value)} placeholder="Search communities..." /></label>
       <div className="kiki-community-filter-row" role="group" aria-label="Filter communities">
         {([["all", "All"], ["kiki", "Kiki"], ["joined", "Joined"]] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={discoverFilter === value} onClick={() => setDiscoverFilter(value)}>{label}</button>)}
       </div>
