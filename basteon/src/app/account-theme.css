@@ -7759,3 +7759,65 @@ body:has(.account-shell:not([data-theme="dark"])) {
     flex-basis: 68px;
   }
 }
+
+.account-shell .safe-spots-page .map-screen-sheet.level-0 {
+  height: min(204px, 30vh);
+}
+
+.account-shell .kiki-map-home .map-screen-sheet.level-0 {
+  height: 212px;
+}
+
+.account-shell .safe-spots-page .safe-haven-card {
+  border-color: var(--divider);
+  background: var(--surface-1);
+}
+
+.account-shell .safe-spots-page .safe-haven-card.is-selected {
+  border-color: rgb(74 36 114 / 35%);
+  box-shadow: 0 0 0 2px rgb(74 36 114 / 9%), 0 6px 18px rgb(50 24 63 / 8%);
+}
+
+.account-shell .safe-spots-page .safe-haven-card.is-demo {
+  border-color: #e8ba72;
+  background: #fffdf8;
+}
+
+.account-shell .safe-spots-page .safe-haven-card-body h3 {
+  color: var(--text);
+}
+
+.account-shell .safe-spots-page .safe-haven-address {
+  color: var(--muted);
+}
+
+.account-shell .safe-spots-page .safe-haven-card-actions > button {
+  border-color: var(--divider);
+  background: var(--surface-1);
+  color: var(--accent);
+}
+
+.account-shell .safe-spots-page .safe-alert-anchor {
+  scroll-margin-block: 84px;
+}
+
+.account-shell .safe-spots-page .safe-alerts-panel {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 !important;
+  box-shadow: none;
+}
+
+.account-shell .map-screen.safe-spots-page:has(> .map-screen-sheet.level-1) > .map-screen-tools {
+  z-index: 950;
+  bottom: calc(min(58%, 620px) + 10px + env(safe-area-inset-bottom));
+  visibility: visible;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.account-shell .map-screen.safe-spots-page:has(> .map-screen-sheet.level-0) > .map-screen-tools {
+  bottom: calc(min(204px, 30vh) + 10px + env(safe-area-inset-bottom));
+}

@@ -64,6 +64,25 @@ function distanceMeters(from: Location | null, to: Location) {
   return distance < 1000 ? `${Math.max(1, Math.round(distance / 10) * 10)} m` : `${(distance / 1000).toFixed(1)} km`;
 }
 
+function formatAge(value: string) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "Recently";
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
+}
+
+function formatBubbleExpiry(value: string) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "Active";
+  const minutes = Math.max(0, Math.ceil((timestamp - Date.now()) / 60_000));
+  if (minutes < 60) return `Ends in ${minutes}m`;
+  const hours = Math.ceil(minutes / 60);
+  return hours < 24 ? `Ends in ${hours}h` : `Ends ${new Date(timestamp).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+}
+
 export function BuddySafePlaces() {
   const [places, setPlaces] = useState<PublicSpot[]>([]);
   const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
@@ -211,6 +230,19 @@ export function BuddySafePlaces() {
     setMessageIsError(/could not|couldn|can't|unavailable|please|error|failed|closed/i.test(next));
   }
 
+  function focusAlert(id: string) {
+    setTab("alerts");
+    setSheetLevel(1);
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("kiki:focus-community-alert", { detail: id })), 80);
+  }
+
+  function focusSpot(place: PublicSpot) {
+    setSelectedSpot(place.id);
+    setSheetLevel(1);
+    setPoint({ lat: place.lat, lng: place.lng });
+    setMapRecenter((value) => value + 1);
+  }
+
   return <MapScreen
     screenId="safe-spots"
     className="buddy-places buddies-page safe-spots-page"
@@ -266,44 +298,85 @@ export function BuddySafePlaces() {
           return <button type="button" key={value} aria-pressed={category === value} onClick={() => { setCategory(value); setSelectedSpot(null); }}><Icon size={14} />{prettyCategory(value)}</button>;
         })}
       </div>}
+      <header className="safe-havens-heading"><div><h2>Safe Havens</h2><p>Reviewed public places near your location.</p></div><span>{filteredPlaces.length}</span></header>
 
       {!searched ? (
         <button className="safe-search-prompt" type="button" disabled={busy} onClick={() => void search()}><Search size={18} /><span><b>{busy ? "Finding places nearby…" : "Search places nearby"}</b></span><LocateFixed size={18} /></button>
       ) : filteredPlaces.length ? (
-        <div className="safe-spot-list account-list-card">{filteredPlaces.map((place) => {
+        <div className="safe-haven-cards">{filteredPlaces.map((place) => {
           const Icon = categoryIcons[place.category] ?? Building2;
           const distance = distanceMeters(point, place);
-          return <article className={`safe-spot-card${place.is_demo ? " is-demo" : ""}${selectedSpot === place.id ? " is-selected" : ""}`} id={`safe-spot-${place.id}`} key={place.id}>
-            <button type="button" className="safe-spot-title" onClick={() => setSelectedSpot(selectedSpot === place.id ? null : place.id)} aria-pressed={selectedSpot === place.id}>
-              <span className="safe-spot-icon"><Icon size={19} /></span>
-              <span className="safe-spot-name"><b>{place.name}</b><small>{prettyCategory(place.category)}{distance ? ` · ${distance}` : ""}</small></span>
-              {place.is_demo ? <span className="safe-spot-status is-demo">Sample</span> : <span className="safe-spot-status"><Check size={15} aria-label="Reviewed" /></span>}
-              <ChevronRight className="safe-spot-chevron" size={17} aria-hidden="true" />
+          return <article className={`safe-haven-card${place.is_demo ? " is-demo" : ""}${selectedSpot === place.id ? " is-selected" : ""}`} id={`safe-spot-${place.id}`} key={place.id}>
+            <button type="button" className={`safe-haven-hero${place.category === "school" || place.category === "hospital" ? " is-green" : ""}`} onClick={() => setSelectedSpot(selectedSpot === place.id ? null : place.id)} aria-pressed={selectedSpot === place.id}>
+              <span className="safe-haven-hero-tags"><span><ShieldCheck size={13} />{prettyCategory(place.category)}</span>{distance && <span>{distance} away</span>}</span>
+              <span className="safe-haven-hero-mark" aria-hidden="true"><Icon size={31} /></span>
+              <ChevronRight className="safe-haven-hero-chevron" size={18} aria-hidden="true" />
             </button>
-            {selectedSpot === place.id && <div className="safe-spot-details">
-              <span>{place.address || "Address not provided"} · {place.open_24h ? "Open 24 hours" : "Hours may vary"}</span>
-              {place.is_demo ? <span className="safe-directions-link is-disabled" aria-label="Directions unavailable for demo locations">Sample only</span> : <a className="safe-directions-link" href={directionsUrl(place.lat, place.lng)} target="_blank" rel="noreferrer" aria-label={`Directions to ${place.name}`}><Navigation size={16} /></a>}
-            </div>}
+            <div className="safe-haven-card-body">
+              <div className="safe-haven-card-heading">
+                <h3>{place.name}</h3>
+                {place.is_demo
+                  ? <span className="safe-spot-status is-demo">Sample</span>
+                  : <span className="safe-spot-status" aria-label="Reviewed safe place"><Check size={15} /></span>}
+              </div>
+              <p className="safe-haven-address">{place.address || "Address not provided"}</p>
+              <div className="safe-haven-tags">
+                <span>{place.open_24h ? "Open 24 hours" : "Hours not listed"}</span>
+                {!place.is_demo && <span>Reviewed place</span>}
+              </div>
+              {place.is_demo && <p className="safe-haven-demo-note">Sample listing — not verified. Do not rely on it for directions or safety.</p>}
+              <div className="safe-haven-card-actions">
+                <button type="button" onClick={() => focusSpot(place)}>
+                  Locate on map
+                </button>
+                {place.is_demo
+                  ? <span className="safe-directions-link is-disabled">Sample only</span>
+                  : <a className="safe-directions-link" href={directionsUrl(place.lat, place.lng)} target="_blank" rel="noreferrer" aria-label={`Directions to ${place.name}`}><Navigation size={16} />Directions</a>}
+              </div>
+            </div>
           </article>;
         })}</div>
       ) : <div className="safe-empty-card"><span><MapPin size={21} /></span><b>{places.length ? "No spots in this category" : "No reviewed spots nearby yet"}</b><p>{places.length ? "Choose another category to see more places." : "Try again later, or suggest a public place for review."}</p></div>}
-      <details className="safe-suggest-card">
-        <summary><span className="safe-suggest-icon"><MapPin size={19} /></span><span><b>Suggest a public place</b><small>We review suggestions before they appear.</small></span><ChevronRight size={18} aria-hidden="true" /></summary>
-        <BuddyPlaceForm busy={busy} onSave={suggest} />
+      <details className="safe-haven-suggest">
+        <summary><span><b>Know a 24-hour safe place?</b><small>Suggest a guarded station, clinic, school, or other public place.</small></span><span className="safe-haven-suggest-action">+ Suggest</span></summary>
+        <div className="safe-haven-suggest-form"><BuddyPlaceForm busy={busy} onSave={suggest} /></div>
       </details>
     </section>
 
     <section id="safe-panel-alerts" role="tabpanel" aria-labelledby="safe-tab-alerts" hidden={tab !== "alerts"} className="safe-spots-tab-panel">
+      <div className="safe-stories-rail" aria-label="Recent safety updates">
+        <button type="button" className="safe-story-card is-compose" onClick={() => window.dispatchEvent(new Event("kiki:open-report-composer"))}>
+          <span className="safe-story-icon"><Plus size={19} aria-hidden="true" /></span>
+          <span className="safe-story-copy"><b>Share a safety update</b><small>Post a community report</small></span>
+        </button>
+        {buddyLocations.slice(0, 3).map((buddy) => <Link className="safe-story-card is-buddy" href={`/account/profile/buddies/${buddy.id}`} key={buddy.id}>
+          <span className="safe-story-avatar">{buddy.avatarUrl ? <img src={buddy.avatarUrl} alt="" /> : <i>{buddy.name.trim().charAt(0).toUpperCase() || "?"}</i>}</span>
+          <span className="safe-story-copy"><b>{buddy.name}</b><small>Sharing live</small></span>
+        </Link>)}
+        {bubbles.slice(0, 2).map((bubble) => <Link className="safe-story-card is-walk" href={`/account/buddies/meeting/${bubble.id}`} key={bubble.id}>
+          <span className="safe-story-icon"><Handshake size={17} aria-hidden="true" /></span>
+          <span className="safe-story-copy"><b>Travel Together</b><small>{bubble.member_count} {bubble.member_count === 1 ? "person" : "people"} · {formatBubbleExpiry(bubble.expires_at)}</small></span>
+        </Link>)}
+        {alerts.slice(0, 3).map((alert) => <button type="button" className="safe-story-card is-report" key={alert.id} onClick={() => focusAlert(alert.id)}>
+          <span className="safe-story-icon"><AlertTriangle size={17} aria-hidden="true" /></span>
+          <span className="safe-story-copy"><b>{prettyCategory(alert.kind)}</b><small>{alert.location_label || "Nearby"} · {formatAge(alert.created_at)}</small></span>
+        </button>)}
+        <button type="button" className="safe-story-card is-haven" onClick={() => setTab("spots")}>
+          <span className="safe-story-icon"><ShieldCheck size={18} aria-hidden="true" /></span>
+          <span className="safe-story-copy"><b>Safe Havens</b><small>{places.length ? `${places.length} reviewed nearby` : "Find places nearby"}</small></span>
+        </button>
+      </div>
       <CommunityAlertsPanel alerts={alerts} busy={busy} initialPoint={point} onBusyChange={setBusy} onAlertsChange={setAlerts} onLocationChange={setPoint} onMessage={changeMessage} />
     </section>
 
     <section id="safe-panel-meetings" role="tabpanel" aria-labelledby="safe-tab-meetings" hidden={tab !== "meetings"} className="safe-spots-tab-panel">
-      {bubbles.length > 0 ? <div className="safe-meeting-list account-list-card">{bubbles.map((bubble, index) => <Link className="safe-meeting-card" key={bubble.id} href={`/account/buddies/meeting/${bubble.id}`}>
-        <span className="safe-meeting-icon"><UsersRound size={19} /></span>
-        <span className="safe-meeting-copy"><b>Bubble {index + 1}</b><small>{bubble.member_count} {bubble.member_count === 1 ? "person" : "people"} · Active meeting</small></span>
-        <span className="safe-meeting-open"><span className="safe-meeting-open-copy">Active</span><ChevronRight size={16} /></span>
-      </Link>)}</div> : <div className="safe-empty-card"><span><Handshake size={21} /></span><b>No active Bubble meetings</b><p>Create or join a Bubble to choose a meeting spot together.</p><Link href="/account/trips?mode=travel-together">Go to Travel Together<ChevronRight size={15} /></Link></div>}
-      {bubbles.length > 0 && <Link className="safe-meeting-create" href="/account/trips?mode=travel-together"><Handshake size={17} />Create or join a Bubble<ChevronRight size={16} /></Link>}
+      <header className="safe-walks-heading"><div><h2>Walks &amp; meetups</h2><p>Open a Bubble to plan a meetup or walk with your Buddies.</p></div><span>{bubbles.length}</span></header>
+      {bubbles.length > 0 ? <div className="safe-walks-list">{bubbles.map((bubble) => <article className="safe-walk-card" key={bubble.id}>
+        <div className="safe-walk-card-top"><span className="safe-walk-active"><i />Active Bubble</span><time dateTime={bubble.expires_at}>{formatBubbleExpiry(bubble.expires_at)}</time></div>
+        <div className="safe-walk-route"><span><Handshake size={19} /></span><div><b>Travel Together</b><small>Shared meeting and walk plan</small></div><ChevronRight size={18} aria-hidden="true" /></div>
+        <div className="safe-walk-card-footer"><span><UsersRound size={15} />{bubble.member_count} {bubble.member_count === 1 ? "person" : "people"} in this Bubble</span><Link href={`/account/buddies/meeting/${bubble.id}`}>Open Bubble</Link></div>
+      </article>)}</div> : <div className="safe-empty-card"><span><Handshake size={21} /></span><b>No active Bubble meetings</b><p>Create or join a Bubble to choose a meeting spot together.</p><Link href="/account/trips?mode=travel-together">Go to Travel Together<ChevronRight size={15} /></Link></div>}
+      <Link className="safe-meeting-create" href="/account/trips?mode=travel-together"><Handshake size={17} />Plan a walk with Buddies<ChevronRight size={16} /></Link>
     </section>
 
     {message && <div className={`safe-spots-message${messageIsError ? " is-error" : ""}`} role={messageIsError ? "alert" : "status"}>{message}</div>}

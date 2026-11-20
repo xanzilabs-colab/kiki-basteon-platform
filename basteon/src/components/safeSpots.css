@@ -249,3 +249,164 @@
 @media (prefers-reduced-motion:reduce) {
   .safe-spots-page *, .safe-report-layer * { scroll-behavior:auto!important; animation:none!important; transition:none!important; }
 }
+
+.safe-spots-page .safe-stories-rail {
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  margin:0 -16px;
+  padding:0 16px 4px;
+  scrollbar-width:none;
+}
+.safe-spots-page .safe-stories-rail::-webkit-scrollbar { display:none; }
+.safe-spots-page .safe-story-card {
+  display:flex;
+  width:92px;
+  min-width:92px;
+  height:118px;
+  flex:none;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:space-between;
+  overflow:hidden;
+  border:1px solid rgb(255 255 255 / 55%);
+  border-radius:18px;
+  background:#fffdf9;
+  padding:9px;
+  color:#29231f;
+  text-align:left;
+  text-decoration:none;
+  box-shadow:0 5px 14px rgb(35 20 48 / 10%);
+  transition:transform 160ms ease,box-shadow 160ms ease;
+}
+.safe-spots-page .safe-story-card:active { transform:scale(.97); }
+.safe-spots-page .safe-story-card:focus-visible { outline:2px solid #4a2472; outline-offset:2px; }
+.safe-spots-page .safe-story-card.is-compose { background:linear-gradient(155deg,#4a2472,#35194f); color:#fff; }
+.safe-spots-page .safe-story-card.is-buddy { background:linear-gradient(155deg,#edf7ed,#bfdfbf); }
+.safe-spots-page .safe-story-card.is-report { background:linear-gradient(155deg,#fff1f4,#fce9df); }
+.safe-spots-page .safe-story-card.is-haven { background:linear-gradient(155deg,#f5eff9,#eee8f6); }
+.safe-spots-page .safe-story-card.is-walk { background:linear-gradient(155deg,#eef6ef,#d6e8d6); }
+.safe-spots-page .safe-story-icon,.safe-spots-page .safe-story-avatar {
+  display:grid;
+  width:36px;
+  height:36px;
+  flex:none;
+  place-items:center;
+  overflow:hidden;
+  border:2px solid rgb(255 255 255 / 90%);
+  border-radius:50%;
+  background:rgb(255 255 255 / 72%);
+  color:#4a2472;
+  box-shadow:0 1px 5px rgb(35 20 48 / 12%);
+}
+.safe-spots-page .safe-story-card.is-compose .safe-story-icon { background:rgb(255 255 255 / 16%); color:#fff; }
+.safe-spots-page .safe-story-avatar img { width:100%; height:100%; object-fit:cover; }
+.safe-spots-page .safe-story-avatar i { color:#4a2472; font-size:14px; font-style:normal; font-weight:800; }
+.safe-spots-page .safe-story-copy { display:grid; width:100%; gap:3px; }
+.safe-spots-page .safe-story-copy b,.safe-spots-page .safe-story-copy small {
+  display:-webkit-box;
+  overflow:hidden;
+  overflow-wrap:anywhere;
+  -webkit-box-orient:vertical;
+}
+.safe-spots-page .safe-story-copy b { font-size:10px; font-weight:800; line-height:1.25; -webkit-line-clamp:2; }
+.safe-spots-page .safe-story-copy small { color:#655d59; font-size:9px; line-height:1.25; -webkit-line-clamp:2; }
+.safe-spots-page .safe-story-card.is-compose .safe-story-copy small { color:#f1e8f6; }
+.safe-spots-page .safe-havens-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.safe-spots-page .safe-havens-heading h2 { margin:0; color:var(--safe-ink); font-size:17px; font-weight:850; letter-spacing:-.3px; }
+.safe-spots-page .safe-havens-heading p { margin:4px 0 0; color:var(--safe-muted); font-size:10px; line-height:1.4; }
+.safe-spots-page .safe-havens-heading > span { display:grid; min-width:27px; height:27px; place-items:center; border-radius:50%; background:#eee8f6; color:#4a2472; font-size:10px; font-weight:800; }
+.safe-spots-page .safe-haven-cards { display:grid; gap:12px; }
+.safe-spots-page .safe-haven-card { overflow:hidden; border:1px solid var(--safe-line); border-radius:21px; background:#fff; box-shadow:0 6px 18px rgba(50,24,63,.08); }
+.safe-spots-page .safe-haven-card.is-selected { border-color:rgb(74 36 114 / 35%); box-shadow:0 0 0 2px rgb(74 36 114 / 9%),0 6px 18px rgba(50,24,63,.08); }
+.safe-spots-page .safe-haven-card.is-demo { border-color:#e8ba72; background:#fffdf8; }
+.safe-spots-page .safe-haven-hero { position:relative; display:flex; width:100%; min-height:104px; align-items:flex-start; justify-content:space-between; overflow:hidden; border:0; background:linear-gradient(135deg,#35194f,#6f3a90 60%,#ba79b0); padding:12px; color:#fff; text-align:left; }
+.safe-spots-page .safe-haven-hero.is-green { background:linear-gradient(135deg,#315f47,#669b72 60%,#b5d2a9); }
+.safe-spots-page .safe-haven-card.is-demo .safe-haven-hero { background:linear-gradient(135deg,#78522c,#b4864a 60%,#e0c995); }
+.safe-spots-page .safe-haven-hero-tags { position:relative; z-index:1; display:flex; max-width:calc(100% - 45px); flex-wrap:wrap; gap:6px; }
+.safe-spots-page .safe-haven-hero-tags > span { display:inline-flex; min-height:25px; align-items:center; gap:5px; border:1px solid rgb(255 255 255 / 32%); border-radius:999px; background:rgb(255 255 255 / 17%); padding:0 8px; color:#fff; font-size:9px; font-weight:800; backdrop-filter:blur(8px); }
+.safe-spots-page .safe-haven-hero-mark { position:absolute; right:12px; bottom:-10px; display:grid; width:70px; height:70px; place-items:center; color:rgb(255 255 255 / 28%); }
+.safe-spots-page .safe-haven-hero-chevron { position:relative; z-index:1; flex:none; margin:2px 1px 0 0; color:rgb(255 255 255 / 85%); }
+.safe-spots-page .safe-haven-card-body { display:grid; gap:8px; padding:13px 14px 14px; }
+.safe-spots-page .safe-haven-card-heading { display:flex; min-width:0; align-items:flex-start; gap:8px; }
+.safe-spots-page .safe-haven-card-heading h3 { min-width:0; flex:1; margin:0; color:var(--safe-ink); font-size:15px; font-weight:850; letter-spacing:-.25px; line-height:1.28; }
+.safe-spots-page .safe-haven-card-heading .safe-spot-status { width:auto; height:22px; }
+.safe-spots-page .safe-haven-address { margin:0; color:var(--safe-muted); font-size:11px; line-height:1.45; }
+.safe-spots-page .safe-haven-tags { display:flex; flex-wrap:wrap; gap:6px; }
+.safe-spots-page .safe-haven-tags > span { display:inline-flex; min-height:24px; align-items:center; border-radius:8px; background:#f0eaf6; padding:0 8px; color:#4a2472; font-size:9px; font-weight:750; }
+.safe-spots-page .safe-haven-tags > span:first-child { background:#e7f3e7; color:#356843; }
+.safe-spots-page .safe-haven-demo-note { margin:0; border-radius:9px; background:#fff2da; padding:7px 9px; color:#71451c; font-size:10px; line-height:1.45; }
+.safe-spots-page .safe-haven-card-actions { display:flex; align-items:center; gap:8px; border-top:1px solid var(--safe-line); padding-top:9px; }
+.safe-spots-page .safe-haven-card-actions > button { display:inline-flex; min-height:38px; align-items:center; justify-content:center; border:1px solid var(--safe-line); border-radius:11px; background:#fff; padding:0 11px; color:#4a2472; font-size:10px; font-weight:800; }
+.safe-spots-page .safe-haven-card-actions .safe-directions-link { min-height:38px; margin-left:auto; }
+.safe-spots-page .safe-haven-suggest {
+  border:1px solid rgb(74 36 114 / 14%);
+  border-radius:18px;
+  background:linear-gradient(135deg,#fce9df,#eee8f6);
+  padding:12px;
+}
+.safe-spots-page .safe-haven-suggest > summary {
+  display:flex;
+  min-height:48px;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  color:#29231f;
+  list-style:none;
+  cursor:pointer;
+}
+.safe-spots-page .safe-haven-suggest > summary::-webkit-details-marker { display:none; }
+.safe-spots-page .safe-haven-suggest > summary > span:first-child { display:grid; min-width:0; gap:4px; }
+.safe-spots-page .safe-haven-suggest > summary b { font-size:13px; font-weight:800; }
+.safe-spots-page .safe-haven-suggest > summary small { color:#756d66; font-size:10px; line-height:1.4; }
+.safe-spots-page .safe-haven-suggest-action {
+  display:inline-flex;
+  min-height:36px;
+  flex:none;
+  align-items:center;
+  border-radius:11px;
+  background:#4a2472;
+  padding:0 11px;
+  color:#fff;
+  font-size:11px;
+  font-weight:800;
+}
+.safe-spots-page .safe-haven-suggest-form { padding-top:12px; }
+.safe-spots-page .safe-walks-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.safe-spots-page .safe-walks-heading h2 { margin:0; color:var(--text); font-size:16px; font-weight:800; }
+.safe-spots-page .safe-walks-heading p { margin:4px 0 0; color:var(--muted); font-size:11px; line-height:1.4; }
+.safe-spots-page .safe-walks-heading > span { display:grid; min-width:26px; height:26px; place-items:center; border-radius:50%; background:var(--surface-2); color:var(--text-2); font-size:11px; font-weight:800; }
+.safe-spots-page .safe-walks-list { display:grid; gap:12px; }
+.safe-spots-page .safe-walk-card { display:grid; gap:13px; border:1px solid var(--divider); border-radius:19px; background:var(--surface-1); padding:14px; box-shadow:0 4px 14px rgb(35 20 48 / 7%); }
+.safe-spots-page .safe-walk-card-top,.safe-spots-page .safe-walk-card-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.safe-spots-page .safe-walk-card-top time { color:var(--muted); font-size:10px; font-weight:700; }
+.safe-spots-page .safe-walk-active { display:inline-flex; min-height:26px; align-items:center; gap:6px; border:1px solid rgb(47 112 72 / 15%); border-radius:999px; background:var(--ok-bg); padding:0 9px; color:var(--ok); font-size:10px; font-weight:800; }
+.safe-spots-page .safe-walk-active i { width:7px; height:7px; border-radius:50%; background:currentColor; }
+.safe-spots-page .safe-walk-route { display:flex; min-width:0; align-items:center; gap:10px; border:1px solid rgb(74 36 114 / 10%); border-radius:15px; background:linear-gradient(135deg,#fce9df,#eee8f6); padding:11px; }
+.safe-spots-page .safe-walk-route > span { display:grid; width:38px; height:38px; flex:none; place-items:center; border-radius:13px; background:#fffdf9; color:#4a2472; }
+.safe-spots-page .safe-walk-route > div { display:grid; min-width:0; flex:1; gap:3px; }
+.safe-spots-page .safe-walk-route b { color:#29231f; font-size:12px; }
+.safe-spots-page .safe-walk-route small { color:#756d66; font-size:10px; }
+.safe-spots-page .safe-walk-route > svg:last-child { flex:none; color:#756d66; }
+.safe-spots-page .safe-walk-card-footer > span,.safe-spots-page .safe-walk-card-footer > a { display:inline-flex; min-height:36px; align-items:center; gap:6px; color:var(--text-2); font-size:10px; font-weight:750; }
+.safe-spots-page .safe-walk-card-footer > a { border-radius:10px; background:#4a2472; padding:0 11px; color:#fff; text-decoration:none; }
+.safe-spots-page .safe-alert-spatial-preview {
+  display:flex;
+  width:100%;
+  min-width:0;
+  min-height:58px;
+  align-items:center;
+  gap:10px;
+  border:1px solid rgb(74 36 114 / 12%);
+  border-radius:14px;
+  background:linear-gradient(110deg,#fce9df,#eee8f6);
+  padding:8px 10px;
+  color:#4a2472;
+  text-align:left;
+}
+.safe-spots-page .safe-alert-spatial-icon { display:grid; width:36px; height:36px; flex:none; place-items:center; border-radius:12px; background:#fffdf9; }
+.safe-spots-page .safe-alert-spatial-preview > span:nth-child(2) { display:grid; min-width:0; flex:1; gap:3px; }
+.safe-spots-page .safe-alert-spatial-preview b,.safe-spots-page .safe-alert-spatial-preview small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.safe-spots-page .safe-alert-spatial-preview b { color:#29231f; font-size:11px; }
+.safe-spots-page .safe-alert-spatial-preview small { color:#756d66; font-size:9px; }
+.safe-spots-page .safe-alert-spatial-preview > svg:last-child { flex:none; }

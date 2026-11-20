@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { useAppDialog } from "@/components/AppDialogProvider";
-import { Check, MapPin, MapPinned, Shield, ThumbsUp, Trash2, X } from "lucide-react";
+import { Check, LocateFixed, MapPin, MapPinned, Shield, ThumbsUp, Trash2, X } from "lucide-react";
 import { categoryLabel, meetingFetch, type CommunityAlert } from "@/lib/buddies/meeting/client";
 import type { ReportLocation } from "./CommunityReportMap";
 import { AccountFeedCard } from "@/components/account/AccountList";
@@ -41,8 +41,18 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
   const [kind, setKind] = useState("unsafe_area"); const [detail, setDetail] = useState(""); const [address, setAddress] = useState(""); const [selectedAddressLabel, setSelectedAddressLabel] = useState(""); const [suggestions, setSuggestions] = useState<Place[]>([]); const [lookupMessage, setLookupMessage] = useState(""); const [mapOpen, setMapOpen] = useState(false); const [mapSelection, setMapSelection] = useState<ReportLocation>({ point: null, region: null }); const [reportOpen, setReportOpen] = useState(false); const [category, setCategory] = useState("all");
   useEffect(() => {
     const openComposer = () => setReportOpen(true);
+    const focusReport = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      if (typeof id !== "string") return;
+      setCategory("all");
+      window.setTimeout(() => document.getElementById(`safe-alert-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 40);
+    };
     window.addEventListener("kiki:open-report-composer", openComposer);
-    return () => window.removeEventListener("kiki:open-report-composer", openComposer);
+    window.addEventListener("kiki:focus-community-alert", focusReport);
+    return () => {
+      window.removeEventListener("kiki:open-report-composer", openComposer);
+      window.removeEventListener("kiki:focus-community-alert", focusReport);
+    };
   }, []);
   useEffect(() => {
     if (address.trim().length < 3) { setSuggestions([]); setLookupMessage(""); return; }
@@ -145,20 +155,24 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
       <span className="safe-report-composer-placeholder">Share a safety update…</span>
       <span className="safe-report-composer-action">Post</span>
     </button>
-    <div className="buddy-alert-list safe-alert-list">{filteredAlerts.map((alert) => <AccountFeedCard key={alert.id} className={`buddy-alert-card safe-alert-card${alert.is_demo ? " is-demo" : ""}${alert.kind === "poor_lighting" ? " is-lighting" : alert.kind === "harassment" ? " is-rose" : ""}`}>
+    <div className="buddy-alert-list safe-alert-list">{filteredAlerts.map((alert) => <div className="safe-alert-anchor" id={`safe-alert-${alert.id}`} key={alert.id}><AccountFeedCard className={`buddy-alert-card safe-alert-card${alert.is_demo ? " is-demo" : ""}${alert.kind === "poor_lighting" ? " is-lighting" : alert.kind === "harassment" ? " is-rose" : ""}`}>
       <div className="safe-alert-card-heading">
         <span className="safe-alert-author-avatar"><Shield size={17} aria-hidden="true" /></span>
         <span className="safe-alert-author"><b>Anonymous neighbour</b><small>{alert.location_label ?? "Nearby area"} · <time dateTime={alert.created_at}>{formatReportAge(alert.created_at)}</time></small></span>
         <span className={`safe-alert-kind${alert.kind === "poor_lighting" ? " is-lighting" : ""}`}><i /><span className="safe-alert-kind-copy">{titleCase(alert.kind)}</span></span>
       </div>
       <p>{alert.detail ?? "Community report"}</p>
-      {alert.region && <span className="safe-alert-area-note"><MapPinned size={14} />Area marked on map</span>}
+      <button type="button" className="safe-alert-spatial-preview" onClick={() => onLocationChange({ lat: alert.lat, lng: alert.lng })} aria-label={`Locate report near ${alert.location_label || "this area"} on the map`}>
+        <span className="safe-alert-spatial-icon"><MapPinned size={18} aria-hidden="true" /></span>
+        <span><b>{alert.location_label || "Nearby area"}</b><small>{alert.region ? "Area marked · Tap to view on map" : "Tap to view report on map"}</small></span>
+        <LocateFixed size={17} aria-hidden="true" />
+      </button>
       <div className="safe-alert-card-footer">
         <button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy || alert.is_demo} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.voted ? "Remove confirmation" : "Confirm"}: seen this too, ${alert.upvotes} confirmations`}><ThumbsUp size={16} /><span>Seen this too</span>{alert.upvotes > 0 && <span className="safe-alert-vote-count">{alert.upvotes}</span>}</button>
         {alert.mine && <button type="button" className="safe-alert-delete" disabled={busy} onClick={() => void deleteAlert(alert)} aria-label="Delete your report"><Trash2 size={15} /><span>Delete</span></button>}
         <span className="safe-alert-verification">Unverified</span>
       </div>
-    </AccountFeedCard>)}</div>
+    </AccountFeedCard></div>)}</div>
     {filteredAlerts.length === 0 && <div className="safe-alert-empty"><span><Check size={19} /></span><b>{alerts.length === 0 ? "No reports near you" : "No reports in this category"}</b><p>{alerts.length === 0 ? "Share a local update to help others nearby." : "Try another filter to see more."}</p>{alerts.length === 0 && <button type="button" onClick={() => setReportOpen(true)}>Post an update</button>}</div>}
 
     {typeof document !== "undefined" && reportOpen && createPortal(<div className="safe-report-layer">
