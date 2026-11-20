@@ -84,7 +84,32 @@ export function BuddyDetails() {
     }
   }
 
-  if (loading) return <div className="kiki-setting-page kiki-buddy-detail"><p role="status">Loading buddy details…</p></div>;
+  if (loading) return <div className="kiki-setting-page kiki-buddy-detail" aria-busy="true">
+    <Link className="kiki-buddy-detail-back" href="/account/profile/buddies"><ArrowLeft size={17} /> My Buddies</Link>
+    <header>
+      <span>YOUR BUDDIES</span>
+      <h1>Buddy details</h1>
+      <p>Loading location and shared-trip details…</p>
+    </header>
+    <p className="kiki-buddy-detail-loading-status" role="status"><i aria-hidden="true" /> Loading buddy details</p>
+    <div className="kiki-buddy-detail-skeleton" aria-hidden="true">
+      <div className="kiki-buddy-detail-skeleton-identity">
+        <span className="kiki-buddy-skeleton-circle" />
+        <span className="kiki-buddy-skeleton-copy"><i /><i /></span>
+        <span className="kiki-buddy-skeleton-badge" />
+      </div>
+      <div className="kiki-buddy-detail-skeleton-card">
+        <span className="kiki-buddy-skeleton-line is-short" />
+        <span className="kiki-buddy-skeleton-line" />
+        <span className="kiki-buddy-skeleton-line is-medium" />
+      </div>
+      <div className="kiki-buddy-detail-skeleton-card">
+        <span className="kiki-buddy-skeleton-line is-short" />
+        <span className="kiki-buddy-skeleton-row" />
+        <span className="kiki-buddy-skeleton-row" />
+      </div>
+    </div>
+  </div>;
   if (!data) return <div className="kiki-setting-page kiki-buddy-detail"><Link className="kiki-buddy-detail-back" href="/account/profile/buddies"><ArrowLeft size={17} /> My Buddies</Link><p role="alert">{error || "Buddy details are unavailable."}</p></div>;
 
   const locationUrl = data.location

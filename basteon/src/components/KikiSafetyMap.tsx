@@ -133,11 +133,16 @@ function ReportRiskZones({ points }: { points: SafetyMapPoint[] }) {
   return null;
 }
 
-function MapViewport({ center, zoom, recenter }: { center: SafetyMapPoint | null; zoom: number; recenter: number }) {
+function MapViewport({ center, zoom, recenter, fitPoints }: { center: SafetyMapPoint | null; zoom: number; recenter: number; fitPoints?: SafetyMapPoint[] }) {
   const map = useMap();
   useEffect(() => {
+    if (fitPoints?.length) {
+      const bounds = L.latLngBounds(fitPoints.map((point) => L.latLng(point.lat, point.lng)));
+      map.fitBounds(bounds, { padding: [48, 48], maxZoom: zoom, animate: false });
+      return;
+    }
     if (center && isValidPoint(center)) map.setView([center.lat, center.lng], zoom);
-  }, [center, map, zoom, recenter]);
+  }, [center, fitPoints, map, zoom, recenter]);
   useEffect(() => {
     const element = map.getContainer();
     const observer = new ResizeObserver(() => map.invalidateSize({ animate: false, pan: false }));
@@ -154,6 +159,7 @@ export default function KikiSafetyMap({
   layer = "Street",
   zoom = 13,
   recenter = 0,
+  fitPoints,
   profileImageUrl = null,
   profileLabel = "Kiki",
   userLocationStyle = "avatar",
@@ -165,6 +171,7 @@ export default function KikiSafetyMap({
   layer?: MapBaseLayerName;
   zoom?: number;
   recenter?: number;
+  fitPoints?: SafetyMapPoint[];
   profileImageUrl?: string | null;
   profileLabel?: string;
   userLocationStyle?: "avatar" | "dot";
@@ -200,7 +207,7 @@ export default function KikiSafetyMap({
   return <div className={`kiki-safety-map ${className}`.trim()}>
     <MapContainer center={mapCenter} zoom={safeCenter ? zoom : 5} scrollWheelZoom attributionControl={false} zoomControl={false} className="kiki-safety-map-canvas">
       <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} maxZoom={selectedLayer.maxZoom} />
-      <MapViewport center={safeCenter} zoom={zoom} recenter={recenter} />
+      <MapViewport center={safeCenter} zoom={zoom} recenter={recenter} fitPoints={fitPoints} />
       {safeCenter && <Marker position={mapCenter} icon={userIcon} title={`${profileLabel}'s location`} />}
       <ReportRiskZones points={reports} />
       {validPoints.filter((point) => point.kind === "buddy").map((point, index) => {
@@ -231,8 +238,8 @@ export default function KikiSafetyMap({
         const marker = L.divIcon({
           className: `kiki-safety-point-marker report${categoryClass}`,
           html: `<span class="kiki-safety-point-marker-inner" aria-hidden="true"><span>${markerGlyph}</span></span>`,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
+          iconSize: [50, 50],
+          iconAnchor: [25, 25],
         });
         return <Marker key={point.id ?? `report-${point.lat}-${point.lng}-${index}`} position={[point.lat, point.lng]} icon={marker} title={`${point.category?.replaceAll("_", " ") ?? "Community"} report`} />;
       })}
@@ -241,8 +248,8 @@ export default function KikiSafetyMap({
         const marker = L.divIcon({
           className: "kiki-safety-point-marker spot",
           html: `<span class="kiki-safety-point-marker-inner" aria-hidden="true"><span>${markerGlyph}</span></span>`,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
+          iconSize: [50, 50],
+          iconAnchor: [25, 25],
         });
         return <Marker
           key={point.id ?? `spot-${point.lat}-${point.lng}-${index}`}

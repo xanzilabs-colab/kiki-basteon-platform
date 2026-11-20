@@ -20,7 +20,14 @@ export async function meetingFetch<T>(url: string, body?: object, signal?: Abort
   if (!response.ok && data?.error === "comment_refused" && typeof data.reason === "string") {
     throw new Error(data.noticeSent === false ? `${data.reason} Kiki Guard could not send a notification.` : data.reason);
   }
-  if (!response.ok) throw new Error(errors[data?.error] ?? "Could not load or save Buddy places. Please try again.");
+  if (!response.ok) {
+    const commentUnavailable = response.status === 404
+      && url.includes("/api/buddies/community-alerts/")
+      && url.endsWith("/comments");
+    throw new Error(errors[data?.error] ?? (commentUnavailable
+      ? "This report is no longer available. Refresh Pulse to load current reports."
+      : "Could not load or save Buddy places. Please try again."));
+  }
   return data as T;
 }
 

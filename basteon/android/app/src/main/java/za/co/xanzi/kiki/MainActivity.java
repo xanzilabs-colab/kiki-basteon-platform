@@ -15,6 +15,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(android.os.Bundle savedInstanceState) {
         registerPlugin(KikiTriggerPlugin.class);
         registerPlugin(BasteonBlePlugin.class);
+        registerPlugin(KikiDownloadPlugin.class);
         super.onCreate(savedInstanceState);
         var capacitorBridge = getBridge();
         var offlinePageUrl = capacitorBridge.getErrorUrl();

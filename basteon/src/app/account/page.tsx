@@ -333,7 +333,7 @@ export default function AccountPage() {
   return <><MapScreen
     screenId="account-home"
     className="kiki-map-home"
-    map={<KikiSafetyMap center={mapPoint} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} userLocationStyle="dot" onBuddySelect={(userId) => router.push(`/account/profile/buddies/${userId}`)} />}
+    map={<KikiSafetyMap center={mapPoint ?? buddyLocations[0] ?? null} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} userLocationStyle="dot" onBuddySelect={(userId) => router.push(`/account/profile/buddies/${userId}`)} />}
     topBar={<div className="kiki-explore-hud">
       {activeSos ? <button type="button" className="kiki-explore-circle-link is-alert" onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>
         <span className="kiki-explore-circle-icon"><Siren size={19} aria-hidden="true" /></span>

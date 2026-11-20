@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { useAppDialog } from "@/components/AppDialogProvider";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+import { Directory, Filesystem } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 import { ArrowLeft, Check, Download, MapPin, MapPinned, MessageCircle, Send, Share2, Shield, ThumbsUp, Trash2, X } from "lucide-react";
 import { categoryLabel, meetingFetch, type CommunityAlert } from "@/lib/buddies/meeting/client";
 import { distanceM } from "@/lib/hamba/geometry";
@@ -15,7 +18,9 @@ import { CommunityAlertMapPreview } from "./CommunityAlertMapPreview";
 type Place = { label: string; lat: number; lng: number };
 type CommunityAlertComment = { id: string; body: string; created_at: string; redacted?: boolean; noticeSent?: boolean; eventRecorded?: boolean };
 type SharePayload = { alert: CommunityAlert; image: File; previewUrl: string };
+type KikiDownloadPlugin = { saveImage(options: { fileName: string; data: string }): Promise<{ location: string }> };
 type Props = { alerts: CommunityAlert[]; busy: boolean; initialPoint: { lat: number; lng: number } | null; onBusyChange: (busy: boolean) => void; onAlertsChange: (alerts: CommunityAlert[]) => void; onLocationChange: (point: { lat: number; lng: number } | null) => void; onMessage: (message: string) => void };
+const KikiDownload = registerPlugin<KikiDownloadPlugin>("KikiDownload");
 const CommunityReportMap = dynamic(() => import("./CommunityReportMap"), {
   ssr: false,
   loading: () => <div className="community-report-map-loading">Opening location map…</div>,
@@ -46,6 +51,26 @@ function formatDistance(point: { lat: number; lng: number } | null, alert: Commu
   return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`;
 }
 
+function fileToBase64(file: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read the report image."));
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("Could not read the report image."));
+        return;
+      }
+      const separator = reader.result.indexOf(",");
+      if (separator < 0) {
+        reject(new Error("Could not encode the report image."));
+        return;
+      }
+      resolve(reader.result.slice(separator + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange, onAlertsChange, onLocationChange, onMessage }: Props) {
   const { confirm } = useAppDialog();
   const [kind, setKind] = useState("unsafe_area"); const [detail, setDetail] = useState(""); const [address, setAddress] = useState(""); const [selectedAddressLabel, setSelectedAddressLabel] = useState(""); const [suggestions, setSuggestions] = useState<Place[]>([]); const [lookupMessage, setLookupMessage] = useState(""); const [mapOpen, setMapOpen] = useState(false); const [mapSelection, setMapSelection] = useState<ReportLocation>({ point: null, region: null }); const [reportOpen, setReportOpen] = useState(false); const [category, setCategory] = useState("all");
@@ -56,8 +81,11 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
   const [commentsError, setCommentsError] = useState("");
   const [commentBody, setCommentBody] = useState("");
   const [sharingId, setSharingId] = useState<string | null>(null);
+  const [sharingNative, setSharingNative] = useState(false);
+  const [savingImage, setSavingImage] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareError, setShareError] = useState("");
+  const [shareStatus, setShareStatus] = useState("");
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const shareGeneration = useRef(0);
   useEffect(() => {
@@ -201,6 +229,7 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
     setShareOpen(true);
     setSharePayload(null);
     setShareError("");
+    setShareStatus("");
     try {
       const image = await createCommunityAlertSnapshot(alert, formatDistance(initialPoint, alert));
       if (shareGeneration.current !== generation) return;
@@ -216,10 +245,42 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
     setShareOpen(false);
     setSharePayload(null);
     setShareError("");
+    setShareStatus("");
     setSharingId(null);
   }
-  function shareWithApps() {
-    if (!sharePayload || typeof navigator.share !== "function") return;
+  async function shareWithApps() {
+    if (!sharePayload || sharingNative) return;
+    if (Capacitor.isNativePlatform()) {
+      setSharingNative(true);
+      setShareError("");
+      setShareStatus("");
+      let temporaryPath: string | null = null;
+      try {
+        temporaryPath = `community-reports/${Date.now()}-${sharePayload.image.name}`;
+        const { uri } = await Filesystem.writeFile({
+          path: temporaryPath,
+          data: await fileToBase64(sharePayload.image),
+          directory: Directory.Cache,
+          recursive: true,
+        });
+        await Share.share({
+          files: [uri],
+          title: `Kiki community report: ${titleCase(sharePayload.alert.kind)}`,
+          text: "Community safety update shared from Kiki.",
+          dialogTitle: "Share report",
+        });
+      } catch (error) {
+        setShareError(error instanceof Error ? error.message : "Could not open the system share menu.");
+      } finally {
+        if (temporaryPath) {
+          await Filesystem.deleteFile({ path: temporaryPath, directory: Directory.Cache })
+            .catch((error: unknown) => console.error("Temporary report image could not be removed", error));
+        }
+        setSharingNative(false);
+      }
+      return;
+    }
+    if (typeof navigator.share !== "function") return;
     if (navigator.canShare && !navigator.canShare({ files: [sharePayload.image] })) {
       setShareError("This browser cannot share image files. Download the PNG and attach it in your app.");
       return;
@@ -233,6 +294,34 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
       if (error instanceof DOMException && error.name === "AbortError") return;
       setShareError(error instanceof Error ? error.message : "Could not open the system share menu.");
     });
+  }
+  async function downloadShareImage() {
+    if (!sharePayload || savingImage) return;
+    setSavingImage(true);
+    setShareError("");
+    setShareStatus("");
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const saved = await KikiDownload.saveImage({
+          fileName: sharePayload.image.name,
+          data: await fileToBase64(sharePayload.image),
+        });
+        setShareStatus(`Saved to ${saved.location}.`);
+        return;
+      }
+      const download = document.createElement("a");
+      download.href = sharePayload.previewUrl;
+      download.download = sharePayload.image.name;
+      download.style.display = "none";
+      document.body.append(download);
+      download.click();
+      download.remove();
+      setShareStatus("PNG download started.");
+    } catch (error) {
+      setShareError(error instanceof Error ? error.message : "Could not save the report image.");
+    } finally {
+      setSavingImage(false);
+    }
   }
   async function deleteAlert(alert: CommunityAlert) {
     if (!alert.mine || busy || !(await confirm("Delete your community report? This will remove it for everyone.", {
@@ -262,8 +351,11 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
   }
   const filteredAlerts = alerts.filter((alert) => category === "all" || alert.kind === category);
   const reportCount = `${filteredAlerts.length} ${filteredAlerts.length === 1 ? "report" : "reports"} nearby`;
-  const nativeShareAvailable = Boolean(sharePayload && typeof navigator !== "undefined" && typeof navigator.share === "function"
-    && (!navigator.canShare || navigator.canShare({ files: [sharePayload.image] })));
+  const nativeShareAvailable = Boolean(sharePayload && (
+    (typeof window !== "undefined" && Capacitor.isNativePlatform())
+    || (typeof navigator !== "undefined" && typeof navigator.share === "function"
+      && (!navigator.canShare || navigator.canShare({ files: [sharePayload.image] })))
+  ));
   return <section id="community-alerts" className="safe-alerts-panel">
     <div className="safe-alerts-header"><span>{reportCount}</span></div>
     {alerts.some((alert) => alert.is_demo) && <div className="safe-demo-notice" role="note"><b>Demo data — not real reports.</b> These fictional samples are shown only for demonstration and do not describe actual incidents.</div>}
@@ -296,7 +388,7 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
       <button className="safe-share-backdrop" type="button" aria-label="Close share options" onClick={closeShare} />
       <section className="safe-share-sheet" role="dialog" aria-modal="true" aria-labelledby="safe-share-title">
         <header className="safe-share-header">
-          <div><h2 id="safe-share-title">Share report card</h2><p>Choose an app or save the image to share it.</p></div>
+          <div><h2 id="safe-share-title">Share report</h2><p>Choose an app or save the image to share it.</p></div>
           <button type="button" aria-label="Close share options" onClick={closeShare}><X size={20} /></button>
         </header>
         {sharingId && <p className="safe-share-status" role="status">Preparing the report image…</p>}
@@ -306,9 +398,10 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
           <p>{titleCase(sharePayload.alert.kind)} · {sharePayload.alert.location_label || "Nearby area"}</p>
         </div>}
         <div className="safe-share-actions">
-          {nativeShareAvailable && <button type="button" className="safe-share-native" onClick={shareWithApps}><Share2 size={17} />Share to apps</button>}
-          {sharePayload && <a className="safe-share-download" href={sharePayload.previewUrl} download={sharePayload.image.name}><Download size={17} />Download PNG</a>}
+          {nativeShareAvailable && <button type="button" className="safe-share-native" disabled={sharingNative} onClick={() => void shareWithApps()}><Share2 size={17} />{sharingNative ? "Opening…" : "Share to apps"}</button>}
+          {sharePayload && <button type="button" className="safe-share-download" disabled={savingImage} onClick={() => void downloadShareImage()}><Download size={17} />{savingImage ? "Saving…" : "Download PNG"}</button>}
         </div>
+        {shareStatus && <p className="safe-share-status" role="status">{shareStatus}</p>}
         {sharePayload && !nativeShareAvailable && <p className="safe-share-hint">Your browser doesn’t offer file sharing here. Download the PNG and attach it in WhatsApp, Instagram, Bluetooth, or another app.</p>}
       </section>
     </div>, document.body)}

@@ -8807,9 +8807,9 @@ body:has(.account-shell:not([data-theme="dark"])) {
 
 .safe-share-preview img {
   display: block;
-  width: auto;
-  max-width: 100%;
-  max-height: 38dvh;
+  width: 100%;
+  max-width: 360px;
+  max-height: 60dvh;
   border-radius: 12px;
   object-fit: contain;
 }
@@ -8838,7 +8838,8 @@ body:has(.account-shell:not([data-theme="dark"])) {
   text-decoration: none;
 }
 
-.safe-share-actions > a {
+.safe-share-actions > a,
+.safe-share-actions > .safe-share-download {
   background: #eee8f6;
   color: #4a2472;
 }
@@ -8952,5 +8953,208 @@ body:has(.account-shell:not([data-theme="dark"])) {
     min-width: 16px;
     height: 16px;
     font-size: 9px;
+  }
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker-inner,
+.account-shell .safe-spots-page .kiki-safety-point-marker-inner {
+  isolation: isolate;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  border: 2px solid rgb(255 255 255 / 96%);
+  border-radius: 50% 50% 50% 9px;
+  background: linear-gradient(145deg, rgb(255 255 255 / 40%), transparent 48%), #b4233d;
+  box-shadow: 0 5px 12px rgb(26 18 34 / 34%), inset 0 2px 3px rgb(255 255 255 / 42%), inset 0 -3px 5px rgb(28 12 30 / 24%);
+  text-shadow: 0 1px 2px rgb(31 18 38 / 40%);
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker-inner::before,
+.account-shell .safe-spots-page .kiki-safety-point-marker-inner::before {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  left: 7px;
+  width: 57%;
+  height: 25%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 82%), rgb(255 255 255 / 5%));
+  content: "";
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker-inner > span,
+.account-shell .safe-spots-page .kiki-safety-point-marker-inner > span {
+  position: relative;
+  z-index: 1;
+  transform: rotate(45deg);
+  color: #fff;
+  font-weight: 850;
+  text-shadow: 0 1px 2px rgb(31 18 38 / 48%);
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker.spot .kiki-safety-point-marker-inner,
+.account-shell .safe-spots-page .kiki-safety-point-marker.spot .kiki-safety-point-marker-inner {
+  background: linear-gradient(145deg, rgb(255 255 255 / 48%), transparent 48%), linear-gradient(145deg, #63a774, #286542 75%, #204a31);
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker.report.kind-unsafe_area .kiki-safety-point-marker-inner,
+.account-shell .safe-spots-page .kiki-safety-point-marker.report.kind-unsafe_area .kiki-safety-point-marker-inner,
+.account-shell .kiki-safety-map .kiki-safety-point-marker.report.kind-harassment .kiki-safety-point-marker-inner,
+.account-shell .safe-spots-page .kiki-safety-point-marker.report.kind-harassment .kiki-safety-point-marker-inner {
+  background: linear-gradient(145deg, rgb(255 255 255 / 42%), transparent 48%), linear-gradient(145deg, #f16f87, #a91f42 76%, #741b37);
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker.report.kind-poor_lighting .kiki-safety-point-marker-inner,
+.account-shell .safe-spots-page .kiki-safety-point-marker.report.kind-poor_lighting .kiki-safety-point-marker-inner {
+  background: linear-gradient(145deg, rgb(255 255 255 / 48%), transparent 48%), linear-gradient(145deg, #f2c56b, #b7791f 76%, #805314);
+}
+
+.account-shell .kiki-safety-map .kiki-safety-point-marker.report.kind-road_hazard .kiki-safety-point-marker-inner,
+.account-shell .safe-spots-page .kiki-safety-point-marker.report.kind-road_hazard .kiki-safety-point-marker-inner {
+  background: linear-gradient(145deg, rgb(255 255 255 / 48%), transparent 48%), linear-gradient(145deg, #ffae75, #c65d2e 76%, #8f3c21);
+}
+
+.account-shell .kiki-safety-point-marker.buddy .kiki-buddy-map-avatar {
+  position: relative;
+  isolation: isolate;
+  border: 3px solid rgb(255 255 255 / 98%);
+  background: linear-gradient(145deg, #fff, #eee8f6 55%, #cbb8df);
+  box-shadow: 0 6px 15px rgb(26 18 34 / 32%), inset 0 2px 3px rgb(255 255 255 / 65%);
+}
+
+.account-shell .kiki-safety-point-marker.buddy .kiki-buddy-map-avatar::after {
+  position: absolute;
+  z-index: 1;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(145deg, rgb(255 255 255 / 58%), rgb(255 255 255 / 8%) 38%, transparent 63%);
+  content: "";
+  pointer-events: none;
+}
+
+.kiki-buddy-detail-loading-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #756d66 !important;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.kiki-buddy-detail-loading-status > i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ec7aae;
+  box-shadow: 0 0 0 4px rgb(236 122 174 / 16%);
+}
+
+.kiki-buddy-detail-skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.kiki-buddy-detail-skeleton-identity,
+.kiki-buddy-detail-skeleton-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #eee8f6;
+  border-radius: 20px;
+  background: #fffdf9;
+  padding: 14px;
+  box-shadow: 0 4px 14px rgb(35 20 48 / 5%);
+}
+
+.kiki-buddy-detail-skeleton-identity {
+  min-height: 88px;
+}
+
+.kiki-buddy-skeleton-circle,
+.kiki-buddy-skeleton-copy > i,
+.kiki-buddy-skeleton-badge,
+.kiki-buddy-skeleton-line,
+.kiki-buddy-skeleton-row {
+  display: block;
+  flex: none;
+  overflow: hidden;
+  background: linear-gradient(100deg, #eee8f6 20%, #faf6fc 42%, #eee8f6 64%);
+  background-size: 220% 100%;
+  animation: kiki-buddy-shimmer 1.6s ease-in-out infinite;
+}
+
+.kiki-buddy-skeleton-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+}
+
+.kiki-buddy-skeleton-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 8px;
+}
+
+.kiki-buddy-skeleton-copy > i {
+  width: min(220px, 85%);
+  height: 12px;
+  border-radius: 99px;
+}
+
+.kiki-buddy-skeleton-copy > i + i {
+  width: min(145px, 62%);
+  height: 9px;
+}
+
+.kiki-buddy-skeleton-badge {
+  width: 72px;
+  height: 24px;
+  border-radius: 99px;
+}
+
+.kiki-buddy-detail-skeleton-card {
+  display: grid;
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+}
+
+.kiki-buddy-skeleton-line {
+  width: 100%;
+  height: 11px;
+  border-radius: 99px;
+}
+
+.kiki-buddy-skeleton-line.is-short {
+  width: 38%;
+  height: 15px;
+}
+
+.kiki-buddy-skeleton-line.is-medium {
+  width: 72%;
+}
+
+.kiki-buddy-skeleton-row {
+  width: 100%;
+  height: 38px;
+  border-radius: 12px;
+}
+
+@keyframes kiki-buddy-shimmer {
+  to { background-position: -220% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kiki-buddy-skeleton-circle,
+  .kiki-buddy-skeleton-copy > i,
+  .kiki-buddy-skeleton-badge,
+  .kiki-buddy-skeleton-line,
+  .kiki-buddy-skeleton-row {
+    animation: none;
   }
 }

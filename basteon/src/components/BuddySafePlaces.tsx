@@ -109,16 +109,27 @@ export function BuddySafePlaces() {
     [category, places],
   );
   const activeAlerts = alerts;
+  const buddyMapPoints = useMemo<SafetyMapPoint[]>(
+    () => buddyLocations.map((buddy) => ({
+      id: buddy.id,
+      lat: buddy.lat,
+      lng: buddy.lng,
+      kind: "buddy",
+      name: buddy.name,
+      avatarUrl: buddy.avatarUrl,
+    })),
+    [buddyLocations],
+  );
   const mapPoints = useMemo<SafetyMapPoint[]>(() => {
     const allPoints: SafetyMapPoint[] = [
-    ...buddyLocations.map((buddy) => ({ id: buddy.id, lat: buddy.lat, lng: buddy.lng, kind: "buddy" as const, name: buddy.name, avatarUrl: buddy.avatarUrl })),
-    ...filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot" as const, category: spot.category })),
-    ...activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report" as const, category: alert.kind, createdAt: alert.created_at, upvotes: alert.upvotes })),
+      ...buddyMapPoints,
+      ...filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot" as const, category: spot.category })),
+      ...activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report" as const, category: alert.kind, createdAt: alert.created_at, upvotes: alert.upvotes })),
     ];
     if (mapFilter === "all") return allPoints;
     const kind = { buddies: "buddy", spots: "spot", reports: "report" }[mapFilter];
     return allPoints.filter((mapPoint) => mapPoint.kind === kind);
-  }, [activeAlerts, buddyLocations, filteredPlaces, mapFilter]);
+  }, [activeAlerts, buddyMapPoints, filteredPlaces, mapFilter]);
   const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
   const topBarCount = tab === "spots"
     ? `${filteredPlaces.length} ${filteredPlaces.length === 1 ? "spot" : "spots"} nearby`
@@ -248,7 +259,7 @@ export function BuddySafePlaces() {
   return <MapScreen
     screenId="safe-spots"
     className="buddy-places buddies-page safe-spots-page"
-    map={<KikiSafetyMap center={point} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} userLocationStyle="dot" onBuddySelect={(userId) => { window.location.href = `/account/profile/buddies/${userId}`; }} />}
+    map={<KikiSafetyMap center={point ?? buddyLocations[0] ?? null} points={mapPoints} fitPoints={mapFilter === "buddies" ? buddyMapPoints : undefined} zoom={14} layer={currentMapLayer} recenter={mapRecenter} userLocationStyle="dot" onBuddySelect={(userId) => { window.location.href = `/account/profile/buddies/${userId}`; }} />}
     topBar={<div className="safe-spots-map-actions">
       <Link href="/account/profile/buddies" className="safe-map-buddy-circle">
         <span className="safe-map-buddy-avatars" aria-hidden="true">
@@ -267,7 +278,7 @@ export function BuddySafePlaces() {
     controls={<div className="safe-map-controls" data-map-ui="hide">
       <div className="safe-map-filter-strip" role="group" aria-label="Map layers">
         <button type="button" aria-pressed={mapFilter === "all"} onClick={() => setMapFilter("all")}>All</button>
-        <button type="button" aria-pressed={mapFilter === "buddies"} onClick={() => setMapFilter("buddies")}><UsersRound size={14} />Buddies</button>
+        <button type="button" aria-pressed={mapFilter === "buddies"} onClick={() => { setMapFilter("buddies"); setMapRecenter((value) => value + 1); }}><UsersRound size={14} />Buddies</button>
         <button type="button" aria-pressed={mapFilter === "spots"} onClick={() => setMapFilter("spots")}><ShieldCheck size={14} />Safe Havens</button>
         <button type="button" aria-pressed={mapFilter === "reports"} onClick={() => setMapFilter("reports")}><AlertTriangle size={14} />Reports</button>
       </div>
@@ -278,7 +289,7 @@ export function BuddySafePlaces() {
         <small className="safe-risk-disclaimer">No reports does not confirm an area is safe.</small>
       </div>}
     </div>}
-    tools={<button type="button" className="safe-map-compose" onClick={() => window.dispatchEvent(new Event("kiki:open-report-composer"))}><Plus size={16} />Report / Check-in</button>}
+    tools={<button type="button" className="safe-map-compose" onClick={() => window.dispatchEvent(new Event("kiki:open-report-composer"))}><Plus size={16} />Report</button>}
     onRecenter={() => point ? setMapRecenter((value) => value + 1) : void search()}
     selectedLayer={currentMapLayer}
     onLayerChange={(layer) => setMapLayerIndex(MAP_BASE_LAYERS.findIndex((item) => item.name === layer))}
