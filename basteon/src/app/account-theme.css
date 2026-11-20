@@ -9878,7 +9878,7 @@ body:has(.account-shell:not([data-theme="dark"])) {
   gap: 12px;
   margin: 0 auto;
   border-radius: 20px;
-  background: #f1f3f5;
+  background: #fafbfc;
   padding: 8px;
   color: #29231f;
 }
@@ -9890,7 +9890,7 @@ body:has(.account-shell:not([data-theme="dark"])) {
 }
 
 .account-shell main:has(.kiki-communities-page) {
-  background: var(--bg) !important;
+  background: #f8fafc !important;
 }
 
 .account-shell .kiki-community-stories {
