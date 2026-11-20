@@ -10523,8 +10523,8 @@ body:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
 .account-shell .kiki-community-search {
   display: flex;
   width: 100% !important;
-  height: 68px !important;
-  min-height: 68px !important;
+  height: 76px !important;
+  min-height: 76px !important;
   align-items: center;
   gap: 14px;
   border: 1px solid #d1d5db;
@@ -10539,14 +10539,14 @@ body:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
   flex: 1;
   width: 100% !important;
   min-width: 0;
-  height: 48px !important;
-  min-height: 48px !important;
+  height: 60px !important;
+  min-height: 60px !important;
   border: 0;
   outline: 0;
   background: transparent;
   color: #29231f;
   font: inherit;
-  font-size: 17px !important;
+  font-size: 18px !important;
 }
 
 .kiki-community-search:focus-within {
