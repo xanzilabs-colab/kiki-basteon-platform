@@ -285,9 +285,9 @@ export function BuddySafePlaces() {
     bottomSheet={<MapBottomSheet level={sheetLevel} onLevelChange={setSheetLevel} label="Safe spots and community reports">
     <div className="safe-spots-sheet-body">
       <div className="safe-spots-tabs account-segmented" role="tablist" aria-label="Safe spots and reports">
-      <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} />Pulse<span>{activeAlerts.length || ""}</span></button>
-      <button id="safe-tab-spots" type="button" role="tab" aria-selected={tab === "spots"} aria-controls="safe-panel-spots" onClick={() => setTab("spots")}><ShieldCheck size={16} />Safe Havens<span>{places.length || ""}</span></button>
-      <button id="safe-tab-meetings" type="button" role="tab" aria-selected={tab === "meetings"} aria-controls="safe-panel-meetings" onClick={() => setTab("meetings")}><Handshake size={16} />Walks<span>{bubbles.length || ""}</span></button>
+      <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} /><span className="safe-spots-tab-label">Pulse</span><span className="safe-spots-tab-count">{activeAlerts.length || ""}</span></button>
+      <button id="safe-tab-spots" type="button" role="tab" aria-selected={tab === "spots"} aria-controls="safe-panel-spots" onClick={() => setTab("spots")}><ShieldCheck size={16} /><span className="safe-spots-tab-label">Safe Havens</span><span className="safe-spots-tab-count">{places.length || ""}</span></button>
+      <button id="safe-tab-meetings" type="button" role="tab" aria-selected={tab === "meetings"} aria-controls="safe-panel-meetings" onClick={() => setTab("meetings")}><Handshake size={16} /><span className="safe-spots-tab-label">Walks</span><span className="safe-spots-tab-count">{bubbles.length || ""}</span></button>
     </div>
 
     <section id="safe-panel-spots" role="tabpanel" aria-labelledby="safe-tab-spots" hidden={tab !== "spots"} className="safe-spots-tab-panel">
