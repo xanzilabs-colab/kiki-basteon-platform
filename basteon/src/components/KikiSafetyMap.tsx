@@ -10,10 +10,12 @@ export type SafetyMapPoint = {
   lat: number;
   lng: number;
   id?: string;
-  kind?: "spot" | "report";
+  kind?: "spot" | "report" | "buddy";
   category?: string;
   createdAt?: string;
   upvotes?: number;
+  name?: string;
+  avatarUrl?: string | null;
 };
 
 const spotGlyphs: Record<string, string> = {
@@ -155,6 +157,7 @@ export default function KikiSafetyMap({
   profileImageUrl = null,
   profileLabel = "Kiki",
   userLocationStyle = "avatar",
+  onBuddySelect,
   className = "",
 }: {
   center: SafetyMapPoint | null;
@@ -165,6 +168,7 @@ export default function KikiSafetyMap({
   profileImageUrl?: string | null;
   profileLabel?: string;
   userLocationStyle?: "avatar" | "dot";
+  onBuddySelect?: (userId: string) => void;
   className?: string;
 }) {
   const selectedLayer = useMemo(() => MAP_BASE_LAYERS.find((item) => item.name === layer) ?? MAP_BASE_LAYERS[0], [layer]);
@@ -199,6 +203,26 @@ export default function KikiSafetyMap({
       <MapViewport center={safeCenter} zoom={zoom} recenter={recenter} />
       {safeCenter && <Marker position={mapCenter} icon={userIcon} title={`${profileLabel}'s location`} />}
       <ReportRiskZones points={reports} />
+      {validPoints.filter((point) => point.kind === "buddy").map((point, index) => {
+        const imageUrl = safeImageSource(point.avatarUrl);
+        const initials = escapeHtml(point.name?.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase() || "?");
+        const content = imageUrl
+          ? `<img src="${imageUrl}" alt="" />`
+          : `<span aria-hidden="true">${initials}</span>`;
+        const marker = L.divIcon({
+          className: "kiki-safety-point-marker buddy",
+          html: `<span class="kiki-buddy-map-avatar">${content}</span>`,
+          iconSize: [50, 50],
+          iconAnchor: [25, 25],
+        });
+        return <Marker
+          key={point.id ?? `buddy-${point.lat}-${point.lng}-${index}`}
+          position={[point.lat, point.lng]}
+          icon={marker}
+          title={`${point.name ?? "Buddy"} shared their live location`}
+          eventHandlers={point.id && onBuddySelect ? { click: () => onBuddySelect(point.id!) } : undefined}
+        />;
+      })}
       {reports.map((point, index) => {
         const markerGlyph = reportGlyphs[point.category ?? ""] ?? "!";
         const categoryClass = ["unsafe_area", "poor_lighting", "harassment", "road_hazard"].includes(point.category ?? "")

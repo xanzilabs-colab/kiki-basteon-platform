@@ -40,6 +40,11 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
   const { confirm } = useAppDialog();
   const [kind, setKind] = useState("unsafe_area"); const [detail, setDetail] = useState(""); const [address, setAddress] = useState(""); const [selectedAddressLabel, setSelectedAddressLabel] = useState(""); const [suggestions, setSuggestions] = useState<Place[]>([]); const [lookupMessage, setLookupMessage] = useState(""); const [mapOpen, setMapOpen] = useState(false); const [mapSelection, setMapSelection] = useState<ReportLocation>({ point: null, region: null }); const [reportOpen, setReportOpen] = useState(false); const [category, setCategory] = useState("all");
   useEffect(() => {
+    const openComposer = () => setReportOpen(true);
+    window.addEventListener("kiki:open-report-composer", openComposer);
+    return () => window.removeEventListener("kiki:open-report-composer", openComposer);
+  }, []);
+  useEffect(() => {
     if (address.trim().length < 3) { setSuggestions([]); setLookupMessage(""); return; }
     const controller = new AbortController();
     const timer = window.setTimeout(() => {

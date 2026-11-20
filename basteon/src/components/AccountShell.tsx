@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Flower2, Gamepad2, HeartPulse, Map, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Users, Volume2, X } from "lucide-react";
+import { BookOpen, Flower2, Gamepad2, HeartPulse, House, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Users, Volume2, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
@@ -18,7 +18,7 @@ import type { SosType } from "@/lib/sos/sosGesture";
 import { enqueueSos, flushSosOutbox, removeQueuedSos, type SosRequest } from "@/lib/sos/outbox";
 
 const links = [
-  { href: "/account", label: "Home", icon: Map },
+  { href: "/account", label: "Home", icon: House },
   { href: "/account/devices", label: "Devices", icon: Smartphone },
   { href: "/account/profile", label: "Account", icon: UserRound },
 ];

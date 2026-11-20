@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Copy, UserMinus, UserPlus, UserRoundX, Users } from "lucide-react";
+import Link from "next/link";
+import { Check, Copy, MapPin, UserMinus, UserPlus, UserRoundX, Users } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
 
@@ -272,6 +273,7 @@ export function BuddyManager() {
               <li key={buddy.id}>
                 <BuddyIdentity buddy={buddy} />
                 <div className="kiki-buddy-actions">
+                  <Link className="btn" href={`/account/profile/buddies/${buddy.id}`}><MapPin size={15} />Details</Link>
                   <button type="button" className="btn" disabled={busy === buddy.id} onClick={() => void relationshipAction(buddy.id, "remove")}><UserMinus size={15} />Remove</button>
                   <button type="button" className="btn kiki-buddy-danger" disabled={busy === buddy.id} onClick={() => void relationshipAction(buddy.id, "block")}><UserRoundX size={15} />Block</button>
                 </div>

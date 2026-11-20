@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ChevronRight,
@@ -33,6 +34,7 @@ type TripActivity = {
   ended_at: string | null;
 };
 type BuddyActivity = { active: boolean; visible?: boolean; alias?: string; expiresAt?: string };
+type BuddyMapLocation = { id: string; name: string; avatarUrl: string | null; lat: number; lng: number; recordedAt: string };
 type DeviceStatus = { active: boolean; last_seen_at: string | null };
 type ReadinessData = {
   profileComplete: boolean;
@@ -55,7 +57,15 @@ function formatTripDate(value: string) {
     : date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+function activeAlertStatus(alert: ActiveSos) {
+  if (alert.onScene > 0) return "Responder on scene";
+  if (alert.enRoute > 0) return `${alert.enRoute} responder${alert.enRoute === 1 ? "" : "s"} en route`;
+  if (alert.acknowledged > 0) return "Help acknowledged";
+  return "Waiting for a responder";
+}
+
 export default function AccountPage() {
+  const router = useRouter();
   const [trips, setTrips] = useState<{ trip: TripActivity | null; recent: TripActivity[] } | null>(null);
   const [tripError, setTripError] = useState(false);
   const [buddy, setBuddy] = useState<BuddyActivity | null>(null);
@@ -68,6 +78,9 @@ export default function AccountPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeSos, setActiveSos] = useState<ActiveSos | null>(null);
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [buddyLocations, setBuddyLocations] = useState<BuddyMapLocation[]>([]);
+  const [canShareBuddyLocation, setCanShareBuddyLocation] = useState(false);
+  const [buddyLocationError, setBuddyLocationError] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(0);
   const [mapLayerIndex, setMapLayerIndex] = useState(0);
@@ -78,7 +91,16 @@ export default function AccountPage() {
   const [communityError, setCommunityError] = useState("");
   const { allowed, reason: eligibility } = useLocationEligibility();
   const refreshNearbyRef = useRef<() => void>(() => {});
+  const lastBuddyLocationPublish = useRef(0);
   const mapPoints = useMemo<SafetyMapPoint[]>(() => [
+    ...buddyLocations.map((location) => ({
+      id: location.id,
+      lat: location.lat,
+      lng: location.lng,
+      kind: "buddy" as const,
+      name: location.name,
+      avatarUrl: location.avatarUrl,
+    })),
     ...communityReports.map((report) => ({
       id: report.id,
       lat: report.lat,
@@ -89,7 +111,36 @@ export default function AccountPage() {
       upvotes: report.upvotes,
     })),
     ...safeHavens.map((place) => ({ id: place.id, lat: place.lat, lng: place.lng, kind: "spot" as const, category: place.category })),
-  ], [communityReports, safeHavens]);
+  ], [buddyLocations, communityReports, safeHavens]);
+
+  useEffect(() => {
+    let active = true;
+    const loadBuddyLocations = async () => {
+      try {
+        const response = await fetch("/api/account/buddies/locations", { cache: "no-store" });
+        if (!response.ok) throw new Error("Buddy locations could not be loaded.");
+        const data = await response.json() as { locations?: BuddyMapLocation[]; canShareMyLocation?: boolean };
+        if (active) {
+          setBuddyLocations(data.locations ?? []);
+          setCanShareBuddyLocation(Boolean(data.canShareMyLocation));
+          setBuddyLocationError(false);
+        }
+      } catch {
+        if (active) setBuddyLocationError(true);
+      }
+    };
+    void loadBuddyLocations();
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") void loadBuddyLocations();
+    };
+    const timer = window.setInterval(refreshVisible, 30_000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -116,15 +167,27 @@ export default function AccountPage() {
         .catch(() => { if (!cancelled && sequence === requestSequence) setNearbyError(true); });
     };
     const refresh = () => {
+      if (document.visibilityState !== "visible") return;
       if (eligibility === "loading") return;
       const sequence = ++requestSequence;
       // Nearby responders need the Live Location Sharing setting as well as the browser permission.
-      if (!allowed) { setLocationDenied(true); return load(sequence); }
+      if (!allowed) { setMapPoint(null); setLocationDenied(true); return load(sequence); }
       void getCurrentLocation({ timeout: 8_000, maximumAge: 30_000 }).then(
         (position) => {
           if (cancelled || sequence !== requestSequence) return;
           setMapPoint({ lat: position.lat, lng: position.lng });
           setLocationDenied(false);
+          if (canShareBuddyLocation && document.visibilityState === "visible"
+            && Date.now() - lastBuddyLocationPublish.current >= 30_000) {
+            lastBuddyLocationPublish.current = Date.now();
+            void fetch("/api/account/buddies/locations", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ lat: position.lat, lng: position.lng, accuracyM: position.accuracy }),
+            }).then((response) => {
+              if (!response.ok) throw new Error("Buddy location could not be shared.");
+            }).catch(() => setBuddyLocationError(true));
+          }
           load(sequence, { lat: position.lat, lng: position.lng });
         },
       ).catch(() => {
@@ -160,7 +223,7 @@ export default function AccountPage() {
       document.removeEventListener("visibilitychange", refreshOnFocus);
       void presenceClient.removeChannel(presenceChannel);
     };
-  }, [allowed, eligibility]);
+  }, [allowed, canShareBuddyLocation, eligibility]);
 
   useEffect(() => {
     if (!mapPoint) return;
@@ -254,10 +317,10 @@ export default function AccountPage() {
   }, []);
 
   const activeTrip = trips?.trip ?? null;
-  const mapPeekSubtitle = activeTrip
-    ? `Trip active · ${activeTrip.destination_label}`
-    : activeSos
-      ? `Active ${activeSos.type === "medical" ? "medical alert" : "SOS"}`
+  const mapPeekSubtitle = activeSos
+    ? `${activeSos.type === "medical" ? "Medical alert" : "SOS"} · ${activeAlertStatus(activeSos)}`
+    : activeTrip
+      ? `Trip active · ${activeTrip.destination_label}`
       : buddy?.active
         ? buddy.visible ? "Buddy walk active" : "Buddy walk active · hidden"
         : readinessError
@@ -270,17 +333,25 @@ export default function AccountPage() {
   return <><MapScreen
     screenId="account-home"
     className="kiki-map-home"
-    map={<KikiSafetyMap center={mapPoint} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} userLocationStyle="dot" />}
+    map={<KikiSafetyMap center={mapPoint} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} userLocationStyle="dot" onBuddySelect={(userId) => router.push(`/account/profile/buddies/${userId}`)} />}
     topBar={<div className="kiki-explore-hud">
-      <Link href="/account/guardians" className="kiki-explore-circle-link">
-        <span className="kiki-explore-circle-icon"><UsersRound size={19} aria-hidden="true" /></span>
-        <span><strong>Guardian Circle</strong><small>{activeTrip ? "Your walk is active" : buddy?.active ? "Buddy walk active" : "Your trusted people"}</small></span>
+      {activeSos ? <button type="button" className="kiki-explore-circle-link is-alert" onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>
+        <span className="kiki-explore-circle-icon"><Siren size={19} aria-hidden="true" /></span>
+        <span><strong>Active {activeSos.type === "medical" ? "medical alert" : "SOS"}</strong><small>{activeAlertStatus(activeSos)}</small></span>
         <ChevronRight size={17} aria-hidden="true" />
-      </Link>
-      <span className={`kiki-explore-status${communityReports.length ? " has-reports" : ""}`}>
-        {communityLoading ? "Updating nearby" : communityError ? "Community unavailable" : communityReports.length ? reportCountLabel : "No reports nearby"}
+      </button> : activeTrip ? <Link href="/account/trips" className="kiki-explore-circle-link">
+        <span className="kiki-explore-circle-icon"><Route size={19} aria-hidden="true" /></span>
+        <span><strong>Active Route Watch</strong><small>{activeTrip.destination_label}</small></span>
+        <ChevronRight size={17} aria-hidden="true" />
+      </Link> : <Link href="/account/profile/buddies" className="kiki-explore-circle-link">
+        <span className="kiki-explore-circle-icon"><UsersRound size={19} aria-hidden="true" /></span>
+        <span><strong>My Buddies</strong><small>{buddyLocationError ? "Location sharing unavailable" : `${buddyLocations.length} sharing live location`}</small></span>
+        <ChevronRight size={17} aria-hidden="true" />
+      </Link>}
+      <span className={`kiki-explore-status${activeSos ? " is-alert" : communityReports.length ? " has-reports" : ""}`} title={activeSos ? activeAlertStatus(activeSos) : undefined}>
+        {activeSos ? activeAlertStatus(activeSos) : communityLoading ? "Updating nearby" : communityError ? "Community unavailable" : communityReports.length ? reportCountLabel : "No reports nearby"}
       </span>
-      <NotificationBell />
+      <NotificationBell mapOverlay />
     </div>}
     controls={<div className="kiki-map-actions" aria-label="Map shortcuts" data-map-ui="hide">
       <Link href="/account/buddies/safe-places?tab=spots" aria-label="Safe spots" title="Safe spots"><MapPin size={20} /></Link>

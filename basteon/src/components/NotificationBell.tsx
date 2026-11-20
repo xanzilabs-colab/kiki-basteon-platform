@@ -2,6 +2,7 @@
 
 import { Bell, CheckCheck, Gamepad2, Handshake, Route } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useServerNow } from "@/hooks/useServerNow";
@@ -11,7 +12,7 @@ type NotificationItem = { id: string; type: string; title: string; body: string;
 
 const POLL_MS = 30_000;
 
-export function NotificationBell() {
+export function NotificationBell({ mapOverlay = false }: { mapOverlay?: boolean }) {
   const router = useRouter();
   const serverNow = useServerNow();
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -22,6 +23,7 @@ export function NotificationBell() {
   const known = useRef<Set<string> | null>(null);
   const audio = useRef<AudioContext | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
   const playAlert = useCallback(() => {
     navigator.vibrate?.(120);
@@ -88,7 +90,10 @@ export function NotificationBell() {
 
   useEffect(() => {
     if (!open) return;
-    const onPointer =  (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
+    const onPointer =  (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!root.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
+    };
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -152,14 +157,8 @@ export function NotificationBell() {
     }
   }
 
-  return (
-    <div className="account-notifications" ref={root}>
-      <button className="account-header-action" title="Notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} aria-haspopup="dialog" aria-expanded={open} onClick={() => { if (!open) void load(); setOpen(!open); }}>
-        <Bell size={17} />
-        {unread > 0 && <b className="account-notification-count" aria-hidden="true">{unread > 9 ? "9+" : unread}</b>}
-      </button>
-      {open && (
-        <section className="account-notification-panel" role="dialog" aria-label="Notifications">
+  const panel = open && (
+        <section ref={panelRef} className={`account-notification-panel${mapOverlay ? " is-map-overlay" : ""}`} role="dialog" aria-label="Notifications">
           <header>
             <h2>Notifications</h2>
             {unread > 0 && <button type="button" onClick={markAll}><CheckCheck size={14} />Mark all read</button>}
@@ -194,7 +193,15 @@ export function NotificationBell() {
           )}
           {ackError && <p className="account-notification-error" role="alert">{ackError}</p>}
         </section>
-      )}
+  );
+
+  return (
+    <div className="account-notifications" ref={root}>
+      <button className="account-header-action" title="Notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} aria-haspopup="dialog" aria-expanded={open} onClick={() => { if (!open) void load(); setOpen(!open); }}>
+        <Bell size={17} />
+        {unread > 0 && <b className="account-notification-count" aria-hidden="true">{unread > 9 ? "9+" : unread}</b>}
+      </button>
+      {mapOverlay && typeof document !== "undefined" ? panel && createPortal(panel, document.body) : panel}
     </div>
   );
 }

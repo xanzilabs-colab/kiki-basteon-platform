@@ -7530,3 +7530,232 @@ body:has(.account-shell:not([data-theme="dark"])) {
     transition: none;
   }
 }
+
+.account-shell .kiki-explore-hud .kiki-explore-circle-link:is(a, button) {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.account-shell .kiki-explore-hud .kiki-explore-circle-link.is-alert .kiki-explore-circle-icon {
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell .kiki-explore-status {
+  min-width: 0;
+  max-width: 152px;
+  flex: 0 1 152px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-shell .kiki-explore-status.is-alert {
+  background: var(--crit-bg);
+  color: var(--crit);
+}
+
+.account-shell .kiki-safety-point-marker.buddy {
+  z-index: 450 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.account-shell .kiki-buddy-map-avatar {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 3px 12px rgb(34 23 43 / 30%);
+}
+
+.account-shell .kiki-buddy-map-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 390px) {
+  .account-shell .kiki-explore-status {
+    max-width: 82px;
+    flex-basis: 82px;
+  }
+}
+
+.account-shell .safe-spots-page .safe-spots-map-actions {
+  min-width: 0;
+  gap: 7px;
+}
+
+.account-shell .safe-spots-page .safe-map-buddy-circle {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.account-shell .safe-spots-page .safe-map-buddy-avatars {
+  display: flex;
+  width: 52px;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  padding-left: 2px;
+  color: var(--accent);
+}
+
+.account-shell .safe-spots-page .safe-map-buddy-avatars img,
+.account-shell .safe-spots-page .safe-map-buddy-avatars i {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  margin-left: -7px;
+  border: 2px solid var(--surface-1);
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  object-fit: cover;
+}
+
+.account-shell .safe-spots-page .safe-map-buddy-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.account-shell .safe-spots-page .safe-map-buddy-copy b,
+.account-shell .safe-spots-page .safe-map-buddy-copy small,
+.account-shell .safe-spots-page .safe-map-count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .safe-spots-page .safe-map-buddy-copy b {
+  font-size: 12px;
+}
+
+.account-shell .safe-spots-page .safe-map-buddy-copy small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.account-shell .safe-spots-page .safe-map-count {
+  min-width: 0;
+  max-width: 92px;
+  flex: 0 1 92px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+.account-shell .safe-spots-page .safe-map-controls {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+}
+
+.account-shell .safe-spots-page .safe-map-filter-strip {
+  display: flex;
+  max-width: calc(100vw - 24px);
+  gap: 5px;
+  overflow-x: auto;
+  border: 1px solid rgb(41 35 31 / 8%);
+  border-radius: 999px;
+  background: rgb(255 253 249 / 94%);
+  padding: 5px;
+  box-shadow: 0 3px 12px rgb(35 20 48 / 12%);
+  scrollbar-width: none;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.account-shell .safe-spots-page .safe-map-filter-strip::-webkit-scrollbar { display: none; }
+
+.account-shell .safe-spots-page .safe-map-filter-strip button {
+  display: inline-flex;
+  min-height: 34px;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0 11px;
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.account-shell .safe-spots-page .safe-map-filter-strip button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.account-shell .safe-spots-page .safe-map-controls .safe-risk-legend {
+  position: relative;
+  inset: auto;
+  margin: 0;
+}
+
+.account-shell .safe-spots-page .map-screen-tools {
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.account-shell .safe-spots-page .safe-map-compose {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 999px;
+  background: var(--accent);
+  padding: 0 16px;
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 5px 16px rgb(35 20 48 / 24%);
+  pointer-events: auto;
+}
+
+.account-shell .safe-spots-page .map-screen-sheet-handle,
+.account-shell .kiki-map-home .map-screen-sheet-handle {
+  height: 22px;
+  min-height: 22px;
+  align-items: flex-start;
+  padding-top: 5px;
+  padding-bottom: 0;
+}
+
+@media (max-width: 390px) {
+  .account-shell .safe-spots-page .safe-map-buddy-avatars {
+    width: 42px;
+  }
+
+  .account-shell .safe-spots-page .safe-map-count {
+    max-width: 68px;
+    flex-basis: 68px;
+  }
+}

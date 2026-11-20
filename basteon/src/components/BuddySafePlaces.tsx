@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   AlertTriangle, BusFront, Building2, Check, ChevronRight, Church, Coffee,
   Fuel, Handshake, Hospital, LocateFixed, MapPin, MapPinned, Navigation, RefreshCw, Search,
-  School, ShieldCheck, ShoppingBag, Store, UsersRound,
+  Plus, School, ShieldCheck, ShoppingBag, Store, UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { BuddyPlaceForm } from "./BuddyPlaceForm";
@@ -20,6 +20,8 @@ import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 
 type BubbleLink = { id: string; member_count: number; expires_at: string };
 type Location = { lat: number; lng: number };
+type BuddyMapLocation = { id: string; name: string; avatarUrl: string | null; lat: number; lng: number; recordedAt: string };
+type MapFilter = "all" | "buddies" | "spots" | "reports";
 const KikiSafetyMap = dynamic(() => import("@/components/KikiSafetyMap"), { ssr: false, loading: () => <div className="safe-map-loading" role="status">Loading map…</div> });
 
 const categoryIcons: Record<string, LucideIcon> = {
@@ -66,6 +68,7 @@ export function BuddySafePlaces() {
   const [places, setPlaces] = useState<PublicSpot[]>([]);
   const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
   const [bubbles, setBubbles] = useState<BubbleLink[]>([]);
+  const [buddyLocations, setBuddyLocations] = useState<BuddyMapLocation[]>([]);
   const [point, setPoint] = useState<Location | null>(null);
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -77,6 +80,8 @@ export function BuddySafePlaces() {
   const [mapRecenter, setMapRecenter] = useState(0);
   const [category, setCategory] = useState("all");
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
+  const [mapFilter, setMapFilter] = useState<MapFilter>("all");
+  const [buddyLocationsError, setBuddyLocationsError] = useState(false);
 
   const categories = useMemo(() => [...new Set(places.map((place) => place.category))], [places]);
   const filteredPlaces = useMemo(
@@ -84,10 +89,16 @@ export function BuddySafePlaces() {
     [category, places],
   );
   const activeAlerts = alerts;
-  const mapPoints = useMemo<SafetyMapPoint[]>(() => [
+  const mapPoints = useMemo<SafetyMapPoint[]>(() => {
+    const allPoints: SafetyMapPoint[] = [
+    ...buddyLocations.map((buddy) => ({ id: buddy.id, lat: buddy.lat, lng: buddy.lng, kind: "buddy" as const, name: buddy.name, avatarUrl: buddy.avatarUrl })),
     ...filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot" as const, category: spot.category })),
     ...activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report" as const, category: alert.kind, createdAt: alert.created_at, upvotes: alert.upvotes })),
-  ], [activeAlerts, filteredPlaces]);
+    ];
+    if (mapFilter === "all") return allPoints;
+    const kind = { buddies: "buddy", spots: "spot", reports: "report" }[mapFilter];
+    return allPoints.filter((mapPoint) => mapPoint.kind === kind);
+  }, [activeAlerts, buddyLocations, filteredPlaces, mapFilter]);
   const currentMapLayer = MAP_BASE_LAYERS[mapLayerIndex]?.name as MapBaseLayerName | undefined;
   const topBarCount = tab === "spots"
     ? `${filteredPlaces.length} ${filteredPlaces.length === 1 ? "spot" : "spots"} nearby`
@@ -108,6 +119,34 @@ export function BuddySafePlaces() {
         }
       });
     return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadBuddyLocations = async () => {
+      try {
+        const response = await fetch("/api/account/buddies/locations", { cache: "no-store" });
+        if (!response.ok) throw new Error("Buddy locations could not be loaded.");
+        const data = await response.json() as { locations?: BuddyMapLocation[] };
+        if (active) {
+          setBuddyLocations(data.locations ?? []);
+          setBuddyLocationsError(false);
+        }
+      } catch {
+        if (active) setBuddyLocationsError(true);
+      }
+    };
+    void loadBuddyLocations();
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") void loadBuddyLocations();
+    };
+    const timer = window.setInterval(refreshVisible, 30_000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
   }, []);
 
   // Live feed: a server broadcast pings subscribers, who then refetch authoritative data (also on reconnect and tab focus).
@@ -175,28 +214,46 @@ export function BuddySafePlaces() {
   return <MapScreen
     screenId="safe-spots"
     className="buddy-places buddies-page safe-spots-page"
-    map={<KikiSafetyMap center={point} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} userLocationStyle="dot" />}
+    map={<KikiSafetyMap center={point} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} userLocationStyle="dot" onBuddySelect={(userId) => { window.location.href = `/account/profile/buddies/${userId}`; }} />}
     topBar={<div className="safe-spots-map-actions">
-      <span>{searched ? topBarCount : "Nearby map"}</span>
+      <Link href="/account/profile/buddies" className="safe-map-buddy-circle">
+        <span className="safe-map-buddy-avatars" aria-hidden="true">
+          {buddyLocations.slice(0, 3).map((buddy) => buddy.avatarUrl
+            ? <img key={buddy.id} src={buddy.avatarUrl} alt="" />
+            : <i key={buddy.id}>{buddy.name.trim().charAt(0).toUpperCase() || "?"}</i>)}
+          {!buddyLocations.length && <UsersRound size={18} />}
+        </span>
+        <span className="safe-map-buddy-copy"><b>Safe spots &amp; reports</b><small>{buddyLocationsError ? "Buddy locations unavailable" : `${buddyLocations.length} buddies sharing`}</small></span>
+      </Link>
+      <span className="safe-map-count">{searched ? topBarCount : "Nearby safety"}</span>
       {searched
         ? <button className="safe-map-refresh" type="button" disabled={busy} onClick={() => void search()} aria-label="Refresh nearby places" title="Refresh nearby places"><RefreshCw size={17} className={busy ? "is-spinning" : ""} /></button>
         : <button type="button" className="safe-map-search" disabled={busy} onClick={() => void search()} aria-label={busy ? "Searching nearby" : "Search nearby"} title="Search nearby"><Search size={18} className={busy ? "is-spinning" : ""} /></button>}
     </div>}
-    controls={searched && activeAlerts.length > 0 ? <div className="safe-risk-legend" role="note" data-map-ui="hide">
-      <span>Reported risk</span>
-      <i aria-hidden="true" />
-      <small>Lower reported risk</small><small>Higher reported risk</small>
-      <small className="safe-risk-disclaimer">No reports does not confirm an area is safe.</small>
-    </div> : undefined}
+    controls={<div className="safe-map-controls" data-map-ui="hide">
+      <div className="safe-map-filter-strip" role="group" aria-label="Map layers">
+        <button type="button" aria-pressed={mapFilter === "all"} onClick={() => setMapFilter("all")}>All</button>
+        <button type="button" aria-pressed={mapFilter === "buddies"} onClick={() => setMapFilter("buddies")}><UsersRound size={14} />Buddies</button>
+        <button type="button" aria-pressed={mapFilter === "spots"} onClick={() => setMapFilter("spots")}><ShieldCheck size={14} />Safe Havens</button>
+        <button type="button" aria-pressed={mapFilter === "reports"} onClick={() => setMapFilter("reports")}><AlertTriangle size={14} />Reports</button>
+      </div>
+      {searched && activeAlerts.length > 0 && <div className="safe-risk-legend" role="note">
+        <span>Reported risk</span>
+        <i aria-hidden="true" />
+        <small>Lower reported risk</small><small>Higher reported risk</small>
+        <small className="safe-risk-disclaimer">No reports does not confirm an area is safe.</small>
+      </div>}
+    </div>}
+    tools={<button type="button" className="safe-map-compose" onClick={() => window.dispatchEvent(new Event("kiki:open-report-composer"))}><Plus size={16} />Report / Check-in</button>}
     onRecenter={() => point ? setMapRecenter((value) => value + 1) : void search()}
     selectedLayer={currentMapLayer}
     onLayerChange={(layer) => setMapLayerIndex(MAP_BASE_LAYERS.findIndex((item) => item.name === layer))}
     bottomSheet={<MapBottomSheet level={sheetLevel} onLevelChange={setSheetLevel} label="Safe spots and community reports">
     <div className="safe-spots-sheet-body">
       <div className="safe-spots-tabs account-segmented" role="tablist" aria-label="Safe spots and reports">
-      <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} />Feed<span>{activeAlerts.length || ""}</span></button>
-      <button id="safe-tab-spots" type="button" role="tab" aria-selected={tab === "spots"} aria-controls="safe-panel-spots" onClick={() => setTab("spots")}><MapPin size={16} />Spots<span>{places.length || ""}</span></button>
-      <button id="safe-tab-meetings" type="button" role="tab" aria-selected={tab === "meetings"} aria-controls="safe-panel-meetings" onClick={() => setTab("meetings")}><Handshake size={16} />Meetings<span>{bubbles.length || ""}</span></button>
+      <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} />Pulse<span>{activeAlerts.length || ""}</span></button>
+      <button id="safe-tab-spots" type="button" role="tab" aria-selected={tab === "spots"} aria-controls="safe-panel-spots" onClick={() => setTab("spots")}><ShieldCheck size={16} />Safe Havens<span>{places.length || ""}</span></button>
+      <button id="safe-tab-meetings" type="button" role="tab" aria-selected={tab === "meetings"} aria-controls="safe-panel-meetings" onClick={() => setTab("meetings")}><Handshake size={16} />Walks<span>{bubbles.length || ""}</span></button>
     </div>
 
     <section id="safe-panel-spots" role="tabpanel" aria-labelledby="safe-tab-spots" hidden={tab !== "spots"} className="safe-spots-tab-panel">
