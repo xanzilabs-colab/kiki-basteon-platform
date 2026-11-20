@@ -30,14 +30,21 @@ export async function GET(request: Request) {
     const alerts = await meetingRpc(client, "list_community_alerts_near", { p_lat: lat, p_lng: lng, p_radius_m: 10000 });
     const alertIds = Array.isArray(alerts) ? alerts.map((alert) => alert.id).filter((id): id is string => typeof id === "string") : [];
     const ownedIds = new Set<string>();
+    const commentCounts = new Map<string, number>();
     if (alertIds.length) {
+      const counts = await meetingRpc(client, "list_community_alert_comment_counts", { p_alert_ids: alertIds });
+      if (Array.isArray(counts)) {
+        for (const row of counts) {
+          if (typeof row.alert_id === "string" && typeof row.comment_count === "number") commentCounts.set(row.alert_id, row.comment_count);
+        }
+      }
       const { data, error } = await createAdminClient().from("buddy_community_alerts")
         .select("id").eq("reporter_id", user.id).in("id", alertIds);
       if (error) throw new Error("community_alert_ownership_unavailable");
       for (const row of data ?? []) ownedIds.add(row.id);
     }
     return meetingJson({
-      alerts: Array.isArray(alerts) ? alerts.map((alert) => ({ ...alert, mine: ownedIds.has(alert.id) })) : [],
+      alerts: Array.isArray(alerts) ? alerts.map((alert) => ({ ...alert, comment_count: commentCounts.get(alert.id) ?? 0, mine: ownedIds.has(alert.id) })) : [],
     });
   } catch (error) { return meetingError(error); }
 }

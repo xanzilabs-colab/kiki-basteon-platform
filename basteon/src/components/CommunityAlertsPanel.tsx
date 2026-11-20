@@ -4,12 +4,16 @@ import { useEffect, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { useAppDialog } from "@/components/AppDialogProvider";
-import { Check, LocateFixed, MapPin, MapPinned, Shield, ThumbsUp, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, MapPin, MapPinned, MessageCircle, Send, Share2, Shield, ThumbsUp, Trash2, X } from "lucide-react";
 import { categoryLabel, meetingFetch, type CommunityAlert } from "@/lib/buddies/meeting/client";
+import { distanceM } from "@/lib/hamba/geometry";
+import { createCommunityAlertSnapshot } from "@/lib/buddies/meeting/reportSnapshot";
 import type { ReportLocation } from "./CommunityReportMap";
 import { AccountFeedCard } from "@/components/account/AccountList";
+import { CommunityAlertMapPreview } from "./CommunityAlertMapPreview";
 
 type Place = { label: string; lat: number; lng: number };
+type CommunityAlertComment = { id: string; body: string; created_at: string; redacted?: boolean; noticeSent?: boolean; eventRecorded?: boolean };
 type Props = { alerts: CommunityAlert[]; busy: boolean; initialPoint: { lat: number; lng: number } | null; onBusyChange: (busy: boolean) => void; onAlertsChange: (alerts: CommunityAlert[]) => void; onLocationChange: (point: { lat: number; lng: number } | null) => void; onMessage: (message: string) => void };
 const CommunityReportMap = dynamic(() => import("./CommunityReportMap"), {
   ssr: false,
@@ -29,16 +33,28 @@ function formatReportAge(value: string) {
   if (!Number.isFinite(createdAt)) return "time unavailable";
   const minutes = Math.max(0, Math.floor((Date.now() - createdAt) / 60_000));
   if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  return `${days}d`;
+  return `${days}d ago`;
+}
+function formatDistance(point: { lat: number; lng: number } | null, alert: CommunityAlert) {
+  if (!point) return null;
+  const meters = distanceM(point, { lat: alert.lat, lng: alert.lng });
+  return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`;
 }
 
 export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange, onAlertsChange, onLocationChange, onMessage }: Props) {
   const { confirm } = useAppDialog();
   const [kind, setKind] = useState("unsafe_area"); const [detail, setDetail] = useState(""); const [address, setAddress] = useState(""); const [selectedAddressLabel, setSelectedAddressLabel] = useState(""); const [suggestions, setSuggestions] = useState<Place[]>([]); const [lookupMessage, setLookupMessage] = useState(""); const [mapOpen, setMapOpen] = useState(false); const [mapSelection, setMapSelection] = useState<ReportLocation>({ point: null, region: null }); const [reportOpen, setReportOpen] = useState(false); const [category, setCategory] = useState("all");
+  const [commentsAlert, setCommentsAlert] = useState<CommunityAlert | null>(null);
+  const [comments, setComments] = useState<CommunityAlertComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsSubmitting, setCommentsSubmitting] = useState(false);
+  const [commentsError, setCommentsError] = useState("");
+  const [commentBody, setCommentBody] = useState("");
+  const [sharingId, setSharingId] = useState<string | null>(null);
   useEffect(() => {
     const openComposer = () => setReportOpen(true);
     const focusReport = (event: Event) => {
@@ -79,6 +95,32 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
     }, 300);
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [address]);
+  useEffect(() => {
+    if (!commentsAlert) return;
+    const controller = new AbortController();
+    setCommentsLoading(true);
+    setCommentsError("");
+    void meetingFetch<{ comments: CommunityAlertComment[] }>(
+      `/api/buddies/community-alerts/${commentsAlert.id}/comments`,
+      undefined,
+      controller.signal,
+    ).then((result) => {
+      if (!controller.signal.aborted) setComments(result.comments);
+    }).catch((error: unknown) => {
+      if (!controller.signal.aborted) setCommentsError(error instanceof Error ? error.message : "Could not load comments.");
+    }).finally(() => {
+      if (!controller.signal.aborted) setCommentsLoading(false);
+    });
+    return () => controller.abort();
+  }, [commentsAlert]);
+  useEffect(() => {
+    if (!commentsAlert) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !commentsSubmitting) setCommentsAlert(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [commentsAlert, commentsSubmitting]);
   useEffect(() => { if (!reportOpen) return; function onKeyDown(event: KeyboardEvent) { if (event.key === "Escape" && !busy) void closeReportForm(); } window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [busy, reportOpen, closeReportForm]);
   function choose(place: Place) {
     setAddress(place.label);
@@ -116,6 +158,62 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
     finally { onBusyChange(false); }
   }
   async function vote(alert: CommunityAlert) { onBusyChange(true); try { const result = await meetingFetch<{ voted: boolean; upvotes: number }>(`/api/buddies/community-alerts/${alert.id}/vote`, {}); onAlertsChange(alerts.map((item) => item.id === alert.id ? { ...item, voted: result.voted, upvotes: result.upvotes } : item)); } catch (error) { onMessage(error instanceof Error ? error.message : "Could not update your confirmation."); } finally { onBusyChange(false); } }
+  async function submitComment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!commentsAlert || commentsSubmitting || commentBody.trim().length < 2) return;
+    setCommentsSubmitting(true);
+    setCommentsError("");
+    try {
+      const saved = await meetingFetch<CommunityAlertComment>(
+        `/api/buddies/community-alerts/${commentsAlert.id}/comments`,
+        { body: commentBody.trim() },
+      );
+      setComments((current) => [...current, saved]);
+      setCommentBody("");
+      if (saved.redacted) {
+        onMessage(saved.noticeSent === false || saved.eventRecorded === false
+          ? "Your comment was shared after details were removed, but Kiki Guard could not record or notify you."
+          : "Kiki Guard removed possible private details before sharing your comment.");
+      }
+      onAlertsChange(alerts.map((item) => item.id === commentsAlert.id
+        ? { ...item, comment_count: (item.comment_count ?? 0) + 1 }
+        : item));
+    } catch (error) {
+      setCommentsError(error instanceof Error ? error.message : "Could not post your comment.");
+    } finally {
+      setCommentsSubmitting(false);
+    }
+  }
+  async function shareAlert(alert: CommunityAlert) {
+    if (sharingId) return;
+    setSharingId(alert.id);
+    try {
+      const image = await createCommunityAlertSnapshot(alert, formatDistance(initialPoint, alert));
+      const shareData = {
+        files: [image],
+        title: `Kiki community report: ${titleCase(alert.kind)}`,
+        text: "Community safety update shared from Kiki.",
+      };
+      if (navigator.share && navigator.canShare?.({ files: [image] })) {
+        await navigator.share(shareData);
+      } else {
+        const url = URL.createObjectURL(image);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = image.name;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        onMessage("Report card image downloaded. You can share it from your files.");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      onMessage(error instanceof Error ? error.message : "Could not create the report image.");
+    } finally {
+      setSharingId(null);
+    }
+  }
   async function deleteAlert(alert: CommunityAlert) {
     if (!alert.mine || busy || !(await confirm("Delete your community report? This will remove it for everyone.", {
       title: "Delete community report?",
@@ -160,20 +258,46 @@ export function CommunityAlertsPanel({ alerts, busy, initialPoint, onBusyChange,
         <span className="safe-alert-author-avatar"><Shield size={17} aria-hidden="true" /></span>
         <span className="safe-alert-author"><b>Anonymous neighbour</b><small>{alert.location_label ?? "Nearby area"} · <time dateTime={alert.created_at}>{formatReportAge(alert.created_at)}</time></small></span>
         <span className={`safe-alert-kind${alert.kind === "poor_lighting" ? " is-lighting" : ""}`}><i /><span className="safe-alert-kind-copy">{titleCase(alert.kind)}</span></span>
+        {alert.mine && <button type="button" className="safe-alert-delete" disabled={busy} onClick={() => void deleteAlert(alert)} aria-label="Delete your report" title="Delete report"><Trash2 size={15} /></button>}
       </div>
       <p>{alert.detail ?? "Community report"}</p>
-      <button type="button" className="safe-alert-spatial-preview" onClick={() => onLocationChange({ lat: alert.lat, lng: alert.lng })} aria-label={`Locate report near ${alert.location_label || "this area"} on the map`}>
-        <span className="safe-alert-spatial-icon"><MapPinned size={18} aria-hidden="true" /></span>
-        <span><b>{alert.location_label || "Nearby area"}</b><small>{alert.region ? "Area marked · Tap to view on map" : "Tap to view report on map"}</small></span>
-        <LocateFixed size={17} aria-hidden="true" />
-      </button>
+      <CommunityAlertMapPreview alert={alert} distanceLabel={formatDistance(initialPoint, alert)} onLocate={() => onLocationChange({ lat: alert.lat, lng: alert.lng })} />
       <div className="safe-alert-card-footer">
-        <button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy || alert.is_demo} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.voted ? "Remove confirmation" : "Confirm"}: seen this too, ${alert.upvotes} confirmations`}><ThumbsUp size={16} /><span>Seen this too</span>{alert.upvotes > 0 && <span className="safe-alert-vote-count">{alert.upvotes}</span>}</button>
-        {alert.mine && <button type="button" className="safe-alert-delete" disabled={busy} onClick={() => void deleteAlert(alert)} aria-label="Delete your report"><Trash2 size={15} /><span>Delete</span></button>}
-        <span className="safe-alert-verification">Unverified</span>
+        <button className={`buddy-upvote ${alert.voted ? "is-voted" : ""}`} type="button" disabled={busy || alert.is_demo} onClick={() => void vote(alert)} aria-pressed={alert.voted} aria-label={`${alert.voted ? "Remove" : "Mark"} this report helpful, ${alert.upvotes} helpful votes`}><ThumbsUp size={16} /><span>Helpful</span><span className="safe-alert-vote-count">{alert.upvotes}</span></button>
+        <button className="safe-alert-comments" type="button" onClick={() => { setComments([]); setCommentBody(""); setCommentsError(""); setCommentsAlert(alert); }} aria-label={`View ${alert.comment_count ?? 0} comments`}><MessageCircle size={16} /><span>Comments</span><span>{alert.comment_count ?? 0}</span></button>
+        <button className="safe-alert-share" type="button" disabled={sharingId !== null} onClick={() => void shareAlert(alert)} aria-label={sharingId === alert.id ? "Creating report image" : "Share report card image"}>{sharingId === alert.id ? <span className="safe-alert-share-loading">Preparing…</span> : <><Share2 size={16} /><span>Share</span></>}</button>
       </div>
     </AccountFeedCard></div>)}</div>
     {filteredAlerts.length === 0 && <div className="safe-alert-empty"><span><Check size={19} /></span><b>{alerts.length === 0 ? "No reports near you" : "No reports in this category"}</b><p>{alerts.length === 0 ? "Share a local update to help others nearby." : "Try another filter to see more."}</p>{alerts.length === 0 && <button type="button" onClick={() => setReportOpen(true)}>Post an update</button>}</div>}
+
+    {typeof document !== "undefined" && commentsAlert && createPortal(<div className="safe-comments-layer">
+      <button className="safe-comments-backdrop" type="button" aria-label="Return to reports" disabled={commentsSubmitting} onClick={() => setCommentsAlert(null)} />
+      <section className="safe-comments-sheet" role="dialog" aria-modal="true" aria-labelledby="safe-comments-title">
+        <header className="safe-comments-header">
+          <button type="button" aria-label="Back to reports" disabled={commentsSubmitting} onClick={() => setCommentsAlert(null)}><ArrowLeft size={20} /></button>
+          <span><h2 id="safe-comments-title">Comments</h2><small>{commentsAlert.location_label || "Nearby area"}</small></span>
+          <button type="button" aria-label="Close comments" disabled={commentsSubmitting} onClick={() => setCommentsAlert(null)}><X size={20} /></button>
+        </header>
+        <div className="safe-comments-report">
+          <span className="safe-alert-author-avatar"><Shield size={16} aria-hidden="true" /></span>
+          <span><b>Anonymous neighbour</b><small>{titleCase(commentsAlert.kind)} · {formatReportAge(commentsAlert.created_at)}</small></span>
+        </div>
+        <div className="safe-comments-list" aria-live="polite">
+          {commentsLoading && <p className="safe-comments-state">Loading comments…</p>}
+          {!commentsLoading && commentsError && <p className="safe-comments-error" role="alert">{commentsError}</p>}
+          {!commentsLoading && !commentsError && comments.length === 0 && <p className="safe-comments-state">No comments yet. Share a helpful update without identifying anyone.</p>}
+          {comments.map((comment) => <article className="safe-comment" key={comment.id}>
+            <span className="safe-comment-avatar"><Shield size={15} aria-hidden="true" /></span>
+            <div><header><b>Anonymous neighbour</b><time dateTime={comment.created_at}>{formatReportAge(comment.created_at)}</time></header><p>{comment.body}</p></div>
+          </article>)}
+        </div>
+        <form className="safe-comments-form" onSubmit={(event) => void submitComment(event)}>
+          <label className="safe-comments-input-wrap"><span className="sr-only">Write an anonymous comment</span><textarea value={commentBody} maxLength={300} rows={2} onChange={(event) => setCommentBody(event.target.value)} placeholder="Add a helpful comment…" /></label>
+          <button type="submit" disabled={commentsSubmitting || commentBody.trim().length < 2} aria-label="Post comment">{commentsSubmitting ? <span>Posting…</span> : <Send size={18} />}</button>
+          <small>Comments are anonymous. Contact details and links are automatically filtered.</small>
+        </form>
+      </section>
+    </div>, document.body)}
 
     {typeof document !== "undefined" && reportOpen && createPortal(<div className="safe-report-layer">
       <button className="safe-report-backdrop" type="button" aria-label="Close report form" onClick={() => void closeReportForm()} />

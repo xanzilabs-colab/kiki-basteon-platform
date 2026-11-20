@@ -5,6 +5,7 @@ const errors: Record<string, string> = {
   unauthenticated: "Please sign in again.", forbidden: "You do not have access to this page.", not_member: "This Bubble is closed or you are no longer a member.",
   stale_round: "The options changed. Refresh and choose again.", membership_changed: "Bubble membership changed. Generate new options.",
   invalid_candidate: "That spot is no longer available. Choose another option.", rate_limited: "Please wait a moment before trying again.",
+  invalid_comment: "Write a short comment without personal or contact details.",
   waiting_for_locations: "Every Buddy needs to share a current meeting location.", BUDDIES_UNAVAILABLE: "Buddies is unavailable right now.",
   address_not_found: "We couldn’t find that address. Check it and try again.", geocoding_unavailable: "Address lookup is temporarily unavailable. Please try again.",
 };
@@ -16,6 +17,9 @@ export async function meetingFetch<T>(url: string, body?: object, signal?: Abort
     signal,
   });
   const data = await response.json().catch(() => null);
+  if (!response.ok && data?.error === "comment_refused" && typeof data.reason === "string") {
+    throw new Error(data.noticeSent === false ? `${data.reason} Kiki Guard could not send a notification.` : data.reason);
+  }
   if (!response.ok) throw new Error(errors[data?.error] ?? "Could not load or save Buddy places. Please try again.");
   return data as T;
 }
@@ -31,7 +35,7 @@ export async function currentMeetingLocation(): Promise<{ lat: number; lng: numb
 
 export type PublicSpot = { id: string; name: string; category: string; lat: number; lng: number; address: string | null; quality: number; open_24h: boolean; is_demo: boolean };
 export type CommunityRegion = { type: "Polygon"; coordinates: [number, number][][] };
-export type CommunityAlert = { id: string; kind: string; lat: number; lng: number; location_label: string | null; detail: string | null; region?: CommunityRegion | null; created_at: string; expires_at: string | null; upvotes: number; voted: boolean; mine?: boolean; is_demo: boolean };
+export type CommunityAlert = { id: string; kind: string; lat: number; lng: number; location_label: string | null; detail: string | null; region?: CommunityRegion | null; created_at: string; expires_at: string | null; upvotes: number; voted: boolean; comment_count?: number; mine?: boolean; is_demo: boolean };
 export type MeetingCandidate = { id: string; name: string; category: string; source: string; lat: number; lng: number; address: string | null; distanceM: number; maxDistanceM: number; balanced: boolean; votes: number; yourVote: boolean; rejected: boolean };
 export type MeetingView = { round: number; selectedCandidateId: string | null; total: number; ready: number; membershipChanged: boolean; candidates: MeetingCandidate[]; lookFor: Array<{ alias: string; you: boolean; topColor: string | null; carryingBag: boolean | null }> };
 export const directionsUrl = (lat: number, lng: number) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;

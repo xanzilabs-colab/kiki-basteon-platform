@@ -89,6 +89,7 @@ export function BuddySafePlaces() {
   const [bubbles, setBubbles] = useState<BubbleLink[]>([]);
   const [buddyLocations, setBuddyLocations] = useState<BuddyMapLocation[]>([]);
   const [point, setPoint] = useState<Location | null>(null);
+  const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -170,8 +171,8 @@ export function BuddySafePlaces() {
 
   // Live feed: a server broadcast pings subscribers, who then refetch authoritative data (also on reconnect and tab focus).
   useEffect(() => {
-    if (!searched || !point) return;
-    const query = new URLSearchParams({ lat: String(point.lat), lng: String(point.lng) });
+    if (!searched || !userLocation) return;
+    const query = new URLSearchParams({ lat: String(userLocation.lat), lng: String(userLocation.lng) });
     const refresh = () => { void meetingFetch<{ alerts: CommunityAlert[] }>(`/api/buddies/community-alerts?${query}`).then((data) => setAlerts(data.alerts)).catch(() => undefined); };
     const supabase = createClient();
     const channel = supabase.channel("community-alerts")
@@ -181,7 +182,7 @@ export function BuddySafePlaces() {
     document.addEventListener("visibilitychange", onVisible);
     const timer = window.setInterval(onVisible, 60_000);
     return () => { document.removeEventListener("visibilitychange", onVisible); window.clearInterval(timer); void supabase.removeChannel(channel); };
-  }, [searched, point]);
+  }, [searched, userLocation]);
 
   async function search() {
     setBusy(true);
@@ -189,6 +190,7 @@ export function BuddySafePlaces() {
     try {
       const next = await currentMeetingLocation();
       setPoint(next);
+      setUserLocation(next);
       const query = new URLSearchParams({ lat: String(next.lat), lng: String(next.lng) });
       const [spots, reports] = await Promise.all([
         meetingFetch<{ places: PublicSpot[] }>(`/api/buddies/safe-places?${query}`),
@@ -305,7 +307,7 @@ export function BuddySafePlaces() {
       ) : filteredPlaces.length ? (
         <div className="safe-haven-cards">{filteredPlaces.map((place) => {
           const Icon = categoryIcons[place.category] ?? Building2;
-          const distance = distanceMeters(point, place);
+          const distance = distanceMeters(userLocation, place);
           return <article className={`safe-haven-card${place.is_demo ? " is-demo" : ""}${selectedSpot === place.id ? " is-selected" : ""}`} id={`safe-spot-${place.id}`} key={place.id}>
             <button type="button" className={`safe-haven-hero${place.category === "school" || place.category === "hospital" ? " is-green" : ""}`} onClick={() => setSelectedSpot(selectedSpot === place.id ? null : place.id)} aria-pressed={selectedSpot === place.id}>
               <span className="safe-haven-hero-tags"><span><ShieldCheck size={13} />{prettyCategory(place.category)}</span>{distance && <span>{distance} away</span>}</span>
@@ -366,7 +368,10 @@ export function BuddySafePlaces() {
           <span className="safe-story-copy"><b>Safe Havens</b><small>{places.length ? `${places.length} reviewed nearby` : "Find places nearby"}</small></span>
         </button>
       </div>
-      <CommunityAlertsPanel alerts={alerts} busy={busy} initialPoint={point} onBusyChange={setBusy} onAlertsChange={setAlerts} onLocationChange={setPoint} onMessage={changeMessage} />
+      <CommunityAlertsPanel alerts={alerts} busy={busy} initialPoint={userLocation} onBusyChange={setBusy} onAlertsChange={setAlerts} onLocationChange={(next) => {
+        setPoint(next);
+        setMapRecenter((value) => value + 1);
+      }} onMessage={changeMessage} />
     </section>
 
     <section id="safe-panel-meetings" role="tabpanel" aria-labelledby="safe-tab-meetings" hidden={tab !== "meetings"} className="safe-spots-tab-panel">
