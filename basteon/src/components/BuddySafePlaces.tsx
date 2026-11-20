@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { BuddyPlaceForm } from "./BuddyPlaceForm";
 import { CommunityAlertsPanel } from "./CommunityAlertsPanel";
+import { MapPointDetails } from "@/components/account/MapPointDetails";
 import "./safeSpots.css";
 import { categoryLabel, currentMeetingLocation, directionsUrl, meetingFetch, type CommunityAlert, type PublicSpot } from "@/lib/buddies/meeting/client";
 import type { SafetyMapPoint } from "@/components/KikiSafetyMap";
@@ -102,6 +103,7 @@ export function BuddySafePlaces() {
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
   const [mapFilter, setMapFilter] = useState<MapFilter>("all");
   const [buddyLocationsError, setBuddyLocationsError] = useState(false);
+  const [selectedMapPoint, setSelectedMapPoint] = useState<SafetyMapPoint | null>(null);
 
   const categories = useMemo(() => [...new Set(places.map((place) => place.category))], [places]);
   const filteredPlaces = useMemo(
@@ -117,14 +119,36 @@ export function BuddySafePlaces() {
       kind: "buddy",
       name: buddy.name,
       avatarUrl: buddy.avatarUrl,
+      createdAt: buddy.recordedAt,
+      subtitle: "Sharing live",
     })),
     [buddyLocations],
   );
   const mapPoints = useMemo<SafetyMapPoint[]>(() => {
     const allPoints: SafetyMapPoint[] = [
       ...buddyMapPoints,
-      ...filteredPlaces.map((spot) => ({ id: spot.id, lat: spot.lat, lng: spot.lng, kind: "spot" as const, category: spot.category })),
-      ...activeAlerts.map((alert) => ({ id: alert.id, lat: alert.lat, lng: alert.lng, kind: "report" as const, category: alert.kind, createdAt: alert.created_at, upvotes: alert.upvotes })),
+      ...filteredPlaces.map((spot) => ({
+        id: spot.id,
+        lat: spot.lat,
+        lng: spot.lng,
+        kind: "spot" as const,
+        category: spot.category,
+        name: spot.name,
+        subtitle: spot.address,
+        description: spot.open_24h ? "Open 24 hours" : "Hours not listed",
+      })),
+      ...activeAlerts.map((alert) => ({
+        id: alert.id,
+        lat: alert.lat,
+        lng: alert.lng,
+        kind: "report" as const,
+        category: alert.kind,
+        name: prettyCategory(alert.kind),
+        subtitle: alert.location_label || "Nearby area",
+        description: alert.detail,
+        createdAt: alert.created_at,
+        upvotes: alert.upvotes,
+      })),
     ];
     if (mapFilter === "all") return allPoints;
     const kind = { buddies: "buddy", spots: "spot", reports: "report" }[mapFilter];
@@ -149,6 +173,82 @@ export function BuddySafePlaces() {
           setMessageIsError(true);
         }
       });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const focusId = params.get("focus");
+    const requestedTab = params.get("tab");
+    const latText = params.get("lat");
+    const lngText = params.get("lng");
+    if (!focusId || (requestedTab !== "spots" && requestedTab !== "alerts")) return;
+    if (latText === null || lngText === null) {
+      setMessage("The selected map location could not be opened.");
+      setMessageIsError(true);
+      return;
+    }
+
+    const location = { lat: Number(latText), lng: Number(lngText) };
+    if (!Number.isFinite(location.lat) || !Number.isFinite(location.lng)
+      || Math.abs(location.lat) > 90 || Math.abs(location.lng) > 180) {
+      setMessage("The selected map location could not be opened.");
+      setMessageIsError(true);
+      return;
+    }
+
+    const controller = new AbortController();
+    const query = new URLSearchParams({ lat: String(location.lat), lng: String(location.lng) });
+    setTab(requestedTab);
+    setMapFilter(requestedTab === "spots" ? "spots" : "reports");
+    setPoint(location);
+    setSearched(true);
+    setSheetLevel(1);
+
+    if (requestedTab === "spots") {
+      void meetingFetch<{ places: PublicSpot[] }>(`/api/buddies/safe-places?${query}`, undefined, controller.signal)
+        .then((data) => {
+          setPlaces(data.places);
+          const place = data.places.find((item) => item.id === focusId);
+          if (place) {
+            setPoint({ lat: place.lat, lng: place.lng });
+            setSelectedSpot(place.id);
+          } else {
+            setMessage("This Safe Haven is no longer available nearby.");
+            setMessageIsError(true);
+          }
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted) {
+            setMessage(error instanceof Error ? error.message : "Safe Havens could not be loaded.");
+            setMessageIsError(true);
+          }
+        });
+    } else {
+      void meetingFetch<{ alerts: CommunityAlert[] }>(`/api/buddies/community-alerts?${query}`, undefined, controller.signal)
+        .then((data) => {
+          setAlerts(data.alerts);
+          if (data.alerts.some((alert) => alert.id === focusId)) {
+            setSelectedMapPoint(null);
+            setTab("alerts");
+            setSheetLevel(1);
+            window.setTimeout(() => {
+              if (!controller.signal.aborted) {
+                window.dispatchEvent(new CustomEvent("kiki:focus-community-alert", { detail: focusId }));
+              }
+            }, 100);
+          } else {
+            setMessage("This report is no longer available nearby. Refresh Pulse to see current reports.");
+            setMessageIsError(true);
+          }
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted) {
+            setMessage(error instanceof Error ? error.message : "Pulse reports could not be loaded.");
+            setMessageIsError(true);
+          }
+        });
+    }
     return () => controller.abort();
   }, []);
 
@@ -244,12 +344,14 @@ export function BuddySafePlaces() {
   }
 
   function focusAlert(id: string) {
+    setSelectedMapPoint(null);
     setTab("alerts");
     setSheetLevel(1);
     window.setTimeout(() => window.dispatchEvent(new CustomEvent("kiki:focus-community-alert", { detail: id })), 80);
   }
 
   function focusSpot(place: PublicSpot) {
+    setSelectedMapPoint(null);
     setSelectedSpot(place.id);
     setSheetLevel(1);
     setPoint({ lat: place.lat, lng: place.lng });
@@ -259,7 +361,7 @@ export function BuddySafePlaces() {
   return <MapScreen
     screenId="safe-spots"
     className="buddy-places buddies-page safe-spots-page"
-    map={<KikiSafetyMap center={point ?? buddyLocations[0] ?? null} points={mapPoints} fitPoints={mapFilter === "buddies" ? buddyMapPoints : undefined} zoom={14} layer={currentMapLayer} recenter={mapRecenter} userLocationStyle="dot" onBuddySelect={(userId) => { window.location.href = `/account/profile/buddies/${userId}`; }} />}
+    map={<KikiSafetyMap center={point ?? buddyLocations[0] ?? null} points={mapPoints} fitPoints={mapFilter === "buddies" ? buddyMapPoints : undefined} zoom={14} layer={currentMapLayer} recenter={mapRecenter} userLocation={userLocation} userLocationStyle="dot" onPointSelect={(mapPoint) => { setSelectedMapPoint(mapPoint); setSheetLevel(2); }} />}
     topBar={<div className="safe-spots-map-actions">
       <Link href="/account/profile/buddies" className="safe-map-buddy-circle">
         <span className="safe-map-buddy-avatars" aria-hidden="true">
@@ -278,7 +380,7 @@ export function BuddySafePlaces() {
     controls={<div className="safe-map-controls" data-map-ui="hide">
       <div className="safe-map-filter-strip" role="group" aria-label="Map layers">
         <button type="button" aria-pressed={mapFilter === "all"} onClick={() => setMapFilter("all")}>All</button>
-        <button type="button" aria-pressed={mapFilter === "buddies"} onClick={() => { setMapFilter("buddies"); setMapRecenter((value) => value + 1); }}><UsersRound size={14} />Buddies</button>
+        <button type="button" aria-pressed={mapFilter === "buddies"} onClick={() => setMapFilter("buddies")}><UsersRound size={14} />Buddies</button>
         <button type="button" aria-pressed={mapFilter === "spots"} onClick={() => setMapFilter("spots")}><ShieldCheck size={14} />Safe Havens</button>
         <button type="button" aria-pressed={mapFilter === "reports"} onClick={() => setMapFilter("reports")}><AlertTriangle size={14} />Reports</button>
       </div>
@@ -295,6 +397,19 @@ export function BuddySafePlaces() {
     onLayerChange={(layer) => setMapLayerIndex(MAP_BASE_LAYERS.findIndex((item) => item.name === layer))}
     bottomSheet={<MapBottomSheet level={sheetLevel} onLevelChange={setSheetLevel} label="Safe spots and community reports">
     <div className="safe-spots-sheet-body">
+      {selectedMapPoint && <MapPointDetails
+        point={selectedMapPoint}
+        onClose={() => setSelectedMapPoint(null)}
+        actionLabel={selectedMapPoint.kind === "buddy" ? "Open buddy details" : selectedMapPoint.kind === "spot" ? "View Safe Haven" : "Open in Pulse"}
+        onAction={() => {
+          if (!selectedMapPoint.id) return;
+          if (selectedMapPoint.kind === "buddy") window.location.href = `/account/profile/buddies/${selectedMapPoint.id}`;
+          else if (selectedMapPoint.kind === "spot") {
+            const place = places.find((item) => item.id === selectedMapPoint.id);
+            if (place) focusSpot(place);
+          } else focusAlert(selectedMapPoint.id);
+        }}
+      />}
       <div className="safe-spots-tabs account-segmented" role="tablist" aria-label="Safe spots and reports">
       <button id="safe-tab-alerts" type="button" role="tab" aria-selected={tab === "alerts"} aria-controls="safe-panel-alerts" onClick={() => setTab("alerts")}><AlertTriangle size={16} /><span className="safe-spots-tab-label">Pulse</span><span className="safe-spots-tab-count">{activeAlerts.length || ""}</span></button>
       <button id="safe-tab-spots" type="button" role="tab" aria-selected={tab === "spots"} aria-controls="safe-panel-spots" onClick={() => setTab("spots")}><ShieldCheck size={16} /><span className="safe-spots-tab-label">Safe Havens</span><span className="safe-spots-tab-count">{places.length || ""}</span></button>

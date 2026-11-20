@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, HeartHandshake, Lightbulb, LockKeyhole, MessageCircle, ShieldCheck, Users } from "lucide-react";
+import { Heart, HeartHandshake, Lightbulb, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Users } from "lucide-react";
 
 type Community = {
   id: string;
@@ -310,7 +310,7 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
 
   return <section className="kiki-communities-page">
     <header className="kiki-communities-heading">
-      <span>COMMUNITY</span>
+      <span className="kiki-communities-spatial-label"><MapPinned size={14} aria-hidden="true" /> SOCIAL · SPATIAL · ANONYMOUS</span>
       <h1>Communities</h1>
       <p>Share practical ideas anonymously. There’s no following, public profile, or direct messaging.</p>
     </header>
@@ -327,7 +327,7 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
     {tab === "feed" && <>
       {joinedCommunities.length > 0 && <div className="kiki-communities-switcher" aria-label="Your communities">
         {joinedCommunities.map((community) => <button key={community.id} type="button" aria-pressed={activeSlug === community.slug} onClick={() => openCommunity(community.slug)}>
-          {community.isSystem && <ShieldCheck size={15} aria-hidden="true" />}{community.name}
+          {community.isSystem ? <ShieldCheck size={15} aria-hidden="true" /> : <Users size={15} aria-hidden="true" />}{community.name}
         </button>)}
       </div>}
       {loading || feedLoading ? <p className="kiki-communities-loading" role="status">Loading community…</p> : feed && !feed.isMember ? <article className="kiki-community-scope-card">
@@ -342,6 +342,7 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
           <div className="kiki-community-card-icon">{feed.community.isSystem ? <ShieldCheck size={20} aria-hidden="true" /> : <Users size={20} aria-hidden="true" />}</div>
           <div><h2>{feed.community.name}{feed.community.isSystem && <span className="kiki-community-system-badge">Kiki community</span>}</h2><p>{feed.community.description}</p></div>
         </header>
+        <div className="kiki-community-spatial-scope"><MapPinned size={17} aria-hidden="true" /><span><small>Community scope</small><strong>{feed.community.scope}</strong></span></div>
         {feed.pseudonym && <p className="kiki-community-anonymity"><LockKeyhole size={16} aria-hidden="true" /> You’re <strong>{feed.pseudonym}</strong> in this community. Your nickname is different in each community; your profile and real name are never shown.</p>}
         {feed.welcomeRequired && feed.posts.map((post) => <article className="kiki-community-post kiki-community-welcome" key={post.id}>
           <p className="kiki-community-post-author"><ShieldCheck size={16} aria-hidden="true" /> Kiki · Welcome</p>
@@ -393,7 +394,7 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
       <p className="kiki-communities-intro">Every community is public and moderated. Read its scope before joining.</p>
       {communities.map((community) => <article className="kiki-community-discovery-card" key={community.id}>
         <div className="kiki-community-card-icon">{community.isSystem ? <ShieldCheck size={20} aria-hidden="true" /> : <Users size={20} aria-hidden="true" />}</div>
-        <div className="kiki-community-discovery-copy"><h2>{community.name}{community.isSystem && <span className="kiki-community-system-badge">Kiki</span>}</h2><p>{community.description}</p><small>{community.memberCount} members · {community.scope}</small></div>
+        <div className="kiki-community-discovery-copy"><h2>{community.name}{community.isSystem && <span className="kiki-community-system-badge">Kiki</span>}</h2><p>{community.description}</p><small><MapPinned size={13} aria-hidden="true" />{community.memberCount} members · {community.scope}</small></div>
         <button type="button" disabled={busy} onClick={() => community.isMember ? openCommunity(community.slug) : void joinCommunity(community)}>{community.isMember ? "Open" : "Join"}</button>
       </article>)}
     </div>}

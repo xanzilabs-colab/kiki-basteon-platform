@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import * as L from "leaflet";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayers";
 
@@ -16,6 +16,8 @@ export type SafetyMapPoint = {
   upvotes?: number;
   name?: string;
   avatarUrl?: string | null;
+  subtitle?: string | null;
+  description?: string | null;
 };
 
 const spotGlyphs: Record<string, string> = {
@@ -135,7 +137,14 @@ function ReportRiskZones({ points }: { points: SafetyMapPoint[] }) {
 
 function MapViewport({ center, zoom, recenter, fitPoints }: { center: SafetyMapPoint | null; zoom: number; recenter: number; fitPoints?: SafetyMapPoint[] }) {
   const map = useMap();
+  const previousRecenter = useRef(recenter);
   useEffect(() => {
+    const shouldRecenter = previousRecenter.current !== recenter;
+    previousRecenter.current = recenter;
+    if (shouldRecenter && center && isValidPoint(center)) {
+      map.setView([center.lat, center.lng], zoom);
+      return;
+    }
     if (fitPoints?.length) {
       const bounds = L.latLngBounds(fitPoints.map((point) => L.latLng(point.lat, point.lng)));
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: zoom, animate: false });
@@ -160,10 +169,11 @@ export default function KikiSafetyMap({
   zoom = 13,
   recenter = 0,
   fitPoints,
+  userLocation,
   profileImageUrl = null,
   profileLabel = "Kiki",
   userLocationStyle = "avatar",
-  onBuddySelect,
+  onPointSelect,
   className = "",
 }: {
   center: SafetyMapPoint | null;
@@ -172,14 +182,16 @@ export default function KikiSafetyMap({
   zoom?: number;
   recenter?: number;
   fitPoints?: SafetyMapPoint[];
+  userLocation?: SafetyMapPoint | null;
   profileImageUrl?: string | null;
   profileLabel?: string;
   userLocationStyle?: "avatar" | "dot";
-  onBuddySelect?: (userId: string) => void;
+  onPointSelect?: (point: SafetyMapPoint) => void;
   className?: string;
 }) {
   const selectedLayer = useMemo(() => MAP_BASE_LAYERS.find((item) => item.name === layer) ?? MAP_BASE_LAYERS[0], [layer]);
   const safeCenter = isValidPoint(center) ? center : null;
+  const markerLocation = userLocation === undefined ? safeCenter : isValidPoint(userLocation) ? userLocation : null;
   const mapCenter: [number, number] = safeCenter ? [safeCenter.lat, safeCenter.lng] : [-29, 24];
   const validPoints = useMemo(() => points.filter(isValidPoint), [points]);
   const reports = useMemo(() => validPoints.filter((point) => point.kind === "report"), [validPoints]);
@@ -208,7 +220,7 @@ export default function KikiSafetyMap({
     <MapContainer center={mapCenter} zoom={safeCenter ? zoom : 5} scrollWheelZoom attributionControl={false} zoomControl={false} className="kiki-safety-map-canvas">
       <TileLayer url={selectedLayer.url} attribution={selectedLayer.attribution} maxZoom={selectedLayer.maxZoom} />
       <MapViewport center={safeCenter} zoom={zoom} recenter={recenter} fitPoints={fitPoints} />
-      {safeCenter && <Marker position={mapCenter} icon={userIcon} title={`${profileLabel}'s location`} />}
+      {markerLocation && <Marker position={[markerLocation.lat, markerLocation.lng]} icon={userIcon} title={`${profileLabel}'s location`} />}
       <ReportRiskZones points={reports} />
       {validPoints.filter((point) => point.kind === "buddy").map((point, index) => {
         const imageUrl = safeImageSource(point.avatarUrl);
@@ -227,7 +239,7 @@ export default function KikiSafetyMap({
           position={[point.lat, point.lng]}
           icon={marker}
           title={`${point.name ?? "Buddy"} shared their live location`}
-          eventHandlers={point.id && onBuddySelect ? { click: () => onBuddySelect(point.id!) } : undefined}
+          eventHandlers={onPointSelect ? { click: () => onPointSelect(point) } : undefined}
         />;
       })}
       {reports.map((point, index) => {
@@ -241,7 +253,13 @@ export default function KikiSafetyMap({
           iconSize: [50, 50],
           iconAnchor: [25, 25],
         });
-        return <Marker key={point.id ?? `report-${point.lat}-${point.lng}-${index}`} position={[point.lat, point.lng]} icon={marker} title={`${point.category?.replaceAll("_", " ") ?? "Community"} report`} />;
+        return <Marker
+          key={point.id ?? `report-${point.lat}-${point.lng}-${index}`}
+          position={[point.lat, point.lng]}
+          icon={marker}
+          title={`${point.name ?? point.category?.replaceAll("_", " ") ?? "Community"} report`}
+          eventHandlers={onPointSelect ? { click: () => onPointSelect(point) } : undefined}
+        />;
       })}
       {validPoints.filter((point) => point.kind === "spot").map((point, index) => {
         const markerGlyph = spotGlyphs[point.category ?? ""] ?? "•";
@@ -255,7 +273,8 @@ export default function KikiSafetyMap({
           key={point.id ?? `spot-${point.lat}-${point.lng}-${index}`}
           position={[point.lat, point.lng]}
           icon={marker}
-          title={`${point.category?.replaceAll("_", " ") ?? "Safe"} spot`}
+          title={point.name ?? `${point.category?.replaceAll("_", " ") ?? "Safe"} spot`}
+          eventHandlers={onPointSelect ? { click: () => onPointSelect(point) } : undefined}
         />;
       })}
     </MapContainer>

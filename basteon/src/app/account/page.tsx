@@ -18,6 +18,7 @@ import { getCurrentLocation } from "@/lib/platform/location";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
 import { AccountListCard, AccountSectionLabel, AccountStatusPill } from "@/components/account/AccountList";
+import { MapPointDetails } from "@/components/account/MapPointDetails";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 import { MapBottomSheet, MapScreen } from "@/components/account/MapScreen";
 import type { CommunityAlert, PublicSpot } from "@/lib/buddies/meeting/client";
@@ -79,8 +80,8 @@ export default function AccountPage() {
   const [activeSos, setActiveSos] = useState<ActiveSos | null>(null);
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [buddyLocations, setBuddyLocations] = useState<BuddyMapLocation[]>([]);
-  const [canShareBuddyLocation, setCanShareBuddyLocation] = useState(false);
   const [buddyLocationError, setBuddyLocationError] = useState(false);
+  const [selectedMapPoint, setSelectedMapPoint] = useState<SafetyMapPoint | null>(null);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [sheetLevel, setSheetLevel] = useState<0 | 1 | 2>(0);
   const [mapLayerIndex, setMapLayerIndex] = useState(0);
@@ -91,27 +92,44 @@ export default function AccountPage() {
   const [communityError, setCommunityError] = useState("");
   const { allowed, reason: eligibility } = useLocationEligibility();
   const refreshNearbyRef = useRef<() => void>(() => {});
-  const lastBuddyLocationPublish = useRef(0);
+  const buddyMapPoints = useMemo<SafetyMapPoint[]>(() => buddyLocations.map((location) => ({
+    id: location.id,
+    lat: location.lat,
+    lng: location.lng,
+    kind: "buddy" as const,
+    name: location.name,
+    avatarUrl: location.avatarUrl,
+    createdAt: location.recordedAt,
+    subtitle: "Sharing live",
+  })), [buddyLocations]);
   const mapPoints = useMemo<SafetyMapPoint[]>(() => [
-    ...buddyLocations.map((location) => ({
-      id: location.id,
-      lat: location.lat,
-      lng: location.lng,
-      kind: "buddy" as const,
-      name: location.name,
-      avatarUrl: location.avatarUrl,
-    })),
+    ...buddyMapPoints,
     ...communityReports.map((report) => ({
       id: report.id,
       lat: report.lat,
       lng: report.lng,
       kind: "report" as const,
       category: report.kind,
+      name: report.kind.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+      subtitle: report.location_label || "Nearby area",
+      description: report.detail,
       createdAt: report.created_at,
       upvotes: report.upvotes,
     })),
-    ...safeHavens.map((place) => ({ id: place.id, lat: place.lat, lng: place.lng, kind: "spot" as const, category: place.category })),
-  ], [buddyLocations, communityReports, safeHavens]);
+    ...safeHavens.map((place) => ({
+      id: place.id,
+      lat: place.lat,
+      lng: place.lng,
+      kind: "spot" as const,
+      category: place.category,
+      name: place.name,
+      subtitle: place.address,
+      description: place.open_24h ? "Open 24 hours" : "Hours not listed",
+    })),
+  ], [buddyMapPoints, communityReports, safeHavens]);
+  const buddyFitPoints = useMemo<SafetyMapPoint[] | undefined>(() => buddyMapPoints.length
+    ? [...buddyMapPoints, ...(mapPoint ? [{ ...mapPoint, id: "my-location" }] : [])]
+    : undefined, [buddyMapPoints, mapPoint]);
 
   useEffect(() => {
     let active = true;
@@ -119,10 +137,9 @@ export default function AccountPage() {
       try {
         const response = await fetch("/api/account/buddies/locations", { cache: "no-store" });
         if (!response.ok) throw new Error("Buddy locations could not be loaded.");
-        const data = await response.json() as { locations?: BuddyMapLocation[]; canShareMyLocation?: boolean };
+        const data = await response.json() as { locations?: BuddyMapLocation[] };
         if (active) {
           setBuddyLocations(data.locations ?? []);
-          setCanShareBuddyLocation(Boolean(data.canShareMyLocation));
           setBuddyLocationError(false);
         }
       } catch {
@@ -177,17 +194,6 @@ export default function AccountPage() {
           if (cancelled || sequence !== requestSequence) return;
           setMapPoint({ lat: position.lat, lng: position.lng });
           setLocationDenied(false);
-          if (canShareBuddyLocation && document.visibilityState === "visible"
-            && Date.now() - lastBuddyLocationPublish.current >= 30_000) {
-            lastBuddyLocationPublish.current = Date.now();
-            void fetch("/api/account/buddies/locations", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ lat: position.lat, lng: position.lng, accuracyM: position.accuracy }),
-            }).then((response) => {
-              if (!response.ok) throw new Error("Buddy location could not be shared.");
-            }).catch(() => setBuddyLocationError(true));
-          }
           load(sequence, { lat: position.lat, lng: position.lng });
         },
       ).catch(() => {
@@ -223,7 +229,7 @@ export default function AccountPage() {
       document.removeEventListener("visibilitychange", refreshOnFocus);
       void presenceClient.removeChannel(presenceChannel);
     };
-  }, [allowed, canShareBuddyLocation, eligibility]);
+  }, [allowed, eligibility]);
 
   useEffect(() => {
     if (!mapPoint) return;
@@ -333,7 +339,7 @@ export default function AccountPage() {
   return <><MapScreen
     screenId="account-home"
     className="kiki-map-home"
-    map={<KikiSafetyMap center={mapPoint ?? buddyLocations[0] ?? null} points={mapPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} userLocationStyle="dot" onBuddySelect={(userId) => router.push(`/account/profile/buddies/${userId}`)} />}
+    map={<KikiSafetyMap center={mapPoint ?? buddyLocations[0] ?? null} points={mapPoints} fitPoints={buddyFitPoints} zoom={14} layer={currentMapLayer} recenter={mapRecenter} profileImageUrl={profileImageUrl} profileLabel={readiness?.fullName ?? "Kiki"} userLocationStyle="dot" onPointSelect={(point) => { setSelectedMapPoint(point); setSheetLevel(2); }} />}
     topBar={<div className="kiki-explore-hud">
       {activeSos ? <button type="button" className="kiki-explore-circle-link is-alert" onClick={() => window.dispatchEvent(new CustomEvent("kiki:open-sos-response", { detail: { id: activeSos.id, type: activeSos.type } }))}>
         <span className="kiki-explore-circle-icon"><Siren size={19} aria-hidden="true" /></span>
@@ -361,6 +367,24 @@ export default function AccountPage() {
     selectedLayer={currentMapLayer}
     onLayerChange={(layer) => setMapLayerIndex(MAP_BASE_LAYERS.findIndex((item) => item.name === layer))}
     bottomSheet={<MapBottomSheet level={sheetLevel} onLevelChange={setSheetLevel} label="Your safety map details">
+      {selectedMapPoint && <MapPointDetails
+        point={selectedMapPoint}
+        onClose={() => setSelectedMapPoint(null)}
+        actionLabel={selectedMapPoint.kind === "buddy" ? "Open buddy details" : selectedMapPoint.kind === "spot" ? "Open Safe Havens" : "Open in Pulse"}
+        onAction={() => {
+          if (!selectedMapPoint.id) return;
+          if (selectedMapPoint.kind === "buddy") router.push(`/account/profile/buddies/${selectedMapPoint.id}`);
+          else {
+            const params = new URLSearchParams({
+              tab: selectedMapPoint.kind === "spot" ? "spots" : "alerts",
+              focus: selectedMapPoint.id,
+              lat: String(selectedMapPoint.lat),
+              lng: String(selectedMapPoint.lng),
+            });
+            router.push(`/account/buddies/safe-places?${params}`);
+          }
+        }}
+      />}
       <div className="kiki-map-sheet-peek">
         <span className="kiki-map-avatar" aria-hidden="true">{readiness?.fullName?.trim().charAt(0).toUpperCase() || "K"}</span>
         <span className="kiki-map-peek-copy">

@@ -1604,3 +1604,163 @@ body:has(.auth-shell) { background:#fff!important; }
   .kiki-community-composer-footer { align-items:flex-start;flex-direction:column; }
   .kiki-community-composer-footer button { align-self:stretch; }
 }
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-page {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  border-radius: 24px;
+  background: #f1f3f5;
+  padding: 14px;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-heading {
+  border-radius: 20px;
+  background: #fff;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgb(35 20 48 / 6%);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-heading .kiki-communities-spatial-label {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: #eee8f6;
+  padding: 0 10px;
+  color: #4a2472;
+  font-size: 10px;
+  letter-spacing: .07em;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-heading h1 {
+  margin: 12px 0 5px;
+  font-size: 28px;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-tabs {
+  border-radius: 16px;
+  background: #e7e9ed;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-tabs button[aria-pressed="true"] {
+  background: #fff;
+  color: #4a2472;
+  box-shadow: 0 2px 7px rgb(35 20 48 / 10%);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-switcher button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(35 20 48 / 6%);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-switcher button[aria-pressed="true"] {
+  background: #eee8f6;
+  color: #4a2472;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-feed-heading,
+.account-shell:not([data-theme="dark"]) .kiki-community-spatial-scope,
+.account-shell:not([data-theme="dark"]) .kiki-community-anonymity,
+.account-shell:not([data-theme="dark"]) .kiki-community-post,
+.account-shell:not([data-theme="dark"]) .kiki-community-scope-card,
+.account-shell:not([data-theme="dark"]) .kiki-community-guard-rules,
+.account-shell:not([data-theme="dark"]) .kiki-community-guard-event,
+.account-shell:not([data-theme="dark"]) .kiki-community-guard-preview,
+.account-shell:not([data-theme="dark"]) .kiki-community-create-form,
+.account-shell:not([data-theme="dark"]) .kiki-community-composer,
+.account-shell:not([data-theme="dark"]) .kiki-community-discovery-card,
+.account-shell:not([data-theme="dark"]) .kiki-community-guard-hero {
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(35 20 48 / 6%);
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-feed-heading {
+  padding: 15px;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-spatial-scope {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  color: #4a2472;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-spatial-scope > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-spatial-scope small {
+  color: #756d66;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-spatial-scope strong {
+  color: #29231f;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-post,
+.account-shell:not([data-theme="dark"]) .kiki-community-scope-card,
+.account-shell:not([data-theme="dark"]) .kiki-community-guard-rules,
+.account-shell:not([data-theme="dark"]) .kiki-community-guard-event,
+.account-shell:not([data-theme="dark"]) .kiki-community-guard-preview,
+.account-shell:not([data-theme="dark"]) .kiki-community-create-form,
+.account-shell:not([data-theme="dark"]) .kiki-community-composer,
+.account-shell:not([data-theme="dark"]) .kiki-community-discovery-card {
+  padding: 15px;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-discovery-copy small {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-discovery-copy small svg {
+  flex: none;
+  color: #4a2472;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-post-actions {
+  border-color: #edf0f3;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-post-actions button {
+  border-radius: 999px;
+  background: #f1f3f5;
+  color: #4a2472;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-community-post-actions button[aria-pressed="true"] {
+  background: #4a2472;
+  color: #fff;
+}
+
+@media (max-width: 480px) {
+  .account-shell:not([data-theme="dark"]) .kiki-communities-page {
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .account-shell:not([data-theme="dark"]) .kiki-communities-heading {
+    padding: 15px;
+  }
+
+  .account-shell:not([data-theme="dark"]) .kiki-communities-tabs button {
+    min-height: 42px;
+    padding-inline: 3px;
+  }
+}

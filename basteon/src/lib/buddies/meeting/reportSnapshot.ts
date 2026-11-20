@@ -45,10 +45,10 @@ function loadTile(url: string) {
 }
 
 export async function createCommunityAlertSnapshot(alert: CommunityAlert, distanceLabel: string | null) {
-  const width = 720;
-  const height = 1120;
-  const map = { left: 32, top: 270, width: 656, height: 432 };
-  const tiles = reportMapTiles(alert.lat, alert.lng, 4, 2);
+  const width = 1080;
+  const height = 1350;
+  const map = { left: 48, top: 320, width: 984, height: 560 };
+  const tiles = reportMapTiles(alert.lat, alert.lng, 4, 3);
   const images = await Promise.all(tiles.map(async (tile) => ({ tile, image: await loadTile(tile.src) })));
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -56,41 +56,41 @@ export async function createCommunityAlertSnapshot(alert: CommunityAlert, distan
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Could not create the report image.");
 
-  context.fillStyle = "#f8f4ec";
+  context.fillStyle = "#f1f3f5";
   context.fillRect(0, 0, width, height);
-  context.fillStyle = "#fffdf9";
-  roundedRect(context, 16, 16, width - 32, height - 32, 30);
+  context.fillStyle = "#ffffff";
+  roundedRect(context, 18, 18, width - 36, height - 36, 38);
   context.fill();
 
   context.fillStyle = "#4a2472";
   context.beginPath();
-  context.arc(69, 74, 25, 0, Math.PI * 2);
+  context.arc(88, 88, 31, 0, Math.PI * 2);
   context.fill();
   context.fillStyle = "#fff";
-  context.font = "700 21px Arial, sans-serif";
+  context.font = "700 26px Arial, sans-serif";
   context.textAlign = "center";
-  context.fillText("K", 69, 81);
+  context.fillText("K", 88, 97);
 
   context.textAlign = "left";
   context.fillStyle = "#29231f";
-  context.font = "700 23px Arial, sans-serif";
-  context.fillText("Anonymous neighbour", 112, 69, 365);
+  context.font = "700 28px Arial, sans-serif";
+  context.fillText("Anonymous neighbour", 142, 83, 570);
   context.fillStyle = "#756d66";
-  context.font = "15px Arial, sans-serif";
-  context.fillText(`${titleCase(alert.kind)} · ${formatAge(alert.created_at)}`, 112, 96, 365);
+  context.font = "18px Arial, sans-serif";
+  context.fillText(`${titleCase(alert.kind)} · ${formatAge(alert.created_at)}`, 142, 116, 570);
   context.fillStyle = "#eee8f6";
-  roundedRect(context, 514, 48, 160, 34, 17);
+  roundedRect(context, 794, 62, 234, 44, 22);
   context.fill();
   context.fillStyle = "#4a2472";
-  context.font = "600 13px Arial, sans-serif";
+  context.font = "600 17px Arial, sans-serif";
   context.textAlign = "center";
-  context.fillText(titleCase(alert.kind), 594, 70, 146);
+  context.fillText(titleCase(alert.kind), 911, 90, 210);
 
   context.textAlign = "left";
   context.fillStyle = "#29231f";
-  context.font = "18px Arial, sans-serif";
-  const detail = wrapText(context, alert.detail || "Community report", 632, 4);
-  detail.forEach((line, index) => context.fillText(line, 44, 153 + index * 26));
+  context.font = "25px Arial, sans-serif";
+  const detail = wrapText(context, alert.detail || "Community report", 956, 3);
+  detail.forEach((line, index) => context.fillText(line, 62, 192 + index * 36));
 
   context.save();
   roundedRect(context, map.left, map.top, map.width, map.height, 22);
@@ -108,69 +108,72 @@ export async function createCommunityAlertSnapshot(alert: CommunityAlert, distan
   context.shadowOffsetY = 4;
   context.fillStyle = "#4a2472";
   context.beginPath();
-  context.arc(map.left + map.width / 2, map.top + map.height / 2, 16, 0, Math.PI * 2);
+  context.arc(map.left + map.width / 2, map.top + map.height / 2, 20, 0, Math.PI * 2);
   context.fill();
   context.restore();
   context.fillStyle = "#fff";
   context.beginPath();
-  context.arc(map.left + map.width / 2, map.top + map.height / 2, 6, 0, Math.PI * 2);
+  context.arc(map.left + map.width / 2, map.top + map.height / 2, 8, 0, Math.PI * 2);
   context.fill();
 
   context.fillStyle = "rgba(255,255,255,.96)";
-  roundedRect(context, map.left + 12, map.top + map.height - 78, map.width - 24, 64, 16);
+  roundedRect(context, map.left + 16, map.top + map.height - 98, map.width - 32, 82, 20);
   context.fill();
   context.fillStyle = "#29231f";
-  context.font = "700 15px Arial, sans-serif";
-  context.fillText((alert.location_label || "Nearby area").slice(0, 74), map.left + 28, map.top + map.height - 48, map.width - 85);
+  context.font = "700 20px Arial, sans-serif";
+  context.fillText((alert.location_label || "Nearby area").slice(0, 74), map.left + 38, map.top + map.height - 62, map.width - 100);
   context.fillStyle = "#756d66";
-  context.font = "13px Arial, sans-serif";
+  context.font = "16px Arial, sans-serif";
   context.fillText(
     distanceLabel ? `${distanceLabel} from your location · Tap to view pin` : "Tap to view pin",
-    map.left + 28,
-    map.top + map.height - 25,
-    map.width - 48,
+    map.left + 38,
+    map.top + map.height - 34,
+    map.width - 76,
   );
   context.fillStyle = "rgba(255,255,255,.9)";
-  roundedRect(context, map.left + map.width - 178, map.top + 10, 166, 20, 10);
+  roundedRect(context, map.left + map.width - 240, map.top + 14, 224, 28, 14);
   context.fill();
   context.fillStyle = "#4b5563";
-  context.font = "11px Arial, sans-serif";
+  context.font = "14px Arial, sans-serif";
   context.textAlign = "right";
-  context.fillText(reportMapAttribution, map.left + map.width - 20, map.top + 24, 150);
+  context.fillText(reportMapAttribution, map.left + map.width - 28, map.top + 34, 204);
 
   context.textAlign = "left";
-  context.strokeStyle = "#eee8f6";
+  context.strokeStyle = "#e7e9ed";
   context.lineWidth = 2;
   context.beginPath();
-  context.moveTo(40, 738);
-  context.lineTo(width - 40, 738);
+  context.moveTo(56, 916);
+  context.lineTo(width - 56, 916);
   context.stroke();
 
   context.fillStyle = "#eee8f6";
-  roundedRect(context, 40, 764, 300, 58, 18);
+  roundedRect(context, 56, 942, 466, 72, 22);
   context.fill();
   context.fillStyle = "#4a2472";
-  context.font = "700 16px Arial, sans-serif";
-  context.fillText(`👍  Helpful · ${alert.upvotes}`, 60, 800, 260);
+  context.font = "700 21px Arial, sans-serif";
+  context.fillText(`👍  Helpful · ${alert.upvotes}`, 84, 987, 414);
 
-  context.fillStyle = "#f0eef2";
-  roundedRect(context, 360, 764, 320, 58, 18);
+  context.fillStyle = "#f0f1f4";
+  roundedRect(context, 558, 942, 466, 72, 22);
   context.fill();
   context.fillStyle = "#4a2472";
-  context.fillText(`💬  Comments · ${alert.comment_count ?? 0}`, 380, 800, 280);
+  context.fillText(`💬  Comments · ${alert.comment_count ?? 0}`, 586, 987, 410);
 
-  context.strokeStyle = "#eee8f6";
+  context.strokeStyle = "#e7e9ed";
   context.beginPath();
-  context.moveTo(40, 850);
-  context.lineTo(width - 40, 850);
+  context.moveTo(56, 1050);
+  context.lineTo(width - 56, 1050);
   context.stroke();
   context.fillStyle = "#756d66";
-  context.font = "13px Arial, sans-serif";
-  context.fillText("Shared from Kiki", 42, 1054);
+  context.font = "16px Arial, sans-serif";
+  context.fillText("Shared anonymously with your Kiki safety community.", 58, 1092, 900);
+  context.font = "15px Arial, sans-serif";
+  context.fillText("Always use your judgement and contact local emergency services if you are in immediate danger.", 58, 1128, 940);
+  context.fillText("Shared from Kiki", 58, 1288);
   context.fillStyle = "#4a2472";
-  context.font = "700 15px Arial, sans-serif";
+  context.font = "700 18px Arial, sans-serif";
   context.textAlign = "right";
-  context.fillText("KIKI · SAFETY NETWORK", width - 42, 1054);
+  context.fillText("KIKI · SAFETY NETWORK", width - 58, 1288);
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) throw new Error("Could not export the report image.");

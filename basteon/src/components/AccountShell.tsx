@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, Flower2, Gamepad2, HeartPulse, House, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Users, Volume2, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useLocationEligibility } from "@/hooks/useLocationEligibility";
+import { getCurrentLocation } from "@/lib/platform/location";
 import { CachedProfileImage } from "@/components/CachedProfileImage";
 import { KikiMark } from "@/components/KikiMark";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -31,6 +33,7 @@ export function useAccountMenuFeatures() {
 
 export function AccountShell({ name, children, initialDarkTheme = false, stoepEnabled = false, calmEnabled = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean; stoepEnabled?: boolean; calmEnabled?: boolean }) {
   const pathname = usePathname(); const router = useRouter();
+  const { allowed: liveLocationAllowed } = useLocationEligibility();
   const [darkTheme, setDarkTheme] = useState(initialDarkTheme);
   const [mapUiHidden, setMapUiHidden] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
@@ -133,6 +136,48 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
     const retryTimer = window.setInterval(() => { if (navigator.onLine) flush(); }, 15_000);
     return () => { window.removeEventListener("online", flush); window.clearInterval(retryTimer); };
   }, []);
+
+  useEffect(() => {
+    if (!liveLocationAllowed) return;
+    let active = true;
+    let publishing = false;
+    const publishLocation = async () => {
+      if (!active || publishing || document.visibilityState !== "visible") return;
+      publishing = true;
+      try {
+        const accessResponse = await fetch("/api/account/buddies/locations", { cache: "no-store" });
+        if (!accessResponse.ok) throw new Error("Buddy location sharing settings could not be loaded.");
+        const access = await accessResponse.json() as { canShareMyLocation?: boolean };
+        if (!access.canShareMyLocation) return;
+
+        const position = await getCurrentLocation({ enableHighAccuracy: true, timeout: 8_000, maximumAge: 30_000 });
+        if (!active) return;
+        const response = await fetch("/api/account/buddies/locations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lat: position.lat, lng: position.lng, accuracyM: position.accuracy }),
+        });
+        if (!response.ok) throw new Error("Buddy location could not be shared.");
+      } catch (error) {
+        if (active) console.error("Buddy location publishing failed.", error);
+      } finally {
+        publishing = false;
+      }
+    };
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") void publishLocation();
+    };
+    void publishLocation();
+    const timer = window.setInterval(refreshVisible, 30_000);
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
+  }, [liveLocationAllowed]);
 
   useEffect(() => {
     const open = (event: Event) => {
