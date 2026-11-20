@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, HeartHandshake, Info, Lightbulb, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Users } from "lucide-react";
+import { Footprints, Heart, HeartHandshake, Lightbulb, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 type Community = {
   id: string;
@@ -52,6 +53,31 @@ const tabLabels: Array<{ value: Tab; label: string }> = [
   { value: "create", label: "Create" },
 ];
 
+const communityIcons: Record<string, LucideIcon> = {
+  shield: ShieldCheck,
+  lightbulb: Lightbulb,
+  footprints: Footprints,
+  heart: Heart,
+  users: Users,
+};
+
+function CommunityIcon({ iconKey, size = 20 }: { iconKey: string; size?: number }) {
+  const Icon = communityIcons[iconKey] ?? Users;
+  return <Icon size={size} aria-hidden="true" />;
+}
+
+function formatCommunityTime(value: string) {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "";
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days < 7 ? `${days}d ago` : new Date(value).toLocaleDateString();
+}
+
 function messageForError(code: string) {
   const messages: Record<string, string> = {
     communities_unavailable: "Communities could not be loaded. Please try again.",
@@ -92,6 +118,8 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [draft, setDraft] = useState("");
+  const [discoverQuery, setDiscoverQuery] = useState("");
+  const [discoverFilter, setDiscoverFilter] = useState<"all" | "kiki" | "joined">("all");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [pendingDraft, setPendingDraft] = useState<{ text: string; safeText: string; reason: string; parentId: string | null } | null>(null);
   const [form, setForm] = useState({ name: "", description: "", scope: "" });
@@ -307,15 +335,28 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
 
   const selectedCommunity = communities.find((item) => item.slug === activeSlug);
   const joinedCommunities = communities.filter((item) => item.isMember);
+  const filteredCommunities = communities.filter((community) => {
+    const matchesQuery = `${community.name} ${community.description} ${community.scope}`.toLowerCase().includes(discoverQuery.trim().toLowerCase());
+    const matchesFilter = discoverFilter === "all" || (discoverFilter === "kiki" ? community.isSystem : community.isMember);
+    return matchesQuery && matchesFilter;
+  });
+  const memberCount = feed ? communities.find((item) => item.slug === feed.community.slug)?.memberCount ?? 0 : 0;
 
   return <section className="kiki-communities-page">
-    <div className="kiki-communities-toolbar">
-      <span className="kiki-communities-spatial-label"><MapPinned size={14} aria-hidden="true" /> SOCIAL · SPATIAL · ANONYMOUS</span>
-      <details className="kiki-communities-info">
-        <summary aria-label="About Communities" title="About Communities" aria-describedby="kiki-communities-info-tooltip"><Info size={18} aria-hidden="true" /></summary>
-        <div id="kiki-communities-info-tooltip" className="kiki-communities-info-tooltip" role="tooltip">Share practical ideas anonymously. There’s no following, public profile, or direct messaging.</div>
-      </details>
-    </div>
+    <section className="kiki-community-stories" aria-label="Your communities">
+      <div className="kiki-community-story-rail">
+        {joinedCommunities.map((community) => <button key={community.id} type="button" className="kiki-community-story" aria-current={activeSlug === community.slug ? "true" : undefined} onClick={() => openCommunity(community.slug)}>
+          <span className={`kiki-community-story-ring${community.isSystem ? " is-kiki" : ""}`}>
+            <span className="kiki-community-story-core"><CommunityIcon iconKey={community.iconKey} size={22} /></span>
+          </span>
+          <span className="kiki-community-story-title">{community.name}</span>
+        </button>)}
+        <button type="button" className="kiki-community-story" onClick={() => setTab("discover")}>
+          <span className="kiki-community-story-ring is-explore"><span className="kiki-community-story-core"><Users size={21} aria-hidden="true" /></span></span>
+          <span className="kiki-community-story-title">Explore</span>
+        </button>
+      </div>
+    </section>
 
     <nav className="kiki-communities-tabs" aria-label="Community sections">
       {tabLabels.map((item) => <button key={item.value} type="button" aria-pressed={tab === item.value} onClick={() => { setTab(item.value); setError(""); setNotice(""); }}>
@@ -326,38 +367,58 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
     {error && <p className="kiki-communities-alert" role="alert">{error}</p>}
     {notice && <p className="kiki-communities-notice" role="status">{notice}</p>}
 
+    <div className="kiki-communities-tab-content">
     {tab === "feed" && <>
       {joinedCommunities.length > 0 && <div className="kiki-communities-switcher" aria-label="Your communities">
         {joinedCommunities.map((community) => <button key={community.id} type="button" aria-pressed={activeSlug === community.slug} onClick={() => openCommunity(community.slug)}>
-          {community.isSystem ? <ShieldCheck size={15} aria-hidden="true" /> : <Users size={15} aria-hidden="true" />}{community.name}
+          <CommunityIcon iconKey={community.iconKey} size={15} />{community.name}
         </button>)}
+        <button type="button" className="kiki-communities-explore" onClick={() => setTab("discover")}>+ Explore</button>
       </div>}
       {loading || feedLoading ? <p className="kiki-communities-loading" role="status">Loading community…</p> : feed && !feed.isMember ? <article className="kiki-community-scope-card">
-        <div className="kiki-community-card-icon"><Users size={20} aria-hidden="true" /></div>
+        <div className="kiki-community-card-icon"><CommunityIcon iconKey={feed.community.iconKey} /></div>
         <h2>{feed.community.name}</h2>
         <p>{feed.community.description}</p>
         <h3>Community scope</h3>
         <p>{feed.community.scope}</p>
         <button type="button" disabled={busy} onClick={() => void joinCommunity(communities.find((item) => item.id === feed.community.id) ?? { ...feed.community, memberCount: 0, isMember: false, pseudonym: null, welcomeReadAt: null, mutedUntil: null })}>Join community</button>
       </article> : feed ? <>
-        <header className="kiki-community-feed-heading">
-          <div className="kiki-community-card-icon">{feed.community.isSystem ? <ShieldCheck size={20} aria-hidden="true" /> : <Users size={20} aria-hidden="true" />}</div>
-          <div><h2>{feed.community.name}{feed.community.isSystem && <span className="kiki-community-system-badge">Kiki community</span>}</h2><p>{feed.community.description}</p></div>
-        </header>
-        <div className="kiki-community-spatial-scope"><MapPinned size={17} aria-hidden="true" /><span><small>Community scope</small><strong>{feed.community.scope}</strong></span></div>
-        {feed.pseudonym && <p className="kiki-community-anonymity"><LockKeyhole size={16} aria-hidden="true" /> You’re <strong>{feed.pseudonym}</strong> in this community. Your nickname is different in each community; your profile and real name are never shown.</p>}
-        {feed.welcomeRequired && feed.posts.map((post) => <article className="kiki-community-post kiki-community-welcome" key={post.id}>
-          <p className="kiki-community-post-author"><ShieldCheck size={16} aria-hidden="true" /> Kiki · Welcome</p>
-          <p className="kiki-community-post-body">{post.body}</p>
-          <p className="kiki-community-scope-note">Community scope: {feed.community.scope}</p>
+        <div className={`kiki-community-hero is-${feed.community.iconKey}`}>
+          <span className="kiki-community-hero-glow" aria-hidden="true" />
+          <div className="kiki-community-hero-main">
+            <span className="kiki-community-hero-icon"><CommunityIcon iconKey={feed.community.iconKey} size={24} /></span>
+            <div className="kiki-community-hero-copy">
+              <div><h1>{feed.community.name}</h1>{feed.community.isSystem && <span className="kiki-community-system-badge">Kiki community</span>}</div>
+              <p>{feed.community.description}</p>
+            </div>
+          </div>
+          <div className="kiki-community-hero-meta">
+            <span><i aria-hidden="true" />{memberCount.toLocaleString()} members</span>
+            <span className="kiki-community-hero-privacy"><LockKeyhole size={13} aria-hidden="true" />Anonymous by default</span>
+          </div>
+        </div>
+
+        {feed.pseudonym && <section className="kiki-community-alias-card">
+          <span className="kiki-community-alias-icon"><CommunityIcon iconKey={feed.community.iconKey} size={22} /></span>
+          <span className="kiki-community-alias-copy"><small>Your community alias</small><strong>{feed.pseudonym}</strong></span>
+          <span className="kiki-community-alias-badge"><LockKeyhole size={13} aria-hidden="true" />Cloaked</span>
+          <p>Your nickname is unique to this community. Your profile and real name are never shown.</p>
+        </section>}
+
+        {feed.welcomeRequired ? <section className="kiki-community-welcome-card">
+          <div className="kiki-community-welcome-title"><ShieldCheck size={17} aria-hidden="true" />Kiki · Welcome &amp; scope</div>
+          <p>Welcome. You’re anonymous here under a community nickname. Kiki Guard checks every post and reply before it is shared.</p>
+          {feed.posts.map((post) => <p className="kiki-community-welcome-message" key={post.id}>{post.body}</p>)}
+          <div className="kiki-community-scope-note"><strong>Community scope:</strong> {feed.community.scope}</div>
           <button type="button" disabled={busy} onClick={() => void acknowledgeWelcome()}>I understand — continue</button>
-        </article>)}
+        </section> : <div className="kiki-community-scope-active"><ShieldCheck size={16} aria-hidden="true" /><span>Scope active · General guidance only</span><LockKeyhole size={14} aria-hidden="true" /></div>}
+
         {!feed.welcomeRequired && <>
           {feed.mutedUntil && feed.mutedUntil > new Date().toISOString() && <p className="kiki-communities-alert" role="status">Posting is paused until {new Date(feed.mutedUntil).toLocaleString()}.</p>}
           {feed.canPost && !replyingTo && <form className="kiki-community-composer" onSubmit={(event) => { event.preventDefault(); void reviewAndPost(draft, null); }}>
-            <label htmlFor="community-post">Share a general tip or question</label>
-            <textarea id="community-post" value={draft} maxLength={3000} onChange={(event) => setDraft(event.target.value)} placeholder="Keep it general. Kiki Guard will check your message before it’s shared." required />
-            <div className="kiki-community-composer-footer"><small>{draft.length}/3000 · Text only, no images or contact links</small><button type="submit" disabled={busy || !draft.trim()}>Review &amp; post</button></div>
+            <label htmlFor="community-post"><span className="kiki-community-composer-avatar"><CommunityIcon iconKey={feed.community.iconKey} size={15} /></span><span>Share a tip as <strong>{feed.pseudonym ?? "your community alias"}</strong></span></label>
+            <textarea id="community-post" value={draft} maxLength={3000} onChange={(event) => setDraft(event.target.value)} placeholder="Share a calm, general safety habit (no names or addresses)..." required />
+            <div className="kiki-community-composer-footer"><small><ShieldCheck size={14} aria-hidden="true" />Kiki Guard preview ready · {draft.length}/3000</small><button type="submit" disabled={busy || !draft.trim()}>{busy ? "Reviewing…" : "Review & post"}</button></div>
           </form>}
           {pendingDraft && <aside className="kiki-community-guard-preview" aria-label="Kiki Guard review">
             <h3><ShieldCheck size={18} aria-hidden="true" /> Kiki Guard found details to remove</h3>
@@ -365,21 +426,24 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
             <blockquote>{pendingDraft.safeText}</blockquote>
             <div><button type="button" className="secondary" disabled={busy} onClick={() => setPendingDraft(null)}>Edit message</button><button type="button" disabled={busy} onClick={() => void publishMessage(pendingDraft.text, pendingDraft.parentId)}>Post safe version</button></div>
           </aside>}
-          {feed.posts.length === 0 && <div className="kiki-communities-empty"><Lightbulb size={24} aria-hidden="true" /><p>No new posts yet. You’ll see posts shared after you read the welcome note.</p></div>}
+          <div className="kiki-community-insights-heading"><h2>Community insights</h2><span><ShieldCheck size={13} aria-hidden="true" />Moderated by Kiki Guard</span></div>
+          {feed.posts.length === 0 && <div className="kiki-communities-empty"><Lightbulb size={24} aria-hidden="true" /><p>No posts yet. Share a general safety tip to start the conversation.</p></div>}
           <div className="kiki-community-post-list">
             {feed.posts.map((post) => <article className="kiki-community-post" key={post.id}>
-              <p className="kiki-community-post-author">{post.isKiki ? <ShieldCheck size={16} aria-hidden="true" /> : <span className="kiki-community-author-dot" aria-hidden="true" />}{post.authorAlias}{post.isKiki && <span className="kiki-community-system-badge">Kiki</span>}</p>
+              <div className="kiki-community-post-head">
+                <span className={`kiki-community-post-avatar${post.isKiki ? " is-kiki" : ""}`}>{post.isKiki ? <ShieldCheck size={17} aria-hidden="true" /> : <Users size={16} aria-hidden="true" />}</span>
+                <span className="kiki-community-post-author-copy"><strong>{post.authorAlias}{post.isKiki && <span className="kiki-community-system-badge">Official</span>}</strong><small>{formatCommunityTime(post.createdAt)} · {post.type.replaceAll("_", " ")}</small></span>
+              </div>
               <p className="kiki-community-post-body">{post.body}</p>
-              <time dateTime={post.createdAt}>{new Date(post.createdAt).toLocaleString()}</time>
               <div className="kiki-community-post-actions">
                 {([
-                  ["support", "Support", Heart],
+                  ["support", "Helpful", Heart],
                   ["thanks", "Thanks", HeartHandshake],
                   ["care", "Care", Heart],
                 ] as const).map(([reaction, label, Icon]) => <button type="button" key={reaction} aria-pressed={post.reactions.mine.includes(reaction)} disabled={busy} onClick={() => void toggleReaction(post.id, reaction)}>
-                  <Icon size={16} aria-hidden="true" /> {label} {post.reactions[reaction]}
+                  <Icon size={15} aria-hidden="true" /> <span>{label}</span><b>{post.reactions[reaction]}</b>
                 </button>)}
-                <button type="button" onClick={() => { setReplyingTo(replyingTo === post.id ? null : post.id); setPendingDraft(null); }}><MessageCircle size={16} aria-hidden="true" /> Reply {post.comments.length}</button>
+                <button type="button" className="kiki-community-reply-action" onClick={() => { setReplyingTo(replyingTo === post.id ? null : post.id); setPendingDraft(null); }}><MessageCircle size={15} aria-hidden="true" /> <span>Reply</span><b>{post.comments.length}</b></button>
               </div>
               {post.comments.map((comment) => <div className="kiki-community-comment" key={comment.id}><p className="kiki-community-post-author">{comment.isKiki && <ShieldCheck size={15} aria-hidden="true" />}{comment.authorAlias}{comment.isKiki && <span className="kiki-community-system-badge">Kiki</span>}</p><p>{comment.body}</p></div>)}
               {replyingTo === post.id && <form className="kiki-community-reply" onSubmit={(event) => { event.preventDefault(); void reviewAndPost(draft, post.id); }}>
@@ -392,28 +456,42 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
       </> : !loading && selectedCommunity ? <p className="kiki-communities-loading">Choose a community to open its feed.</p> : null}
     </>}
 
-    {tab === "discover" && <div className="kiki-communities-list">
-      <p className="kiki-communities-intro">Every community is public and moderated. Read its scope before joining.</p>
-      {communities.map((community) => <article className="kiki-community-discovery-card" key={community.id}>
-        <div className="kiki-community-card-icon">{community.isSystem ? <ShieldCheck size={20} aria-hidden="true" /> : <Users size={20} aria-hidden="true" />}</div>
-        <div className="kiki-community-discovery-copy"><h2>{community.name}{community.isSystem && <span className="kiki-community-system-badge">Kiki</span>}</h2><p>{community.description}</p><small><MapPinned size={13} aria-hidden="true" />{community.memberCount} members · {community.scope}</small></div>
-        <button type="button" disabled={busy} onClick={() => community.isMember ? openCommunity(community.slug) : void joinCommunity(community)}>{community.isMember ? "Open" : "Join"}</button>
-      </article>)}
-    </div>}
+    {tab === "discover" && <section className="kiki-community-discover">
+      <header className="kiki-community-section-heading"><h1>Discover safe circles</h1><p>Browse public, anonymous communities moderated by Kiki Guard.</p></header>
+      <label className="kiki-community-search"><span className="sr-only">Search communities</span><Users size={17} aria-hidden="true" /><input value={discoverQuery} onChange={(event) => setDiscoverQuery(event.target.value)} placeholder="Search communities..." /></label>
+      <div className="kiki-community-filter-row" role="group" aria-label="Filter communities">
+        {([["all", "All"], ["kiki", "Kiki"], ["joined", "Joined"]] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={discoverFilter === value} onClick={() => setDiscoverFilter(value)}>{label}</button>)}
+      </div>
+      <div className="kiki-communities-list">
+        {filteredCommunities.map((community) => <article className="kiki-community-discovery-card" key={community.id}>
+          <div className={`kiki-community-discovery-icon is-${community.iconKey}`}><CommunityIcon iconKey={community.iconKey} size={22} /></div>
+          <div className="kiki-community-discovery-copy"><h2>{community.name}{community.isSystem && <span className="kiki-community-system-badge">Kiki</span>}</h2><p>{community.description}</p>
+            <div className="kiki-community-discovery-scope"><span><Users size={13} aria-hidden="true" />{community.memberCount.toLocaleString()} members</span><p>{community.scope}</p></div>
+            {community.isMember && community.pseudonym && <small>Your alias: <strong>{community.pseudonym}</strong></small>}
+          </div>
+          <button type="button" disabled={busy} onClick={() => community.isMember ? openCommunity(community.slug) : void joinCommunity(community)}>{community.isMember ? "Open" : "Join"}</button>
+        </article>)}
+        {filteredCommunities.length === 0 && <div className="kiki-communities-empty"><Users size={22} aria-hidden="true" /><p>No communities match this search.</p></div>}
+      </div>
+    </section>}
 
     {tab === "guard" && <section className="kiki-community-guard-page">
-      <div className="kiki-community-guard-hero"><span><ShieldCheck size={24} aria-hidden="true" /></span><div><h2>Your privacy comes first</h2><p>Kiki Guard screens every community post and reply on your device preview and again on the server. Your draft isn’t sent to an AI service.</p></div></div>
-      <div className="kiki-community-guard-rules"><h3>What it checks</h3><ul><li>Names and identifying details about you or another person</li><li>Addresses, live locations, and precise coordinates</li><li>Phone numbers, email addresses, social handles, and external contact links</li><li>Whether a message is personal disclosure or general safety guidance</li></ul><p>General advice and public emergency numbers are allowed. Risky details are removed when the message remains clear; otherwise it is not posted. Repeated severe violations may pause posting temporarily.</p></div>
+      <div className="kiki-community-guard-hero"><span><ShieldCheck size={24} aria-hidden="true" /></span><div><small>100% on-device preview</small><h2>Your privacy comes first</h2><p>Kiki Guard checks community posts and replies before they’re shared. Your draft isn’t sent to an AI service.</p></div></div>
+      <div className="kiki-community-guard-rules"><h3>What Kiki Guard checks</h3><ul><li><ShieldCheck size={16} aria-hidden="true" />Names and identifying details about you or another person</li><li><ShieldCheck size={16} aria-hidden="true" />Addresses, live locations, and precise coordinates</li><li><ShieldCheck size={16} aria-hidden="true" />Phone numbers, email addresses, social handles, and external links</li><li><ShieldCheck size={16} aria-hidden="true" />Whether a message is personal disclosure or general safety guidance</li></ul><p>Risky details are removed when the message remains clear; otherwise it is not posted. Repeated severe violations may pause posting temporarily.</p></div>
       <h3 className="kiki-community-history-title">Recent checks</h3>
       {events.length ? events.map((event, index) => <article className="kiki-community-guard-event" key={`${event.created_at}-${index}`}><ShieldCheck size={17} aria-hidden="true" /><div><strong>{event.decision === "redacted" ? "Private details removed" : "Message not posted"}</strong><p>{event.categories.map((category) => category.replaceAll("_", " ")).join(", ")} · {new Date(event.created_at).toLocaleString()}</p></div></article>) : <p className="kiki-communities-empty">No recent checks. Kiki Guard will show a notice here when it removes or refuses risky details.</p>}
     </section>}
 
-    {tab === "create" && <form className="kiki-community-create-form" onSubmit={(event) => void createCommunity(event)}>
-      <div className="kiki-community-guard-hero"><span><Users size={24} aria-hidden="true" /></span><div><h2>Create a community</h2><p>Communities are public and have no following or direct messages. Kiki’s privacy rules apply to all posts and replies.</p></div></div>
-      <label>Community name<input value={form.name} minLength={2} maxLength={60} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required /></label>
-      <label>Description<textarea value={form.description} maxLength={280} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required /></label>
-      <label>Community scope<textarea value={form.scope} minLength={10} maxLength={500} onChange={(event) => setForm((current) => ({ ...current, scope: event.target.value }))} placeholder="What kind of general discussion belongs here? Include privacy expectations." required /></label>
-      <button type="submit" disabled={busy}>{busy ? "Creating…" : "Create community"}</button>
-    </form>}
+    {tab === "create" && <section className="kiki-community-create-page">
+      <header className="kiki-community-section-heading"><h1>Create a community</h1><p>Public, anonymous, and protected by Kiki Guard.</p></header>
+      <div className="kiki-community-create-note">Communities have no following or direct messaging. Kiki’s privacy rules apply to all posts and replies.</div>
+      <form className="kiki-community-create-form" onSubmit={(event) => void createCommunity(event)}>
+        <label>Community name<input value={form.name} minLength={2} maxLength={60} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required placeholder="e.g., Campus Night Safety" /></label>
+        <label>Description<textarea value={form.description} maxLength={280} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required placeholder="Short summary of what members share here..." /></label>
+        <label>Community scope &amp; privacy expectations<textarea value={form.scope} minLength={10} maxLength={500} onChange={(event) => setForm((current) => ({ ...current, scope: event.target.value }))} placeholder="What kind of general discussion belongs here? Include privacy expectations." required /></label>
+        <button type="submit" disabled={busy}>{busy ? "Creating…" : "Create community"}</button>
+      </form>
+    </section>}
+    </div>
   </section>;
 }

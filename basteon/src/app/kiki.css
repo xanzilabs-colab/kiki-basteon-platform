@@ -1519,10 +1519,8 @@ body:has(.auth-shell) { background:#fff!important; }
 }
 
 .kiki-communities-page { display:grid;max-width:780px;gap:12px;color:var(--text); }
-.kiki-communities-toolbar { display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px; }
-.kiki-communities-spatial-label { display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:10px;font-weight:850;letter-spacing:.08em; }
 .kiki-communities-info { position:relative;flex:none; }
-.kiki-communities-info summary { display:grid;width:36px;height:36px;place-items:center;list-style:none;border:0;border-radius:12px;background:var(--surface-1);color:var(--accent);box-shadow:0 2px 8px rgba(35,20,48,.08);cursor:pointer; }
+.kiki-communities-info summary { display:grid;place-items:center;list-style:none;cursor:pointer; }
 .kiki-communities-info summary::-webkit-details-marker { display:none; }
 .kiki-communities-info summary:focus-visible { outline:3px solid var(--accent);outline-offset:2px; }
 .kiki-communities-info-tooltip { position:absolute;z-index:30;top:calc(100% + 8px);right:0;width:min(280px,calc(100vw - 32px));border:1px solid var(--divider);border-radius:14px;background:var(--surface-1);padding:12px 14px;color:var(--text-2);font-size:12px;line-height:1.5;box-shadow:0 8px 24px rgba(35,20,48,.16); }

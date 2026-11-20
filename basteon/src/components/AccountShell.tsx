@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Flower2, Gamepad2, HeartPulse, House, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Users, Volume2, X } from "lucide-react";
+import { BookOpen, Flower2, Gamepad2, HeartPulse, House, Info, MapPinned, PhoneCall, PhoneOff, RefreshCw, Route, ShieldAlert, ShieldCheck, Siren, Smartphone, UserRound, Users, Volume2, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useLocationEligibility } from "@/hooks/useLocationEligibility";
@@ -33,6 +33,7 @@ export function useAccountMenuFeatures() {
 
 export function AccountShell({ name, children, initialDarkTheme = false, stoepEnabled = false, calmEnabled = false }: { name: string; children: React.ReactNode; initialDarkTheme?: boolean; stoepEnabled?: boolean; calmEnabled?: boolean }) {
   const pathname = usePathname(); const router = useRouter();
+  const isCommunitiesPage = pathname === "/account/communities" || pathname.startsWith("/account/communities/");
   const { allowed: liveLocationAllowed } = useLocationEligibility();
   const [darkTheme, setDarkTheme] = useState(initialDarkTheme);
   const [mapUiHidden, setMapUiHidden] = useState(false);
@@ -408,6 +409,13 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
               <RefreshCw size={17} aria-hidden="true" />
             </button>
           </div>
+          {isCommunitiesPage && <div className="kiki-community-modebar">
+            <span className="kiki-community-mode-pill"><MapPinned size={15} aria-hidden="true" />Social · Spatial · Anonymous</span>
+            <details className="kiki-communities-info">
+              <summary className="kiki-community-help-trigger" aria-label="How Kiki Works" aria-describedby="kiki-communities-info-tooltip"><Info size={14} aria-hidden="true" />How Kiki Works</summary>
+              <div id="kiki-communities-info-tooltip" className="kiki-communities-info-tooltip" role="tooltip">Share practical ideas anonymously. There’s no following, public profile, or direct messaging.</div>
+            </details>
+          </div>}
         </header>
         <main key={pathname} className="account-page-transition mx-auto max-w-4xl p-5 md:p-6">
           <AccountMenuFeatureContext.Provider value={{ stoepEnabled, calmEnabled }}>
