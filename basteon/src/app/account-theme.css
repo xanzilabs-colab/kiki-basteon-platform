@@ -9878,19 +9878,28 @@ body:has(.account-shell:not([data-theme="dark"])) {
   gap: 12px;
   margin: 0 auto;
   border-radius: 20px;
-  background: #fafbfc;
+  background: transparent;
   padding: 8px;
   color: #29231f;
 }
 
 .account-shell:not([data-theme="dark"]) .kiki-communities-page {
   max-width: 860px;
-  background: #f1f3f5;
+  background: #fcfcfc;
   padding: 8px;
 }
 
-.account-shell main:has(.kiki-communities-page) {
-  background: #f8fafc !important;
+.account-shell:not([data-theme="dark"]) main:has(.kiki-communities-page) {
+  background: #fcfcfc !important;
+}
+
+html:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
+body:has(.account-shell:not([data-theme="dark"]) .kiki-communities-page),
+.account-shell:not([data-theme="dark"]):has(.kiki-communities-page),
+.account-shell:not([data-theme="dark"]):has(.kiki-communities-page) > div,
+.account-shell:not([data-theme="dark"]):has(.kiki-communities-page) main,
+.account-shell:not([data-theme="dark"]) .kiki-communities-page {
+  background: #fcfcfc !important;
 }
 
 .account-shell .kiki-community-stories {
