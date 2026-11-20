@@ -9536,8 +9536,25 @@ body:has(.account-shell:not([data-theme="dark"])) {
 }
 
 .account-shell .hamba-route-map-sheet .hamba-actions .hamba-arrive {
-  background: var(--accent);
-  color: #fff;
+  background: transparent !important;
+  color: var(--accent) !important;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-active-card,
+.account-shell .hamba-route-map-sheet .hamba-route-stats,
+.account-shell .hamba-route-map-sheet .hamba-route-stat,
+.account-shell .hamba-route-map-sheet .hamba-actions {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-actions .btn,
+.account-shell .hamba-route-map-sheet .hamba-actions .btn:not(.hamba-arrive) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--accent) !important;
 }
 
 .account-shell .hamba-route-map-sheet .hamba-share-card {
