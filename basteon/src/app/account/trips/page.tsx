@@ -14,7 +14,7 @@ import type { GeoPoint, RouteWatchState } from "@/lib/hamba/types";
 import { enablePushNotifications } from "@/lib/usePushNotifications";
 import { TravelTogetherPanel } from "@/components/TravelTogetherPanel";
 import { useAppDialog } from "@/components/AppDialogProvider";
-import { AccountBanner, AccountListCard } from "@/components/account/AccountList";
+import { AccountListCard } from "@/components/account/AccountList";
 import { MapBottomSheet, MapScreen } from "@/components/account/MapScreen";
 import { MAP_BASE_LAYERS, type MapBaseLayerName } from "@/lib/mapLayerOptions";
 
@@ -47,6 +47,12 @@ const transitModes = [
   { value: "cycling", label: "Cycling", icon: Bike },
 ] as const;
 const modeLabels: Record<TripMode, string> = { taxi: "Taxi", walk: "Walk", ehail: "E-hail", bus: "Bus", train: "Train", cycling: "Cycling" };
+const guardianStatusLabels: Record<TripGuardian["status"], string> = {
+  pending: "Waiting for acceptance",
+  accepted: "Live location shared",
+  declined: "Invite declined",
+  revoked: "Sharing stopped",
+};
 
 export default function TripsPage() {
   const { position, approximatePosition, error: locationError, refreshing: refreshingLocation, refreshLocation } = useGeolocation();
@@ -350,10 +356,10 @@ export default function TripsPage() {
   const checkInSeconds = activeTrip?.next_check_in_at ? Math.max(0, Math.ceil((new Date(activeTrip.next_check_in_at).getTime() - now) / 1_000)) : null;
   const countdown = checkInSeconds === null ? "Not scheduled" : `${String(Math.floor(checkInSeconds / 60)).padStart(2, "0")}:${String(checkInSeconds % 60).padStart(2, "0")}`;
   const destinations = recentTrips.filter((trip, index, items) => items.findIndex((item) => item.destination_label === trip.destination_label) === index);
-  const mapTools = activeTrip ? <div className="hamba-map-tools">
-    <button className="btn" disabled={busy} onClick={() => void checkIn()}><CheckCircle2 size={16} />Check in</button>
-    <button className="btn hamba-arrive" disabled={busy} onClick={() => void arrive()}><Flag size={16} />Arrived</button>
-  </div> : destination ? <div className="hamba-tools" role="group" aria-label="Route tools">
+  const availableGuardians = buddyContacts.filter((buddy) => !tripGuardians.some(
+    (guardian) => guardian.guardianId === buddy.id && (guardian.status === "pending" || guardian.status === "accepted"),
+  ));
+  const mapTools = !activeTrip && destination ? <div className="hamba-tools" role="group" aria-label="Route tools">
     <button type="button" className={tools.auto ? "active" : ""} aria-pressed={tools.auto} onClick={() => setTools((current) => ({ ...current, auto: !current.auto }))}>Auto-route</button>
     <button type="button" className={tools.stops ? "active" : ""} aria-pressed={tools.stops} onClick={() => setTools((current) => ({ ...current, stops: !current.stops, draw: current.stops ? current.draw : false }))}>Add stops{stops.length ? ` (${stops.length})` : ""}</button>
     <button type="button" className={tools.draw ? "active" : ""} aria-pressed={tools.draw} onClick={() => setTools((current) => ({ ...current, draw: !current.draw, stops: current.draw ? current.stops : false }))}>Draw route</button>
@@ -362,50 +368,61 @@ export default function TripsPage() {
 
   const pageContent = (
     <div className={`hamba-page${tripTab === "route" ? " is-map-route" : ""}`}>
-      <div className="hamba-heading">
-        {tripTab === "route" && <span className={activeTrip ? "hamba-live" : "hamba-engine"}>{activeTrip ? <><i />{activeTrip.status === "active" ? "Trip active" : activeTrip.status}</> : "No active trip"}</span>}
-      </div>
       <div className="hamba-trip-tabs" role="tablist" aria-label="Trip safety mode">
         <button type="button" role="tab" aria-selected={tripTab === "route"} onClick={() => setTripTab("route")}><Navigation size={16} />Route Watch</button>
         <button type="button" role="tab" aria-selected={tripTab === "travel"} onClick={() => setTripTab("travel")}><UsersRound size={16} />Travel Together</button>
       </div>
-      <AccountBanner href="/account/calm/winds?mode=quiet" icon={<Wind size={19} />}>Open Gentle Winds in Quiet mode<ChevronRight size={17} className="ml-auto" /></AccountBanner>
       {tripTab === "route" ? <>
+      <Link href="/account/calm/winds?mode=quiet" className="hamba-quiet-card">
+        <span className="hamba-quiet-icon"><Wind size={18} aria-hidden="true" /></span>
+        <span className="hamba-quiet-copy"><b>Open Gentle Winds in Quiet mode</b><small>Ambient silent escort enabled</small></span>
+        <ChevronRight size={18} aria-hidden="true" />
+      </Link>
       {activeTrip ? (
         <section className="hamba-active">
-          <div className="hamba-map-stage">
-            <TripMap points={activeTrip.planned_route.points} position={position} recenter={recenter} avatarUrl={avatarUrl} stops={checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng }))} />
-            <button type="button" className="hamba-recenter" title="Center map on route" aria-label="Center map on route" onClick={() => setRecenter((current) => current + 1)}><LocateFixed size={18} /></button>
-            <div className="hamba-map-overlay"><span className="hamba-overlay-icon"><ShieldCheck size={18} /></span><div><h2>{activeTrip.destination_label}</h2><p>{modeLabels[activeTrip.mode]} · {activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min estimated</p></div></div>
-          </div>
           <div className="hamba-active-card">
-            <AccountListCard className="hamba-stats-card">
-              <div className="hamba-control-stats"><div><span>Next check-in</span><b><Timer size={20} />{countdown}</b></div><div><span>Planned distance</span><b>{formatDistance(activeTrip.route_distance_m / 1000)}</b></div></div>
-            </AccountListCard>
+            <div className="hamba-route-stats" aria-label="Active trip status">
+              <div className="hamba-route-stat">
+                <span>Next check-in</span>
+                <b><Timer size={18} aria-hidden="true" />{countdown}</b>
+              </div>
+              <div className="hamba-route-stat">
+                <span>Planned distance</span>
+                <b>{formatDistance(activeTrip.route_distance_m / 1000)}</b>
+              </div>
+            </div>
             {nextStop && <div className="hamba-stop-card account-list-card"><div><span>Next stop</span><b>{nextStop.label ?? "Stop"}{nextStop.expected_at ? ` · ${new Date(nextStop.expected_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</b>{nextStop.status === "missed" && <small>We haven't heard from you. Tap to confirm you're OK.</small>}</div><button className="btn" disabled={busy} onClick={() => void checkIn(nextStop.id)}><CheckCircle2 size={16} />I'm here</button></div>}
             <div className="hamba-actions"><button className="btn" disabled={busy} onClick={() => void checkIn()}><CheckCircle2 size={16} />Check in now</button><button className="btn hamba-arrive" disabled={busy} onClick={() => void arrive()}><Flag size={16} />I've arrived</button></div>
             <AccountListCard className="hamba-share-card">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><h2 className="flex items-center gap-2 font-semibold"><UsersRound size={18} />Share this active walk</h2><p className="mt-1 text-sm text-[#756583]">Invite a saved buddy as a guardian. They see your live route only after accepting, and access ends when this trip ends or you revoke it.</p></div>
-                <Link href="/account/guardian-walks" className="btn">Shared walks</Link>
+              <div className="hamba-share-intro">
+                <h2><Footprints size={18} aria-hidden="true" />Share this active walk</h2>
+                <p>Invite a saved buddy as a guardian. They see your live route only after accepting, and access ends when this trip ends or you revoke it.</p>
               </div>
-              {tripGuardians.length > 0 && <div className="mt-4 grid gap-2">
-                {tripGuardians.map((guardian) => <div key={guardian.id} className="hamba-guardian-row flex flex-wrap items-center justify-between gap-2">
-                  <span><b>{guardian.buddy?.name ?? "Buddy"}</b><small className="ml-2 text-[#756583]">{guardian.status === "accepted" ? "Live location shared" : guardian.status === "pending" ? "Waiting for acceptance" : guardian.status}</small></span>
-                  {(guardian.status === "accepted" || guardian.status === "pending") && <button type="button" className="btn" disabled={guardianBusy} onClick={() => void revokeGuardian(guardian.guardianId)}>Stop sharing</button>}
+              <div className="hamba-share-section-heading">
+                <h3>Shared walks</h3>
+                <Link href="/account/guardian-walks">Manage<ChevronRight size={14} aria-hidden="true" /></Link>
+              </div>
+              {tripGuardians.length > 0 ? <div className="hamba-guardian-list">
+                {tripGuardians.map((guardian) => <div key={guardian.id} className="hamba-guardian-row">
+                  <span className="hamba-guardian-copy"><b>{guardian.buddy?.name ?? "Buddy"}</b><small>{guardianStatusLabels[guardian.status]}</small></span>
+                  {(guardian.status === "accepted" || guardian.status === "pending") && <button type="button" className="hamba-revoke-action" disabled={guardianBusy} onClick={() => void revokeGuardian(guardian.guardianId)}>Stop sharing</button>}
                 </div>)}
-              </div>}
-              {buddyContacts.filter((buddy) => !tripGuardians.some((guardian) => guardian.guardianId === buddy.id && (guardian.status === "pending" || guardian.status === "accepted"))).length > 0 ? <div className="mt-4">
-                <h3 className="mb-2 text-sm font-semibold">Invite from your buddy list</h3>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {buddyContacts.filter((buddy) => !tripGuardians.some((guardian) => guardian.guardianId === buddy.id && (guardian.status === "pending" || guardian.status === "accepted"))).map((buddy) => <label key={buddy.id} className={`hamba-buddy-row${selectedGuardianIds.includes(buddy.id) ? " is-selected" : ""}`}>
+              </div> : <p className="hamba-share-empty">No buddies have access to this active walk yet.</p>}
+              <div className="hamba-share-section-heading">
+                <h3>Invite from your buddy list</h3>
+              </div>
+              {availableGuardians.length > 0 ? <div>
+                <div className="hamba-buddy-list">
+                  {availableGuardians.map((buddy) => <label key={buddy.id} className={`hamba-buddy-row${selectedGuardianIds.includes(buddy.id) ? " is-selected" : ""}`}>
                     <input type="checkbox" checked={selectedGuardianIds.includes(buddy.id)} onChange={(event) => setSelectedGuardianIds((current) => event.target.checked ? [...current, buddy.id] : current.filter((id) => id !== buddy.id))} />
-                    <span><b>{buddy.name}</b><small className="ml-2 text-[#756583]">{buddy.kikiId}</small></span>
+                    <span className="hamba-buddy-copy"><b>{buddy.name}</b><small>{buddy.kikiId}</small></span>
                   </label>)}
                 </div>
-                <button type="button" className="btn btn-primary mt-3" disabled={guardianBusy || selectedGuardianIds.length === 0} onClick={() => void inviteGuardians()}><UsersRound size={16} />{guardianBusy ? "Please wait..." : "Send guardian invite"}</button>
-              </div> : buddyContacts.length === 0 && <p className="mt-3 text-sm text-[#756583]">Add buddies in your <Link href="/account/profile/buddies" className="underline">buddy list</Link> to invite them here.</p>}
-              {guardianMessage && <p className="mt-3 text-sm" role="status">{guardianMessage}</p>}
+                <button type="button" className="btn btn-primary hamba-invite-button" disabled={guardianBusy || selectedGuardianIds.length === 0} onClick={() => void inviteGuardians()}><UsersRound size={16} />{guardianBusy ? "Please wait..." : "Send guardian invite"}</button>
+              </div> : buddyContacts.length === 0
+                ? <p className="hamba-share-empty">Add buddies in your <Link href="/account/profile/buddies">buddy list</Link> to invite them here.</p>
+                : <p className="hamba-share-empty">All your buddies already have an invite or access to this walk.</p>}
+              {guardianMessage && <p className="hamba-guardian-message" role="status">{guardianMessage}</p>}
             </AccountListCard>
             {!position && <div className="hamba-note" role="status">
               <LocateFixed size={16} /><span>{locationError ?? "Allow location for this site to plan your route."}</span>
@@ -470,7 +487,7 @@ export default function TripsPage() {
       />}
       topBar={<div className="hamba-map-topbar">
         <span className="hamba-map-topbar-icon"><ShieldCheck size={18} /></span>
-        <div><strong>{activeTrip ? activeTrip.destination_label : destination?.label ?? "Route Watch"}</strong><small>{activeTrip ? `${modeLabels[activeTrip.mode]} · trip active` : destination ? `${modeLabels[mode]} · route preview` : "Plan a safer route"}</small></div>
+        <div><strong>{activeTrip ? activeTrip.destination_label : destination?.label ?? "Route Watch"}</strong><small>{activeTrip ? `Trip active · ${modeLabels[activeTrip.mode]} · ${activeRemainingMinutes ?? Math.max(1, Math.ceil((new Date(activeTrip.expected_arrival_at).getTime() - now) / 60_000))} min to destination` : destination ? `${modeLabels[mode]} · route preview` : "Plan a safer route"}</small></div>
       </div>}
       tools={mapTools}
       onRecenter={() => setRecenter((current) => current + 1)}

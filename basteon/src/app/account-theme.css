@@ -9167,6 +9167,7 @@ body:has(.account-shell:not([data-theme="dark"])) {
 .account-shell .kiki-map-point-details {
   display: grid;
   gap: 12px;
+  margin-bottom: 16px;
   border: 0;
   border-radius: 20px;
   background: #fff;
@@ -9290,12 +9291,50 @@ body:has(.account-shell:not([data-theme="dark"])) {
 .account-shell:not([data-theme="dark"]) .safe-spots-page .safe-alert-card,
 .account-shell:not([data-theme="dark"]) .safe-spots-page .safe-alert-card.is-demo,
 .account-shell:not([data-theme="dark"]) .safe-spots-page .safe-haven-card,
-.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-walk-card,
-.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card {
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-walk-card {
   border: 0 !important;
   background: #fff !important;
   box-shadow: 0 2px 8px rgb(35 20 48 / 7%) !important;
 }
+
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card {
+  border: 0 !important;
+  box-shadow: 0 3px 12px rgb(35 20 48 / 9%) !important;
+}
+
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-compose {
+  background: linear-gradient(145deg, #643b8a, #4a2472) !important;
+  color: #fff;
+}
+
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-buddy {
+  background: #e8f4ec !important;
+  color: #285d3b;
+}
+
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-report {
+  background: #fce9df !important;
+  color: #843e34;
+}
+
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-walk {
+  background: #eee8f6 !important;
+  color: #4a2472;
+}
+
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-haven {
+  background: #fff2d6 !important;
+  color: #75541d;
+}
+
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-buddy .safe-story-copy b { color: #285d3b; }
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-buddy .safe-story-copy small { color: #54745f; }
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-report .safe-story-copy b { color: #843e34; }
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-report .safe-story-copy small { color: #89594e; }
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-walk .safe-story-copy b { color: #4a2472; }
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-walk .safe-story-copy small { color: #756583; }
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-haven .safe-story-copy b { color: #75541d; }
+.account-shell:not([data-theme="dark"]) .safe-spots-page .safe-story-card.is-haven .safe-story-copy small { color: #8b7348; }
 
 .account-shell:not([data-theme="dark"]) .safe-spots-page .safe-alerts-icon,
 .account-shell:not([data-theme="dark"]) .safe-spots-page .safe-alert-count {
@@ -9312,52 +9351,374 @@ body:has(.account-shell:not([data-theme="dark"])) {
   background: #fff;
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet,
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .account-sheet-content,
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-page.is-map-route {
-  background: #f1f3f5 !important;
+.account-shell .hamba-route-map-sheet {
+  max-height: calc(100dvh - 90px);
+  border-radius: 26px 26px 0 0;
+  background: var(--surface-2);
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .account-sheet-content {
-  padding: 8px 14px calc(88px + env(safe-area-inset-bottom));
+.account-shell .hamba-route-map-sheet .map-screen-sheet-handle {
+  height: 28px;
+  min-height: 28px;
+  padding-top: 6px;
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-trip-tabs {
-  background: #e7e9ed;
+.account-shell .hamba-route-map-sheet .account-sheet-content {
+  padding: 0 16px calc(92px + env(safe-area-inset-bottom));
+  background: var(--surface-2);
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-trip-tabs button[aria-selected="true"] {
-  background: #fff;
-  color: #4a2472;
+.account-shell .hamba-route-map-sheet .hamba-page.is-map-route {
+  width: 100%;
+  max-width: none;
+  gap: 0;
+  margin: 0;
+  padding: 0 0 12px;
+  background: transparent;
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-stats-card,
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-share-card,
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-stop-card,
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-recent {
+.account-shell .hamba-route-map-sheet .hamba-trip-tabs {
+  margin: 0 0 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-2);
+  padding: 4px;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-trip-tabs button {
+  min-height: 42px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-quiet-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 18px;
+  min-height: 68px;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface-1);
+  padding: 12px 14px;
+  color: var(--text);
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgb(35 20 48 / 7%);
+}
+
+.account-shell .hamba-quiet-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.account-shell .hamba-quiet-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.account-shell .hamba-quiet-copy b {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.account-shell .hamba-quiet-copy small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.account-shell .hamba-quiet-card > svg {
+  color: var(--accent);
+}
+
+.account-shell .hamba-active,
+.account-shell .hamba-active-card {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.account-shell .hamba-route-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.account-shell .hamba-route-stat {
+  display: grid;
+  min-width: 0;
+  min-height: 76px;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface-1);
+  padding: 12px 8px;
+  text-align: center;
+  box-shadow: 0 4px 14px rgb(35 20 48 / 6%);
+}
+
+.account-shell .hamba-route-stat > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.account-shell .hamba-route-stat > b {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.account-shell .hamba-route-stat > b svg {
+  color: var(--accent);
+}
+
+.account-shell .hamba-route-map-sheet .hamba-stop-card,
+.account-shell .hamba-route-map-sheet .hamba-share-card,
+.account-shell .hamba-route-map-sheet .hamba-recent {
   border: 0;
   border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgb(35 20 48 / 6%);
+  background: var(--surface-1);
+  box-shadow: 0 4px 14px rgb(35 20 48 / 6%);
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-control-stats > div + div {
-  border-color: #edf0f3;
+.account-shell .hamba-route-map-sheet .hamba-stop-card {
+  gap: 10px;
+  padding: 12px 14px;
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-actions .btn {
+.account-shell .hamba-route-map-sheet .hamba-actions {
+  gap: 10px;
+  margin: 0;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-actions .btn {
   min-height: 48px;
-  border-radius: 14px;
+  border: 0;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-share-card {
-  padding: 17px;
+.account-shell .hamba-route-map-sheet .hamba-actions .btn:not(.hamba-arrive) {
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
-.account-shell:not([data-theme="dark"]) .hamba-route-map-sheet .hamba-recent-item {
+.account-shell .hamba-route-map-sheet .hamba-actions .hamba-arrive {
+  background: var(--accent);
+  color: #fff;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-share-card {
+  gap: 0;
+  padding: 16px;
+}
+
+.account-shell .hamba-share-intro {
+  display: grid;
+  gap: 6px;
+}
+
+.account-shell .hamba-share-intro h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.account-shell .hamba-share-intro h2 svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.account-shell .hamba-share-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.account-shell .hamba-share-section-heading {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.account-shell .hamba-share-section-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.account-shell .hamba-share-section-heading a {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.account-shell .hamba-guardian-list,
+.account-shell .hamba-buddy-list {
+  border-top: 1px solid var(--divider);
+}
+
+.account-shell .hamba-guardian-row {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 0;
+}
+
+.account-shell .hamba-guardian-copy,
+.account-shell .hamba-buddy-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.account-shell .hamba-guardian-copy b,
+.account-shell .hamba-buddy-copy b {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .hamba-guardian-copy small,
+.account-shell .hamba-buddy-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-shell .hamba-revoke-action {
+  min-height: 34px;
+  flex: none;
+  border: 0;
+  border-radius: 11px;
+  background: var(--surface-2);
+  padding: 0 10px;
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-buddy-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  min-height: 54px;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 4px;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-buddy-row input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.account-shell .hamba-route-map-sheet .hamba-buddy-row.is-selected {
+  border-radius: 10px;
+  background: var(--accent-bg);
+  padding-inline: 8px;
+}
+
+.account-shell .hamba-invite-button {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 12px;
   border: 0;
   border-radius: 14px;
-  background: #f6f7f9;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.account-shell .hamba-share-empty {
+  margin: 0;
+  border-top: 1px solid var(--divider);
+  padding: 10px 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.account-shell .hamba-share-empty a {
+  color: var(--accent);
+  font-weight: 750;
+}
+
+.account-shell .hamba-guardian-message {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-recent {
+  padding: 14px;
+}
+
+.account-shell .hamba-route-map-sheet .hamba-recent-item {
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.account-shell .hamba-route-map-sheet .hamba-planner {
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface-1);
+  padding: 16px;
+  box-shadow: 0 4px 14px rgb(35 20 48 / 6%);
 }
 
 @media (max-height: 700px) {
@@ -9369,5 +9730,12 @@ body:has(.account-shell:not([data-theme="dark"])) {
 @media (max-height: 580px) {
   .safe-share-preview {
     width: min(100%, 220px);
+  }
+}
+
+@media (max-width: 767px) {
+  .account-shell main:has(.kiki-communities-page) {
+    padding-right: 8px !important;
+    padding-left: 8px !important;
   }
 }

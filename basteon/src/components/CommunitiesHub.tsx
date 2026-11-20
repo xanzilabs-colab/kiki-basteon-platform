@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, HeartHandshake, Lightbulb, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Users } from "lucide-react";
+import { Heart, HeartHandshake, Info, Lightbulb, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Users } from "lucide-react";
 
 type Community = {
   id: string;
@@ -309,11 +309,13 @@ export function CommunitiesHub({ slug }: { slug?: string }) {
   const joinedCommunities = communities.filter((item) => item.isMember);
 
   return <section className="kiki-communities-page">
-    <header className="kiki-communities-heading">
+    <div className="kiki-communities-toolbar">
       <span className="kiki-communities-spatial-label"><MapPinned size={14} aria-hidden="true" /> SOCIAL · SPATIAL · ANONYMOUS</span>
-      <h1>Communities</h1>
-      <p>Share practical ideas anonymously. There’s no following, public profile, or direct messaging.</p>
-    </header>
+      <details className="kiki-communities-info">
+        <summary aria-label="About Communities" title="About Communities" aria-describedby="kiki-communities-info-tooltip"><Info size={18} aria-hidden="true" /></summary>
+        <div id="kiki-communities-info-tooltip" className="kiki-communities-info-tooltip" role="tooltip">Share practical ideas anonymously. There’s no following, public profile, or direct messaging.</div>
+      </details>
+    </div>
 
     <nav className="kiki-communities-tabs" aria-label="Community sections">
       {tabLabels.map((item) => <button key={item.value} type="button" aria-pressed={tab === item.value} onClick={() => { setTab(item.value); setError(""); setNotice(""); }}>

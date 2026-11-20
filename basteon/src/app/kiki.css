@@ -1518,10 +1518,15 @@ body:has(.auth-shell) { background:#fff!important; }
   background-color:#35194F;
 }
 
-.kiki-communities-page { display:grid;max-width:780px;gap:16px;color:var(--text); }
-.kiki-communities-heading > span { color:var(--accent);font-size:11px;font-weight:850;letter-spacing:.12em; }
-.kiki-communities-heading h1 { margin:4px 0;color:var(--text);font-size:30px;font-weight:800;letter-spacing:-.03em; }
-.kiki-communities-heading p,.kiki-community-feed-heading p { margin:0;color:var(--muted);font-size:14px;line-height:1.5; }
+.kiki-communities-page { display:grid;max-width:780px;gap:12px;color:var(--text); }
+.kiki-communities-toolbar { display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px; }
+.kiki-communities-spatial-label { display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:10px;font-weight:850;letter-spacing:.08em; }
+.kiki-communities-info { position:relative;flex:none; }
+.kiki-communities-info summary { display:grid;width:36px;height:36px;place-items:center;list-style:none;border:0;border-radius:12px;background:var(--surface-1);color:var(--accent);box-shadow:0 2px 8px rgba(35,20,48,.08);cursor:pointer; }
+.kiki-communities-info summary::-webkit-details-marker { display:none; }
+.kiki-communities-info summary:focus-visible { outline:3px solid var(--accent);outline-offset:2px; }
+.kiki-communities-info-tooltip { position:absolute;z-index:30;top:calc(100% + 8px);right:0;width:min(280px,calc(100vw - 32px));border:1px solid var(--divider);border-radius:14px;background:var(--surface-1);padding:12px 14px;color:var(--text-2);font-size:12px;line-height:1.5;box-shadow:0 8px 24px rgba(35,20,48,.16); }
+.kiki-community-feed-heading p { margin:0;color:var(--muted);font-size:14px;line-height:1.5; }
 .kiki-communities-tabs { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;border-radius:14px;background:var(--surface-2);padding:4px; }
 .kiki-communities-tabs button { min-height:40px;border:0;border-radius:11px;background:transparent;padding:0 6px;color:var(--text-2);font-size:12px;font-weight:750; }
 .kiki-communities-tabs button[aria-pressed="true"] { background:var(--surface-1);color:var(--accent);box-shadow:0 1px 5px rgba(48,26,62,.12); }
@@ -1597,7 +1602,6 @@ body:has(.auth-shell) { background:#fff!important; }
 .kiki-communities-empty p { margin:0; }
 .kiki-communities-empty svg { color:var(--accent); }
 @media(max-width:480px) {
-  .kiki-communities-heading h1 { font-size:27px; }
   .kiki-communities-tabs button { font-size:10px; }
   .kiki-community-discovery-card { grid-template-columns:auto minmax(0,1fr); }
   .kiki-community-discovery-card > button { grid-column:2;justify-self:start; }
@@ -1609,19 +1613,12 @@ body:has(.auth-shell) { background:#fff!important; }
   width: 100%;
   max-width: 860px;
   margin: 0 auto;
-  border-radius: 24px;
-  background: #f1f3f5;
-  padding: 14px;
-}
-
-.account-shell:not([data-theme="dark"]) .kiki-communities-heading {
   border-radius: 20px;
-  background: #fff;
-  padding: 18px;
-  box-shadow: 0 2px 8px rgb(35 20 48 / 6%);
+  background: #f1f3f5;
+  padding: 8px;
 }
 
-.account-shell:not([data-theme="dark"]) .kiki-communities-heading .kiki-communities-spatial-label {
+.account-shell:not([data-theme="dark"]) .kiki-communities-spatial-label {
   display: inline-flex;
   min-height: 28px;
   align-items: center;
@@ -1634,9 +1631,15 @@ body:has(.auth-shell) { background:#fff!important; }
   letter-spacing: .07em;
 }
 
-.account-shell:not([data-theme="dark"]) .kiki-communities-heading h1 {
-  margin: 12px 0 5px;
-  font-size: 28px;
+.account-shell:not([data-theme="dark"]) .kiki-communities-info summary {
+  background: #fff;
+  color: #4a2472;
+}
+
+.account-shell:not([data-theme="dark"]) .kiki-communities-info-tooltip {
+  border: 0;
+  background: #fff;
+  color: #756d66;
 }
 
 .account-shell:not([data-theme="dark"]) .kiki-communities-tabs {
@@ -1751,12 +1754,8 @@ body:has(.auth-shell) { background:#fff!important; }
 
 @media (max-width: 480px) {
   .account-shell:not([data-theme="dark"]) .kiki-communities-page {
-    gap: 12px;
-    padding: 10px;
-  }
-
-  .account-shell:not([data-theme="dark"]) .kiki-communities-heading {
-    padding: 15px;
+    gap: 10px;
+    padding: 4px;
   }
 
   .account-shell:not([data-theme="dark"]) .kiki-communities-tabs button {
