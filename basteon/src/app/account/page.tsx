@@ -351,7 +351,7 @@ export default function AccountPage() {
         <ChevronRight size={17} aria-hidden="true" />
       </Link> : <Link href="/account/profile/buddies" className="kiki-explore-circle-link">
         <span className="kiki-explore-circle-icon"><UsersRound size={19} aria-hidden="true" /></span>
-        <span><strong>My Buddies</strong><small>{buddyLocationError ? "Location sharing unavailable" : `${buddyLocations.length} sharing live location`}</small></span>
+        <span><strong>My Buddies</strong><small>{buddyLocationError ? "Location sharing unavailable" : buddyLocations.length ? `${buddyLocations.length} sharing live` : "No one sharing live right now"}</small></span>
         <ChevronRight size={17} aria-hidden="true" />
       </Link>}
       <span className={`kiki-explore-status${activeSos ? " is-alert" : communityReports.length ? " has-reports" : ""}`} title={activeSos ? activeAlertStatus(activeSos) : undefined}>

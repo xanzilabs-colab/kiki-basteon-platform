@@ -7234,6 +7234,7 @@ body:has(.account-shell:not([data-theme="dark"])) {
   min-height: 56px;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
   border-radius: var(--r-pill);
   background: var(--glass-strong);
   padding: 6px 8px;

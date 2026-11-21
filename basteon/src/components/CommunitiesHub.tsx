@@ -18,8 +18,8 @@ type CommunityView = Pick<Community, "id" | "slug" | "name" | "description" | "s
 type Option = { id?: string; position?: number; label: string; subLabel?: string | null; count?: number; percent?: number; mine?: boolean; correct?: boolean };
 type Media = { id: string; position: number; url: string | null; storagePath?: string; width: number; height: number; caption: string; altText: string };
 type FeedComment = {
-  id: string; postId?: string; parentId?: string | null; commentKind: "reply" | "answer" | "question" | "host_answer";
-  stance?: "agree" | "disagree" | null; authorAlias: string; isKiki: boolean; body: string; likeCount: number; liked?: boolean; createdAt: string; replies?: FeedComment[];
+  id: string; postId?: string; parentId?: string | null; commentKind?: "reply" | "answer" | "question" | "host_answer"; kind?: "reply" | "answer" | "question" | "host_answer";
+  stance?: "agree" | "disagree" | null; authorAlias: string; emoji?: string | null; isKiki: boolean; body: string; likeCount?: number; likes?: number; liked?: boolean; createdAt: string; replies?: FeedComment[];
 };
 type Post = {
   id: string; type: string; categoryGroup: string; authorAlias: string; authorEmoji?: string | null; isKiki: boolean;
@@ -27,6 +27,7 @@ type Post = {
   comments?: FeedComment[]; topAnswers?: FeedComment[]; recentReplies?: FeedComment[]; myComment?: FeedComment | null;
   reactions: { support: number; thanks: number; care: number; mine: string[] };
   likes?: { count: number; mine: boolean }; helpful?: { count: number; mine: boolean };
+  likeCount?: number; helpfulCount?: number; iLiked?: boolean; iHelpful?: boolean;
   media?: Media[]; options?: Option[]; results?: any; my?: any;
 };
 type Story = { id: string; title: string; emoji?: string | null; byline: string; body: string; communityId?: string | null; expiresAt?: string };
@@ -431,21 +432,10 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
 
   return (
     <section className="kiki-communities-page" aria-label="Communities">
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <div>
-          <div className="kiki-communities-spatial-label" style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 11, fontWeight: 700 }}><ShieldCheck size={14} /> Private communities</div>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)" }}>Posting as <strong>{headerAlias}</strong></p>
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button type="button" aria-label="Refresh" onClick={refreshAll} style={{ minHeight: 34, borderRadius: 10, border: "1px solid var(--divider)", background: "var(--surface-1)", padding: "0 10px" }}><RefreshCw size={14} /></button>
-          <button type="button" aria-label="Privacy" onClick={() => setShowPrivacy(true)} style={{ minHeight: 34, borderRadius: 10, border: "1px solid var(--divider)", background: "var(--surface-1)", padding: "0 10px" }}><Info size={14} /></button>
-          <button type="button" aria-label="Notifications" onClick={() => { void loadGuard(); setTab("guard"); }} style={{ minHeight: 34, borderRadius: 10, border: "1px solid var(--divider)", background: "var(--surface-1)", padding: "0 10px" }}><Bell size={14} /></button>
-        </div>
-      </div>
-
       {showPrivacy && (
         <div className="kiki-communities-alert" role="dialog" aria-label="Privacy">
           <p><strong>Your identity is protected.</strong> Communities use per-community aliases and Kiki Guard to remove identifying details before anything is shared.</p>
+          {activeCommunity ? <p style={{ marginTop: 8 }}>You appear as <strong>{headerAlias}</strong> in this community.</p> : null}
           <button type="button" onClick={() => setShowPrivacy(false)}>Close</button>
         </div>
       )}
@@ -492,16 +482,18 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
 
           {activeCommunity && feed ? (
             <>
-              <div className="kiki-community-feed-heading">
-                <span className="kiki-community-card-icon"><CommunityIcon iconKey={activeCommunity.iconKey} /></span>
-                <div>
-                  <h2>{activeCommunity.name} {activeCommunity.isSystem ? <span className="kiki-community-system-badge">Kiki</span> : null}</h2>
-                  <p>{activeCommunity.description}</p>
-                  <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{activeCommunity.scope}</p>
-                </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  aria-label="Community info"
+                  onClick={() => setShowPrivacy((v) => !v)}
+                  className="kiki-community-icon-btn"
+                  title="Community info"
+                  style={{ minHeight: 34, minWidth: 34, borderRadius: 10, border: "1px solid var(--divider)", background: "var(--surface-1)", padding: 0, display: "inline-grid", placeItems: "center", color: "var(--text-2)" }}
+                >
+                  <Info size={15} />
+                </button>
               </div>
-
-              <p className="kiki-community-anonymity"><LockKeyhole size={14} /> You appear as <strong>{feed.pseudonym ?? headerAlias}</strong> in this community. Kiki Guard helps keep shared posts safe.</p>
 
               {feed.welcomeRequired ? (
                 <section className="kiki-community-scope-card kiki-community-welcome">
@@ -511,11 +503,19 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
                 </section>
               ) : (
                 <>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="button" onClick={() => { setDraft(emptyDraft("post")); setComposerOpen(true); }} style={{ flex: 1, minHeight: 44, borderRadius: 14, border: "1px solid var(--divider)", background: "var(--surface-1)", color: "var(--muted)", textAlign: "left", padding: "0 14px" }}>Share something helpful…</button>
-                    {createTypes.filter((t) => t !== "post").slice(0, 5).map((t) => (
-                      <button key={t} type="button" title={typeMeta[t].label} onClick={() => { setDraft(emptyDraft(t)); setComposerOpen(true); }} style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid var(--divider)", background: "var(--surface-1)" }}>{typeMeta[t].emoji}</button>
-                    ))}
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => { setDraft(emptyDraft("post")); setComposerOpen(true); }}
+                      style={{ width: "100%", minHeight: 44, borderRadius: 14, border: "1px solid var(--divider)", background: "var(--surface-1)", color: "var(--muted)", textAlign: "left", padding: "10px 14px", font: "inherit", lineHeight: 1.4, whiteSpace: "normal", overflowWrap: "anywhere" }}
+                    >
+                      Share something helpful…
+                    </button>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {createTypes.filter((t) => t !== "post").slice(0, 6).map((t) => (
+                        <button key={t} type="button" title={typeMeta[t].label} onClick={() => { setDraft(emptyDraft(t)); setComposerOpen(true); }} style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid var(--divider)", background: "var(--surface-1)", flex: "0 0 auto" }}>{typeMeta[t].emoji}</button>
+                      ))}
+                    </div>
                   </div>
 
                   <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
@@ -549,8 +549,7 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
                         onRate={(value) => void actOnPost(post.id, { action: "rate", value })}
                         onChallenge={(mode) => void actOnPost(post.id, { action: "challenge", mode })}
                         onHunt={(x, y) => void actOnPost(post.id, { action: "hunt", x, y })}
-                        onPath={(endNode) => void actOnPost(post.id, { action: "path", endNode })}
-                        onLike={() => void toggleLike(post.id, "like")}
+                        onPath={(endNode) => void actOnPost(post.id, { action: "path_finish", endNode })}
                         onHelpful={() => void toggleLike(post.id, "helpful")}
                         onComment={submitComment}
                         onCommentLike={(commentId) => void actOnPost(post.id, { action: "comment_like", commentId })}
@@ -653,13 +652,13 @@ function Composer(props: {
   function removeOption(i: number) { if (draft.options.length > 2) setDraft({ options: draft.options.filter((_, idx) => idx !== i) }); }
 
   return (
-    <section className="kiki-community-composer" aria-label="Create post">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <h3 style={{ margin: 0 }}>Create a post</h3>
-        <button type="button" onClick={onClose} aria-label="Close composer" style={{ background: "var(--surface-2)", color: "var(--text)" }}>Close</button>
+    <section className="kiki-community-composer" aria-label="Create post" style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", overflowX: "hidden", overflowY: "auto", maxHeight: "calc(100dvh - 180px)", WebkitOverflowScrolling: "touch" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <h3 style={{ margin: 0, fontSize: 16 }}>Create a post</h3>
+        <button type="button" onClick={onClose} aria-label="Close composer" style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--divider)", borderRadius: 10, minHeight: 36, padding: "0 12px" }}>Close</button>
       </div>
       <label>Post type
-        <select value={draft.type} onChange={(e) => setDraft({ ...emptyDraft(e.target.value), postId: draft.postId })} style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", color: "var(--text)" }}>
+        <select value={draft.type} onChange={(e) => setDraft({ ...emptyDraft(e.target.value), postId: draft.postId })} style={{ width: "100%", minHeight: 42, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", color: "var(--text)", boxSizing: "border-box" }}>
           {createTypes.map((t) => <option key={t} value={t}>{typeMeta[t].emoji} {typeMeta[t].label}</option>)}
         </select>
       </label>
@@ -672,43 +671,43 @@ function Composer(props: {
         <div style={{ display: "grid", gap: 8 }}>
           <strong>Options</strong>
           {draft.options.map((opt, i) => (
-            <div key={i} style={{ display: "grid", gap: 6, border: "1px solid var(--divider)", borderRadius: 12, padding: 10 }}>
-              <input value={opt.label} onChange={(e) => setOption(i, { label: e.target.value })} placeholder={`Option ${i + 1}`} style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
-              {draft.type !== "quiz" && <input value={opt.subLabel} onChange={(e) => setOption(i, { subLabel: e.target.value })} placeholder="Sub-label (optional)" style={{ minHeight: 36, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />}
+            <div key={i} style={{ display: "grid", gap: 6, border: "1px solid var(--divider)", borderRadius: 12, padding: 10, minWidth: 0 }}>
+              <input value={opt.label} onChange={(e) => setOption(i, { label: e.target.value })} placeholder={`Option ${i + 1}`} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+              {draft.type !== "quiz" && <input value={opt.subLabel} onChange={(e) => setOption(i, { subLabel: e.target.value })} placeholder="Sub-label (optional)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 36, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />}
               {draft.type === "quiz" && <label style={{ fontSize: 12, fontWeight: 600 }}><input type="radio" name="correct" checked={Boolean(opt.correct)} onChange={() => setDraft({ options: draft.options.map((o, idx) => ({ ...o, correct: idx === i })) })} /> Correct answer</label>}
-              {draft.options.length > 2 && draft.type !== "tt" && <button type="button" onClick={() => removeOption(i)}>Remove</button>}
+              {draft.options.length > 2 && draft.type !== "tt" && <button type="button" onClick={() => removeOption(i)} style={{ width: "fit-content" }}>Remove</button>}
             </div>
           ))}
-          {draft.type !== "tt" && draft.options.length < 4 && <button type="button" onClick={addOption}>Add option</button>}
+          {draft.type !== "tt" && draft.options.length < 4 && <button type="button" onClick={addOption} style={{ width: "fit-content" }}>Add option</button>}
         </div>
       )}
 
       {draft.type === "slider" && (
-        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-          <label>Low label<input value={draft.sliderLo} onChange={(e) => setDraft({ sliderLo: e.target.value })} /></label>
-          <label>High label<input value={draft.sliderHi} onChange={(e) => setDraft({ sliderHi: e.target.value })} /></label>
+        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
+          <label>Low label<input value={draft.sliderLo} onChange={(e) => setDraft({ sliderLo: e.target.value })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>
+          <label>High label<input value={draft.sliderHi} onChange={(e) => setDraft({ sliderHi: e.target.value })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>
         </div>
       )}
       {draft.type === "fill" && (
         <div style={{ display: "grid", gap: 8 }}>
-          <label>Prefix<input value={draft.prefix} onChange={(e) => setDraft({ prefix: e.target.value })} /></label>
-          <label>Suffix<input value={draft.suffix} onChange={(e) => setDraft({ suffix: e.target.value })} /></label>
+          <label>Prefix<input value={draft.prefix} onChange={(e) => setDraft({ prefix: e.target.value })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>
+          <label>Suffix<input value={draft.suffix} onChange={(e) => setDraft({ suffix: e.target.value })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>
         </div>
       )}
-      {draft.type === "chal" && <label>Days<input type="number" min={1} max={30} value={draft.challengeDays} onChange={(e) => setDraft({ challengeDays: Number(e.target.value) })} /></label>}
+      {draft.type === "chal" && <label>Days<input type="number" min={1} max={30} value={draft.challengeDays} onChange={(e) => setDraft({ challengeDays: Number(e.target.value) })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>}
       {draft.type === "path" && <PathEditor draft={draft} setDraft={setDraft} />}
       {draft.type === "hot" && <p className="kiki-community-scope-note">This post will include Agree/Disagree voting and answer replies with stance.</p>}
       {draft.type === "mf" && <p className="kiki-community-scope-note">This post will include Myth/Fact options and a reveal after answering.</p>}
 
       <div style={{ display: "grid", gap: 8 }}>
         <label>Images (JPEG/PNG/WebP/AVIF, images only){needsImage ? " — required" : " — optional"}
-          <input type="file" accept={mediaAccept} multiple={draft.type !== "cap" && draft.type !== "hunt"} onChange={(e) => onSelectImages(e.target.files)} />
+          <input type="file" accept={mediaAccept} multiple={draft.type !== "cap" && draft.type !== "hunt"} onChange={(e) => onSelectImages(e.target.files)} style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box" }} />
         </label>
         {draft.media.map((m, i) => (
           <div key={i} style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
             <img src={m.previewUrl} alt={m.altText || "Selected image preview"} style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 10 }} />
-            <input value={m.caption} onChange={(e) => updateMedia(i, { caption: e.target.value })} placeholder="Caption (optional)" />
-            <input value={m.altText} onChange={(e) => updateMedia(i, { altText: e.target.value })} placeholder="Alt text (optional)" />
+            <input value={m.caption} onChange={(e) => updateMedia(i, { caption: e.target.value })} placeholder="Caption (optional)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+            <input value={m.altText} onChange={(e) => updateMedia(i, { altText: e.target.value })} placeholder="Alt text (optional)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={() => moveMedia(i, -1)} disabled={i === 0}>Up</button>
               <button type="button" onClick={() => moveMedia(i, 1)} disabled={i === draft.media.length - 1}>Down</button>
@@ -733,9 +732,9 @@ function Composer(props: {
               ))}
             </div>
             {(draft.huntTargets ?? []).map((t, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <span style={{ fontSize: 12, fontWeight: 700 }}>#{i + 1}</span>
-                <input value={t.label} onChange={(e) => setDraft({ huntTargets: (draft.huntTargets ?? []).map((x, xi) => xi === i ? { ...x, label: e.target.value } : x) })} placeholder="Target label" style={{ flex: 1 }} />
+                <input value={t.label} onChange={(e) => setDraft({ huntTargets: (draft.huntTargets ?? []).map((x, xi) => xi === i ? { ...x, label: e.target.value } : x) })} placeholder="Target label" style={{ flex: "1 1 140px", minWidth: 0, boxSizing: "border-box", minHeight: 38, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
                 <button type="button" onClick={() => setDraft({ huntTargets: (draft.huntTargets ?? []).filter((_, xi) => xi !== i) })}>Remove</button>
               </div>
             ))}
@@ -745,8 +744,8 @@ function Composer(props: {
 
       <GuardPill preview={liveGuard} />
       <div className="kiki-community-composer-footer">
-        <small>Images are re-encoded to JPEG before upload. Kiki Guard checks text before publishing.</small>
-        <button type="button" onClick={onPublish} disabled={!canPublish}>{submitting ? "Publishing…" : "Run Kiki Guard & Publish"}</button>
+        <small style={{ minWidth: 0, overflowWrap: "anywhere" }}>Images are re-encoded to JPEG before upload. Kiki Guard checks text before publishing.</small>
+        <button type="button" onClick={onPublish} disabled={!canPublish} style={{ maxWidth: "100%", whiteSpace: "normal" }}>{submitting ? "Publishing…" : "Run Kiki Guard & Publish"}</button>
       </div>
     </section>
   );
@@ -771,14 +770,14 @@ function PathEditor({ draft, setDraft }: { draft: ReturnType<typeof emptyDraft>;
       <strong>Path nodes</strong>
       {draft.pathNodes.map((node, i) => (
         <div key={i} style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: 10, display: "grid", gap: 6 }}>
-          <input value={node.id} onChange={(e) => updateNode(i, { id: e.target.value })} placeholder="Node id (e.g. start)" />
-          <textarea value={node.text} onChange={(e) => updateNode(i, { text: e.target.value })} placeholder="Node text" />
+          <input value={node.id} onChange={(e) => updateNode(i, { id: e.target.value })} placeholder="Node id (e.g. start)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
+          <textarea value={node.text} onChange={(e) => updateNode(i, { text: e.target.value })} placeholder="Node text" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
           <label style={{ fontSize: 12 }}><input type="checkbox" checked={node.end} onChange={(e) => updateNode(i, { end: e.target.checked, choices: e.target.checked ? [] : node.choices })} /> End node</label>
           {!node.end && node.choices.map((c, ci) => (
             <div key={ci} style={{ display: "grid", gap: 4, paddingLeft: 8 }}>
-              <input value={c.text} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, text: e.target.value } : x) })} placeholder="Choice text" />
-              <input value={c.to} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, to: e.target.value } : x) })} placeholder="Go to node id" />
-              <input value={c.tip} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, tip: e.target.value } : x) })} placeholder="Tip (optional)" />
+              <input value={c.text} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, text: e.target.value } : x) })} placeholder="Choice text" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
+              <input value={c.to} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, to: e.target.value } : x) })} placeholder="Go to node id" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
+              <input value={c.tip} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, tip: e.target.value } : x) })} placeholder="Tip (optional)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
             </div>
           ))}
           {!node.end && node.choices.length < 3 && <button type="button" onClick={() => addChoice(i)}>Add choice</button>}
@@ -796,51 +795,55 @@ function PostCard(props: {
   onRate: (value: number) => void;
   onChallenge: (mode: "join" | "leave" | "checkin") => void;
   onHunt: (x: number, y: number) => void;
-  onPath: (endNode: string) => void;
-  onLike: () => void;
+  onPath: (endNode: number) => void;
   onHelpful: () => void;
   onComment: (postId: string, body: string, opts?: { commentKind?: string; stance?: string; parentId?: string }) => Promise<void> | void;
   onCommentLike: (commentId: string) => void;
 }) {
-  const { post, onVote, onRate, onChallenge, onHunt, onPath, onLike, onHelpful, onComment, onCommentLike } = props;
+  const { post, onVote, onRate, onChallenge, onHunt, onPath, onHelpful, onComment, onCommentLike } = props;
   const [reply, setReply] = useState("");
   const [showReply, setShowReply] = useState(false);
-  const [sliderValue, setSliderValue] = useState(post.my?.value ?? 50);
+  const [sliderValue, setSliderValue] = useState(Number(post.my?.rating ?? post.my?.value ?? 50));
   const meta = typeMeta[post.type] ?? { label: post.type, emoji: "💬", group: "general" };
   const comments = post.comments ?? [];
   const replyKind = post.type === "cap" || post.type === "fill" ? "answer" : post.type === "ama" ? "question" : "reply";
+  const helpfulCount = post.helpfulCount ?? post.helpful?.count ?? 0;
+  const helpfulMine = post.iHelpful ?? post.helpful?.mine ?? false;
 
   return (
     <article className="kiki-community-post">
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <p className="kiki-community-post-author"><span className="kiki-community-author-dot" aria-hidden /> {post.authorEmoji ? `${post.authorEmoji} ` : ""}{post.authorAlias}</p>
-        <span style={{ fontSize: 11, color: "var(--muted)" }}>{meta.emoji} {meta.label}</span>
+        <span style={{ fontSize: 11, color: "var(--muted)" }}>{meta.emoji} {meta.label}{post.closed ? " · closed" : ""}</span>
       </div>
-      {post.title ? <h3 style={{ margin: 0 }}>{post.title}</h3> : null}
-      {post.body ? <p className="kiki-community-post-body">{post.body}</p> : null}
+      {post.title ? <h3 style={{ margin: 0, overflowWrap: "anywhere" }}>{post.title}</h3> : null}
+      {post.body ? <p className="kiki-community-post-body" style={{ overflowWrap: "anywhere" }}>{post.body}</p> : null}
 
-      {post.media && post.media.length ? <Carousel media={post.media} onLike={onLike} /> : null}
+      {post.media && post.media.length ? <Carousel media={post.media} onReact={onHelpful} /> : null}
 
       <PostInteractive post={post} onVote={onVote} onRate={onRate} onChallenge={onChallenge} onHunt={onHunt} onPath={onPath} sliderValue={sliderValue} setSliderValue={setSliderValue} onComment={onComment} onCommentLike={onCommentLike} />
 
       <div className="kiki-community-post-actions">
-        <button type="button" aria-pressed={Boolean(post.likes?.mine)} onClick={onLike}><Heart size={14} /> {post.likes?.count ?? 0}</button>
-        <button type="button" aria-pressed={Boolean(post.helpful?.mine)} onClick={onHelpful}><ThumbsUp size={14} /> Helpful {post.helpful?.count ?? 0}</button>
+        <button type="button" aria-pressed={Boolean(helpfulMine)} onClick={onHelpful}><ThumbsUp size={14} /> Helpful {helpfulCount}</button>
         <button type="button" onClick={() => setShowReply((v) => !v)}><MessageCircle size={14} /> Reply</button>
       </div>
 
       {comments.length ? (
         <div style={{ display: "grid", gap: 8 }}>
-          {comments.slice(0, 8).map((c) => (
-            <div key={c.id} className="kiki-community-comment">
-              <p className="kiki-community-post-author">{c.authorAlias} {c.commentKind === "host_answer" ? <span className="kiki-community-system-badge">Host</span> : null} {c.stance ? <span style={{ fontSize: 10, color: "var(--muted)" }}>({c.stance})</span> : null}</p>
-              <p>{c.body}</p>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button type="button" onClick={() => onCommentLike(c.id)} style={{ minHeight: 28, fontSize: 11, background: "var(--surface-2)", color: "var(--accent)", border: 0, borderRadius: 8, padding: "0 8px" }}>❤ {c.likeCount ?? 0}</button>
-                <small style={{ color: "var(--muted)" }}>{fmtTime(c.createdAt)}</small>
+          {comments.slice(0, 8).map((c) => {
+            const kind = c.kind ?? c.commentKind ?? "reply";
+            const likes = c.likes ?? c.likeCount ?? 0;
+            return (
+              <div key={c.id} className="kiki-community-comment">
+                <p className="kiki-community-post-author">{c.authorAlias} {kind === "host_answer" ? <span className="kiki-community-system-badge">Host</span> : null} {c.stance ? <span style={{ fontSize: 10, color: "var(--muted)" }}>({c.stance})</span> : null}</p>
+                <p style={{ overflowWrap: "anywhere" }}>{c.body}</p>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <button type="button" onClick={() => onCommentLike(c.id)} style={{ minHeight: 28, fontSize: 11, background: "var(--surface-2)", color: "var(--accent)", border: 0, borderRadius: 8, padding: "0 8px" }}>❤ {likes}</button>
+                  <small style={{ color: "var(--muted)" }}>{fmtTime(c.createdAt)}</small>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
 
@@ -857,7 +860,7 @@ function PostCard(props: {
   );
 }
 
-function Carousel({ media, onLike }: { media: Media[]; onLike: () => void }) {
+function Carousel({ media, onReact }: { media: Media[]; onReact: () => void }) {
   const [index, setIndex] = useState(0);
   const lastTap = useRef(0);
   const current = media[index];
@@ -865,7 +868,7 @@ function Carousel({ media, onLike }: { media: Media[]; onLike: () => void }) {
   function next() { setIndex((i) => (i + 1) % media.length); }
   function tap() {
     const now = Date.now();
-    if (now - lastTap.current < 350) onLike();
+    if (now - lastTap.current < 350) onReact();
     lastTap.current = now;
   }
   if (!current) return null;
@@ -881,8 +884,8 @@ function Carousel({ media, onLike }: { media: Media[]; onLike: () => void }) {
           </>
         ) : null}
       </div>
-      {current.caption ? <p style={{ margin: 0, fontSize: 12, color: "var(--text-2)" }}>{current.caption}</p> : null}
-      {media.length > 1 ? <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>{media.map((_, i) => <button key={i} type="button" onClick={() => setIndex(i)} aria-label={`Go to image ${i + 1}`} style={{ width: 8, height: 8, borderRadius: 999, border: 0, background: i === index ? "var(--accent)" : "var(--divider)", padding: 0 }} />)}</div> : null}
+      {current.caption ? <p style={{ margin: 0, fontSize: 12, color: "var(--text-2)", overflowWrap: "anywhere" }}>{current.caption}</p> : null}
+      {media.length > 1 ? <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>{media.map((_, i) => <button key={i} type="button" onClick={() => setIndex(i)} aria-label={`Go to image ${i + 1}`} style={{ width: 8, height: 8, borderRadius: 999, border: 0, background: i === index ? "var(--accent)" : "var(--divider)", padding: 0 }} />)}</div> : null}
     </div>
   );
 }
@@ -895,43 +898,56 @@ function PostInteractive(props: any) {
   const [pathNode, setPathNode] = useState("start");
   const [pathTip, setPathTip] = useState<string | null>(null);
 
+  const myVoteId = post.my?.voteOptionId ?? post.my?.optionId ?? null;
+  const hasVoted = Boolean(myVoteId || post.my?.voted);
+  const tallyRows: any[] = Array.isArray(post.results?.tallies) ? post.results.tallies : [];
+  const tallyMap = new Map<string, number>(tallyRows.map((t: any) => [String(t.optionId ?? ""), Number(t.votes ?? 0)]));
+  const totalVotes = tallyRows.reduce((sum: number, t: any) => sum + Number(t.votes ?? 0), 0) as number;
+
   if (["poll", "tt", "decide", "hot", "quiz", "mf"].includes(post.type)) {
-    const total = (post.options ?? []).reduce((sum: number, o: Option) => sum + (o.count ?? 0), 0);
-    const showResults = post.type === "quiz" || post.type === "mf" ? Boolean(post.my?.voted || post.my?.optionId) : post.type === "decide" ? Boolean(post.closed || post.my?.optionId) : post.type === "tt" || post.type === "poll" ? Boolean(post.my?.optionId) : true;
-    const mineId = post.my?.optionId ?? null;
+    const isQuizLike = post.type === "quiz" || post.type === "mf";
+    const resultsVisible = tallyRows.length > 0 || (isQuizLike && hasVoted) || (post.type === "decide" && post.closed);
+    const closed = Boolean(post.closed);
+    const explanation = post.results?.quiz?.explanation ?? post.results?.explanation ?? null;
+    const correctOptionId = post.results?.quiz?.correctOptionId ?? null;
     return (
       <div style={{ display: "grid", gap: 8 }}>
         {(post.options ?? []).map((o: Option) => {
-          const active = Boolean(o.mine || (mineId && o.id === mineId));
-          const correct = Boolean(o.correct);
-          const p = o.percent ?? pct(o.count ?? 0, total);
+          const selected = Boolean((myVoteId && o.id === myVoteId) || o.mine);
+          const correct = Boolean(o.correct || (correctOptionId && o.id === correctOptionId));
+          const count = o.id && tallyMap.has(o.id) ? Number(tallyMap.get(o.id) ?? 0) : Number(o.count ?? 0);
+          const p = resultsVisible ? (o.percent ?? (totalVotes > 0 ? pct(count, totalVotes) : 0)) : 0;
+          const disabled = closed || (post.type !== "hot" && hasVoted && !selected ? true : hasVoted);
           return (
-            <button key={o.id ?? o.position} type="button" onClick={() => o.id && onVote(o.id)} disabled={post.type === "decide" && post.closed} style={{ textAlign: "left", border: "1px solid var(--divider)", borderRadius: 12, padding: 10, background: active ? "var(--accent-bg)" : "var(--surface-1)", color: "var(--text)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span>{o.label}{o.subLabel ? <small style={{ color: "var(--muted)" }}> · {o.subLabel}</small> : null}</span>{showResults ? <strong>{p}%</strong> : null}</div>
-              {showResults ? <div style={{ marginTop: 6, height: 6, borderRadius: 999, background: "var(--surface-2)" }}><div style={{ width: `${p}%`, height: "100%", borderRadius: 999, background: correct ? "var(--ok, #2f9e44)" : "var(--accent)" }} /></div> : null}
-              {(post.type === "quiz" || post.type === "mf") && (post.my?.voted || post.my?.optionId) && correct ? <small style={{ color: "var(--ok, #2f9e44)", fontWeight: 700 }}>Correct answer</small> : null}
+            <button key={o.id ?? o.position ?? o.label} type="button" onClick={() => o.id && onVote(o.id)} disabled={disabled} style={{ textAlign: "left", border: "1px solid var(--divider)", borderRadius: 12, padding: 10, background: selected ? "var(--accent-bg)" : "var(--surface-1)", color: "var(--text)", opacity: disabled && !selected && !correct ? 0.85 : 1, cursor: disabled ? "default" : "pointer", width: "100%", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}><span style={{ overflowWrap: "anywhere" }}>{o.label}{o.subLabel ? <small style={{ color: "var(--muted)" }}> · {o.subLabel}</small> : null}</span>{resultsVisible ? <strong>{p}%</strong> : null}</div>
+              {resultsVisible ? <div style={{ marginTop: 6, height: 6, borderRadius: 999, background: "var(--surface-2)", overflow: "hidden" }}><div style={{ width: `${p}%`, height: "100%", borderRadius: 999, background: correct ? "var(--ok, #2f9e44)" : "var(--accent)" }} /></div> : null}
+              {isQuizLike && hasVoted && correct ? <small style={{ color: "var(--ok, #2f9e44)", fontWeight: 700 }}>Correct answer</small> : null}
+              {selected ? <small style={{ color: "var(--accent)", fontWeight: 700 }}>Your choice</small> : null}
             </button>
           );
         })}
-        {(post.type === "quiz" || post.type === "mf") && (post.my?.voted || post.my?.optionId) && post.results?.explanation ? <p className="kiki-community-scope-note">{post.results.explanation}</p> : null}
-        {post.type === "hot" && <HotTakeAnswers post={post} onComment={onComment} onCommentLike={onCommentLike} />}
-        {post.type === "decide" && post.closed ? <p className="kiki-community-scope-note">Voting closed.</p> : null}
+        {isQuizLike && hasVoted && explanation ? <p className="kiki-community-scope-note">{explanation}</p> : null}
+        {post.type === "hot" ? <HotTakeAnswers post={post} onComment={onComment} onCommentLike={onCommentLike} /> : null}
+        {post.type === "decide" && closed ? <p className="kiki-community-scope-note">Voting closed.</p> : null}
       </div>
     );
   }
 
   if (post.type === "slider") {
-    const voted = post.my?.value != null;
+    const myRating = post.my?.rating ?? post.my?.value;
+    const voted = myRating != null;
+    const summary = post.results?.slider ?? post.results ?? {};
     return (
       <div style={{ display: "grid", gap: 8 }}>
         {!voted ? (
           <>
             <input type="range" min={0} max={100} value={sliderValue} onChange={(e) => setSliderValue(Number(e.target.value))} />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)" }}><span>{post.config?.lo || "Low"}</span><strong>{sliderValue}</strong><span>{post.config?.hi || "High"}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, color: "var(--muted)" }}><span>{post.config?.lo || "Low"}</span><strong>{sliderValue}</strong><span>{post.config?.hi || "High"}</span></div>
             <button type="button" onClick={() => onRate(sliderValue)}>Submit rating</button>
           </>
         ) : (
-          <p className="kiki-community-scope-note">You rated <strong>{post.my.value}</strong>. Average: <strong>{post.results?.average ?? 0}</strong> from {post.results?.count ?? 0} ratings.</p>
+          <p className="kiki-community-scope-note">You rated <strong>{myRating}</strong>. Average: <strong>{summary.avg ?? summary.average ?? 0}</strong> from {summary.count ?? 0} ratings.</p>
         )}
       </div>
     );
@@ -940,8 +956,8 @@ function PostInteractive(props: any) {
   if (post.type === "fill") {
     return (
       <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!fillText.trim()) return; await onComment(post.id, fillText.trim(), { commentKind: "answer" }); setFillText(""); }}>
-        <p className="kiki-community-scope-note">{post.config?.prefix} <strong>____</strong> {post.config?.suffix}</p>
-        <input value={fillText} onChange={(e) => setFillText(e.target.value)} placeholder="Your answer" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+        <p className="kiki-community-scope-note" style={{ overflowWrap: "anywhere" }}>{post.config?.prefix} <strong>____</strong> {post.config?.suffix}</p>
+        <input value={fillText} onChange={(e) => setFillText(e.target.value)} placeholder="Your answer" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", width: "100%", boxSizing: "border-box" }} />
         <button type="submit">Share answer</button>
         <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
       </form>
@@ -951,7 +967,7 @@ function PostInteractive(props: any) {
   if (post.type === "cap") {
     return (
       <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!caption.trim()) return; await onComment(post.id, caption.trim(), { commentKind: "answer" }); setCaption(""); }}>
-        <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a caption…" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+        <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a caption…" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", width: "100%", boxSizing: "border-box" }} />
         <button type="submit">Submit caption</button>
         <AnswersList post={post} onCommentLike={onCommentLike} showLikes ranked />
       </form>
@@ -962,7 +978,7 @@ function PostInteractive(props: any) {
     return (
       <div style={{ display: "grid", gap: 8 }}>
         <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!question.trim()) return; await onComment(post.id, question.trim(), { commentKind: "question" }); setQuestion(""); }}>
-          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask a question…" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask a question…" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", width: "100%", boxSizing: "border-box" }} />
           <button type="submit">Ask</button>
         </form>
         <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
@@ -971,30 +987,36 @@ function PostInteractive(props: any) {
   }
 
   if (post.type === "hunt") {
-    const found = post.my?.foundTargets ?? post.results?.foundTargets ?? [];
-    const total = post.results?.targetCount ?? post.results?.total ?? found.length;
-    const allFound = total > 0 && found.length >= total;
+    const huntMine = post.my?.hunt ?? {};
+    const found = huntMine.found ?? post.results?.hunt?.found ?? post.my?.foundTargets ?? post.results?.foundTargets ?? [];
+    const total = Number(post.results?.hunt?.total ?? post.config?.targets_count ?? post.results?.targetCount ?? post.results?.total ?? 0);
+    const tries = Number(huntMine.tries ?? post.my?.tries ?? 0);
+    const foundCount = Array.isArray(found) ? found.length : 0;
+    const allFound = total > 0 && foundCount >= total;
     return (
       <div style={{ display: "grid", gap: 8 }}>
-        <p className="kiki-community-scope-note">Found {found.length}/{total} · Tries: {post.my?.tries ?? 0}</p>
+        <p className="kiki-community-scope-note">Found {foundCount}/{total || "?"} · Tries: {tries}</p>
         {allFound ? <p className="kiki-communities-notice">All targets found. Well done.</p> : <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Tap the image to search for hidden spots.</p>}
-        {found.length ? <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>{found.map((t: any, i: number) => <li key={i}>{t.label || `Target ${i + 1}`}</li>)}</ul> : null}
-        {post.media?.[0]?.url ? <HuntImage url={post.media[0].url} found={found} onGuess={onHunt} /> : null}
+        {foundCount ? <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>{(Array.isArray(found) ? found : []).map((t: any, i: number) => <li key={t.id ?? i}>{t.label || `Target ${i + 1}`}</li>)}</ul> : null}
+        {post.media?.[0]?.url ? <HuntImage url={post.media[0].url} found={Array.isArray(found) ? found : []} onGuess={onHunt} /> : null}
       </div>
     );
   }
 
   if (post.type === "chal") {
-    const enrolled = Boolean(post.my?.enrolled);
-    const checked = Boolean(post.my?.checkedInToday ?? post.my?.checked_in_today);
+    const c = post.my?.challenge ?? {};
+    const enrolled = Boolean(c.joined ?? post.my?.enrolled);
+    const checked = Boolean(c.todayDone ?? post.my?.checkedInToday ?? post.my?.checked_in_today);
     const days = Number(post.config?.days ?? 7);
-    const checkins = Number(post.my?.checkins ?? post.my?.checkinCount ?? 0);
+    const daysDone = Array.isArray(c.daysDone) ? c.daysDone.length : Number(post.my?.checkins ?? post.my?.checkinCount ?? 0);
+    const streak = Number(c.streak ?? post.my?.streak ?? 0);
+    const participants = Number(post.results?.challenge?.participants ?? post.results?.participants ?? 0);
     return (
       <div style={{ display: "grid", gap: 8 }}>
-        <p className="kiki-community-scope-note">Participants: {post.results?.participants ?? 0} · Streak: {post.my?.streak ?? 0} · Check-ins: {checkins}/{days}</p>
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(days, 7)}, 1fr)`, gap: 4 }}>
+        <p className="kiki-community-scope-note">Participants: {participants} · Streak: {streak} · Check-ins: {daysDone}/{days}</p>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(days, 7)}, minmax(0, 1fr))`, gap: 4 }}>
           {Array.from({ length: days }).map((_, i) => (
-            <div key={i} title={`Day ${i + 1}`} style={{ height: 10, borderRadius: 999, background: i < checkins ? "var(--accent)" : "var(--surface-2)" }} />
+            <div key={i} title={`Day ${i + 1}`} style={{ height: 10, borderRadius: 999, background: i < daysDone ? "var(--accent)" : "var(--surface-2)" }} />
           ))}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1006,18 +1028,18 @@ function PostInteractive(props: any) {
   }
 
   if (post.type === "path") {
-    const nodes: any[] = post.config?.nodes ?? [];
+    const nodes: any[] = Array.isArray(post.config?.nodes) ? post.config.nodes : [];
     const nodeMap = new Map(nodes.map((n: any) => [n.id, n]));
     const current = nodeMap.get(pathNode) ?? nodeMap.get("start") ?? nodes[0];
     if (!current) return null;
     return (
       <div style={{ display: "grid", gap: 8 }}>
-        <p className="kiki-community-scope-note">{current.t || current.text}</p>
+        <p className="kiki-community-scope-note" style={{ overflowWrap: "anywhere" }}>{current.t || current.text}</p>
         {pathTip ? <p className="kiki-communities-notice">{pathTip}</p> : null}
         {!current.end ? (
           <div style={{ display: "grid", gap: 6 }}>
             {(current.ch ?? current.choices ?? []).map((choice: any, i: number) => (
-              <button key={i} type="button" onClick={() => { const to = choice.to; setPathNode(to); setPathTip(choice.tip || null); const target = nodeMap.get(to); if (target?.end) onPath(to); }}>
+              <button key={i} type="button" onClick={() => { const to = choice.to; setPathNode(to); setPathTip(choice.tip || null); const target = nodeMap.get(to); if (target?.end) { const idx = nodes.findIndex((n: any) => n.id === to); onPath(idx >= 0 ? idx : 0); } }} style={{ width: "100%", textAlign: "left", boxSizing: "border-box" }}>
                 {choice.t || choice.text}
               </button>
             ))}
@@ -1041,11 +1063,11 @@ function HotTakeAnswers({ post, onComment, onCommentLike }: { post: Post; onComm
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!body.trim()) return; await onComment(post.id, body.trim(), { commentKind: "answer", stance }); setBody(""); }}>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" onClick={() => setStance("agree")} aria-pressed={stance === "agree"}>Agree</button>
           <button type="button" onClick={() => setStance("disagree")} aria-pressed={stance === "disagree"}>Disagree</button>
         </div>
-        <input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Add your view (optional detail)" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+        <input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Add your view (optional detail)" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", width: "100%", boxSizing: "border-box" }} />
         <button type="submit" disabled={!body.trim()}>Share view</button>
       </form>
       <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
@@ -1055,17 +1077,20 @@ function HotTakeAnswers({ post, onComment, onCommentLike }: { post: Post; onComm
 
 function AnswersList({ post, onCommentLike, showLikes, ranked }: { post: Post; onCommentLike: (id: string) => void; showLikes?: boolean; ranked?: boolean }) {
   let items = [...(post.topAnswers ?? []), ...(post.recentReplies ?? []), ...(post.comments ?? [])].filter((c, i, arr) => c && arr.findIndex((x) => x.id === c.id) === i);
-  if (ranked) items = items.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
+  if (ranked) items = items.sort((a, b) => ((b.likes ?? b.likeCount ?? 0) - (a.likes ?? a.likeCount ?? 0)));
   if (!items.length) return null;
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      {items.slice(0, 6).map((c, i) => (
-        <div key={c.id} className="kiki-community-comment">
-          <p className="kiki-community-post-author">{ranked && i === 0 ? "🏆 " : ""}{c.authorAlias} {c.stance ? <span style={{ fontSize: 10, color: "var(--muted)" }}>({c.stance})</span> : null}</p>
-          <p>{c.body}</p>
-          {showLikes ? <button type="button" onClick={() => onCommentLike(c.id)} style={{ minHeight: 28, fontSize: 11, background: "var(--surface-2)", color: "var(--accent)", border: 0, borderRadius: 8, padding: "0 8px", width: "fit-content" }}>❤ {c.likeCount ?? 0}</button> : null}
-        </div>
-      ))}
+      {items.slice(0, 6).map((c, i) => {
+        const likes = c.likes ?? c.likeCount ?? 0;
+        return (
+          <div key={c.id} className="kiki-community-comment">
+            <p className="kiki-community-post-author">{ranked && i === 0 ? "🏆 " : ""}{c.authorAlias} {c.stance ? <span style={{ fontSize: 10, color: "var(--muted)" }}>({c.stance})</span> : null}</p>
+            <p style={{ overflowWrap: "anywhere" }}>{c.body}</p>
+            {showLikes ? <button type="button" onClick={() => onCommentLike(c.id)} style={{ minHeight: 28, fontSize: 11, background: "var(--surface-2)", color: "var(--accent)", border: 0, borderRadius: 8, padding: "0 8px", width: "fit-content" }}>❤ {likes}</button> : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1080,7 +1105,7 @@ function HuntImage({ url, found, onGuess }: { url: string; found: any[]; onGuess
         onGuess(Math.round(x * 100) / 100, Math.round(y * 100) / 100);
       }} style={{ width: "100%", display: "block", cursor: "crosshair" }} />
       {found.map((t, i) => (
-        <span key={i} title={t.label} style={{ position: "absolute", left: `${Number(t.x)}%`, top: `${Number(t.y)}%`, transform: "translate(-50%,-50%)", minWidth: 22, height: 22, borderRadius: 999, background: "var(--ok, #2f9e44)", color: "#fff", fontSize: 10, display: "grid", placeItems: "center", padding: "0 4px" }}>✓</span>
+        <span key={t.id ?? i} title={t.label} style={{ position: "absolute", left: `${Number(t.x)}%`, top: `${Number(t.y)}%`, transform: "translate(-50%,-50%)", minWidth: 22, height: 22, borderRadius: 999, background: "var(--ok, #2f9e44)", color: "#fff", fontSize: 10, display: "grid", placeItems: "center", padding: "0 4px" }}>✓</span>
       ))}
     </div>
   );
