@@ -24,14 +24,33 @@ export async function POST(request: Request) {
 export async function GET() {
   const access = await communityAccount();
   if ("response" in access) return access.response;
-  const { data, error } = await access.db.from("community_moderation_events")
+  const { data: legacyEvents, error: legacyError } = await access.db.from("community_moderation_events")
     .select("decision,categories,severity,created_at")
     .eq("user_id", access.user.id)
     .order("created_at", { ascending: false })
     .limit(10);
-  if (error) {
-    console.error("Could not load Kiki Guard history.", error);
+  const { data: memberships, error: membershipError } = await access.db.from("community_memberships")
+    .select("id")
+    .eq("user_id", access.user.id);
+  if (legacyError || membershipError) {
+    console.error("Could not load Kiki Guard history.", legacyError ?? membershipError);
     return NextResponse.json({ error: "guard_history_unavailable" }, { status: 503 });
   }
-  return NextResponse.json({ events: data ?? [] }, { headers: { "Cache-Control": "no-store" } });
+  const memberIds = (memberships ?? []).map((membership) => membership.id);
+  const { data: interactiveEvents, error: interactiveError } = memberIds.length
+    ? await access.db.from("community_guard_events")
+      .select("items,created_at")
+      .in("membership_id", memberIds)
+      .order("created_at", { ascending: false })
+      .limit(10)
+    : { data: [], error: null };
+  if (interactiveError) {
+    console.error("Could not load interactive Kiki Guard history.", interactiveError);
+    return NextResponse.json({ error: "guard_history_unavailable" }, { status: 503 });
+  }
+  const events = [
+    ...(legacyEvents ?? []).map((event) => ({ ...event, surface: "community", items: event.categories })),
+    ...(interactiveEvents ?? []).map((event) => ({ decision: "redacted", categories: event.items, severity: 1, ...event, surface: "interactive" })),
+  ].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 10);
+  return NextResponse.json({ events }, { headers: { "Cache-Control": "no-store" } });
 }

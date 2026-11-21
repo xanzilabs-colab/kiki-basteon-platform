@@ -1,492 +1,1087 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Footprints, Heart, HeartHandshake, Lightbulb, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Users } from "lucide-react";
+import {
+  Bell, ChevronLeft, ChevronRight, Footprints, Heart, HeartHandshake, Info,
+  LockKeyhole, MapPinned, MessageCircle, RefreshCw, ShieldCheck, ThumbsUp, Users
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { evaluateInteractiveCommunityText } from "@/lib/communities/guardrails";
 
 type Community = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  scope: string;
-  iconKey: string;
-  isSystem: boolean;
-  memberCount: number;
-  isMember: boolean;
-  pseudonym: string | null;
-  welcomeReadAt: string | null;
-  mutedUntil: string | null;
+  id: string; slug: string; name: string; description: string; scope: string; iconKey: string;
+  isSystem: boolean; memberCount?: number; joinedRecently?: number; openToJoin?: boolean;
+  isMember: boolean; pseudonym: string | null; welcomeReadAt: string | null; mutedUntil?: string | null;
 };
-
 type CommunityView = Pick<Community, "id" | "slug" | "name" | "description" | "scope" | "iconKey" | "isSystem">;
-type ReactionType = "support" | "thanks" | "care";
-type Comment = { id: string; authorAlias: string; isKiki: boolean; body: string; createdAt: string };
+type Option = { id?: string; position?: number; label: string; subLabel?: string | null; count?: number; percent?: number; mine?: boolean; correct?: boolean };
+type Media = { id: string; position: number; url: string | null; storagePath?: string; width: number; height: number; caption: string; altText: string };
+type FeedComment = {
+  id: string; postId?: string; parentId?: string | null; commentKind: "reply" | "answer" | "question" | "host_answer";
+  stance?: "agree" | "disagree" | null; authorAlias: string; isKiki: boolean; body: string; likeCount: number; liked?: boolean; createdAt: string; replies?: FeedComment[];
+};
 type Post = {
-  id: string;
-  type: string;
-  authorAlias: string;
-  isKiki: boolean;
-  body: string;
-  createdAt: string;
-  comments: Comment[];
+  id: string; type: string; categoryGroup: string; authorAlias: string; authorEmoji?: string | null; isKiki: boolean;
+  title?: string | null; body: string; config: Record<string, any>; createdAt: string; endsAt?: string | null; closed?: boolean;
+  comments?: FeedComment[]; topAnswers?: FeedComment[]; recentReplies?: FeedComment[]; myComment?: FeedComment | null;
   reactions: { support: number; thanks: number; care: number; mine: string[] };
+  likes?: { count: number; mine: boolean }; helpful?: { count: number; mine: boolean };
+  media?: Media[]; options?: Option[]; results?: any; my?: any;
 };
-type Feed = {
-  community: CommunityView;
-  isMember: boolean;
-  pseudonym?: string;
-  welcomeRequired?: boolean;
-  canPost?: boolean;
-  mutedUntil?: string | null;
-  posts: Post[];
-};
-type GuardPreview = { decision: "allow" | "redact" | "refuse"; safeText: string; reason: string };
-type GuardEvent = { decision: "redacted" | "refused"; categories: string[]; severity: number; created_at: string };
-type Tab = "feed" | "discover" | "guard" | "create";
+type Story = { id: string; title: string; emoji?: string | null; byline: string; body: string; communityId?: string | null; expiresAt?: string };
+type Feed = { community: CommunityView & { memberCount?: number }; isMember: boolean; pseudonym?: string; welcomeRequired?: boolean; welcomeBody?: string; posts?: Post[]; stories?: Story[]; nextCursor?: string | null };
+type GuardEvent = { id: string; reason: string; action: string; contextType: string; details?: string; createdAt: string };
+type GuardPreview = { placeholder?: string; redacted: boolean; refused: boolean; removed: string[] };
 
-const tabLabels: Array<{ value: Tab; label: string }> = [
-  { value: "feed", label: "Feed" },
-  { value: "discover", label: "Discover" },
-  { value: "guard", label: "Kiki Guard" },
-  { value: "create", label: "Create" },
+const iconFor: Record<string, LucideIcon> = {
+  shield: ShieldCheck, "heart-handshake": HeartHandshake, users: Users, footprints: Footprints, "map-pin": MapPinned,
+};
+const typeMeta: Record<string, { label: string; emoji: string; group: string }> = {
+  post: { label: "Post", emoji: "💬", group: "general" },
+  carousel: { label: "Carousel", emoji: "🖼️", group: "carousel" },
+  poll: { label: "Poll", emoji: "📊", group: "vote" },
+  tt: { label: "This/That", emoji: "⚖️", group: "vote" },
+  slider: { label: "Slider", emoji: "🎚️", group: "vote" },
+  fill: { label: "Fill blank", emoji: "✍️", group: "prompts" },
+  cap: { label: "Caption", emoji: "📸", group: "prompts" },
+  hot: { label: "Hot take", emoji: "🔥", group: "prompts" },
+  quiz: { label: "Quiz", emoji: "🧠", group: "games" },
+  mf: { label: "Myth/Fact", emoji: "✅", group: "games" },
+  hunt: { label: "Hunt", emoji: "🔍", group: "games" },
+  chal: { label: "Challenge", emoji: "🏆", group: "games" },
+  ama: { label: "AMA", emoji: "❓", group: "cocreate" },
+  decide: { label: "Decide", emoji: "🗳️", group: "cocreate" },
+  path: { label: "Path", emoji: "🧭", group: "cocreate" },
+};
+const groups = [
+  { id: "", label: "All" }, { id: "general", label: "Posts" }, { id: "carousel", label: "Carousels" },
+  { id: "vote", label: "Votes" }, { id: "prompts", label: "Prompts" }, { id: "games", label: "Games" }, { id: "cocreate", label: "Co-create" },
+];
+const createTypes = Object.keys(typeMeta);
+const iconChoices = [
+  { value: "shield", label: "Shield" }, { value: "heart-handshake", label: "Heart" }, { value: "users", label: "Users" },
+  { value: "footprints", label: "Footsteps" }, { value: "map-pin", label: "Map pin" },
 ];
 
-const communityIcons: Record<string, LucideIcon> = {
-  shield: ShieldCheck,
-  lightbulb: Lightbulb,
-  footprints: Footprints,
-  heart: Heart,
-  users: Users,
-};
+async function json<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
+  if (!response.ok) throw new Error((payload as any).error ?? "request_failed");
+  return payload;
+}
+function errText(e: unknown) {
+  const code = e instanceof Error ? e.message : "unknown";
+  if (code === "not_a_member") return "Join this community and acknowledge the space first.";
+  if (code === "not_allowed") return "You do not have permission to do that.";
+  if (code === "rate_limited") return "Please wait a moment before trying again.";
+  if (code === "unsafe_content" || code === "unsafe_comment") return "Kiki Guard could not make that safe to share.";
+  if (code === "invalid_post" || code === "invalid_interaction" || code === "invalid_comment") return "Some details are missing or invalid.";
+  return "Something went wrong. Please try again.";
+}
+function fmtTime(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso); const now = Date.now(); const diff = Math.max(0, now - d.getTime());
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString();
+}
+function pct(count: number, total: number) { return total > 0 ? Math.round((count / total) * 100) : 0; }
+function uid() { return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 
-function CommunityIcon({ iconKey, size = 20 }: { iconKey: string; size?: number }) {
-  const Icon = communityIcons[iconKey] ?? Users;
-  return <Icon size={size} aria-hidden="true" />;
+async function reencodeImage(file: File): Promise<File> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("image_read_failed"));
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("image_load_failed"));
+    image.src = dataUrl;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas_unavailable");
+  ctx.drawImage(img, 0, 0);
+  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => b ? resolve(b) : reject(new Error("image_encode_failed")), "image/jpeg", 0.9));
+  return new File([blob], `${uid()}.jpg`, { type: "image/jpeg" });
 }
 
-function formatCommunityTime(value: string) {
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "";
-  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return days < 7 ? `${days}d ago` : new Date(value).toLocaleDateString();
-}
+type DraftMedia = { file?: File; previewUrl: string; caption: string; altText: string; uploading?: boolean; storagePath?: string; width?: number; height?: number; error?: string; x?: number; y?: number; targetLabel?: string };
+type DraftOption = { label: string; subLabel: string; correct?: boolean };
+type PathChoice = { text: string; to: string; tip: string };
+type PathNode = { id: string; text: string; end: boolean; choices: PathChoice[] };
 
-function messageForError(code: string) {
-  const messages: Record<string, string> = {
-    communities_unavailable: "Communities could not be loaded. Please try again.",
-    community_unavailable: "This community could not be loaded. Please try again.",
-    community_feed_unavailable: "The community feed could not be loaded. Please try again.",
-    community_join_unavailable: "You could not join this community. Please try again.",
-    community_create_unavailable: "The community could not be created. Check whether its name is already in use.",
-    community_post_unavailable: "Your message could not be posted. Please try again.",
-    reaction_unavailable: "Your reaction could not be saved.",
-    rate_limited: "You have reached an activity limit. Please wait before trying again.",
-    posting_muted: "Posting is temporarily paused for this community.",
-    not_a_member: "Join this community before posting.",
-    welcome_unread: "Read and acknowledge the community welcome before posting.",
+function emptyDraft(type = "post") {
+  return {
+    type,
+    title: "",
+    body: "",
+    options: [{ label: "", subLabel: "" }, { label: "", subLabel: "" }] as DraftOption[],
+    sliderLo: "Not ready", sliderHi: "Very ready",
+    prefix: "Before I head out, I always", suffix: "so I feel prepared.",
+    challengeDays: 7,
+    huntTargets: [] as { x: number; y: number; label: string }[],
+    pathNodes: [
+      { id: "start", text: "Your phone is low on battery…", end: false, choices: [{ text: "Send a check-in", to: "end1", tip: "A quick update can help." }, { text: "Save battery", to: "end2", tip: "" }] },
+      { id: "end1", text: "You shared a quick check-in.", end: true, choices: [] as PathChoice[] },
+      { id: "end2", text: "You conserved battery and stayed aware.", end: true, choices: [] as PathChoice[] },
+    ] as PathNode[],
+    media: [] as DraftMedia[],
+    postId: uid(),
   };
-  return messages[code] ?? "Something went wrong. Please try again.";
 }
 
-async function communityApi<T>(input: string, init?: RequestInit): Promise<{ ok: boolean; result: T } | null> {
-  try {
-    const response = await fetch(input, init);
-    return { ok: response.ok, result: await response.json() as T };
-  } catch {
-    return null;
-  }
+function CommunityIcon({ iconKey, className }: { iconKey: string; className?: string }) {
+  const Icon = iconFor[iconKey] ?? ShieldCheck;
+  return <Icon size={18} aria-hidden className={className} />;
 }
 
-export function CommunitiesHub({ slug }: { slug?: string }) {
+export default function CommunitiesHub({ initialSlug = null as string | null }) {
   const router = useRouter();
+  const [tab, setTab] = useState<"feed" | "discover" | "guard" | "create">("feed");
   const [communities, setCommunities] = useState<Community[]>([]);
-  const [activeSlug, setActiveSlug] = useState(slug ?? "");
+  const [activeSlug, setActiveSlug] = useState<string | null>(initialSlug);
   const [feed, setFeed] = useState<Feed | null>(null);
-  const [tab, setTab] = useState<Tab>("feed");
-  const [events, setEvents] = useState<GuardEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [feedLoading, setFeedLoading] = useState(false);
-  const [communityListReady, setCommunityListReady] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [group, setGroup] = useState("");
+  const [guardHistory, setGuardHistory] = useState<GuardEvent[]>([]);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [draft, setDraft] = useState(() => emptyDraft("post"));
+  const [submitting, setSubmitting] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [activeStory, setActiveStory] = useState<Story | null>(null);
+  const [createDraft, setCreateDraft] = useState({ name: "", description: "", scope: "", iconKey: "shield" });
   const [discoverQuery, setDiscoverQuery] = useState("");
-  const [discoverFilter, setDiscoverFilter] = useState<"all" | "kiki" | "joined">("all");
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [pendingDraft, setPendingDraft] = useState<{ text: string; safeText: string; reason: string; parentId: string | null } | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", scope: "" });
 
-  async function loadCommunities() {
-    setError("");
-    const request = await communityApi<{ communities?: Community[]; defaultCommunitySlug?: string; error?: string }>("/api/communities", { cache: "no-store" });
-    if (!request) {
-      setError("Communities could not be loaded. Check your connection and try again.");
-      setLoading(false);
-      return;
-    }
-    const { ok, result } = request;
-    if (!ok || !result.communities) {
-      setError(messageForError(result.error ?? ""));
-      setLoading(false);
-      return;
-    }
-    let communities = result.communities;
-    const welcomeCommunity = communities.find((item) => item.slug === (result.defaultCommunitySlug ?? "kiki-tips"));
-    if (welcomeCommunity && !welcomeCommunity.isMember) {
-      const joined = await communityApi<{ error?: string }>(`/api/communities/${welcomeCommunity.id}/join`, { method: "POST" });
-      if (joined?.ok) {
-        const refreshed = await communityApi<{ communities?: Community[] }>("/api/communities", { cache: "no-store" });
-        if (refreshed?.ok && refreshed.result.communities) communities = refreshed.result.communities;
-      } else {
-        setError(messageForError(joined?.result.error ?? "community_join_unavailable"));
-      }
-    }
-    setCommunities(communities);
-    setCommunityListReady(true);
-    if (!slug) setActiveSlug((current) => current || result.defaultCommunitySlug || communities.find((item) => item.isMember)?.slug || "");
-    setLoading(false);
-  }
+  const joined = useMemo(() => communities.filter((c) => c.isMember), [communities]);
+  const activeCommunity = useMemo(() => communities.find((c) => c.slug === activeSlug) ?? joined[0] ?? communities[0] ?? null, [communities, joined, activeSlug]);
+  const discoverList = useMemo(() => {
+    const q = discoverQuery.trim().toLowerCase();
+    return communities.filter((c) => !q || c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q));
+  }, [communities, discoverQuery]);
 
-  async function loadFeed(targetSlug: string) {
+  useEffect(() => { if (initialSlug) setActiveSlug(initialSlug); }, [initialSlug]);
+
+  const loadCommunities = useCallback(async () => {
+    const data = await json<{ communities: Community[] }>("/api/communities");
+    setCommunities(data.communities ?? []);
+    return data.communities ?? [];
+  }, []);
+
+  const loadFeed = useCallback(async (slug: string, nextGroup = group) => {
     setFeedLoading(true);
-    const request = await communityApi<Feed & { error?: string }>(`/api/communities/${encodeURIComponent(targetSlug)}/feed`, { cache: "no-store" });
-    if (!request) {
-      setFeed(null);
-      setError("The community feed could not be loaded. Check your connection and try again.");
-      setFeedLoading(false);
-      return;
-    }
-    const { ok, result } = request;
-    if (!ok) {
-      setFeed(null);
-      setError(messageForError(result.error ?? ""));
-      setFeedLoading(false);
-      return;
-    }
-    setFeed(result);
-    setError("");
-    setFeedLoading(false);
-  }
+    try {
+      const qs = nextGroup ? `?group=${encodeURIComponent(nextGroup)}` : "";
+      const data = await json<Feed>(`/api/communities/${slug}/feed${qs}`);
+      setFeed(data);
+      if (data.pseudonym) setCommunities((prev) => prev.map((c) => c.slug === slug ? { ...c, pseudonym: data.pseudonym ?? c.pseudonym } : c));
+    } finally { setFeedLoading(false); }
+  }, [group]);
 
-  useEffect(() => {
-    const requestedTab = new URLSearchParams(window.location.search).get("tab");
-    if (requestedTab === "discover" || requestedTab === "guard" || requestedTab === "create") setTab(requestedTab);
-    void loadCommunities();
+  const loadGuard = useCallback(async () => {
+    try {
+      const data = await json<{ history: GuardEvent[] }>("/api/communities/guard");
+      setGuardHistory(data.history ?? []);
+    } catch { /* best effort */ }
   }, []);
 
   useEffect(() => {
-    if (slug) setActiveSlug(slug);
-  }, [slug]);
+    (async () => {
+      setLoading(true); setError(null);
+      try {
+        const list = await loadCommunities();
+        const chosen = (initialSlug && list.find((c) => c.slug === initialSlug)?.slug) || list.find((c) => c.isMember)?.slug || list[0]?.slug || null;
+        if (chosen) { setActiveSlug(chosen); await loadFeed(chosen, ""); }
+        await loadGuard();
+      } catch (e) { setError(errText(e)); }
+      finally { setLoading(false); }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => {
-    if (communityListReady && activeSlug) void loadFeed(activeSlug);
-  }, [activeSlug, communityListReady]);
-
-  useEffect(() => {
-    if (tab !== "guard") return;
-    let active = true;
-    void communityApi<{ events?: GuardEvent[] }>("/api/communities/guard", { cache: "no-store" })
-      .then((request) => {
-        if (!request?.ok) {
-          if (active) setError("Kiki Guard history could not be loaded.");
-          return;
-        }
-        if (active) setEvents(request.result.events ?? []);
-      });
-    return () => { active = false; };
-  }, [tab]);
-
-  function openCommunity(targetSlug: string) {
-    setTab("feed");
-    setActiveSlug(targetSlug);
-    router.push(`/account/communities/${encodeURIComponent(targetSlug)}`);
+  async function refreshAll() {
+    setError(null);
+    try {
+      const list = await loadCommunities();
+      const slug = activeSlug ?? list.find((c) => c.isMember)?.slug ?? list[0]?.slug ?? null;
+      if (slug) await loadFeed(slug, group);
+      await loadGuard();
+      setNotice("Community feed refreshed.");
+    } catch (e) { setError(errText(e)); }
   }
 
-  async function joinCommunity(community: Community) {
-    setBusy(true);
-    setError("");
-    const request = await communityApi<{ error?: string }>(`/api/communities/${community.id}/join`, { method: "POST" });
-    if (!request?.ok) {
-      setError(messageForError(request?.result.error ?? "network_unavailable"));
-      setBusy(false);
-      return;
-    }
-    await loadCommunities();
-    openCommunity(community.slug);
-    await loadFeed(community.slug);
-    setBusy(false);
+  async function openCommunity(slug: string) {
+    setActiveSlug(slug); setGroup(""); setError(null);
+    router.replace(`/account/communities/${slug}`);
+    try { await loadFeed(slug, ""); } catch (e) { setError(errText(e)); }
+  }
+
+  async function joinCommunity(slug: string, id: string) {
+    setError(null);
+    try {
+      const data = await json<{ joined: boolean; pseudonym: string }>(`/api/communities/${id}/join`, { method: "POST" });
+      setCommunities((prev) => prev.map((c) => c.id === id ? { ...c, isMember: true, pseudonym: data.pseudonym } : c));
+      await openCommunity(slug);
+      setNotice("You joined with an anonymous alias.");
+    } catch (e) { setError(errText(e)); }
   }
 
   async function acknowledgeWelcome() {
-    if (!feed) return;
-    setBusy(true);
-    setError("");
-    const request = await communityApi<{ error?: string }>(`/api/communities/${feed.community.id}/welcome`, { method: "POST" });
-    if (!request?.ok) setError(messageForError(request?.result.error ?? "network_unavailable"));
-    else await loadFeed(feed.community.slug);
-    setBusy(false);
+    if (!activeCommunity) return;
+    setError(null);
+    try {
+      await json(`/api/communities/${activeCommunity.id}/welcome`, { method: "POST" });
+      setCommunities((prev) => prev.map((c) => c.id === activeCommunity.id ? { ...c, welcomeReadAt: new Date().toISOString() } : c));
+      await loadFeed(activeCommunity.slug, group);
+    } catch (e) { setError(errText(e)); }
   }
 
-  async function publishMessage(text: string, parentId: string | null) {
-    if (!feed) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    const request = await communityApi<{ error?: string; reason?: string; noticeSent?: boolean; redacted?: boolean }>("/api/communities/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ communityId: feed.community.id, body: text, parentId }),
-    });
-    if (!request) {
-      setError("Your message could not be sent. Check your connection and try again.");
-      setBusy(false);
-      return;
+  function updateDraft(patch: Partial<ReturnType<typeof emptyDraft>>) { setDraft((d) => ({ ...d, ...patch })); }
+
+  const liveGuard = useMemo(() => {
+    if (!composerOpen) return null;
+    const texts: string[] = [draft.title, draft.body, draft.prefix, draft.suffix, draft.sliderLo, draft.sliderHi];
+    for (const o of draft.options) { texts.push(o.label, o.subLabel); }
+    for (const m of draft.media) { texts.push(m.caption, m.altText); }
+    if (draft.type === "hunt") for (const t of (draft.huntTargets ?? [])) texts.push(t.label);
+    if (draft.type === "path") for (const n of draft.pathNodes) { texts.push(n.text); for (const c of n.choices) texts.push(c.text, c.tip, c.to); }
+    if (draft.type === "hot") { texts.push("Agree", "Disagree"); }
+    if (draft.type === "mf") { texts.push("Myth", "Fact"); }
+    const removed = new Set<string>();
+    let redacted = false;
+    let refused = false;
+    for (const value of texts.filter((t): t is string => Boolean(t && String(t).trim()))) {
+      const result = evaluateInteractiveCommunityText(value);
+      for (const item of result.removed ?? []) removed.add(item);
+      if (result.decision === "redact") redacted = true;
+      if (result.decision === "refuse") refused = true;
     }
-    const { ok, result } = request;
-    if (!ok) {
-      setError(result.reason ?? messageForError(result.error ?? ""));
-      if (result.error === "message_refused" && result.noticeSent === false) setError(`${result.reason ?? "Your message was not posted."} Kiki Guard could not send the notification; please contact support.`);
-      setBusy(false);
-      return;
+    return { redacted, refused, removed: [...removed] } as GuardPreview;
+  }, [composerOpen, draft]);
+
+  async function onSelectImages(files: FileList | null) {
+    if (!files?.length) return;
+    const max = 10 - draft.media.length;
+    const chosen = Array.from(files).slice(0, Math.max(0, max));
+    const accepted: DraftMedia[] = [];
+    for (const file of chosen) {
+      try {
+        if (!/image\/(jpeg|png|webp|avif)/i.test(file.type) && !/\.(jpe?g|png|webp|avif)$/i.test(file.name)) throw new Error("bad_type");
+        const processed = await reencodeImage(file);
+        const previewUrl = URL.createObjectURL(processed);
+        accepted.push({ file: processed, previewUrl, caption: "", altText: "", width: 0, height: 0 });
+      } catch {
+        setError("Some images could not be processed. Use JPEG, PNG, WebP, or AVIF images.");
+      }
     }
-    setDraft("");
-    if (parentId) setReplyingTo(null);
-    setPendingDraft(null);
-    if (result.redacted) setNotice(result.noticeSent === false ? "Your message was shared without private details, but the Kiki Guard notification could not be sent." : "Kiki Guard removed possible private details and shared the safe version. You’ll also receive a notification.");
-    else setNotice(result.noticeSent === false ? "Your message was shared, but the Kiki Guard notification could not be sent." : "Your message was shared anonymously.");
-    await Promise.all([loadFeed(feed.community.slug), loadCommunities()]);
-    setBusy(false);
+    updateDraft({ media: [...draft.media, ...accepted] });
+  }
+  function updateMedia(index: number, patch: Partial<DraftMedia>) { updateDraft({ media: draft.media.map((m, i) => i === index ? { ...m, ...patch } : m) }); }
+  function removeMedia(index: number) {
+    const item = draft.media[index];
+    if (item?.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(item.previewUrl);
+    updateDraft({ media: draft.media.filter((_, i) => i !== index) });
+  }
+  function moveMedia(index: number, dir: -1 | 1) {
+    const next = [...draft.media];
+    const j = index + dir; if (j < 0 || j >= next.length) return;
+    [next[index], next[j]] = [next[j], next[index]];
+    updateDraft({ media: next });
   }
 
-  async function reviewAndPost(text: string, parentId: string | null) {
-    if (!feed) return;
-    setBusy(true);
-    setError("");
-    const request = await communityApi<GuardPreview & { error?: string }>("/api/communities/guard", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!request) {
-      setError("Kiki Guard could not review your draft. Check your connection and try again.");
-      setBusy(false);
-      return;
-    }
-    const { ok, result: review } = request;
-    if (!ok) {
-      setError(messageForError(review.error ?? ""));
-      setBusy(false);
-      return;
-    }
-    if (review.decision === "redact") {
-      setPendingDraft({ text, safeText: review.safeText, reason: review.reason, parentId });
-      setBusy(false);
-      return;
-    }
-    await publishMessage(text, parentId);
+  function buildPayload(uploadedMedia?: DraftMedia[]) {
+    const source = uploadedMedia ?? draft.media;
+    const media = source.filter((m) => m.storagePath).map((m) => ({ storagePath: m.storagePath, width: m.width || 1, height: m.height || 1, caption: m.caption || "", altText: m.altText || "" }));
+    const base: any = {
+      id: draft.postId,
+      communityId: activeCommunity?.id,
+      type: draft.type,
+      title: draft.title.trim() || undefined,
+      body: draft.body.trim(),
+      media,
+      config: {},
+    };
+    if (["poll", "decide"].includes(draft.type)) base.options = draft.options.filter((o) => o.label.trim()).map((o) => ({ label: o.label.trim(), subLabel: o.subLabel.trim() || undefined }));
+    if (draft.type === "tt") base.options = draft.options.slice(0, 2).map((o) => ({ label: o.label.trim(), subLabel: o.subLabel.trim() || undefined }));
+    if (draft.type === "quiz") base.options = draft.options.filter((o) => o.label.trim()).map((o) => ({ label: o.label.trim(), correct: Boolean(o.correct) }));
+    if (draft.type === "slider") base.config = { lo: draft.sliderLo, hi: draft.sliderHi };
+    if (draft.type === "fill") base.config = { prefix: draft.prefix, suffix: draft.suffix };
+    if (draft.type === "chal") base.config = { days: Math.max(1, Math.min(30, Number(draft.challengeDays) || 7)) };
+    if (draft.type === "hunt") base.config = { targets: (draft.huntTargets ?? []).map((t, i) => ({ x: Number(t.x), y: Number(t.y), label: (t.label || `Spot ${i + 1}`).trim() })) };
+    if (draft.type === "path") base.config = { nodes: draft.pathNodes.map((n) => n.end ? { id: n.id, t: n.text, end: true } : { id: n.id, t: n.text, ch: n.choices.filter((c) => c.to).map((c) => ({ t: c.text, to: c.to, ...(c.tip ? { tip: c.tip } : {}) })) }) };
+    if (draft.type === "hot" || draft.type === "mf") delete base.options;
+    return base;
   }
 
-  async function toggleReaction(postId: string, reaction: ReactionType) {
-    setBusy(true);
-    setError("");
-    const request = await communityApi<{ error?: string }>("/api/communities/reactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId, reaction }),
-    });
-    if (!request?.ok) setError(messageForError(request?.result.error ?? "network_unavailable"));
-    else if (activeSlug) await loadFeed(activeSlug);
-    setBusy(false);
+  async function publishPost() {
+    if (!activeCommunity) return;
+    setSubmitting(true); setError(null); setNotice(null);
+    try {
+      const media = [...draft.media];
+      for (let i = 0; i < media.length; i += 3) {
+        const batch = media.slice(i, i + 3);
+        const uploaded = await Promise.all(batch.map(async (m) => {
+          if (m.storagePath || !m.file) return m;
+          const fd = new FormData();
+          fd.append("communityId", activeCommunity.id);
+          fd.append("postId", draft.postId);
+          fd.append("image", m.file);
+          const res = await fetch("/api/communities/media", { method: "POST", body: fd });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(payload.error || "media_upload_failed");
+          return { ...m, storagePath: payload.storagePath as string, width: payload.width as number, height: payload.height as number, uploading: false };
+        }));
+        for (let j = 0; j < uploaded.length; j++) media[i + j] = uploaded[j]!;
+        updateDraft({ media: [...media] });
+      }
+      const payload = buildPayload(media);
+      await json("/api/communities/interactive-posts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      for (const m of draft.media) if (m.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(m.previewUrl);
+      setDraft(emptyDraft(draft.type));
+      setComposerOpen(false);
+      await loadFeed(activeCommunity.slug, group);
+      await loadGuard();
+      setNotice("Your post was shared safely.");
+    } catch (e) { setError(errText(e)); }
+    finally { setSubmitting(false); }
   }
 
-  async function createCommunity(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    const request = await communityApi<{ id?: string; slug?: string; error?: string; reason?: string; noticeSent?: boolean }>("/api/communities", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    if (!request) {
-      setError("The community could not be created. Check your connection and try again.");
-      setBusy(false);
-      return;
+  async function actOnPost(postId: string, body: any, optimistic?: (post: Post) => Post) {
+    if (!activeCommunity || !feed?.posts) return;
+    const prev = feed.posts;
+    if (optimistic) setFeed({ ...feed, posts: prev.map((p) => p.id === postId ? optimistic(p) : p) });
+    try {
+      const result = await json<any>("/api/communities/interactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId, ...body }) });
+      if (result?.post) setFeed((f) => f ? { ...f, posts: (f.posts ?? []).map((p) => p.id === postId ? result.post : p) } : f);
+      else await loadFeed(activeCommunity.slug, group);
+    } catch (e) {
+      setFeed((f) => f ? { ...f, posts: prev } : f);
+      setError(errText(e));
     }
-    const { ok, result } = request;
-    if (!ok || !result.slug) {
-      if (result.error === "guarded_community" && result.noticeSent === false) setError(`${result.reason ?? "Kiki Guard could not approve this community."} The guard notification could not be sent.`);
-      setBusy(false);
-      return;
-    }
-    setForm({ name: "", description: "", scope: "" });
-    await loadCommunities();
-    openCommunity(result.slug);
-    setBusy(false);
   }
 
-  const selectedCommunity = communities.find((item) => item.slug === activeSlug);
-  const joinedCommunities = communities.filter((item) => item.isMember);
-  const filteredCommunities = communities.filter((community) => {
-    const matchesQuery = `${community.name} ${community.description} ${community.scope}`.toLowerCase().includes(discoverQuery.trim().toLowerCase());
-    const matchesFilter = discoverFilter === "all" || (discoverFilter === "kiki" ? community.isSystem : community.isMember);
-    return matchesQuery && matchesFilter;
-  });
-  const memberCount = feed ? communities.find((item) => item.slug === feed.community.slug)?.memberCount ?? 0 : 0;
+  async function toggleLike(postId: string, reaction: "like" | "helpful") {
+    if (!activeCommunity || !feed?.posts) return;
+    const prev = feed.posts;
+    setFeed({ ...feed, posts: prev.map((p) => {
+      if (p.id !== postId) return p;
+      if (reaction === "like") { const mine = !p.likes?.mine; return { ...p, likes: { count: Math.max(0, (p.likes?.count ?? 0) + (mine ? 1 : -1)), mine } }; }
+      const mine = !p.helpful?.mine; return { ...p, helpful: { count: Math.max(0, (p.helpful?.count ?? 0) + (mine ? 1 : -1)), mine } };
+    }) });
+    try {
+      const res = await json<{ active: boolean; count?: number }>("/api/communities/reactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId, reaction }) });
+      setFeed((f) => f ? { ...f, posts: (f.posts ?? []).map((p) => {
+        if (p.id !== postId) return p;
+        if (reaction === "like") return { ...p, likes: { count: res.count ?? p.likes?.count ?? 0, mine: res.active } };
+        return { ...p, helpful: { count: res.count ?? p.helpful?.count ?? 0, mine: res.active } };
+      }) } : f);
+    } catch (e) { setFeed((f) => f ? { ...f, posts: prev } : f); setError(errText(e)); }
+  }
 
-  return <section className="kiki-communities-page">
-    <section className="kiki-community-stories" aria-label="Your communities">
-      <div className="kiki-community-story-rail">
-        {joinedCommunities.map((community) => <button key={community.id} type="button" className="kiki-community-story" aria-current={activeSlug === community.slug ? "true" : undefined} onClick={() => openCommunity(community.slug)}>
-          <span className={`kiki-community-story-ring${community.isSystem ? " is-kiki" : ""}`}>
-            <span className="kiki-community-story-core"><CommunityIcon iconKey={community.iconKey} size={22} /></span>
-          </span>
-          <span className="kiki-community-story-title">{community.name}</span>
-        </button>)}
+  async function submitComment(postId: string, body: string, opts?: { commentKind?: string; stance?: string; parentId?: string }) {
+    if (!activeCommunity) return;
+    setError(null);
+    try {
+      await json("/api/communities/comments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId, body, commentKind: opts?.commentKind ?? "reply", stance: opts?.stance, parentId: opts?.parentId }) });
+      await loadFeed(activeCommunity.slug, group);
+      await loadGuard();
+      setNotice("Shared safely.");
+    } catch (e) { setError(errText(e)); }
+  }
+
+  async function createCommunity() {
+    setError(null);
+    try {
+      const nameGuard = evaluateInteractiveCommunityText(createDraft.name);
+      const descriptionGuard = evaluateInteractiveCommunityText(createDraft.description);
+      const scopeGuard = evaluateInteractiveCommunityText(createDraft.scope);
+      if ([nameGuard, descriptionGuard, scopeGuard].some((g) => g.decision === "refuse")) throw new Error("unsafe_content");
+      const result = await json<{ id: string; slug: string }>("/api/communities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...createDraft,
+          name: nameGuard.safeText,
+          description: descriptionGuard.safeText,
+          scope: scopeGuard.safeText,
+        }),
+      });
+      setCreateDraft({ name: "", description: "", scope: "", iconKey: "shield" });
+      await loadCommunities();
+      await openCommunity(result.slug);
+      setTab("feed");
+      setNotice("Community created.");
+    } catch (e) { setError(errText(e)); }
+  }
+
+  const headerAlias = feed?.pseudonym ?? activeCommunity?.pseudonym ?? "Your alias";
+
+  return (
+    <section className="kiki-communities-page" aria-label="Communities">
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div>
+          <div className="kiki-communities-spatial-label" style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 11, fontWeight: 700 }}><ShieldCheck size={14} /> Private communities</div>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)" }}>Posting as <strong>{headerAlias}</strong></p>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button type="button" aria-label="Refresh" onClick={refreshAll} style={{ minHeight: 34, borderRadius: 10, border: "1px solid var(--divider)", background: "var(--surface-1)", padding: "0 10px" }}><RefreshCw size={14} /></button>
+          <button type="button" aria-label="Privacy" onClick={() => setShowPrivacy(true)} style={{ minHeight: 34, borderRadius: 10, border: "1px solid var(--divider)", background: "var(--surface-1)", padding: "0 10px" }}><Info size={14} /></button>
+          <button type="button" aria-label="Notifications" onClick={() => { void loadGuard(); setTab("guard"); }} style={{ minHeight: 34, borderRadius: 10, border: "1px solid var(--divider)", background: "var(--surface-1)", padding: "0 10px" }}><Bell size={14} /></button>
+        </div>
       </div>
+
+      {showPrivacy && (
+        <div className="kiki-communities-alert" role="dialog" aria-label="Privacy">
+          <p><strong>Your identity is protected.</strong> Communities use per-community aliases and Kiki Guard to remove identifying details before anything is shared.</p>
+          <button type="button" onClick={() => setShowPrivacy(false)}>Close</button>
+        </div>
+      )}
+
+      <nav className="kiki-communities-tabs" aria-label="Community tabs">
+        {(["feed", "discover", "guard", "create"] as const).map((t) => (
+          <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)}>{t === "feed" ? "Feed" : t === "discover" ? "Discover" : t === "guard" ? "Kiki Guard" : "Create"}</button>
+        ))}
+      </nav>
+
+      {error ? <p className="kiki-communities-alert" role="alert">{error}</p> : null}
+      {notice ? <p className="kiki-communities-notice">{notice}</p> : null}
+      {loading ? <p className="kiki-communities-loading">Loading communities…</p> : null}
+
+      {tab === "feed" && (
+        <>
+          <div className="kiki-communities-switcher" role="tablist" aria-label="Joined communities">
+            {joined.map((c) => (
+              <button key={c.id} type="button" aria-pressed={c.slug === activeCommunity?.slug} onClick={() => void openCommunity(c.slug)}>
+                <CommunityIcon iconKey={c.iconKey} /> {c.name}
+              </button>
+            ))}
+          </div>
+
+          {(feed?.stories ?? []).length ? (
+            <div aria-label="Stories" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+              {(feed?.stories ?? []).map((s) => (
+                <button key={s.id} type="button" onClick={() => setActiveStory(s)} style={{ minWidth: 92, border: "1px solid var(--divider)", borderRadius: 14, padding: 10, background: "var(--surface-1)", textAlign: "left" }}>
+                  <div style={{ fontSize: 20 }}>{s.emoji ?? "✨"}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)" }}>{s.title}</div>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {activeStory && (
+            <div className="kiki-community-scope-card" role="dialog" aria-label="Story">
+              <h2>{activeStory.emoji} {activeStory.title}</h2>
+              <p className="kiki-community-scope-note"><strong>{activeStory.byline}</strong></p>
+              <p>{activeStory.body}</p>
+              <button type="button" onClick={() => setActiveStory(null)}>Close</button>
+            </div>
+          )}
+
+          {activeCommunity && feed ? (
+            <>
+              <div className="kiki-community-feed-heading">
+                <span className="kiki-community-card-icon"><CommunityIcon iconKey={activeCommunity.iconKey} /></span>
+                <div>
+                  <h2>{activeCommunity.name} {activeCommunity.isSystem ? <span className="kiki-community-system-badge">Kiki</span> : null}</h2>
+                  <p>{activeCommunity.description}</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{activeCommunity.scope}</p>
+                </div>
+              </div>
+
+              <p className="kiki-community-anonymity"><LockKeyhole size={14} /> You appear as <strong>{feed.pseudonym ?? headerAlias}</strong> in this community. Kiki Guard helps keep shared posts safe.</p>
+
+              {feed.welcomeRequired ? (
+                <section className="kiki-community-scope-card kiki-community-welcome">
+                  <h2>Welcome to {feed.community.name}</h2>
+                  <p>{feed.welcomeBody ?? "Please read the community space before participating."}</p>
+                  <button type="button" onClick={() => void acknowledgeWelcome()}>I understand, continue</button>
+                </section>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button type="button" onClick={() => { setDraft(emptyDraft("post")); setComposerOpen(true); }} style={{ flex: 1, minHeight: 44, borderRadius: 14, border: "1px solid var(--divider)", background: "var(--surface-1)", color: "var(--muted)", textAlign: "left", padding: "0 14px" }}>Share something helpful…</button>
+                    {createTypes.filter((t) => t !== "post").slice(0, 5).map((t) => (
+                      <button key={t} type="button" title={typeMeta[t].label} onClick={() => { setDraft(emptyDraft(t)); setComposerOpen(true); }} style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid var(--divider)", background: "var(--surface-1)" }}>{typeMeta[t].emoji}</button>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+                    {groups.map((g) => (
+                      <button key={g.id || "all"} type="button" aria-pressed={group === g.id} onClick={() => { setGroup(g.id); if (activeCommunity) void loadFeed(activeCommunity.slug, g.id); }} style={{ border: "1px solid var(--divider)", borderRadius: 999, padding: "6px 10px", background: group === g.id ? "var(--accent-bg)" : "var(--surface-1)", color: group === g.id ? "var(--accent)" : "var(--text-2)", fontSize: 12, fontWeight: 700 }}>{g.label}</button>
+                    ))}
+                  </div>
+
+                  {composerOpen && (
+                    <Composer
+                      draft={draft}
+                      setDraft={updateDraft}
+                      onSelectImages={onSelectImages}
+                      updateMedia={updateMedia}
+                      removeMedia={removeMedia}
+                      moveMedia={moveMedia}
+                      liveGuard={liveGuard}
+                      submitting={submitting}
+                      onClose={() => setComposerOpen(false)}
+                      onPublish={() => void publishPost()}
+                    />
+                  )}
+
+                  {feedLoading ? <p className="kiki-communities-loading">Loading feed…</p> : null}
+                  <div className="kiki-community-post-list">
+                    {(feed.posts ?? []).map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onVote={(optionId) => void actOnPost(post.id, { action: "vote", optionId })}
+                        onRate={(value) => void actOnPost(post.id, { action: "rate", value })}
+                        onChallenge={(mode) => void actOnPost(post.id, { action: "challenge", mode })}
+                        onHunt={(x, y) => void actOnPost(post.id, { action: "hunt", x, y })}
+                        onPath={(endNode) => void actOnPost(post.id, { action: "path", endNode })}
+                        onLike={() => void toggleLike(post.id, "like")}
+                        onHelpful={() => void toggleLike(post.id, "helpful")}
+                        onComment={submitComment}
+                        onCommentLike={(commentId) => void actOnPost(post.id, { action: "comment_like", commentId })}
+                      />
+                    ))}
+                    {!feedLoading && !(feed.posts ?? []).length ? <p className="kiki-communities-intro">No posts in this view yet.</p> : null}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (!loading ? <p className="kiki-communities-intro">Join a community to see its feed.</p> : null)}
+        </>
+      )}
+
+      {tab === "discover" && (
+        <section className="kiki-communities-list" aria-label="Discover communities">
+          <label className="kiki-community-composer" style={{ gap: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>Search communities</span>
+            <input value={discoverQuery} onChange={(e) => setDiscoverQuery(e.target.value)} placeholder="Search by name or description" style={{ minHeight: 44, border: "1px solid var(--divider)", borderRadius: 12, padding: "0 12px", background: "var(--surface-2)", color: "var(--text)" }} />
+          </label>
+          {discoverList.map((c) => (
+            <article key={c.id} className="kiki-community-discovery-card">
+              <span className="kiki-community-card-icon"><CommunityIcon iconKey={c.iconKey} /></span>
+              <div className="kiki-community-discovery-copy">
+                <h2>{c.name} {c.isSystem ? <span className="kiki-community-system-badge">Kiki</span> : null}</h2>
+                <p>{c.description}</p>
+                <small>{c.scope} · {c.memberCount ?? 0} members{c.joinedRecently ? ` · ${c.joinedRecently} joined recently` : ""}</small>
+              </div>
+              {c.isMember ? <button type="button" onClick={() => { setTab("feed"); void openCommunity(c.slug); }}>Open</button> : <button type="button" onClick={() => void joinCommunity(c.slug, c.id)}>Join</button>}
+            </article>
+          ))}
+        </section>
+      )}
+
+      {tab === "guard" && (
+        <section className="kiki-community-guard-page">
+          <div className="kiki-community-guard-hero"><span><ShieldCheck size={18} /></span><div><h2>Kiki Guard</h2><p>Content is checked before it is shared. Identifying details are removed or blocked to keep communities safer.</p></div></div>
+          <div className="kiki-community-guard-rules"><h3>What Guard looks for</h3><ul><li>Personal names and identifying handles</li><li>Phone numbers, emails, links, IDs, and addresses</li><li>Precise locations or details that could identify someone</li></ul></div>
+          <h3 className="kiki-community-history-title">Recent checks</h3>
+          <div className="kiki-communities-list">
+            {guardHistory.map((item) => (
+              <article key={item.id} className="kiki-community-guard-event"><ShieldCheck size={16} /><div><strong>{item.reason || item.action}</strong><p>{item.contextType} · {fmtTime(item.createdAt)}{item.details ? ` · ${item.details}` : ""}</p></div></article>
+            ))}
+            {!guardHistory.length ? <p className="kiki-communities-intro">No recent guard events.</p> : null}
+          </div>
+        </section>
+      )}
+
+      {tab === "create" && (
+        <section className="kiki-community-create-form">
+          <h2>Create a community</h2>
+          <label>Community name<input value={createDraft.name} onChange={(e) => setCreateDraft({ ...createDraft, name: e.target.value })} maxLength={80} /></label>
+          <label>Description<textarea value={createDraft.description} onChange={(e) => setCreateDraft({ ...createDraft, description: e.target.value })} maxLength={200} /></label>
+          <label>Community space / scope<textarea value={createDraft.scope} onChange={(e) => setCreateDraft({ ...createDraft, scope: e.target.value })} maxLength={220} placeholder="Who this space is for and what should stay out." /></label>
+          <label>Icon
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {iconChoices.map((icon) => (
+                <button key={icon.value} type="button" aria-pressed={createDraft.iconKey === icon.value} onClick={() => setCreateDraft({ ...createDraft, iconKey: icon.value })} style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: "8px 10px", background: createDraft.iconKey === icon.value ? "var(--accent-bg)" : "var(--surface-1)", color: "var(--text)" }}>
+                  <CommunityIcon iconKey={icon.value} /> {icon.label}
+                </button>
+              ))}
+            </div>
+          </label>
+          <button type="button" onClick={() => void createCommunity()} disabled={!createDraft.name.trim() || !createDraft.description.trim() || !createDraft.scope.trim()}>Run Kiki Guard & Create</button>
+        </section>
+      )}
     </section>
+  );
+}
 
-    <nav className="kiki-communities-tabs" aria-label="Community sections">
-      {tabLabels.map((item) => <button key={item.value} type="button" aria-pressed={tab === item.value} onClick={() => { setTab(item.value); setError(""); setNotice(""); }}>
-        {item.label}
-      </button>)}
-    </nav>
+function GuardPill({ preview }: { preview: GuardPreview | null }) {
+  if (!preview) return null;
+  if (preview.refused) return <p className="kiki-communities-alert" role="alert">Kiki Guard cannot make this safe to share. Please remove identifying details.</p>;
+  if (preview.redacted || (preview.removed?.length ?? 0) > 0) return <p className="kiki-communities-notice">Will remove or generalize: {(preview.removed ?? []).join(", ") || "identifying details"}.</p>;
+  return <p className="kiki-communities-notice">Looks good. Nothing risky found.</p>;
+}
 
-    {error && <p className="kiki-communities-alert" role="alert">{error}</p>}
-    {notice && <p className="kiki-communities-notice" role="status">{notice}</p>}
+function Composer(props: {
+  draft: ReturnType<typeof emptyDraft>;
+  setDraft: (patch: Partial<ReturnType<typeof emptyDraft>>) => void;
+  onSelectImages: (files: FileList | null) => void;
+  updateMedia: (index: number, patch: Partial<DraftMedia>) => void;
+  removeMedia: (index: number) => void;
+  moveMedia: (index: number, dir: -1 | 1) => void;
+  liveGuard: GuardPreview | null;
+  submitting: boolean;
+  onClose: () => void;
+  onPublish: () => void;
+}) {
+  const { draft, setDraft, onSelectImages, updateMedia, removeMedia, moveMedia, liveGuard, submitting, onClose, onPublish } = props;
+  const mediaAccept = "image/jpeg,image/png,image/webp,image/avif";
+  const needsImage = draft.type === "carousel" || draft.type === "cap" || draft.type === "hunt";
+  const hasRequiredOptions = !["poll", "decide", "tt", "quiz"].includes(draft.type) || (draft.type === "tt" ? draft.options.slice(0, 2).every((o) => o.label.trim()) : draft.options.filter((o) => o.label.trim()).length >= 2);
+  const quizHasCorrect = draft.type !== "quiz" || draft.options.some((o) => o.correct && o.label.trim());
+  const huntOk = draft.type !== "hunt" || ((draft.huntTargets?.length ?? 0) >= 1 && draft.media.length >= 1);
+  const canPublish = !submitting && !liveGuard?.refused && hasRequiredOptions && quizHasCorrect && huntOk && (draft.type === "slider" || draft.type === "chal" || draft.type === "path" || draft.body.trim() || draft.title.trim() || draft.media.length) && (!needsImage || draft.media.length > 0);
 
-    <div className="kiki-communities-tab-content">
-    {tab === "feed" && <>
-      {joinedCommunities.length > 0 && <div className="kiki-communities-switcher" aria-label="Your communities">
-        {joinedCommunities.map((community) => <button key={community.id} type="button" aria-pressed={activeSlug === community.slug} onClick={() => openCommunity(community.slug)}>
-          <CommunityIcon iconKey={community.iconKey} size={15} />{community.name}
-        </button>)}
-      </div>}
-      {loading || feedLoading ? <p className="kiki-communities-loading" role="status">Loading community…</p> : feed && !feed.isMember ? <article className="kiki-community-scope-card">
-        <div className="kiki-community-card-icon"><CommunityIcon iconKey={feed.community.iconKey} /></div>
-        <h2>{feed.community.name}</h2>
-        <p>{feed.community.description}</p>
-        <h3>Community scope</h3>
-        <p>{feed.community.scope}</p>
-        <button type="button" disabled={busy} onClick={() => void joinCommunity(communities.find((item) => item.id === feed.community.id) ?? { ...feed.community, memberCount: 0, isMember: false, pseudonym: null, welcomeReadAt: null, mutedUntil: null })}>Join community</button>
-      </article> : feed ? <>
-        <div className={`kiki-community-hero is-${feed.community.iconKey}`}>
-          <span className="kiki-community-hero-glow" aria-hidden="true" />
-          <div className="kiki-community-hero-main">
-            <span className="kiki-community-hero-icon"><CommunityIcon iconKey={feed.community.iconKey} size={24} /></span>
-            <div className="kiki-community-hero-copy">
-              <div><h1>{feed.community.name}</h1>{feed.community.isSystem && <span className="kiki-community-system-badge">Kiki community</span>}</div>
-              <p>{feed.community.description}</p>
+  function setOption(i: number, patch: Partial<DraftOption>) { setDraft({ options: draft.options.map((o, idx) => idx === i ? { ...o, ...patch } : o) }); }
+  function addOption() { if (draft.options.length < 4) setDraft({ options: [...draft.options, { label: "", subLabel: "" }] }); }
+  function removeOption(i: number) { if (draft.options.length > 2) setDraft({ options: draft.options.filter((_, idx) => idx !== i) }); }
+
+  return (
+    <section className="kiki-community-composer" aria-label="Create post">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <h3 style={{ margin: 0 }}>Create a post</h3>
+        <button type="button" onClick={onClose} aria-label="Close composer" style={{ background: "var(--surface-2)", color: "var(--text)" }}>Close</button>
+      </div>
+      <label>Post type
+        <select value={draft.type} onChange={(e) => setDraft({ ...emptyDraft(e.target.value), postId: draft.postId })} style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", color: "var(--text)" }}>
+          {createTypes.map((t) => <option key={t} value={t}>{typeMeta[t].emoji} {typeMeta[t].label}</option>)}
+        </select>
+      </label>
+      {draft.type !== "post" && <label>Title<input value={draft.title} onChange={(e) => setDraft({ title: e.target.value })} placeholder="Optional title" /></label>}
+      <label>{draft.type === "post" ? "Post" : "Prompt / body"}
+        <textarea value={draft.body} onChange={(e) => setDraft({ body: e.target.value })} placeholder={draft.type === "post" ? "Share something helpful with the community…" : "Add context for this interactive post…"} />
+      </label>
+
+      {["poll", "decide", "tt", "quiz"].includes(draft.type) && (
+        <div style={{ display: "grid", gap: 8 }}>
+          <strong>Options</strong>
+          {draft.options.map((opt, i) => (
+            <div key={i} style={{ display: "grid", gap: 6, border: "1px solid var(--divider)", borderRadius: 12, padding: 10 }}>
+              <input value={opt.label} onChange={(e) => setOption(i, { label: e.target.value })} placeholder={`Option ${i + 1}`} style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+              {draft.type !== "quiz" && <input value={opt.subLabel} onChange={(e) => setOption(i, { subLabel: e.target.value })} placeholder="Sub-label (optional)" style={{ minHeight: 36, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />}
+              {draft.type === "quiz" && <label style={{ fontSize: 12, fontWeight: 600 }}><input type="radio" name="correct" checked={Boolean(opt.correct)} onChange={() => setDraft({ options: draft.options.map((o, idx) => ({ ...o, correct: idx === i })) })} /> Correct answer</label>}
+              {draft.options.length > 2 && draft.type !== "tt" && <button type="button" onClick={() => removeOption(i)}>Remove</button>}
+            </div>
+          ))}
+          {draft.type !== "tt" && draft.options.length < 4 && <button type="button" onClick={addOption}>Add option</button>}
+        </div>
+      )}
+
+      {draft.type === "slider" && (
+        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
+          <label>Low label<input value={draft.sliderLo} onChange={(e) => setDraft({ sliderLo: e.target.value })} /></label>
+          <label>High label<input value={draft.sliderHi} onChange={(e) => setDraft({ sliderHi: e.target.value })} /></label>
+        </div>
+      )}
+      {draft.type === "fill" && (
+        <div style={{ display: "grid", gap: 8 }}>
+          <label>Prefix<input value={draft.prefix} onChange={(e) => setDraft({ prefix: e.target.value })} /></label>
+          <label>Suffix<input value={draft.suffix} onChange={(e) => setDraft({ suffix: e.target.value })} /></label>
+        </div>
+      )}
+      {draft.type === "chal" && <label>Days<input type="number" min={1} max={30} value={draft.challengeDays} onChange={(e) => setDraft({ challengeDays: Number(e.target.value) })} /></label>}
+      {draft.type === "path" && <PathEditor draft={draft} setDraft={setDraft} />}
+      {draft.type === "hot" && <p className="kiki-community-scope-note">This post will include Agree/Disagree voting and answer replies with stance.</p>}
+      {draft.type === "mf" && <p className="kiki-community-scope-note">This post will include Myth/Fact options and a reveal after answering.</p>}
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <label>Images (JPEG/PNG/WebP/AVIF, images only){needsImage ? " — required" : " — optional"}
+          <input type="file" accept={mediaAccept} multiple={draft.type !== "cap" && draft.type !== "hunt"} onChange={(e) => onSelectImages(e.target.files)} />
+        </label>
+        {draft.media.map((m, i) => (
+          <div key={i} style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
+            <img src={m.previewUrl} alt={m.altText || "Selected image preview"} style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 10 }} />
+            <input value={m.caption} onChange={(e) => updateMedia(i, { caption: e.target.value })} placeholder="Caption (optional)" />
+            <input value={m.altText} onChange={(e) => updateMedia(i, { altText: e.target.value })} placeholder="Alt text (optional)" />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => moveMedia(i, -1)} disabled={i === 0}>Up</button>
+              <button type="button" onClick={() => moveMedia(i, 1)} disabled={i === draft.media.length - 1}>Down</button>
+              <button type="button" onClick={() => removeMedia(i)}>Remove</button>
             </div>
           </div>
-          <div className="kiki-community-hero-meta">
-            <span><i aria-hidden="true" />{memberCount.toLocaleString()} members</span>
-            <span className="kiki-community-hero-privacy"><LockKeyhole size={13} aria-hidden="true" />Anonymous by default</span>
+        ))}
+        {draft.type === "hunt" && draft.media[0] && (
+          <div style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
+            <strong>Hunt targets</strong>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Tap the image to place targets (1–5). Labels are optional.</p>
+            <div style={{ position: "relative" }}>
+              <img src={draft.media[0].previewUrl} alt="Place targets" onClick={(e) => {
+                if ((draft.huntTargets?.length ?? 0) >= 5) return;
+                const rect = (e.currentTarget as HTMLImageElement).getBoundingClientRect();
+                const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+                const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+                setDraft({ huntTargets: [...(draft.huntTargets ?? []), { x, y, label: `Spot ${(draft.huntTargets?.length ?? 0) + 1}` }] });
+              }} style={{ width: "100%", borderRadius: 10, cursor: "crosshair", display: "block" }} />
+              {(draft.huntTargets ?? []).map((t, i) => (
+                <span key={i} style={{ position: "absolute", left: `${t.x}%`, top: `${t.y}%`, transform: "translate(-50%,-50%)", width: 22, height: 22, borderRadius: 999, background: "var(--accent)", color: "#fff", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
+              ))}
+            </div>
+            {(draft.huntTargets ?? []).map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>#{i + 1}</span>
+                <input value={t.label} onChange={(e) => setDraft({ huntTargets: (draft.huntTargets ?? []).map((x, xi) => xi === i ? { ...x, label: e.target.value } : x) })} placeholder="Target label" style={{ flex: 1 }} />
+                <button type="button" onClick={() => setDraft({ huntTargets: (draft.huntTargets ?? []).filter((_, xi) => xi !== i) })}>Remove</button>
+              </div>
+            ))}
           </div>
+        )}
+      </div>
+
+      <GuardPill preview={liveGuard} />
+      <div className="kiki-community-composer-footer">
+        <small>Images are re-encoded to JPEG before upload. Kiki Guard checks text before publishing.</small>
+        <button type="button" onClick={onPublish} disabled={!canPublish}>{submitting ? "Publishing…" : "Run Kiki Guard & Publish"}</button>
+      </div>
+    </section>
+  );
+}
+
+function PathEditor({ draft, setDraft }: { draft: ReturnType<typeof emptyDraft>; setDraft: (patch: Partial<ReturnType<typeof emptyDraft>>) => void }) {
+  function updateNode(index: number, patch: Partial<PathNode>) {
+    const nodes = draft.pathNodes.map((n, i) => i === index ? { ...n, ...patch } : n);
+    setDraft({ pathNodes: nodes });
+  }
+  function addNode() {
+    if (draft.pathNodes.length >= 7) return;
+    setDraft({ pathNodes: [...draft.pathNodes, { id: `node${draft.pathNodes.length + 1}`, text: "New step", end: true, choices: [] }] });
+  }
+  function addChoice(nodeIndex: number) {
+    const node = draft.pathNodes[nodeIndex];
+    if (!node || node.choices.length >= 3) return;
+    updateNode(nodeIndex, { end: false, choices: [...node.choices, { text: "Choice", to: "", tip: "" }] });
+  }
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <strong>Path nodes</strong>
+      {draft.pathNodes.map((node, i) => (
+        <div key={i} style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: 10, display: "grid", gap: 6 }}>
+          <input value={node.id} onChange={(e) => updateNode(i, { id: e.target.value })} placeholder="Node id (e.g. start)" />
+          <textarea value={node.text} onChange={(e) => updateNode(i, { text: e.target.value })} placeholder="Node text" />
+          <label style={{ fontSize: 12 }}><input type="checkbox" checked={node.end} onChange={(e) => updateNode(i, { end: e.target.checked, choices: e.target.checked ? [] : node.choices })} /> End node</label>
+          {!node.end && node.choices.map((c, ci) => (
+            <div key={ci} style={{ display: "grid", gap: 4, paddingLeft: 8 }}>
+              <input value={c.text} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, text: e.target.value } : x) })} placeholder="Choice text" />
+              <input value={c.to} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, to: e.target.value } : x) })} placeholder="Go to node id" />
+              <input value={c.tip} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, tip: e.target.value } : x) })} placeholder="Tip (optional)" />
+            </div>
+          ))}
+          {!node.end && node.choices.length < 3 && <button type="button" onClick={() => addChoice(i)}>Add choice</button>}
         </div>
-
-        {feed.pseudonym && <section className="kiki-community-alias-card">
-          <span className="kiki-community-alias-icon"><CommunityIcon iconKey={feed.community.iconKey} size={22} /></span>
-          <span className="kiki-community-alias-copy"><small>Your community alias</small><strong>{feed.pseudonym}</strong></span>
-          <span className="kiki-community-alias-badge"><LockKeyhole size={13} aria-hidden="true" />Cloaked</span>
-          <p>Your nickname is unique to this community. Your profile and real name are never shown.</p>
-        </section>}
-
-        {feed.welcomeRequired ? <section className="kiki-community-welcome-card">
-          <div className="kiki-community-welcome-title"><ShieldCheck size={17} aria-hidden="true" />Kiki · Welcome &amp; scope</div>
-          <p>Welcome. You’re anonymous here under a community nickname. Kiki Guard checks every post and reply before it is shared.</p>
-          {feed.posts.map((post) => <p className="kiki-community-welcome-message" key={post.id}>{post.body}</p>)}
-          <div className="kiki-community-scope-note"><strong>Community scope:</strong> {feed.community.scope}</div>
-          <button type="button" disabled={busy} onClick={() => void acknowledgeWelcome()}>I understand — continue</button>
-        </section> : <div className="kiki-community-scope-active"><ShieldCheck size={16} aria-hidden="true" /><span>Scope active · General guidance only</span><LockKeyhole size={14} aria-hidden="true" /></div>}
-
-        {!feed.welcomeRequired && <>
-          {feed.mutedUntil && feed.mutedUntil > new Date().toISOString() && <p className="kiki-communities-alert" role="status">Posting is paused until {new Date(feed.mutedUntil).toLocaleString()}.</p>}
-          {feed.canPost && !replyingTo && <form className="kiki-community-composer" onSubmit={(event) => { event.preventDefault(); void reviewAndPost(draft, null); }}>
-            <label htmlFor="community-post"><span className="kiki-community-composer-avatar"><CommunityIcon iconKey={feed.community.iconKey} size={15} /></span><span>Share a tip as <strong>{feed.pseudonym ?? "your community alias"}</strong></span></label>
-            <textarea id="community-post" value={draft} maxLength={3000} onChange={(event) => setDraft(event.target.value)} placeholder="Share a calm, general safety habit (no names or addresses)..." required />
-            <div className="kiki-community-composer-footer"><small><ShieldCheck size={14} aria-hidden="true" />Kiki Guard preview ready · {draft.length}/3000</small><button type="submit" disabled={busy || !draft.trim()}>{busy ? "Reviewing…" : "Review & post"}</button></div>
-          </form>}
-          {pendingDraft && <aside className="kiki-community-guard-preview" aria-label="Kiki Guard review">
-            <h3><ShieldCheck size={18} aria-hidden="true" /> Kiki Guard found details to remove</h3>
-            <p>{pendingDraft.reason}</p>
-            <blockquote>{pendingDraft.safeText}</blockquote>
-            <div><button type="button" className="secondary" disabled={busy} onClick={() => setPendingDraft(null)}>Edit message</button><button type="button" disabled={busy} onClick={() => void publishMessage(pendingDraft.text, pendingDraft.parentId)}>Post safe version</button></div>
-          </aside>}
-          <div className="kiki-community-insights-heading"><h2>Community insights</h2><span><ShieldCheck size={13} aria-hidden="true" />Moderated by Kiki Guard</span></div>
-          {feed.posts.length === 0 && <div className="kiki-communities-empty"><Lightbulb size={24} aria-hidden="true" /><p>No posts yet. Share a general safety tip to start the conversation.</p></div>}
-          <div className="kiki-community-post-list">
-            {feed.posts.map((post) => <article className="kiki-community-post" key={post.id}>
-              <div className="kiki-community-post-head">
-                <span className={`kiki-community-post-avatar${post.isKiki ? " is-kiki" : ""}`}>{post.isKiki ? <ShieldCheck size={17} aria-hidden="true" /> : <Users size={16} aria-hidden="true" />}</span>
-                <span className="kiki-community-post-author-copy"><strong>{post.authorAlias}{post.isKiki && <span className="kiki-community-system-badge">Official</span>}</strong><small>{formatCommunityTime(post.createdAt)} · {post.type.replaceAll("_", " ")}</small></span>
-              </div>
-              <p className="kiki-community-post-body">{post.body}</p>
-              <div className="kiki-community-post-actions">
-                {([
-                  ["support", "Helpful", Heart],
-                  ["thanks", "Thanks", HeartHandshake],
-                  ["care", "Care", Heart],
-                ] as const).map(([reaction, label, Icon]) => <button type="button" key={reaction} aria-pressed={post.reactions.mine.includes(reaction)} disabled={busy} onClick={() => void toggleReaction(post.id, reaction)}>
-                  <Icon size={15} aria-hidden="true" /> <span>{label}</span><b>{post.reactions[reaction]}</b>
-                </button>)}
-                <button type="button" className="kiki-community-reply-action" onClick={() => { setReplyingTo(replyingTo === post.id ? null : post.id); setPendingDraft(null); }}><MessageCircle size={15} aria-hidden="true" /> <span>Reply</span><b>{post.comments.length}</b></button>
-              </div>
-              {post.comments.map((comment) => <div className="kiki-community-comment" key={comment.id}><p className="kiki-community-post-author">{comment.isKiki && <ShieldCheck size={15} aria-hidden="true" />}{comment.authorAlias}{comment.isKiki && <span className="kiki-community-system-badge">Kiki</span>}</p><p>{comment.body}</p></div>)}
-              {replyingTo === post.id && <form className="kiki-community-reply" onSubmit={(event) => { event.preventDefault(); void reviewAndPost(draft, post.id); }}>
-                <label htmlFor={`reply-${post.id}`}>Reply anonymously</label><textarea id={`reply-${post.id}`} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={3000} required />
-                <div><button type="button" className="secondary" onClick={() => setReplyingTo(null)}>Cancel</button><button type="submit" disabled={busy || !draft.trim()}>Review reply</button></div>
-              </form>}
-            </article>)}
-          </div>
-        </>}
-      </> : !loading && selectedCommunity ? <p className="kiki-communities-loading">Choose a community to open its feed.</p> : null}
-    </>}
-
-    {tab === "discover" && <section className="kiki-community-discover">
-      <header className="kiki-community-section-heading"><h1>Discover safe circles</h1><p>Browse public, anonymous communities moderated by Kiki Guard.</p></header>
-      <label className="kiki-community-search"><span className="sr-only">Search communities</span><Users size={20} aria-hidden="true" /><input value={discoverQuery} onChange={(event) => setDiscoverQuery(event.target.value)} placeholder="Search communities..." /></label>
-      <div className="kiki-community-filter-row" role="group" aria-label="Filter communities">
-        {([["all", "All"], ["kiki", "Kiki"], ["joined", "Joined"]] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={discoverFilter === value} onClick={() => setDiscoverFilter(value)}>{label}</button>)}
-      </div>
-      <div className="kiki-communities-list">
-        {filteredCommunities.map((community) => <article className="kiki-community-discovery-card" key={community.id}>
-          <div className={`kiki-community-discovery-icon is-${community.iconKey}`}><CommunityIcon iconKey={community.iconKey} size={22} /></div>
-          <div className="kiki-community-discovery-copy"><h2>{community.name}{community.isSystem && <span className="kiki-community-system-badge">Kiki</span>}</h2><p>{community.description}</p>
-            {community.isMember && community.pseudonym && <small>Your alias: <strong>{community.pseudonym}</strong></small>}
-          </div>
-          <div className="kiki-community-discovery-scope"><span><Users size={13} aria-hidden="true" />{community.memberCount.toLocaleString()} members</span><p>{community.scope}</p></div>
-          <button type="button" disabled={busy} onClick={() => community.isMember ? openCommunity(community.slug) : void joinCommunity(community)}>{community.isMember ? "Open" : "Join"}</button>
-        </article>)}
-        {filteredCommunities.length === 0 && <div className="kiki-communities-empty"><Users size={22} aria-hidden="true" /><p>No communities match this search.</p></div>}
-      </div>
-    </section>}
-
-    {tab === "guard" && <section className="kiki-community-guard-page">
-      <div className="kiki-community-guard-hero"><span><ShieldCheck size={24} aria-hidden="true" /></span><div><small>100% on-device preview</small><h2>Your privacy comes first</h2><p>Kiki Guard checks community posts and replies before they’re shared. Your draft isn’t sent to an AI service.</p></div></div>
-      <div className="kiki-community-guard-rules"><h3>What Kiki Guard checks</h3><ul><li><ShieldCheck size={16} aria-hidden="true" />Names and identifying details about you or another person</li><li><ShieldCheck size={16} aria-hidden="true" />Addresses, live locations, and precise coordinates</li><li><ShieldCheck size={16} aria-hidden="true" />Phone numbers, email addresses, social handles, and external links</li><li><ShieldCheck size={16} aria-hidden="true" />Whether a message is personal disclosure or general safety guidance</li></ul><p>Risky details are removed when the message remains clear; otherwise it is not posted. Repeated severe violations may pause posting temporarily.</p></div>
-      <h3 className="kiki-community-history-title">Recent checks</h3>
-      {events.length ? events.map((event, index) => <article className="kiki-community-guard-event" key={`${event.created_at}-${index}`}><ShieldCheck size={17} aria-hidden="true" /><div><strong>{event.decision === "redacted" ? "Private details removed" : "Message not posted"}</strong><p>{event.categories.map((category) => category.replaceAll("_", " ")).join(", ")} · {new Date(event.created_at).toLocaleString()}</p></div></article>) : <p className="kiki-communities-empty">No recent checks. Kiki Guard will show a notice here when it removes or refuses risky details.</p>}
-    </section>}
-
-    {tab === "create" && <section className="kiki-community-create-page">
-      <header className="kiki-community-section-heading"><h1>Create a community</h1><p>Public, anonymous, and protected by Kiki Guard.</p></header>
-      <div className="kiki-community-create-note">Communities have no following or direct messaging. Kiki’s privacy rules apply to all posts and replies.</div>
-      <form className="kiki-community-create-form" onSubmit={(event) => void createCommunity(event)}>
-        <label>Community name<input value={form.name} minLength={2} maxLength={60} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required placeholder="e.g., Campus Night Safety" /></label>
-        <label>Description<textarea value={form.description} maxLength={280} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required placeholder="Short summary of what members share here..." /></label>
-        <label>Community scope &amp; privacy expectations<textarea value={form.scope} minLength={10} maxLength={500} onChange={(event) => setForm((current) => ({ ...current, scope: event.target.value }))} placeholder="What kind of general discussion belongs here? Include privacy expectations." required /></label>
-        <button type="submit" disabled={busy}>{busy ? "Creating…" : "Create community"}</button>
-      </form>
-    </section>}
+      ))}
+      {draft.pathNodes.length < 7 && <button type="button" onClick={addNode}>Add node</button>}
+      <small>Set the first node id to <code>start</code>. End nodes should have no choices.</small>
     </div>
-  </section>;
+  );
+}
+
+function PostCard(props: {
+  post: Post;
+  onVote: (optionId: string) => void;
+  onRate: (value: number) => void;
+  onChallenge: (mode: "join" | "leave" | "checkin") => void;
+  onHunt: (x: number, y: number) => void;
+  onPath: (endNode: string) => void;
+  onLike: () => void;
+  onHelpful: () => void;
+  onComment: (postId: string, body: string, opts?: { commentKind?: string; stance?: string; parentId?: string }) => Promise<void> | void;
+  onCommentLike: (commentId: string) => void;
+}) {
+  const { post, onVote, onRate, onChallenge, onHunt, onPath, onLike, onHelpful, onComment, onCommentLike } = props;
+  const [reply, setReply] = useState("");
+  const [showReply, setShowReply] = useState(false);
+  const [sliderValue, setSliderValue] = useState(post.my?.value ?? 50);
+  const meta = typeMeta[post.type] ?? { label: post.type, emoji: "💬", group: "general" };
+  const comments = post.comments ?? [];
+  const replyKind = post.type === "cap" || post.type === "fill" ? "answer" : post.type === "ama" ? "question" : "reply";
+
+  return (
+    <article className="kiki-community-post">
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+        <p className="kiki-community-post-author"><span className="kiki-community-author-dot" aria-hidden /> {post.authorEmoji ? `${post.authorEmoji} ` : ""}{post.authorAlias}</p>
+        <span style={{ fontSize: 11, color: "var(--muted)" }}>{meta.emoji} {meta.label}</span>
+      </div>
+      {post.title ? <h3 style={{ margin: 0 }}>{post.title}</h3> : null}
+      {post.body ? <p className="kiki-community-post-body">{post.body}</p> : null}
+
+      {post.media && post.media.length ? <Carousel media={post.media} onLike={onLike} /> : null}
+
+      <PostInteractive post={post} onVote={onVote} onRate={onRate} onChallenge={onChallenge} onHunt={onHunt} onPath={onPath} sliderValue={sliderValue} setSliderValue={setSliderValue} onComment={onComment} onCommentLike={onCommentLike} />
+
+      <div className="kiki-community-post-actions">
+        <button type="button" aria-pressed={Boolean(post.likes?.mine)} onClick={onLike}><Heart size={14} /> {post.likes?.count ?? 0}</button>
+        <button type="button" aria-pressed={Boolean(post.helpful?.mine)} onClick={onHelpful}><ThumbsUp size={14} /> Helpful {post.helpful?.count ?? 0}</button>
+        <button type="button" onClick={() => setShowReply((v) => !v)}><MessageCircle size={14} /> Reply</button>
+      </div>
+
+      {comments.length ? (
+        <div style={{ display: "grid", gap: 8 }}>
+          {comments.slice(0, 8).map((c) => (
+            <div key={c.id} className="kiki-community-comment">
+              <p className="kiki-community-post-author">{c.authorAlias} {c.commentKind === "host_answer" ? <span className="kiki-community-system-badge">Host</span> : null} {c.stance ? <span style={{ fontSize: 10, color: "var(--muted)" }}>({c.stance})</span> : null}</p>
+              <p>{c.body}</p>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button type="button" onClick={() => onCommentLike(c.id)} style={{ minHeight: 28, fontSize: 11, background: "var(--surface-2)", color: "var(--accent)", border: 0, borderRadius: 8, padding: "0 8px" }}>❤ {c.likeCount ?? 0}</button>
+                <small style={{ color: "var(--muted)" }}>{fmtTime(c.createdAt)}</small>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {showReply ? (
+        <form className="kiki-community-reply" onSubmit={async (e) => { e.preventDefault(); if (!reply.trim()) return; await onComment(post.id, reply.trim(), { commentKind: replyKind }); setReply(""); setShowReply(false); }}>
+          <label>{post.type === "ama" ? "Ask a question" : post.type === "cap" ? "Add a caption" : post.type === "fill" ? "Your answer" : "Reply"}
+            <textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder={post.type === "ama" ? "Ask a general question…" : "Write a supportive response…"} />
+          </label>
+          <div><small>{fmtTime(post.createdAt)}</small><button type="submit">Send</button></div>
+        </form>
+      ) : null}
+      <time dateTime={post.createdAt}>{fmtTime(post.createdAt)}</time>
+    </article>
+  );
+}
+
+function Carousel({ media, onLike }: { media: Media[]; onLike: () => void }) {
+  const [index, setIndex] = useState(0);
+  const lastTap = useRef(0);
+  const current = media[index];
+  function prev() { setIndex((i) => (i - 1 + media.length) % media.length); }
+  function next() { setIndex((i) => (i + 1) % media.length); }
+  function tap() {
+    const now = Date.now();
+    if (now - lastTap.current < 350) onLike();
+    lastTap.current = now;
+  }
+  if (!current) return null;
+  return (
+    <div className="kiki-carousel" style={{ display: "grid", gap: 8 }}>
+      <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", background: "var(--surface-2)" }}>
+        {current.url ? <img src={current.url} alt={current.altText || current.caption || "Community image"} onClick={tap} style={{ width: "100%", display: "block", aspectRatio: "4 / 3", objectFit: "cover", cursor: "pointer" }} /> : <div style={{ aspectRatio: "4/3", display: "grid", placeItems: "center", color: "var(--muted)" }}>Image unavailable</div>}
+        {media.length > 1 ? (
+          <>
+            <button type="button" onClick={prev} aria-label="Previous image" style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", borderRadius: 999, border: 0, width: 32, height: 32 }}><ChevronLeft size={16} /></button>
+            <button type="button" onClick={next} aria-label="Next image" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", borderRadius: 999, border: 0, width: 32, height: 32 }}><ChevronRight size={16} /></button>
+            <span style={{ position: "absolute", right: 8, bottom: 8, background: "rgba(0,0,0,.55)", color: "#fff", borderRadius: 999, padding: "2px 8px", fontSize: 11 }}>{index + 1}/{media.length}</span>
+          </>
+        ) : null}
+      </div>
+      {current.caption ? <p style={{ margin: 0, fontSize: 12, color: "var(--text-2)" }}>{current.caption}</p> : null}
+      {media.length > 1 ? <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>{media.map((_, i) => <button key={i} type="button" onClick={() => setIndex(i)} aria-label={`Go to image ${i + 1}`} style={{ width: 8, height: 8, borderRadius: 999, border: 0, background: i === index ? "var(--accent)" : "var(--divider)", padding: 0 }} />)}</div> : null}
+    </div>
+  );
+}
+
+function PostInteractive(props: any) {
+  const { post, onVote, onRate, onChallenge, onHunt, onPath, sliderValue, setSliderValue, onComment, onCommentLike } = props;
+  const [fillText, setFillText] = useState("");
+  const [caption, setCaption] = useState("");
+  const [question, setQuestion] = useState("");
+  const [pathNode, setPathNode] = useState("start");
+  const [pathTip, setPathTip] = useState<string | null>(null);
+
+  if (["poll", "tt", "decide", "hot", "quiz", "mf"].includes(post.type)) {
+    const total = (post.options ?? []).reduce((sum: number, o: Option) => sum + (o.count ?? 0), 0);
+    const showResults = post.type === "quiz" || post.type === "mf" ? Boolean(post.my?.voted || post.my?.optionId) : post.type === "decide" ? Boolean(post.closed || post.my?.optionId) : post.type === "tt" || post.type === "poll" ? Boolean(post.my?.optionId) : true;
+    const mineId = post.my?.optionId ?? null;
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        {(post.options ?? []).map((o: Option) => {
+          const active = Boolean(o.mine || (mineId && o.id === mineId));
+          const correct = Boolean(o.correct);
+          const p = o.percent ?? pct(o.count ?? 0, total);
+          return (
+            <button key={o.id ?? o.position} type="button" onClick={() => o.id && onVote(o.id)} disabled={post.type === "decide" && post.closed} style={{ textAlign: "left", border: "1px solid var(--divider)", borderRadius: 12, padding: 10, background: active ? "var(--accent-bg)" : "var(--surface-1)", color: "var(--text)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span>{o.label}{o.subLabel ? <small style={{ color: "var(--muted)" }}> · {o.subLabel}</small> : null}</span>{showResults ? <strong>{p}%</strong> : null}</div>
+              {showResults ? <div style={{ marginTop: 6, height: 6, borderRadius: 999, background: "var(--surface-2)" }}><div style={{ width: `${p}%`, height: "100%", borderRadius: 999, background: correct ? "var(--ok, #2f9e44)" : "var(--accent)" }} /></div> : null}
+              {(post.type === "quiz" || post.type === "mf") && (post.my?.voted || post.my?.optionId) && correct ? <small style={{ color: "var(--ok, #2f9e44)", fontWeight: 700 }}>Correct answer</small> : null}
+            </button>
+          );
+        })}
+        {(post.type === "quiz" || post.type === "mf") && (post.my?.voted || post.my?.optionId) && post.results?.explanation ? <p className="kiki-community-scope-note">{post.results.explanation}</p> : null}
+        {post.type === "hot" && <HotTakeAnswers post={post} onComment={onComment} onCommentLike={onCommentLike} />}
+        {post.type === "decide" && post.closed ? <p className="kiki-community-scope-note">Voting closed.</p> : null}
+      </div>
+    );
+  }
+
+  if (post.type === "slider") {
+    const voted = post.my?.value != null;
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        {!voted ? (
+          <>
+            <input type="range" min={0} max={100} value={sliderValue} onChange={(e) => setSliderValue(Number(e.target.value))} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)" }}><span>{post.config?.lo || "Low"}</span><strong>{sliderValue}</strong><span>{post.config?.hi || "High"}</span></div>
+            <button type="button" onClick={() => onRate(sliderValue)}>Submit rating</button>
+          </>
+        ) : (
+          <p className="kiki-community-scope-note">You rated <strong>{post.my.value}</strong>. Average: <strong>{post.results?.average ?? 0}</strong> from {post.results?.count ?? 0} ratings.</p>
+        )}
+      </div>
+    );
+  }
+
+  if (post.type === "fill") {
+    return (
+      <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!fillText.trim()) return; await onComment(post.id, fillText.trim(), { commentKind: "answer" }); setFillText(""); }}>
+        <p className="kiki-community-scope-note">{post.config?.prefix} <strong>____</strong> {post.config?.suffix}</p>
+        <input value={fillText} onChange={(e) => setFillText(e.target.value)} placeholder="Your answer" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+        <button type="submit">Share answer</button>
+        <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
+      </form>
+    );
+  }
+
+  if (post.type === "cap") {
+    return (
+      <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!caption.trim()) return; await onComment(post.id, caption.trim(), { commentKind: "answer" }); setCaption(""); }}>
+        <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a caption…" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+        <button type="submit">Submit caption</button>
+        <AnswersList post={post} onCommentLike={onCommentLike} showLikes ranked />
+      </form>
+    );
+  }
+
+  if (post.type === "ama") {
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!question.trim()) return; await onComment(post.id, question.trim(), { commentKind: "question" }); setQuestion(""); }}>
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask a question…" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+          <button type="submit">Ask</button>
+        </form>
+        <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
+      </div>
+    );
+  }
+
+  if (post.type === "hunt") {
+    const found = post.my?.foundTargets ?? post.results?.foundTargets ?? [];
+    const total = post.results?.targetCount ?? post.results?.total ?? found.length;
+    const allFound = total > 0 && found.length >= total;
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        <p className="kiki-community-scope-note">Found {found.length}/{total} · Tries: {post.my?.tries ?? 0}</p>
+        {allFound ? <p className="kiki-communities-notice">All targets found. Well done.</p> : <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Tap the image to search for hidden spots.</p>}
+        {found.length ? <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>{found.map((t: any, i: number) => <li key={i}>{t.label || `Target ${i + 1}`}</li>)}</ul> : null}
+        {post.media?.[0]?.url ? <HuntImage url={post.media[0].url} found={found} onGuess={onHunt} /> : null}
+      </div>
+    );
+  }
+
+  if (post.type === "chal") {
+    const enrolled = Boolean(post.my?.enrolled);
+    const checked = Boolean(post.my?.checkedInToday ?? post.my?.checked_in_today);
+    const days = Number(post.config?.days ?? 7);
+    const checkins = Number(post.my?.checkins ?? post.my?.checkinCount ?? 0);
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        <p className="kiki-community-scope-note">Participants: {post.results?.participants ?? 0} · Streak: {post.my?.streak ?? 0} · Check-ins: {checkins}/{days}</p>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(days, 7)}, 1fr)`, gap: 4 }}>
+          {Array.from({ length: days }).map((_, i) => (
+            <div key={i} title={`Day ${i + 1}`} style={{ height: 10, borderRadius: 999, background: i < checkins ? "var(--accent)" : "var(--surface-2)" }} />
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {!enrolled ? <button type="button" onClick={() => onChallenge("join")}>Join challenge</button> : <button type="button" onClick={() => onChallenge("leave")}>Leave</button>}
+          {enrolled ? <button type="button" onClick={() => onChallenge("checkin")} disabled={checked}>{checked ? "Checked in today" : "Check in today"}</button> : null}
+        </div>
+      </div>
+    );
+  }
+
+  if (post.type === "path") {
+    const nodes: any[] = post.config?.nodes ?? [];
+    const nodeMap = new Map(nodes.map((n: any) => [n.id, n]));
+    const current = nodeMap.get(pathNode) ?? nodeMap.get("start") ?? nodes[0];
+    if (!current) return null;
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        <p className="kiki-community-scope-note">{current.t || current.text}</p>
+        {pathTip ? <p className="kiki-communities-notice">{pathTip}</p> : null}
+        {!current.end ? (
+          <div style={{ display: "grid", gap: 6 }}>
+            {(current.ch ?? current.choices ?? []).map((choice: any, i: number) => (
+              <button key={i} type="button" onClick={() => { const to = choice.to; setPathNode(to); setPathTip(choice.tip || null); const target = nodeMap.get(to); if (target?.end) onPath(to); }}>
+                {choice.t || choice.text}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => { setPathNode("start"); setPathTip(null); }}>Start over</button>
+          </div>
+        )}
+        {post.results?.completions != null ? <small style={{ color: "var(--muted)" }}>{post.results.completions} completions</small> : null}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function HotTakeAnswers({ post, onComment, onCommentLike }: { post: Post; onComment: (postId: string, body: string, opts?: { commentKind?: string; stance?: string }) => Promise<void> | void; onCommentLike: (id: string) => void }) {
+  const [body, setBody] = useState("");
+  const [stance, setStance] = useState<"agree" | "disagree">("agree");
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!body.trim()) return; await onComment(post.id, body.trim(), { commentKind: "answer", stance }); setBody(""); }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" onClick={() => setStance("agree")} aria-pressed={stance === "agree"}>Agree</button>
+          <button type="button" onClick={() => setStance("disagree")} aria-pressed={stance === "disagree"}>Disagree</button>
+        </div>
+        <input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Add your view (optional detail)" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
+        <button type="submit" disabled={!body.trim()}>Share view</button>
+      </form>
+      <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
+    </div>
+  );
+}
+
+function AnswersList({ post, onCommentLike, showLikes, ranked }: { post: Post; onCommentLike: (id: string) => void; showLikes?: boolean; ranked?: boolean }) {
+  let items = [...(post.topAnswers ?? []), ...(post.recentReplies ?? []), ...(post.comments ?? [])].filter((c, i, arr) => c && arr.findIndex((x) => x.id === c.id) === i);
+  if (ranked) items = items.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
+  if (!items.length) return null;
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      {items.slice(0, 6).map((c, i) => (
+        <div key={c.id} className="kiki-community-comment">
+          <p className="kiki-community-post-author">{ranked && i === 0 ? "🏆 " : ""}{c.authorAlias} {c.stance ? <span style={{ fontSize: 10, color: "var(--muted)" }}>({c.stance})</span> : null}</p>
+          <p>{c.body}</p>
+          {showLikes ? <button type="button" onClick={() => onCommentLike(c.id)} style={{ minHeight: 28, fontSize: 11, background: "var(--surface-2)", color: "var(--accent)", border: 0, borderRadius: 8, padding: "0 8px", width: "fit-content" }}>❤ {c.likeCount ?? 0}</button> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HuntImage({ url, found, onGuess }: { url: string; found: any[]; onGuess: (x: number, y: number) => void }) {
+  return (
+    <div style={{ position: "relative", borderRadius: 14, overflow: "hidden" }}>
+      <img src={url} alt="Hunt image" onClick={(e) => {
+        const rect = (e.currentTarget as HTMLImageElement).getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        onGuess(Math.round(x * 100) / 100, Math.round(y * 100) / 100);
+      }} style={{ width: "100%", display: "block", cursor: "crosshair" }} />
+      {found.map((t, i) => (
+        <span key={i} title={t.label} style={{ position: "absolute", left: `${Number(t.x)}%`, top: `${Number(t.y)}%`, transform: "translate(-50%,-50%)", minWidth: 22, height: 22, borderRadius: 999, background: "var(--ok, #2f9e44)", color: "#fff", fontSize: 10, display: "grid", placeItems: "center", padding: "0 4px" }}>✓</span>
+      ))}
+    </div>
+  );
 }

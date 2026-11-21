@@ -11,8 +11,23 @@ export type CommunityGuardResult = {
   reason: string;
 };
 
+export type InteractiveGuardResult = {
+  decision: CommunityGuardDecision;
+  safeText: string;
+  removed: string[];
+  reason: string;
+};
+
 const PRIVATE_DETAIL = "[private detail removed]";
 const HOTLINES = new Set(["112", "911", "999", "10111", "10177"]);
+const INTERACTIVE_REDACTIONS = [
+  { pattern: /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gi, placeholder: "[redacted email]", label: "Email address redacted" },
+  { pattern: /@\w[\w.-]{1,}/g, placeholder: "[redacted handle]", label: "Social handle redacted" },
+  { pattern: /https?:\/\/[^\s<>()]+|www\.[^\s<>()]+|\b(?:[a-z0-9-]+\.)+(?:com|net|org|social|app|me|co\.?za)(?:\/[^\s<>()]*)?/gi, placeholder: "[redacted link]", label: "Link redacted" },
+  { pattern: /\b\d{13}\b/g, placeholder: "[redacted ID number]", label: "ID number redacted" },
+  { pattern: /\b\d{1,5}\s+(?:[\p{L}\d.'-]+\s+){0,5}(?:street|st|road|rd|avenue|ave|drive|dr|lane|ln|boulevard|blvd|close|crescent|way|court|ct)\b(?:\s*(?:apt|suite|unit|#)\s*[\w-]+)?/giu, placeholder: "[general area]", label: "Exact street address redacted" },
+  { pattern: /-?\d{1,2}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}/g, placeholder: "[general area]", label: "Exact location redacted" },
+];
 const CATEGORY_WEIGHT: Record<CommunityRiskCategory, number> = {
   identity: 2,
   contact: 3,
@@ -40,6 +55,58 @@ function hasMeaningfulRemainder(text: string) {
   const remainder = text.replaceAll(PRIVATE_DETAIL, "").replace(/\s+/g, " ").trim();
   const words = remainder.match(/[\p{L}\p{N}]{2,}/gu) ?? [];
   return remainder.length >= 28 && words.length >= 5;
+}
+
+export function evaluateInteractiveCommunityText(input: string, realName?: string | null): InteractiveGuardResult {
+  let safeText = input.normalize("NFKC").replace(/\s+/g, " ").trim();
+  const removed = new Set<string>();
+
+  for (const rule of INTERACTIVE_REDACTIONS) {
+    let matched = false;
+    safeText = safeText.replace(rule.pattern, () => {
+      matched = true;
+      return rule.placeholder;
+    });
+    if (matched) removed.add(rule.label);
+  }
+
+  let phoneMatched = false;
+  safeText = safeText.replace(/(?<![\p{L}\p{N}])\+?\d(?:[\d\s().-]{5,}\d)(?![\p{L}\p{N}])/gu, (match) => {
+    const digits = match.replace(/\D/g, "");
+    if (HOTLINES.has(digits) || /^\d{4}-\d{2}-\d{2}$/.test(match.trim()) || digits.length < 7 || digits.length > 15) return match;
+    phoneMatched = true;
+    return "[redacted phone]";
+  });
+  if (phoneMatched) removed.add("Phone number redacted");
+
+  if (realName?.trim()) {
+    const nameTokens = realName.trim().split(/\s+/).filter((token) => token.replace(/[^\p{L}\p{N}]/gu, "").length >= 3);
+    for (const token of nameTokens) {
+      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const namePattern = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "giu");
+      if (namePattern.test(safeText)) {
+        namePattern.lastIndex = 0;
+        safeText = safeText.replace(namePattern, "[community member]");
+        removed.add("Real name cloaked");
+      }
+    }
+  }
+
+  const remainingWords = safeText.replace(/\[[^\]]+\]/g, " ").match(/[\p{L}\p{N}]{2,}/gu) ?? [];
+  if (removed.size > 0 && remainingWords.length < 4) {
+    return {
+      decision: "refuse",
+      safeText,
+      removed: [...removed],
+      reason: "This could identify or locate someone, and Kiki Guard couldn’t remove the details without making the message unsafe or unclear. Edit it and try again.",
+    };
+  }
+  return {
+    decision: removed.size > 0 ? "redact" : "allow",
+    safeText,
+    removed: [...removed],
+    reason: removed.size ? "Kiki Guard removed possible private or identifying details." : "",
+  };
 }
 
 export function evaluateCommunityText(input: string): CommunityGuardResult {

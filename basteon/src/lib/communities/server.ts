@@ -20,14 +20,14 @@ export async function communityAccount(request?: Request) {
 
   const db = createAdminClient();
   const { data: profile, error } = await db.from("profiles")
-    .select("role,verification_status")
+    .select("role,verification_status,full_name")
     .eq("id", user.id)
     .single();
   if (error || profile?.role !== "user" || profile.verification_status === "suspended") {
     return { response: NextResponse.json({ error: "forbidden" }, { status: 403 }) } as const;
   }
 
-  return { user, db } as const;
+  return { user, db, realName: profile.full_name?.trim() ?? "" } as const;
 }
 
 export async function recordGuardResult(
@@ -64,4 +64,33 @@ export async function recordGuardResult(
     noticeSent: ids.length > 0,
     mutedUntil: typeof mutedUntil === "string" ? mutedUntil : null,
   };
+}
+
+export async function recordInteractiveGuardResult(
+  db: ReturnType<typeof createAdminClient>,
+  userId: string,
+  membershipId: string,
+  communityId: string,
+  surface: string,
+  items: string[],
+) {
+  if (items.length === 0) return { eventRecorded: true, noticeSent: true };
+  const { error } = await db.from("community_guard_events").insert({
+    membership_id: membershipId,
+    community_id: communityId,
+    surface,
+    items,
+  });
+  if (error) {
+    console.error("Could not save interactive Kiki Guard history.", error);
+    return { eventRecorded: false, noticeSent: false };
+  }
+  const ids = await createNotification({
+    userId,
+    type: "system",
+    title: "Kiki Guard checked your community post",
+    body: `Kiki Guard removed possible private details: ${items.join(", ")}.`,
+    href: "/account/communities?tab=guard",
+  }, db);
+  return { eventRecorded: true, noticeSent: ids.length > 0 };
 }

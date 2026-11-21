@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateCommunityText } from "./guardrails";
+import { evaluateCommunityText, evaluateInteractiveCommunityText } from "./guardrails";
 
 describe("community Kiki Guard", () => {
   it("allows general safety guidance and public emergency numbers", () => {
@@ -59,5 +59,28 @@ describe("community Kiki Guard", () => {
     expect(result.intent).toBe("third_party_disclosure");
     expect(result.categories).toContain("contact");
     expect(result.safeText).not.toContain("082 123 4567");
+  });
+
+  it("uses safe placeholders and cloaks the signed-in member's real name", () => {
+    const result = evaluateInteractiveCommunityText(
+      "Tumisho Aphane recommends sharing a general plan. Contact tumisho@example.com.",
+      "Tumisho Aphane",
+    );
+
+    expect(result.decision).toBe("redact");
+    expect(result.safeText).not.toMatch(/Tumisho|Aphane|tumisho@example\.com/i);
+    expect(result.safeText).toContain("[community member]");
+    expect(result.safeText).toContain("[redacted email]");
+    expect(result.removed).toContain("Real name cloaked");
+    expect(result.removed).toContain("Email address redacted");
+  });
+
+  it("refuses a short field after redaction and preserves emergency numbers and ordinary text", () => {
+    const refused = evaluateInteractiveCommunityText("Email me at person@example.com");
+    const safe = evaluateInteractiveCommunityText("Call 112 if you need urgent help.");
+
+    expect(refused.decision).toBe("refuse");
+    expect(safe.decision).toBe("allow");
+    expect(safe.safeText).toContain("112");
   });
 });

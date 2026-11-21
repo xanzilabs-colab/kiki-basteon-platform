@@ -2,6 +2,7 @@ create extension if not exists pgcrypto;
 
 alter table public.community_posts
   add column if not exists author_membership_id uuid references public.community_memberships(id) on delete cascade,
+  add column if not exists author_emoji text not null default '🛡️',
   add column if not exists title text,
   add column if not exists category_group text not null default 'general',
   add column if not exists config jsonb not null default '{}'::jsonb,
@@ -36,11 +37,67 @@ where p.author_user_id = m.user_id
   and p.community_id = m.community_id
   and p.author_membership_id is null;
 
+alter table public.community_memberships add column if not exists emoji text not null default '🛡️';
+update public.community_memberships
+set emoji = case
+  when pseudonym ilike '%otter%' then '🦦'
+  when pseudonym ilike '%panda%' then '🐼'
+  when pseudonym ilike '%robin%' then '🐦'
+  when pseudonym ilike '%fox%' then '🦊'
+  when pseudonym ilike '%dove%' then '🕊️'
+  when pseudonym ilike '%turtle%' then '🐢'
+  when pseudonym ilike '%finch%' then '🐦'
+  when pseudonym ilike '%koala%' then '🐨'
+  when pseudonym ilike '%seal%' then '🦭'
+  when pseudonym ilike '%moth%' then '🦋'
+  when pseudonym ilike '%badger%' then '🦡'
+  when pseudonym ilike '%wren%' then '🐦'
+  else '🪶'
+end;
+update public.community_posts p
+set author_emoji = m.emoji
+from public.community_memberships m
+where p.author_membership_id = m.id;
+
+create or replace function public.join_community(p_community_id uuid, p_user_id uuid)
+returns table (membership_id uuid, pseudonym text, joined_at timestamptz, welcome_read_at timestamptz, muted_until timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_adjectives text[] := array['Calm', 'Bright', 'Kind', 'Brave', 'Gentle', 'Curious', 'Quiet', 'Steady', 'Open', 'Hopeful', 'Thoughtful', 'Sunny'];
+  v_animals text[] := array['Otter', 'Panda', 'Robin', 'Fox', 'Dove', 'Turtle', 'Finch', 'Koala', 'Seal', 'Moth', 'Badger', 'Wren'];
+  v_emojis text[] := array['🦦', '🐼', '🐦', '🦊', '🕊️', '🐢', '🐦', '🐨', '🦭', '🦋', '🦡', '🐦'];
+  v_animal_index integer;
+  v_pseudonym text;
+begin
+  if not exists (select 1 from public.communities where id = p_community_id and is_public and is_active) then
+    raise exception 'community_not_found';
+  end if;
+  v_animal_index := 1 + floor(random() * array_length(v_animals, 1))::int;
+  v_pseudonym := v_adjectives[1 + floor(random() * array_length(v_adjectives, 1))::int]
+    || ' ' || v_animals[v_animal_index]
+    || ' ' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
+
+  return query
+    insert into public.community_memberships as membership (community_id, user_id, pseudonym, emoji)
+    values (p_community_id, p_user_id, v_pseudonym, v_emojis[v_animal_index])
+    on conflict (community_id, user_id) do update set user_id = excluded.user_id
+    returning membership.id, membership.pseudonym, membership.joined_at, membership.welcome_read_at, membership.muted_until;
+end;
+$$;
+
 drop function if exists public.create_community_post(uuid, uuid, text, uuid);
 drop function if exists public.community_post_reaction_summary(uuid[], uuid);
 
 alter table public.community_reactions
   add column if not exists membership_id uuid references public.community_memberships(id) on delete cascade;
+
+alter table public.community_reactions drop constraint if exists community_reactions_reaction_check;
+alter table public.community_reactions
+  add constraint community_reactions_reaction_check
+  check (reaction in ('support', 'thanks', 'care', 'like', 'helpful'));
 
 update public.community_reactions r
 set membership_id = m.id
@@ -285,9 +342,9 @@ begin
   end if;
 
   insert into public.community_posts (
-    community_id, author_membership_id, parent_id, post_type, author_alias, is_kiki, body, comment_kind
+    community_id, author_membership_id, author_emoji, parent_id, post_type, author_alias, is_kiki, body, comment_kind
   ) values (
-    p_community_id, v_membership.id, p_parent_id,
+    p_community_id, v_membership.id, v_membership.emoji, p_parent_id,
     case when p_parent_id is null then 'post' else 'comment' end,
     v_membership.pseudonym, false, p_body, 'reply'
   ) returning id into v_post_id;
@@ -330,6 +387,8 @@ declare
   v_correct_option_id uuid;
   v_recent_count integer;
   v_group text;
+  v_media_count integer;
+  v_option_count integer;
 begin
   if v_type not in ('post', 'carousel', 'poll', 'tt', 'slider', 'fill', 'cap', 'hot', 'quiz', 'mf', 'hunt', 'chal', 'ama', 'decide', 'path') then
     raise exception 'invalid_post_type';
@@ -357,10 +416,11 @@ begin
     else 'general'
   end;
   insert into public.community_posts (
-    community_id, author_membership_id, post_type, author_alias, is_kiki, body, title,
+    id, community_id, author_membership_id, author_emoji, post_type, author_alias, is_kiki, body, title,
     category_group, config, ends_at, guard_removed, parent_attempt_post_id
   ) values (
-    v_community_id, v_membership.id, v_type, v_membership.pseudonym, false,
+    coalesce(nullif(p_payload->>'id', '')::uuid, gen_random_uuid()),
+    v_community_id, v_membership.id, v_membership.emoji, v_type, v_membership.pseudonym, false,
     nullif(p_payload->>'body', ''), nullif(p_payload->>'title', ''),
     v_group, coalesce(p_payload->'config', '{}'::jsonb),
     case when v_type = 'decide' then now() + interval '3 days' else null end,
@@ -368,7 +428,15 @@ begin
     nullif(p_payload->>'parent_attempt_post_id', '')::uuid
   ) returning id into v_post_id;
 
-  for v_option in select value from jsonb_array_elements(coalesce(p_payload->'options', '[]'::jsonb)) loop
+  select count(*) into v_option_count from jsonb_array_elements(coalesce(p_payload->'options', '[]'::jsonb));
+  if (v_type in ('poll', 'decide', 'quiz') and v_option_count not between 2 and 4)
+    or (v_type in ('tt', 'mf', 'hot') and v_option_count <> 2) then
+    raise exception 'invalid_option_count';
+  end if;
+  for v_option in
+    select value from jsonb_array_elements(coalesce(p_payload->'options', '[]'::jsonb))
+    order by case when v_type = 'quiz' then random() else 0 end
+  loop
     insert into public.community_post_options(post_id, position, label, sub_label)
       values (v_post_id, v_position, v_option->>'label', nullif(v_option->>'sub_label', ''))
       returning id into v_option_id;
@@ -392,6 +460,12 @@ begin
       (item->>'width')::integer, (item->>'height')::integer,
       nullif(item->>'caption', ''), nullif(item->>'alt_text', '')
     from jsonb_array_elements(coalesce(p_payload->'media', '[]'::jsonb)) item;
+  select count(*) into v_media_count from public.community_post_media where post_id = v_post_id;
+  if v_media_count > 10
+    or (v_type in ('carousel', 'cap', 'hunt') and v_media_count = 0)
+    or (v_type in ('cap', 'hunt') and v_media_count <> 1) then
+    raise exception 'invalid_media_count';
+  end if;
   return v_post_id;
 end;
 $$;
@@ -491,6 +565,53 @@ begin
     v_joined := not found;
     if v_joined then insert into public.community_challenge_enrollments(post_id, membership_id) values (p_post_id, v_member_id); end if;
   end if;
+  return jsonb_build_object(
+    'joined', exists (select 1 from public.community_challenge_enrollments where post_id = p_post_id and membership_id = v_member_id),
+    'participants', (select count(*) from public.community_challenge_enrollments where post_id = p_post_id),
+    'days_done', (select coalesce(jsonb_agg(day order by day), '[]'::jsonb) from public.community_challenge_checkins where post_id = p_post_id and membership_id = v_member_id),
+    'today_done', exists (select 1 from public.community_challenge_checkins where post_id = p_post_id and membership_id = v_member_id and day = v_today),
+    'streak', (with days as (
+       select day, day - (row_number() over (order by day))::integer as grp
+       from public.community_challenge_checkins where post_id = p_post_id and membership_id = v_member_id
+     ), last_group as (select grp, max(day) last_day from days group by grp order by max(day) desc limit 1)
+     select coalesce((select count(*) from days join last_group using (grp)
+       where last_group.last_day >= v_today - 1), 0))
+  );
+end;
+$$;
+
+create or replace function public.community_interactive_challenge_action(p_post_id uuid, p_user_id uuid, p_mode text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_community_id uuid;
+  v_member_id uuid;
+  v_today date := (now() at time zone 'Africa/Johannesburg')::date;
+begin
+  if p_mode not in ('join', 'leave', 'checkin') then raise exception 'invalid_challenge_action'; end if;
+  select community_id into v_community_id from public.community_posts
+    where id = p_post_id and post_type = 'chal' and status = 'published' and parent_id is null;
+  if not found then raise exception 'post_not_found'; end if;
+  select id into v_member_id from public.community_memberships
+    where community_id = v_community_id and user_id = p_user_id and welcome_read_at is not null;
+  if v_member_id is null then raise exception 'not_a_member'; end if;
+
+  if p_mode = 'join' then
+    insert into public.community_challenge_enrollments(post_id, membership_id)
+      values (p_post_id, v_member_id) on conflict do nothing;
+  elsif p_mode = 'leave' then
+    delete from public.community_challenge_enrollments where post_id = p_post_id and membership_id = v_member_id;
+  else
+    if not exists (select 1 from public.community_challenge_enrollments where post_id = p_post_id and membership_id = v_member_id) then
+      raise exception 'not_enrolled';
+    end if;
+    insert into public.community_challenge_checkins(post_id, membership_id, day)
+      values (p_post_id, v_member_id, v_today) on conflict do nothing;
+  end if;
+
   return jsonb_build_object(
     'joined', exists (select 1 from public.community_challenge_enrollments where post_id = p_post_id and membership_id = v_member_id),
     'participants', (select count(*) from public.community_challenge_enrollments where post_id = p_post_id),
@@ -626,6 +747,7 @@ revoke all on function public.create_community_post(uuid, uuid, text, uuid),
   public.community_interactive_vote(uuid, uuid, uuid),
   public.community_interactive_rate(uuid, uuid, integer),
   public.community_interactive_challenge(uuid, uuid, boolean),
+  public.community_interactive_challenge_action(uuid, uuid, text),
   public.community_interactive_hunt_guess(uuid, uuid, numeric, numeric),
   public.community_interactive_path_finish(uuid, uuid, integer)
   from public, anon, authenticated;
@@ -635,6 +757,7 @@ grant execute on function public.create_community_post(uuid, uuid, text, uuid),
   public.community_interactive_vote(uuid, uuid, uuid),
   public.community_interactive_rate(uuid, uuid, integer),
   public.community_interactive_challenge(uuid, uuid, boolean),
+  public.community_interactive_challenge_action(uuid, uuid, text),
   public.community_interactive_hunt_guess(uuid, uuid, numeric, numeric),
   public.community_interactive_path_finish(uuid, uuid, integer) to service_role;
 
@@ -644,3 +767,47 @@ on conflict (id) do update set
   public = false,
   file_size_limit = 5242880,
   allowed_mime_types = array['image/jpeg', 'image/webp'];
+
+create or replace function public.create_community_with_welcome(
+  p_user_id uuid,
+  p_slug text,
+  p_name text,
+  p_description text,
+  p_scope text,
+  p_icon_key text,
+  p_welcome_body text
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_community_id uuid;
+  v_recent_count integer;
+  v_membership_id uuid;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('community_create:' || p_user_id::text, 0));
+  select count(*) into v_recent_count
+  from public.communities
+  where created_by = p_user_id and created_at > now() - interval '24 hours';
+  if v_recent_count >= 3 then raise exception 'rate_limited'; end if;
+
+  insert into public.communities (slug, name, description, scope, icon_key, created_by)
+  values (p_slug, p_name, p_description, p_scope, p_icon_key, p_user_id)
+  returning id into v_community_id;
+
+  insert into public.community_posts (community_id, post_type, author_alias, is_kiki, body)
+  values (v_community_id, 'welcome', 'Kiki', true, p_welcome_body);
+
+  select membership_id into v_membership_id from public.join_community(v_community_id, p_user_id) limit 1;
+  update public.community_memberships
+  set welcome_read_at = coalesce(welcome_read_at, now())
+  where id = v_membership_id;
+
+  return v_community_id;
+end;
+$$;
+
+revoke all on function public.create_community_with_welcome(uuid, text, text, text, text, text, text)
+  from public, anon, authenticated;
+grant execute on function public.create_community_with_welcome(uuid, text, text, text, text, text, text) to service_role;

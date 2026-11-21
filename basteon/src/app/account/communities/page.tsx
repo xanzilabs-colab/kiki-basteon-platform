@@ -1,4 +1,4 @@
-import { CommunitiesHub } from "@/components/CommunitiesHub";
+import CommunitiesHub from "@/components/CommunitiesHub";
 
 export default function CommunitiesPage() {
   return <CommunitiesHub />;
