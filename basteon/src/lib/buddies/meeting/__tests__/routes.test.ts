@@ -46,7 +46,7 @@ describe("authenticated Buddy place routes", () => {
     const response = await spotsGet(new Request("https://kiki.test/api/buddies/safe-places?lat=-26&lng=28"));
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(mocks.rpc).toHaveBeenCalledWith("list_meetup_candidates_near", { p_lat: -26, p_lng: 28, p_radius_m: 3000 });
+    expect(mocks.rpc).toHaveBeenCalledWith("list_safe_places_near", { p_lat: -26, p_lng: 28, p_radius_m: 3000 });
     expect(mocks.admin).not.toHaveBeenCalled();
   });
   it("uses the authenticated RPC for suggestions and votes", async () => {

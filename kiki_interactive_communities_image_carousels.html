@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Kiki — Social · Spatial · Anonymous Communities</title>
+  <style>
+    /* =======================================================================
+       DESIGN TOKENS — Apple Glass + Instagram Stories + Facebook Communities
+       ======================================================================= */
+    :root {
+      --kiki-950: #1D0842;
+      --kiki-900: #331066;
+      --kiki-800: #4A1B7A;
+      --kiki-700: #62269E;
+      --kiki-600: #7B38BF;
+      --kiki-200: #E7D9FB;
+      --kiki-100: #F4EEFD;
+      --kiki-50:  #FAF7FF;
+
+      --emerald-700: #146C48;
+      --emerald-100: #DCF5EA;
+      --amber-700:   #B45309;
+      --amber-100:   #FEF3C7;
+      --rose-600:    #E11D48;
+      --rose-100:    #FFE4E6;
+      --sky-700:     #0369A1;
+      --sky-100:     #E0F2FE;
+
+      --surface-bg:    #F4F3F8;
+      --card-bg:       #FFFFFF;
+      --text-primary:  #141122;
+      --text-secondary:#5B5670;
+      --text-muted:    #8D87A3;
+      --hairline:      rgba(44, 18, 86, 0.085);
+
+      --shadow-card:   0 10px 26px -8px rgba(33, 10, 74, 0.08), 0 2px 6px rgba(33, 10, 74, 0.03);
+      --shadow-float:  0 16px 36px -10px rgba(74, 27, 122, 0.28);
+      --shadow-dove:   0 10px 24px -4px rgba(74, 27, 122, 0.55), 0 0 0 4px #FFFFFF;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --smooth: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: var(--font-sans);
+      background: radial-gradient(circle at 18% 12%, #EDE4FA 0%, #E0DDEC 52%, #D2D3E5 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+    }
+
+    /* Desktop Bar */
+    .desktop-bar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 8px 20px rgba(33, 10, 74, 0.08);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--kiki-900);
+    }
+    @media (min-width: 520px) { .desktop-bar { display: flex; } }
+    .desktop-bar button {
+      border: none;
+      background: var(--kiki-800);
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Mobile Device Frame */
+    .phone-shell {
+      width: 100%;
+      max-width: 432px;
+      height: 100vh;
+      background: var(--surface-bg);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: all 0.28s var(--smooth);
+    }
+    @media (min-width: 520px) {
+      .phone-shell:not(.expanded) {
+        height: 904px;
+        max-height: 91vh;
+        border-radius: 48px;
+        box-shadow: 0 36px 80px -16px rgba(24, 11, 54, 0.36), 0 0 0 11px #171424, 0 0 0 13px rgba(255, 255, 255, 0.78);
+      }
+      .phone-shell.expanded {
+        max-width: 520px;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+      }
+    }
+
+    /* Status Bar & Dynamic Island */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 20px 5px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(18px);
+      font-size: 12px;
+      font-weight: 700;
+      z-index: 40;
+    }
+    .dynamic-pill {
+      background: #141122;
+      color: #FFFFFF;
+      padding: 3px 11px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Top Chrome Header (Tumisho Aphane) */
+    .top-chrome {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(20px);
+      padding: 6px 16px 10px;
+      border-bottom: 1px solid var(--hairline);
+      z-index: 35;
+    }
+    .profile-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .profile-identity { display: flex; align-items: center; gap: 10px; }
+    .avatar-box { position: relative; width: 42px; height: 42px; flex-shrink: 0; }
+    .avatar-box img {
+      width: 42px; height: 42px; border-radius: 50%; object-fit: cover;
+      border: 2px solid var(--kiki-800); background: var(--kiki-100);
+    }
+    .status-green-dot {
+      position: absolute; bottom: 0; right: 0; width: 12px; height: 12px;
+      border-radius: 50%; background: #16A34A; border: 2.5px solid #FFFFFF;
+    }
+    .profile-name { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; }
+    .top-actions { display: flex; align-items: center; gap: 5px; }
+    .circle-icon-btn {
+      position: relative; width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid var(--hairline); background: #F7F6FB; color: var(--text-primary);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: transform 0.16s var(--spring), background 0.18s;
+    }
+    .circle-icon-btn:hover { background: var(--kiki-100); color: var(--kiki-800); }
+    .circle-icon-btn:active { transform: scale(0.92); }
+    .circle-icon-btn.active-audio { background: var(--kiki-800); color: #fff; }
+    .sql-pill-btn {
+      padding: 6px 10px; border-radius: 999px; border: 1px solid var(--kiki-200);
+      background: var(--kiki-100); color: var(--kiki-800); font-size: 11px; font-weight: 800;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .sql-pill-btn:hover { background: var(--kiki-800); color: #fff; }
+    .badge-9plus {
+      position: absolute; top: -4px; right: -3px; background: var(--rose-600); color: #fff;
+      font-size: 9.5px; font-weight: 800; padding: 1px 5px; border-radius: 999px; border: 1.5px solid #fff;
+    }
+
+    /* Scroll Area */
+    .scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 15px 108px;
+      scrollbar-width: none;
+    }
+    .scroll-area::-webkit-scrollbar { display: none; }
+
+    /* SOCIAL · SPATIAL · ANONYMOUS Pill Row */
+    .ssa-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .ssa-pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px;
+      border-radius: 999px; background: var(--kiki-100); color: var(--kiki-800);
+      font-size: 11px; font-weight: 800; letter-spacing: 0.05em;
+    }
+    .info-circle-btn {
+      width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--hairline);
+      background: #FFFFFF; color: var(--kiki-800); font-weight: 800; font-size: 13px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      box-shadow: 0 3px 10px rgba(33, 10, 74, 0.05);
+    }
+
+    /* 4-Tab Segmented Switcher: Feed | Discover | Kiki Guard | Create */
+    .segmented-nav {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+      background: #EAE7F3; padding: 4px; border-radius: 16px; margin-bottom: 12px;
+    }
+    .seg-btn {
+      border: none; background: transparent; padding: 8px 4px; border-radius: 12px;
+      font-size: 12px; font-weight: 700; color: var(--text-secondary); cursor: pointer;
+      transition: all 0.2s var(--spring);
+    }
+    .seg-btn.active {
+      background: #FFFFFF; color: var(--kiki-800);
+      box-shadow: 0 3px 10px rgba(33, 10, 74, 0.08);
+    }
+
+    /* Instagram-Style Community Pulse Stories */
+    .stories-strip {
+      display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;
+      scrollbar-width: none; margin-bottom: 10px;
+    }
+    .stories-strip::-webkit-scrollbar { display: none; }
+    .story-node {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      min-width: 68px; background: none; border: none; cursor: pointer; flex-shrink: 0;
+    }
+    .story-ring {
+      width: 56px; height: 56px; border-radius: 50%; padding: 2.5px;
+      background: linear-gradient(135deg, #7B38BF 0%, #EC4899 52%, #F59E0B 100%);
+      transition: transform 0.18s var(--spring);
+    }
+    .story-node:active .story-ring { transform: scale(0.92); }
+    .story-inner {
+      width: 100%; height: 100%; border-radius: 50%; background: #FFFFFF;
+      border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center;
+      font-size: 20px; overflow: hidden;
+    }
+    .story-label { font-size: 10.5px; font-weight: 700; color: var(--text-primary); max-width: 68px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Community Selector Chips (Everyday Safety | Kiki Tips | + New) */
+    .comm-pills-row {
+      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;
+      scrollbar-width: none; margin-bottom: 10px;
+    }
+    .comm-pills-row::-webkit-scrollbar { display: none; }
+    .comm-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+      border-radius: 14px; border: 1px solid var(--hairline); background: #FFFFFF;
+      color: var(--text-secondary); font-size: 12.5px; font-weight: 700;
+      white-space: nowrap; cursor: pointer; transition: all 0.18s var(--spring);
+    }
+    .comm-chip.active {
+      background: var(--kiki-100); color: var(--kiki-800); border-color: var(--kiki-200);
+      box-shadow: 0 4px 12px rgba(74, 27, 122, 0.08);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: 22px;
+      padding: 15px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--hairline);
+      margin-bottom: 12px;
+    }
+
+    /* Cloaked Alias Card (Sunny Seal 32BECE / Steady Turtle AF8B6B) */
+    .alias-card {
+      background: linear-gradient(135deg, #FFFFFF 0%, #F7F2FF 100%);
+      border-radius: 20px;
+      padding: 13px 15px;
+      border: 1px solid var(--kiki-200);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .alias-badge {
+      background: var(--kiki-800);
+      color: #FFFFFF;
+      padding: 7px 11px;
+      border-radius: 13px;
+      font-size: 11.5px;
+      font-weight: 800;
+      line-height: 1.25;
+      flex-shrink: 0;
+    }
+
+    /* Quick Interactive Post Launcher */
+    .composer-launcher {
+      background: #FFFFFF;
+      border-radius: 22px;
+      padding: 13px 14px;
+      border: 1px solid var(--hairline);
+      box-shadow: var(--shadow-card);
+      margin-bottom: 14px;
+    }
+    .launcher-top { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .launcher-fake-input {
+      flex: 1; background: #F4F2F9; border-radius: 14px; padding: 10px 13px;
+      font-size: 13px; color: var(--text-secondary); font-weight: 600;
+    }
+    .launcher-pills {
+      display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-top: 9px;
+      border-top: 1px solid var(--hairline); scrollbar-width: none;
+    }
+    .launcher-pills::-webkit-scrollbar { display: none; }
+    .mini-format-btn {
+      border: 1px solid var(--hairline); background: #FAF8FE; color: var(--kiki-900);
+      padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+      white-space: nowrap; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .mini-format-btn:hover { background: var(--kiki-100); border-color: var(--kiki-200); }
+
+    /* =======================================================================
+       IMAGE-ONLY MULTI-SLIDE CAROUSEL & PER-SLIDE CAPTIONS
+       ======================================================================= */
+    .carousel-shell {
+      position: relative;
+      margin-top: 11px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #171326;
+      border: 1px solid var(--hairline);
+    }
+    .carousel-viewport {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      user-select: none;
+    }
+    .carousel-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.3s var(--smooth);
+    }
+    .carousel-counter {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(18, 14, 32, 0.72);
+      backdrop-filter: blur(8px);
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .carousel-type-tag {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--kiki-900);
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .carousel-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.88);
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+    }
+    .carousel-arrow.prev { left: 10px; }
+    .carousel-arrow.next { right: 10px; }
+
+    /* Per-Slide Dynamic Caption Bar */
+    .slide-caption-box {
+      background: linear-gradient(180deg, #211938 0%, #171228 100%);
+      color: #FFFFFF;
+      padding: 10px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .slide-dots { display: flex; justify-content: center; gap: 5px; }
+    .slide-dot {
+      width: 6px; height: 6px; border-radius: 999px;
+      background: rgba(255, 255, 255, 0.32); transition: all 0.2s;
+    }
+    .slide-dot.active { width: 18px; background: #FFFFFF; }
+
+    /* Scavenger Hunt Hotspot Pin */
+    .hotspot-pin {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.22);
+      border: 2px dashed rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      transition: all 0.2s var(--spring);
+    }
+    .hotspot-pin.found {
+      background: #16A34A;
+      border: 2.5px solid #FFFFFF;
+      transform: translate(-50%, -50%) scale(1.15);
+      box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.35);
+    }
+
+    /* =======================================================================
+       INTERACTIVE WIDGET STYLES (Polls, A/B, Slider, Quiz, Fill-Blank, AMA)
+       ======================================================================= */
+    .format-pill {
+      padding: 4px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 800;
+      background: var(--kiki-100); color: var(--kiki-800); white-space: nowrap;
+    }
+    .format-pill.amber { background: var(--amber-100); color: var(--amber-700); }
+    .format-pill.emerald { background: var(--emerald-100); color: var(--emerald-700); }
+    .format-pill.rose { background: var(--rose-100); color: var(--rose-600); }
+    .format-pill.sky { background: var(--sky-100); color: var(--sky-700); }
+
+    /* Poll Options & Crowd Decisions */
+    .poll-stack { display: flex; flex-direction: column; gap: 8px; margin-top: 11px; }
+    .poll-opt {
+      position: relative; overflow: hidden; border: 1.5px solid var(--hairline);
+      background: #FAF9FD; border-radius: 14px; padding: 11px 13px; text-align: left;
+      cursor: pointer; font-family: inherit; transition: border-color 0.2s, transform 0.14s var(--spring);
+    }
+    .poll-opt:active { transform: scale(0.985); }
+    .poll-opt.selected { border-color: var(--kiki-800); background: #FFFFFF; }
+    .poll-fill {
+      position: absolute; inset: 0 auto 0 0; background: rgba(118, 53, 184, 0.13);
+      transition: width 0.45s var(--smooth); pointer-events: none;
+    }
+    .poll-opt.selected .poll-fill { background: rgba(74, 27, 122, 0.19); }
+    .poll-row-inner {
+      position: relative; z-index: 1; display: flex; justify-content: space-between;
+      align-items: center; gap: 8px; font-size: 13px; font-weight: 700;
+    }
+
+    /* This or That (A vs. B) Split Arena */
+    .ab-arena {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 11px; position: relative;
+    }
+    .ab-card {
+      border: 2px solid var(--hairline); border-radius: 16px; padding: 14px 11px;
+      background: linear-gradient(160deg, #FAF8FF 0%, #F1ECFA 100%);
+      text-align: center; cursor: pointer; transition: all 0.2s var(--spring);
+    }
+    .ab-card.selected {
+      border-color: var(--kiki-800); background: var(--kiki-800); color: #FFFFFF;
+      transform: translateY(-2px); box-shadow: 0 10px 20px -6px rgba(74, 27, 122, 0.45);
+    }
+    .vs-badge {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 28px; height: 28px; border-radius: 50%; background: #141122; color: #fff;
+      font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center;
+      border: 2px solid #fff; pointer-events: none;
+    }
+
+    /* 0-100 Slider Rating */
+    .slider-box {
+      margin-top: 11px; background: #FAF8FE; border: 1px solid var(--kiki-200);
+      border-radius: 16px; padding: 13px;
+    }
+    .range-track {
+      width: 100%; accent-color: var(--kiki-800); height: 6px; cursor: pointer; margin: 10px 0 6px;
+    }
+
+    /* Fill-in-the-Blank Interactive Box */
+    .blank-box {
+      margin-top: 11px; background: linear-gradient(135deg, #F6F0FF 0%, #EEF6FF 100%);
+      border: 1.5px dashed var(--kiki-600); border-radius: 16px; padding: 13px;
+    }
+    .blank-inline-input {
+      border: none; border-bottom: 2px solid var(--kiki-800); background: rgba(255, 255, 255, 0.85);
+      padding: 4px 9px; border-radius: 8px 8px 0 0; font-family: inherit; font-size: 13px;
+      font-weight: 700; color: var(--kiki-900); width: 100%; margin-top: 8px;
+    }
+    .blank-inline-input:focus { outline: none; background: #FFFFFF; }
+
+    /* Quiz Options */
+    .quiz-opt {
+      width: 100%; text-align: left; padding: 11px 13px; border-radius: 14px;
+      border: 1.5px solid var(--hairline); background: #FFFFFF; font-family: inherit;
+      font-size: 13px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between;
+    }
+    .quiz-opt.correct { background: var(--emerald-100); border-color: var(--emerald-700); color: var(--emerald-700); }
+    .quiz-opt.wrong { background: var(--rose-100); border-color: var(--rose-600); color: var(--rose-600); }
+
+    /* AMA Question Box */
+    .ama-sticker {
+      margin-top: 11px; border-radius: 18px; padding: 14px;
+      background: linear-gradient(145deg, #4A1B7A 0%, #7635B8 100%); color: #FFFFFF;
+    }
+    .ama-input-row { display: flex; gap: 7px; margin-top: 9px; }
+    .ama-input {
+      flex: 1; border: none; border-radius: 12px; padding: 9px 12px;
+      font-family: inherit; font-size: 12.5px; background: rgba(255, 255, 255, 0.95); color: var(--text-primary);
+    }
+
+    /* Post Footer Actions */
+    .post-footer {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hairline);
+    }
+    .soft-pill-btn {
+      border: none; background: #F4F2F9; color: var(--text-primary);
+      padding: 7px 12px; border-radius: 12px; font-size: 12px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+    }
+    .soft-pill-btn.active { background: var(--kiki-800); color: #FFFFFF; }
+
+    /* Form Controls & Buttons */
+    .field-input {
+      width: 100%; padding: 11px 13px; border-radius: 13px; border: 1px solid #E5E1F0;
+      background: #F8F7FC; font-family: inherit; font-size: 13.5px; color: var(--text-primary);
+    }
+    .field-input:focus { outline: none; background: #FFFFFF; border-color: var(--kiki-700); }
+    .purple-btn {
+      border: none; background: var(--kiki-800); color: #FFFFFF; font-family: inherit;
+      font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 13px;
+      cursor: pointer; box-shadow: 0 6px 16px -4px rgba(74, 27, 122, 0.42);
+    }
+    .purple-btn:hover { background: var(--kiki-700); }
+
+    /* Bottom 5-Slot Navigation */
+    .bottom-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(22px);
+      border-top: 1px solid var(--hairline);
+      display: grid; grid-template-columns: repeat(5, 1fr); align-items: end;
+      padding: 6px 8px 15px; z-index: 40;
+    }
+    .tab-item {
+      border: none; background: transparent; display: flex; flex-direction: column;
+      align-items: center; gap: 3px; color: #8C86A2; font-size: 10.5px; font-weight: 600;
+      padding: 4px 0; cursor: pointer;
+    }
+    .tab-item.active { color: var(--kiki-800); font-weight: 800; }
+    .tab-icon-pill { padding: 2px 12px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+    .tab-item.active .tab-icon-pill { background: var(--kiki-100); }
+    .dove-slot { display: flex; flex-direction: column; align-items: center; margin-top: -28px; }
+    .dove-button {
+      width: 60px; height: 60px; border-radius: 50%; border: none;
+      background: linear-gradient(145deg, #6A2BB0 0%, #4A1B7A 60%, #2D0D52 100%);
+      color: #FFFFFF; box-shadow: var(--shadow-dove);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: transform 0.2s var(--spring);
+    }
+    .dove-button:hover { transform: translateY(-2px) scale(1.04); }
+
+    /* Modals & SQL Pre Block */
+    .modal-backdrop {
+      position: absolute; inset: 0; background: rgba(18, 12, 34, 0.62);
+      backdrop-filter: blur(8px); z-index: 60; display: flex; align-items: flex-end; justify-content: center;
+    }
+    .modal-backdrop.hidden { display: none; }
+    .modal-sheet {
+      width: 100%; background: #FFFFFF; border-radius: 28px 28px 0 0;
+      padding: 18px 16px 26px; max-height: 88vh; overflow-y: auto;
+      animation: slideUp 0.25s var(--smooth);
+    }
+    .sql-code-box {
+      background: #131022; color: #E2D9F3; font-family: var(--font-mono);
+      font-size: 11px; line-height: 1.5; padding: 14px; border-radius: 16px;
+      overflow-x: auto; white-space: pre; max-height: 54vh; border: 1px solid #2E264D;
+    }
+    .toast-banner {
+      position: absolute; top: 102px; left: 50%; transform: translateX(-50%); z-index: 80;
+      background: #141122; color: #FFFFFF; padding: 9px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 12px 26px rgba(0, 0, 0, 0.25);
+    }
+    @keyframes slideUp { from { transform: translateY(28px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  </style>
+</head>
+<body>
+
+  <!-- Desktop Controls -->
+  <div class="desktop-bar">
+    <span>Kiki Social · Spatial · Anonymous Communities</span>
+    <button id="expand-btn" onclick="toggleExpandFrame()">Full Screen Mobile</button>
+    <button onclick="openSqlSchemaModal()">DB &amp; SQL Migrations</button>
+  </div>
+
+  <!-- Phone Container -->
+  <div class="phone-shell" id="phone-shell">
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span>18:48</span>
+      <span class="dynamic-pill">
+        <span style="width:7px;height:7px;border-radius:50%;background:#22C55E;"></span>
+        <span>Pretoria · Safe Zone</span>
+      </span>
+      <span>4G · 22%</span>
+    </div>
+
+    <!-- Top Chrome Header (Tumisho Aphane) -->
+    <header class="top-chrome">
+      <div class="profile-row">
+        <div class="profile-identity">
+          <div class="avatar-box">
+            <img
+              src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=160&q=80"
+              onerror="this.src='https://placehold.co/96x96/4A1B7A/FFFFFF?text=TA'"
+              alt="Tumisho Aphane"
+            />
+            <span class="status-green-dot"></span>
+          </div>
+          <div>
+            <div class="profile-name">Tumisho Aphane</div>
+            <div style="font-size:11px;color:var(--text-secondary);font-weight:600;" id="active-persona-sub">
+              Cloaked as Sunny Seal 32BECE
+            </div>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <button class="sql-pill-btn" onclick="openSqlSchemaModal()" title="View PostgreSQL & Storage Migrations">
+            <span>SQL</span>
+          </button>
+
+          <button class="circle-icon-btn" id="audio-btn" onclick="toggleAudio()" title="Calm Audio">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07"/>
+            </svg>
+          </button>
+
+          <button class="circle-icon-btn" onclick="openNotificationsModal()" title="Notifications">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+            <span class="badge-9plus" id="notif-badge">9+</span>
+          </button>
+
+          <button class="circle-icon-btn" onclick="syncPulse(this)" title="Sync">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24" style="transition:transform 0.5s ease;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Scrollable Viewport -->
+    <main class="scroll-area" id="scroll-area"></main>
+
+    <!-- Bottom 5-Slot Navigation -->
+    <nav class="bottom-bar">
+      <button class="tab-item active" id="nav-home" onclick="switchBottomTab('home')">
+        <span class="tab-icon-pill">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6.5h-5V21H4a1 1 0 01-1-1v-9.5z"/>
+          </svg>
+        </span>
+        <span>Home</span>
+      </button>
+
+      <button class="tab-item" id="nav-trips" onclick="switchBottomTab('trips')">
+        <span class="tab-icon-pill">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+            <circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.5 19H14a3 3 0 000-6h-4a3 3 0 010-6h5.5"/>
+          </svg>
+        </span>
+        <span>Trips</span>
+      </button>
+
+      <div class="dove-slot">
+        <button class="dove-button" onclick="openComposerModal('carousel')" title="Create Interactive or Image Carousel Post">
+          <svg width="30" height="30" viewBox="0 0 36 36" fill="currentColor">
+            <path d="M29.8 10.4c-2.6.2-5.1 1.3-7 3.1-1.3-2.9-4.1-5.1-7.5-5.5-.7-.1-1.2.6-.9 1.2 1.2 2.4 1.5 5.1.8 7.6-2.4-.6-4.7-1.9-6.4-3.8-.5-.5-1.3-.3-1.5.4-.8 3.2.1 6.7 2.4 9.1 2.5 2.6 6.2 3.7 9.8 2.9 4.5-1 8-4.7 8.9-9.2.3-1.4.4-2.8.3-4.2.9-.5 1.8-.9 2.7-1.1.6-.1.6-1 0-1.1-.5-.1-1.1-.1-1.6.6z"/>
+          </svg>
+        </button>
+      </div>
+
+      <button class="tab-item" id="nav-devices" onclick="switchBottomTab('devices')">
+        <span class="tab-icon-pill">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <rect x="7.5" y="2.5" width="9" height="19" rx="4.5" fill="#EDE4FC" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="14.5" r="1.6" fill="currentColor"/>
+            <path d="M10.5 7.5h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span>Devices</span>
+      </button>
+
+      <button class="tab-item" id="nav-account" onclick="switchBottomTab('account')">
+        <span class="tab-icon-pill">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+            <circle cx="12" cy="8" r="4"/>
+            <path stroke-linecap="round" d="M4.5 20a7.5 7.5 0 0115 0"/>
+          </svg>
+        </span>
+        <span>Account</span>
+      </button>
+    </nav>
+
+    <div id="toast-host"></div>
+
+    <!-- Modal Backdrop -->
+    <div class="modal-backdrop hidden" id="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-sheet" id="modal-sheet"></div>
+    </div>
+  </div>
+
+  <script>
+    // =======================================================================
+    // LOCAL ON-DEVICE KIKI GUARD (PII & Identity Protection Engine)
+    // =======================================================================
+    function runKikiGuard(rawText) {
+      const checks = [];
+      let cleaned = rawText;
+
+      if (/(\+27|0)[6-8][0-9]{8}|\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/.test(cleaned)) {
+        checks.push('Phone number redacted');
+        cleaned = cleaned.replace(/(\+27|0)[6-8][0-9]{8}|\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g, '[redacted phone]');
+      }
+      if (/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(cleaned)) {
+        checks.push('Email address redacted');
+        cleaned = cleaned.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[redacted email]');
+      }
+      if (/@[a-zA-Z0-9_]{2,}/.test(cleaned)) {
+        checks.push('Social handle redacted');
+        cleaned = cleaned.replace(/@[a-zA-Z0-9_]{2,}/g, '[redacted handle]');
+      }
+      if (/\b\d{1,5}\s+[A-Z][a-z]+\s+(Street|St|Road|Rd|Avenue|Ave|Drive|Dr)\b/i.test(cleaned)) {
+        checks.push('Exact street address redacted');
+        cleaned = cleaned.replace(/\b\d{1,5}\s+[A-Z][a-z]+\s+(Street|St|Road|Rd|Avenue|Ave|Drive|Dr)\b/gi, '[general area]');
+      }
+      if (/Tumisho|Aphane/i.test(cleaned)) {
+        checks.push('Real name cloaked');
+        cleaned = cleaned.replace(/Tumisho(\s+Aphane)?/gi, '[community member]');
+      }
+
+      return { cleaned, checks };
+    }
+
+    // =======================================================================
+    // APPLICATION STATE — Communities, Personas, All 12 Interactive Post Types
+    // =======================================================================
+    const state = {
+      subTab: 'feed',                 // 'feed' | 'discover' | 'guard' | 'create'
+      activeCommunityId: 'everyday-safety',
+      formatFilter: 'all',            // 'all' | 'carousel' | 'vote' | 'prompts' | 'games' | 'cocreate'
+      guardLogs: [],
+      audioEnabled: false,
+      composerSlides: [
+        {
+          url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=900&q=80',
+          caption: 'Slide 1: Golden hour route check — stick to main avenues with active storefront lighting.'
+        }
+      ],
+      communities: [
+        {
+          id: 'everyday-safety',
+          name: 'Everyday Safety',
+          badge: 'Kiki community',
+          alias: 'Sunny Seal 32BECE',
+          tagline: 'Small ideas for safer everyday routines.',
+          scope: 'Discuss general safety habits and resources. Keep examples broad and never identify yourself or another person.',
+          members: 148,
+          joined: true,
+          acknowledged: true
+        },
+        {
+          id: 'kiki-tips',
+          name: 'Kiki Tips',
+          badge: 'Kiki community',
+          alias: 'Steady Turtle AF8B6B',
+          tagline: 'Practical, calm safety ideas from Kiki.',
+          scope: 'Share general safety guidance and questions. Do not post personal details, contact information, exact addresses, or live locations.',
+          members: 94,
+          joined: true,
+          acknowledged: false
+        },
+        {
+          id: 'support-wellbeing',
+          name: 'Support & Wellbeing',
+          badge: 'Kiki',
+          alias: 'Calm Heron 71C4D9',
+          tagline: 'A kind place for general encouragement and coping ideas.',
+          scope: 'Offer supportive, non-clinical conversation. Do not share names, contact details, private health records, or identifying stories.',
+          members: 62,
+          joined: false,
+          acknowledged: false
+        },
+        {
+          id: 'walking-together',
+          name: 'Walking Together',
+          badge: 'Kiki',
+          alias: 'Brisk Falcon 90E2A1',
+          tagline: 'Supportive ideas for planning safer walks.',
+          scope: 'Share route-planning tips, not live routes, meeting points, or identifiable details about walkers.',
+          members: 51,
+          joined: false,
+          acknowledged: false
+        }
+      ],
+      stories: [
+        { id: 'st-1', title: 'Golden Hour', emoji: '🌇', alias: 'Amber Owl 49A1', text: 'Evening commute tip: keep headphones on transparency mode near busy crossings.' },
+        { id: 'st-2', title: 'Pebble SOS', emoji: '🔮', alias: 'Kiki Official', text: 'Double-tap your Kiki Pebble to send a silent check-in pulse to Tier 2 Guardians.' },
+        { id: 'st-3', title: 'Lighting Audit', emoji: '💡', alias: 'Silver Fox 88D2', text: 'Community poll: Which main pedestrian walkways need brighter solar streetlights?' },
+        { id: 'st-4', title: 'Zero PII', emoji: '🛡️', alias: 'Kiki Guard', text: 'Every image & caption is scanned locally on your device before posting.' }
+      ],
+      posts: [
+        // 1. MULTI-IMAGE CAROUSEL WITH PER-SLIDE INDIVIDUAL CAPTIONS (Images Only)
+        {
+          id: 'post-carousel-1',
+          communityId: 'everyday-safety',
+          categoryGroup: 'carousel',
+          type: 'carousel',
+          typeLabel: '🖼️ Multi-Image Carousel · 3 Photos',
+          pillClass: '',
+          authorAlias: 'Velvet Lynx 84C19A',
+          timeAgo: '14m ago',
+          title: '3-Step Evening Commute Checklist (Swipe for each slide note)',
+          body: 'Put together a visual 3-card checklist from this week’s community tips. Each photo has its own caption below.',
+          currentSlide: 0,
+          slides: [
+            {
+              url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=900&q=80',
+              caption: '1/3 · Choose well-lit main avenues after sunset rather than quiet shortcuts.'
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80',
+              caption: '2/3 · Pre-set your quick-share check-in before stepping out of the office or campus.'
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=80',
+              caption: '3/3 · Walk in visible groups near transit hubs and keep one ear free of earbuds.'
+            }
+          ],
+          helpful: 28,
+          liked: true,
+          replies: [
+            { alias: 'Coral Crane 19F2', text: 'Slide 2 saved me so much stress yesterday evening!' }
+          ]
+        },
+
+        // 2. THIS OR THAT (A vs. B) + POLL
+        {
+          id: 'post-ab-1',
+          communityId: 'everyday-safety',
+          categoryGroup: 'vote',
+          type: 'this_or_that',
+          typeLabel: '⚡ This or That (A vs. B)',
+          pillClass: 'amber',
+          authorAlias: 'Copper Otter 51B7E0',
+          timeAgo: '32m ago',
+          title: 'Evening Walk Habit: Which feels safer to you?',
+          body: 'Two-second tap vote — what is your non-negotiable habit when walking at dusk?',
+          optionA: { label: '🎧 One Earbud Out', sub: 'Full ambient awareness', votes: 64 },
+          optionB: { label: '📍 Live Bubble Timer', sub: 'Auto-alert if delayed', votes: 49 },
+          userChoice: null,
+          helpful: 19,
+          liked: false,
+          replies: []
+        },
+
+        // 3. 0-100 SLIDER & RATING PROMPT
+        {
+          id: 'post-slider-1',
+          communityId: 'everyday-safety',
+          categoryGroup: 'vote',
+          type: 'slider',
+          typeLabel: '🎚️ 0–100 Rating Slider',
+          pillClass: 'sky',
+          authorAlias: 'Misty Finch 77D4A2',
+          timeAgo: '55m ago',
+          title: 'How confident do you feel using public transit hubs after 6 PM?',
+          body: 'Drag the slider from 0 (Very Cautious) to 100 (Completely Confident) to see our community pulse.',
+          avgScore: 62,
+          totalRatings: 41,
+          userRating: 70,
+          submittedRating: false,
+          helpful: 14,
+          liked: false,
+          replies: []
+        },
+
+        // 4. FILL-IN-THE-BLANK PROMPT
+        {
+          id: 'post-blank-1',
+          communityId: 'everyday-safety',
+          categoryGroup: 'prompts',
+          type: 'fill_blank',
+          typeLabel: '✍️ Fill-in-the-Blank',
+          pillClass: '',
+          authorAlias: 'Solar Gecko 92A8C1',
+          timeAgo: '1h ago',
+          title: 'Complete the sentence for the community:',
+          promptPrefix: '“One small routine that always makes my commute feel calmer is ',
+          promptSuffix: '.”',
+          blankDraft: '',
+          helpful: 22,
+          liked: false,
+          replies: [
+            { alias: 'Jade Hare 33E9', text: '“One small routine that always makes my commute feel calmer is keeping a mini rechargeable torch on my keyring.”' },
+            { alias: 'Amber Dingo 60B1', text: '“One small routine that always makes my commute feel calmer is sharing my ETA before boarding.”' }
+          ]
+        },
+
+        // 5. CAPTION CONTEST (Image-only + Top Voted Captions)
+        {
+          id: 'post-caption-1',
+          communityId: 'everyday-safety',
+          categoryGroup: 'prompts',
+          type: 'caption_contest',
+          typeLabel: '📸 Caption Contest',
+          pillClass: 'rose',
+          authorAlias: 'Breezy Koala 14D8F3',
+          timeAgo: '2h ago',
+          title: 'Caption This: When your friend says “I’m 2 mins away” for 25 minutes straight',
+          imageUrl: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=900&q=80',
+          captions: [
+            { id: 'cap-1', alias: 'Quiet Puma 40C2', text: 'Me waiting at the well-lit pickup zone with 3% battery left 😭', votes: 31, voted: false },
+            { id: 'cap-2', alias: 'Swift Ibex 88A1', text: '“I just turned the corner” — currently still tying their shoelaces.', votes: 24, voted: false }
+          ],
+          helpful: 35,
+          liked: true,
+          replies: []
+        },
+
+        // 6. HOT TAKE / DEBATE STARTER
+        {
+          id: 'post-hottake-1',
+          communityId: 'everyday-safety',
+          categoryGroup: 'prompts',
+          type: 'hot_take',
+          typeLabel: '🔥 Hot Take & Debate',
+          pillClass: 'amber',
+          authorAlias: 'Nordic Wolf 66F1B9',
+          timeAgo: '3h ago',
+          title: 'Unpopular opinion: Sharing general unsafe-area patterns helps way more than silent GPS pins.',
+          body: 'Knowing *what time* and *what pattern* to watch out for lets everyone plan smarter routes without exposing anyone’s identity. Agree or disagree?',
+          agreeCount: 44,
+          disagreeCount: 11,
+          userStance: null,
+          helpful: 27,
+          liked: false,
+          replies: [
+            { alias: 'Cedar Wren 52A7', stance: 'Agree', text: 'Context like lighting and foot traffic hours is pure gold.' }
+          ]
+        },
+
+        // 7. MYTH-VS.-FACT TRIVIA QUIZ
+        {
+          id: 'post-quiz-1',
+          communityId: 'kiki-tips',
+          categoryGroup: 'games',
+          type: 'quiz',
+          typeLabel: '🧠 Myth vs. Fact Quiz',
+          pillClass: 'emerald',
+          authorAlias: 'Kiki Safety Lab',
+          timeAgo: '4h ago',
+          title: 'Myth vs. Fact: Does Kiki Guard send your post drafts to external AI servers?',
+          options: [
+            { id: 'q-a', label: 'A) Yes, drafts go to third-party cloud LLMs', correct: false },
+            { id: 'q-b', label: 'B) Fact: Screening runs locally on-device first — never sent to AI', correct: true },
+            { id: 'q-c', label: 'C) Only when you attach an image', correct: false }
+          ],
+          selectedOption: null,
+          explanation: 'Correct! Kiki Guard inspects text locally on your device preview and again on Kiki’s own server without sending drafts to any external AI service.',
+          helpful: 42,
+          liked: false,
+          replies: []
+        },
+
+        // 8. SPOT-THE-DIFFERENCE / SCAVENGER HUNT (Image Hotspot)
+        {
+          id: 'post-hunt-1',
+          communityId: 'kiki-tips',
+          categoryGroup: 'games',
+          type: 'scavenger_hunt',
+          typeLabel: '🔍 Safety Scavenger Hunt',
+          pillClass: 'sky',
+          authorAlias: 'Tawny Eagle 28E4C0',
+          timeAgo: '5h ago',
+          title: 'Spot the 2 Safe Haven Clues in this Street Scene (Tap on the photo!)',
+          body: 'Tap the two safety features hidden in the image (24h lit storefront & pedestrian crossing beacon).',
+          imageUrl: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=900&q=80',
+          hotspots: [
+            { id: 'hs-1', x: 32, y: 58, label: '24h Lit Storefront', found: false },
+            { id: 'hs-2', x: 71, y: 44, label: 'Main Avenue Crossing', found: false }
+          ],
+          helpful: 18,
+          liked: false,
+          replies: []
+        },
+
+        // 9. INTERACTIVE CHALLENGE WITH CHECK-IN STREAK
+        {
+          id: 'post-challenge-1',
+          communityId: 'kiki-tips',
+          categoryGroup: 'games',
+          type: 'challenge',
+          typeLabel: '🏆 7-Day Community Challenge',
+          pillClass: 'emerald',
+          authorAlias: 'Steady Turtle AF8B6B',
+          timeAgo: '6h ago',
+          title: '7-Day “Charge Before 80% Drop” & Pebble Sync Challenge',
+          body: 'Join 63 neighbors keeping phone battery above 40% before evening commutes. Tap below to log today’s check-in!',
+          participants: 63,
+          joinedChallenge: false,
+          streakDays: 3,
+          helpful: 31,
+          liked: false,
+          replies: []
+        },
+
+        // 10. AMA & QUESTION BOX
+        {
+          id: 'post-ama-1',
+          communityId: 'everyday-safety',
+          categoryGroup: 'cocreate',
+          type: 'ama',
+          typeLabel: '💬 Anonymous AMA Box',
+          pillClass: '',
+          authorAlias: 'Kiki Community Host',
+          timeAgo: '7h ago',
+          title: 'Ask Us Anything: Anonymous Nicknames, Safe Havens & Buddy Walks',
+          body: 'Drop any question into the sticker box below. Your nickname stays cloaked!',
+          questions: [
+            {
+              q: 'Why do I have a different animal name in each community?',
+              a: 'So nobody can cross-reference your posts across different groups. Your real profile is never linked.'
+            }
+          ],
+          helpful: 29,
+          liked: false,
+          replies: []
+        },
+
+        // 11. CROWD-SOURCED DECISION
+        {
+          id: 'post-crowd-1',
+          communityId: 'everyday-safety',
+          categoryGroup: 'cocreate',
+          type: 'crowd_decision',
+          typeLabel: '🗳️ Crowd-Sourced Decision',
+          pillClass: 'amber',
+          authorAlias: 'Kiki Editorial',
+          timeAgo: '8h ago',
+          title: 'Vote on Next Week’s Featured Community Guide:',
+          options: [
+            { id: 'cd-1', text: 'Late-Night E-Hailing Verification Checklist', votes: 54 },
+            { id: 'cd-2', text: 'Campus & Student Commute Buddy Playbook', votes: 68 },
+            { id: 'cd-3', text: 'Power Outage & Load-Shedding Street Readiness', votes: 47 }
+          ],
+          votedId: 'cd-2',
+          helpful: 39,
+          liked: true,
+          replies: []
+        },
+
+        // 12. CHOOSE-YOUR-PATH INTERACTIVE CAROUSEL (Image-Only Branching)
+        {
+          id: 'post-path-1',
+          communityId: 'kiki-tips',
+          categoryGroup: 'cocreate',
+          type: 'choose_path',
+          typeLabel: '🧭 Choose-Your-Path Carousel',
+          pillClass: 'sky',
+          authorAlias: 'Kiki Guide Studio',
+          timeAgo: '9h ago',
+          title: 'Interactive Scenario: Your phone drops to 8% battery on the walk home. What do you do first?',
+          stepIndex: 0,
+          steps: [
+            {
+              image: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=900&q=80',
+              caption: 'Step 1 · Low Battery Alert: You are 15 minutes from home at dusk.',
+              choiceA: 'Turn on Low Power & step into a lit Safe Haven',
+              choiceB: 'Keep scrolling social feeds while walking fast'
+            },
+            {
+              image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=900&q=80',
+              caption: 'Step 2 (Smart Move!) · Inside a 24h Safe Haven, you send a 1-tap Kiki Bubble ETA before battery dies.',
+              choiceA: 'Restart Scenario',
+              choiceB: 'Share Tip with Circle'
+            }
+          ],
+          helpful: 25,
+          liked: false,
+          replies: []
+        }
+      ]
+    };
+
+    // =======================================================================
+    // COMPLETE END-TO-END POSTGRESQL + SUPABASE STORAGE SQL MIGRATIONS
+    // =======================================================================
+    const FULL_SQL_MIGRATION = `-- ============================================================================
+-- KIKI SOCIAL · SPATIAL · ANONYMOUS COMMUNITIES
+-- End-to-End PostgreSQL Migrations & Image-Only Storage Schema (Supabase)
+-- ============================================================================
+
+-- 1. EXTENSIONS
+create extension if not exists "pgcrypto";
+
+-- 2. COMMUNITIES & PER-COMMUNITY CLOAKED ALIASES
+create table if not exists public.communities (
+  id uuid primary key default gen_random_uuid(),
+  slug text unique not null,
+  name text not null,
+  description text not null,
+  community_scope text not null,
+  is_official boolean not null default false,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.community_memberships (
+  id uuid primary key default gen_random_uuid(),
+  community_id uuid not null references public.communities(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  cloaked_alias text not null, -- e.g. 'Sunny Seal 32BECE' (unique per community)
+  scope_acknowledged boolean not null default false,
+  joined_at timestamptz not null default now(),
+  unique (community_id, user_id),
+  unique (community_id, cloaked_alias)
+);
+
+-- 3. CORE COMMUNITY POSTS (Supports All 12 Interactive Formats + Carousels)
+create type public.interactive_post_type as enum (
+  'standard_image',
+  'carousel',
+  'poll',
+  'this_or_that',
+  'slider',
+  'fill_blank',
+  'caption_contest',
+  'hot_take',
+  'quiz',
+  'scavenger_hunt',
+  'challenge',
+  'ama',
+  'crowd_decision',
+  'choose_path'
+);
+
+create table if not exists public.community_posts (
+  id uuid primary key default gen_random_uuid(),
+  community_id uuid not null references public.communities(id) on delete cascade,
+  author_membership_id uuid not null references public.community_memberships(id) on delete cascade,
+  post_type public.interactive_post_type not null default 'carousel',
+  title text not null,
+  body text,
+  -- Structured payload for format-specific prompts (slider range, blank prefix/suffix, quiz explanation, hotspots)
+  interactive_config jsonb not null default '{}'::jsonb,
+  guard_status text not null default 'verified_clean' check (guard_status in ('verified_clean', 'redacted', 'blocked')),
+  guard_redactions jsonb not null default '[]'::jsonb,
+  helpful_count integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- 4. IMAGE-ONLY CAROUSEL SLIDES WITH PER-IMAGE CAPTIONS
+create table if not exists public.community_post_media (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts(id) on delete cascade,
+  slide_index integer not null check (slide_index >= 0 and slide_index < 10),
+  storage_path text not null,
+  public_url text not null,
+  mime_type text not null check (mime_type in ('image/jpeg', 'image/png', 'image/webp', 'image/avif')),
+  slide_caption text, -- Individual story/caption per image slide
+  branch_metadata jsonb not null default '{}'::jsonb, -- Used by Choose-Your-Path carousels
+  created_at timestamptz not null default now(),
+  unique (post_id, slide_index)
+);
+
+-- 5. POLLS, THIS-OR-THAT (A/B), QUIZ OPTIONS & CROWD DECISIONS
+create table if not exists public.community_poll_options (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts(id) on delete cascade,
+  option_key text not null, -- 'A', 'B', 'C', etc.
+  label text not null,
+  sub_label text,
+  is_correct_answer boolean default null, -- Populated for Myth-vs-Fact / Trivia Quizzes
+  vote_count integer not null default 0
+);
+
+create table if not exists public.community_post_votes (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts(id) on delete cascade,
+  option_id uuid not null references public.community_poll_options(id) on delete cascade,
+  membership_id uuid not null references public.community_memberships(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (post_id, membership_id)
+);
+
+-- 6. 0-100 SLIDER RATINGS
+create table if not exists public.community_slider_ratings (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts(id) on delete cascade,
+  membership_id uuid not null references public.community_memberships(id) on delete cascade,
+  score integer not null check (score >= 0 and score <= 100),
+  updated_at timestamptz not null default now(),
+  unique (post_id, membership_id)
+);
+
+-- 7. AMA QUESTION BOXES & CAPTION CONTEST SUBMISSIONS
+create table if not exists public.community_ama_questions (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts(id) on delete cascade,
+  asker_membership_id uuid not null references public.community_memberships(id) on delete cascade,
+  question_text text not null,
+  answer_text text,
+  answered_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.community_caption_entries (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts(id) on delete cascade,
+  author_membership_id uuid not null references public.community_memberships(id) on delete cascade,
+  caption_text text not null,
+  upvotes integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- 8. CHALLENGE CHECK-INS & THREADED REPLIES (Fill-in-the-Blank & Hot Take Stances)
+create table if not exists public.community_challenge_checkins (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts(id) on delete cascade,
+  membership_id uuid not null references public.community_memberships(id) on delete cascade,
+  streak_day integer not null default 1,
+  checked_in_date date not null default current_date,
+  unique (post_id, membership_id, checked_in_date)
+);
+
+create table if not exists public.community_post_replies (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.community_posts(id) on delete cascade,
+  author_membership_id uuid not null references public.community_memberships(id) on delete cascade,
+  reply_text text not null,
+  debate_stance text check (debate_stance in ('Agree', 'Nuance', 'Disagree', null)),
+  is_fill_blank_completion boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- 9. ROW LEVEL SECURITY (Strict Anonymity — Never Expose auth.users)
+alter table public.communities enable row level security;
+alter table public.community_memberships enable row level security;
+alter table public.community_posts enable row level security;
+alter table public.community_post_media enable row level security;
+alter table public.community_poll_options enable row level security;
+alter table public.community_post_votes enable row level security;
+alter table public.community_slider_ratings enable row level security;
+alter table public.community_ama_questions enable row level security;
+alter table public.community_caption_entries enable row level security;
+alter table public.community_challenge_checkins enable row level security;
+alter table public.community_post_replies enable row level security;
+
+create policy "Public read communities" on public.communities for select using (true);
+create policy "Members read posts" on public.community_posts for select using (true);
+create policy "Members read post media" on public.community_post_media for select using (true);
+create policy "Users manage own membership" on public.community_memberships
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- 10. SUPABASE STORAGE BUCKET — STRICTLY IMAGES ONLY (NO VIDEOS ALLOWED)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'community-images',
+  'community-images',
+  true,
+  5242880, -- 5 MB max per image
+  array['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+)
+on conflict (id) do update set
+  allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/avif'],
+  file_size_limit = 5242880;
+
+create policy "Public read community images"
+  on storage.objects for select
+  using (bucket_id = 'community-images');
+
+create policy "Authenticated upload community images only"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'community-images'
+    and auth.role() = 'authenticated'
+    and (storage.extension(name) in ('jpg', 'jpeg', 'png', 'webp', 'avif'))
+  );`;
+
+    // =======================================================================
+    // UI ACTIONS & RENDERERS
+    // =======================================================================
+    function getActiveCommunity() {
+      return state.communities.find(c => c.id === state.activeCommunityId) || state.communities[0];
+    }
+
+    function toggleExpandFrame() {
+      const shell = document.getElementById('phone-shell');
+      const btn = document.getElementById('expand-btn');
+      shell.classList.toggle('expanded');
+      btn.textContent = shell.classList.contains('expanded') ? 'Phone Frame View' : 'Full Screen Mobile';
+    }
+
+    function setSubTab(tab) {
+      state.subTab = tab;
+      document.getElementById('scroll-area').scrollTop = 0;
+      render();
+    }
+
+    function selectCommunity(commId) {
+      state.activeCommunityId = commId;
+      const comm = getActiveCommunity();
+      document.getElementById('active-persona-sub').textContent = `Cloaked as ${comm.alias}`;
+      render();
+    }
+
+    function acknowledgeCommunityScope(commId) {
+      const comm = state.communities.find(c => c.id === commId);
+      if (comm) comm.acknowledged = true;
+      showToast(`Joined conversation as ${comm.alias}`);
+      render();
+    }
+
+    function joinCommunity(commId) {
+      const comm = state.communities.find(c => c.id === commId);
+      if (!comm) return;
+      comm.joined = true;
+      comm.members += 1;
+      selectCommunity(commId);
+      setSubTab('feed');
+      showToast(`Joined ${comm.name} as ${comm.alias}`);
+    }
+
+    function setFormatFilter(group) {
+      state.formatFilter = group;
+      render();
+    }
+
+    // Carousel Slide Controls
+    function stepCarousel(postId, delta) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post || !post.slides) return;
+      const len = post.slides.length;
+      post.currentSlide = (post.currentSlide + delta + len) % len;
+      render();
+    }
+
+    function goToSlide(postId, idx) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post) return;
+      post.currentSlide = idx;
+      render();
+    }
+
+    // Interactive Post Handlers
+    function voteAB(postId, choice) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post || post.userChoice === choice) return;
+      if (post.userChoice === 'A') post.optionA.votes--;
+      if (post.userChoice === 'B') post.optionB.votes--;
+      post.userChoice = choice;
+      if (choice === 'A') post.optionA.votes++;
+      if (choice === 'B') post.optionB.votes++;
+      render();
+    }
+
+    function submitSliderScore(postId) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post) return;
+      if (!post.submittedRating) {
+        post.avgScore = Math.round(((post.avgScore * post.totalRatings) + Number(post.userRating)) / (post.totalRatings + 1));
+        post.totalRatings += 1;
+        post.submittedRating = true;
+      }
+      showToast(`Rating ${post.userRating}/100 recorded`);
+      render();
+    }
+
+    function submitFillBlank(postId) {
+      const post = state.posts.find(p => p.id === postId);
+      const inp = document.getElementById(`blank-inp-${postId}`);
+      if (!post || !inp || !inp.value.trim()) return;
+      const guard = runKikiGuard(inp.value.trim());
+      if (guard.checks.length) {
+        state.guardLogs.unshift({ time: 'Just now', items: guard.checks });
+        showToast(`Kiki Guard scrubbed: ${guard.checks.join(', ')}`);
+      }
+      const comm = getActiveCommunity();
+      post.replies.unshift({
+        alias: comm.alias,
+        text: `${post.promptPrefix}${guard.cleaned}${post.promptSuffix}`
+      });
+      render();
+    }
+
+    function submitCaptionEntry(postId) {
+      const post = state.posts.find(p => p.id === postId);
+      const inp = document.getElementById(`cap-inp-${postId}`);
+      if (!post || !inp || !inp.value.trim()) return;
+      const guard = runKikiGuard(inp.value.trim());
+      const comm = getActiveCommunity();
+      post.captions.unshift({
+        id: 'cap-' + Date.now(),
+        alias: comm.alias,
+        text: guard.cleaned,
+        votes: 1,
+        voted: true
+      });
+      showToast('Caption added to contest');
+      render();
+    }
+
+    function voteCaption(postId, capId) {
+      const post = state.posts.find(p => p.id === postId);
+      const cap = post && post.captions.find(c => c.id === capId);
+      if (!cap) return;
+      cap.voted = !cap.voted;
+      cap.votes += cap.voted ? 1 : -1;
+      render();
+    }
+
+    function setHotTakeStance(postId, stance) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post || post.userStance === stance) return;
+      if (post.userStance === 'Agree') post.agreeCount--;
+      if (post.userStance === 'Disagree') post.disagreeCount--;
+      post.userStance = stance;
+      if (stance === 'Agree') post.agreeCount++;
+      if (stance === 'Disagree') post.disagreeCount++;
+      render();
+    }
+
+    function answerQuiz(postId, optId) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post) return;
+      post.selectedOption = optId;
+      render();
+    }
+
+    function tapHotspot(postId, hsId) {
+      const post = state.posts.find(p => p.id === postId);
+      const hs = post && post.hotspots.find(h => h.id === hsId);
+      if (!hs || hs.found) return;
+      hs.found = true;
+      const foundCount = post.hotspots.filter(h => h.found).length;
+      showToast(`Found: ${hs.label} (${foundCount}/${post.hotspots.length})`);
+      render();
+    }
+
+    function toggleChallengeJoin(postId) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post) return;
+      post.joinedChallenge = !post.joinedChallenge;
+      post.participants += post.joinedChallenge ? 1 : -1;
+      if (post.joinedChallenge) post.streakDays += 1;
+      showToast(post.joinedChallenge ? 'Day logged! Streak active 🔥' : 'Left challenge');
+      render();
+    }
+
+    function submitAmaQuestion(postId) {
+      const post = state.posts.find(p => p.id === postId);
+      const inp = document.getElementById(`ama-inp-${postId}`);
+      if (!post || !inp || !inp.value.trim()) return;
+      const guard = runKikiGuard(inp.value.trim());
+      post.questions.unshift({
+        q: guard.cleaned,
+        a: 'Queued for Kiki Host — thank you for asking anonymously!'
+      });
+      showToast('Anonymous question submitted');
+      render();
+    }
+
+    function voteCrowdOption(postId, optId) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post || post.votedId === optId) return;
+      if (post.votedId) {
+        const prev = post.options.find(o => o.id === post.votedId);
+        if (prev) prev.votes--;
+      }
+      post.votedId = optId;
+      const next = post.options.find(o => o.id === optId);
+      if (next) next.votes++;
+      render();
+    }
+
+    function choosePathStep(postId, choiceIdx) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post) return;
+      if (post.stepIndex === 0 && choiceIdx === 1) {
+        showToast('Tip: Low Power Mode + Safe Haven keeps your Guardians updated!');
+      }
+      post.stepIndex = post.stepIndex === 0 ? 1 : 0;
+      render();
+    }
+
+    function toggleHelpful(postId) {
+      const post = state.posts.find(p => p.id === postId);
+      if (!post) return;
+      post.liked = !post.liked;
+      post.helpful += post.liked ? 1 : -1;
+      render();
+    }
+
+    function addQuickReply(postId) {
+      const inp = document.getElementById(`reply-inp-${postId}`);
+      if (!inp || !inp.value.trim()) return;
+      const guard = runKikiGuard(inp.value.trim());
+      if (guard.checks.length) {
+        state.guardLogs.unshift({ time: 'Just now', items: guard.checks });
+        showToast(`Kiki Guard removed: ${guard.checks.join(', ')}`);
+      }
+      const post = state.posts.find(p => p.id === postId);
+      const comm = getActiveCommunity();
+      post.replies.push({ alias: comm.alias, text: guard.cleaned });
+      render();
+    }
+
+    // =======================================================================
+    // MAIN RENDER
+    // =======================================================================
+    function render() {
+      const comm = getActiveCommunity();
+      document.getElementById('active-persona-sub').textContent = `Cloaked as ${comm.alias}`;
+      const area = document.getElementById('scroll-area');
+
+      area.innerHTML = `
+        <!-- SOCIAL · SPATIAL · ANONYMOUS Pill -->
+        <div class="ssa-row">
+          <div class="ssa-pill">
+            <span>📍 SOCIAL · SPATIAL · ANONYMOUS</span>
+          </div>
+          <button class="info-circle-btn" onclick="openPrivacyInfoModal()" title="How Kiki Anonymity Works">i</button>
+        </div>
+
+        <!-- 4-Tab Switcher: Feed | Discover | Kiki Guard | Create -->
+        <div class="segmented-nav">
+          <button class="seg-btn ${state.subTab === 'feed' ? 'active' : ''}" onclick="setSubTab('feed')">Feed</button>
+          <button class="seg-btn ${state.subTab === 'discover' ? 'active' : ''}" onclick="setSubTab('discover')">Discover</button>
+          <button class="seg-btn ${state.subTab === 'guard' ? 'active' : ''}" onclick="setSubTab('guard')">Kiki Guard</button>
+          <button class="seg-btn ${state.subTab === 'create' ? 'active' : ''}" onclick="setSubTab('create')">Create</button>
+        </div>
+
+        ${state.subTab === 'feed' ? renderFeedView() : ''}
+        ${state.subTab === 'discover' ? renderDiscoverView() : ''}
+        ${state.subTab === 'guard' ? renderGuardView() : ''}
+        ${state.subTab === 'create' ? renderCreateCommunityView() : ''}
+      `;
+    }
+
+    function renderFeedView() {
+      const comm = getActiveCommunity();
+      const joinedComms = state.communities.filter(c => c.joined);
+      const formatGroups = [
+        { id: 'all', label: 'All Posts' },
+        { id: 'carousel', label: '🖼️ Image Carousels' },
+        { id: 'vote', label: '📊 Polls & Sliders' },
+        { id: 'prompts', label: '✍️ Prompts & Captions' },
+        { id: 'games', label: '🧠 Quizzes & Hunts' },
+        { id: 'cocreate', label: '💬 AMA & Paths' }
+      ];
+
+      const visiblePosts = state.posts.filter(p => {
+        const commMatch = state.formatFilter !== 'all' ? true : p.communityId === comm.id || true;
+        const groupMatch = state.formatFilter === 'all' || p.categoryGroup === state.formatFilter;
+        return commMatch && groupMatch;
+      });
+
+      return `
+        <!-- Community Pulse Stories -->
+        <div class="stories-strip">
+          ${state.stories.map(st => `
+            <button class="story-node" onclick="openStoryModal('${st.id}')">
+              <div class="story-ring">
+                <div class="story-inner">${st.emoji}</div>
+              </div>
+              <span class="story-label">${st.title}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- Joined Communities Pills -->
+        <div class="comm-pills-row">
+          ${joinedComms.map(c => `
+            <button class="comm-chip ${c.id === comm.id ? 'active' : ''}" onclick="selectCommunity('${c.id}')">
+              <span>🛡️</span>
+              <span>${c.name}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- Community Header & Scope Card -->
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:40px;height:40px;border-radius:13px;background:#F1EFF8;color:var(--kiki-800);display:flex;align-items:center;justify-content:center;font-size:18px;">🛡️</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:7px;">
+                  <strong style="font-size:17px;">${comm.name}</strong>
+                  <span class="format-pill">${comm.badge}</span>
+                </div>
+                <div style="font-size:12.5px;color:var(--text-secondary);margin-top:2px;">${comm.tagline}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:11px;padding:10px 12px;border-radius:14px;background:#F8F7FC;font-size:12px;color:var(--text-secondary);line-height:1.42;">
+            <strong style="color:var(--kiki-800);">Community scope:</strong> ${comm.scope}
+          </div>
+        </div>
+
+        <!-- Cloaked Per-Community Alias Card -->
+        <div class="alias-card">
+          <div class="alias-badge">🔒 You're<br>${comm.alias}</div>
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.4;">
+            in this community. Your nickname is different in each community; your profile and real name are never shown.
+          </div>
+        </div>
+
+        <!-- Welcome Gate ("I understand — continue") if not yet acknowledged -->
+        ${!comm.acknowledged ? `
+          <div class="card" style="border:1.5px solid var(--kiki-600);background:var(--kiki-50);">
+            <div style="font-size:13.5px;font-weight:800;color:var(--kiki-800);margin-bottom:6px;">🛡️ Kiki · Welcome</div>
+            <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;margin-bottom:11px;">
+              Welcome. You are anonymous here under <strong>${comm.alias}</strong>. Kiki Guard checks every post, image caption, and reply locally before posting.
+            </p>
+            <button class="purple-btn" onclick="acknowledgeCommunityScope('${comm.id}')">I understand — continue</button>
+          </div>
+        ` : ''}
+
+        <!-- Interactive Post & Image-Only Carousel Composer Launcher -->
+        <div class="composer-launcher">
+          <div class="launcher-top" onclick="openComposerModal('carousel')">
+            <div style="width:36px;height:36px;border-radius:12px;background:var(--kiki-100);color:var(--kiki-800);display:flex;align-items:center;justify-content:center;font-weight:800;">+</div>
+            <div class="launcher-fake-input">Share an image carousel, poll, quiz, or prompt as ${comm.alias}…</div>
+          </div>
+          <div class="launcher-pills">
+            <button class="mini-format-btn" onclick="openComposerModal('carousel')">🖼️ Image Carousel</button>
+            <button class="mini-format-btn" onclick="openComposerModal('this_or_that')">⚡ This or That</button>
+            <button class="mini-format-btn" onclick="openComposerModal('slider')">🎚️ 0–100 Slider</button>
+            <button class="mini-format-btn" onclick="openComposerModal('fill_blank')">✍️ Fill-in-Blank</button>
+            <button class="mini-format-btn" onclick="openComposerModal('quiz')">🧠 Quiz</button>
+            <button class="mini-format-btn" onclick="openComposerModal('ama')">💬 AMA Box</button>
+          </div>
+        </div>
+
+        <!-- Format Filter Bar -->
+        <div class="comm-pills-row">
+          ${formatGroups.map(fg => `
+            <button class="comm-chip ${state.formatFilter === fg.id ? 'active' : ''}" onclick="setFormatFilter('${fg.id}')">
+              ${fg.label}
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- Interactive Feed Stream -->
+        ${visiblePosts.map(post => renderPostCard(post)).join('')}
+      `;
+    }
+
+    function renderPostCard(post) {
+      return `
+        <article class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--kiki-100);color:var(--kiki-800);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;">
+                🛡️
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:800;">${post.authorAlias}</div>
+                <div style="font-size:11px;color:var(--text-muted);">${post.timeAgo} · Guard Verified</div>
+              </div>
+            </div>
+            <span class="format-pill ${post.pillClass || ''}">${post.typeLabel}</span>
+          </div>
+
+          <h3 style="font-size:15px;font-weight:800;line-height:1.32;margin-bottom:5px;">${post.title}</h3>
+          ${post.body ? `<p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">${post.body}</p>` : ''}
+
+          <!-- Format-Specific Interactive Body -->
+          ${renderPostInteractiveBody(post)}
+
+          <!-- Footer Actions -->
+          <div class="post-footer">
+            <button class="soft-pill-btn ${post.liked ? 'active' : ''}" onclick="toggleHelpful('${post.id}')">
+              <span>👍</span>
+              <span>Helpful ${post.helpful}</span>
+            </button>
+            <span style="font-size:11.5px;color:var(--text-muted);font-weight:600;">
+              ${post.replies.length} ${post.replies.length === 1 ? 'reply' : 'replies'}
+            </span>
+          </div>
+
+          <!-- Existing Replies -->
+          ${post.replies.length > 0 ? `
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:9px;">
+              ${post.replies.map(r => `
+                <div style="background:#F8F7FC;border-radius:12px;padding:8px 11px;font-size:12px;line-height:1.4;">
+                  <strong style="color:var(--kiki-800);">${r.alias}</strong>
+                  ${r.stance ? `<span class="format-pill" style="margin-left:5px;padding:2px 7px;font-size:10px;">${r.stance}</span>` : ''}
+                  <div style="margin-top:2px;color:var(--text-primary);">${r.text}</div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          <!-- Quick Anonymous Reply Input -->
+          <div style="display:flex;gap:6px;margin-top:9px;">
+            <input id="reply-inp-${post.id}" class="field-input" style="padding:8px 11px;font-size:12px;" placeholder="Reply anonymously (Kiki Guard active)..." onkeydown="if(event.key==='Enter') addQuickReply('${post.id}')" />
+            <button class="purple-btn" style="padding:8px 12px;font-size:12px;" onclick="addQuickReply('${post.id}')">Send</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderPostInteractiveBody(post) {
+      // 1. MULTI-IMAGE CAROUSEL WITH PER-SLIDE CAPTIONS (Images Only)
+      if (post.type === 'carousel') {
+        const idx = post.currentSlide || 0;
+        const slide = post.slides[idx] || post.slides[0];
+        return `
+          <div class="carousel-shell">
+            <div class="carousel-viewport">
+              <img class="carousel-img" src="${slide.url}" onerror="this.src='https://placehold.co/800x600/4A1B7A/FFFFFF?text=Kiki+Image+Slide'" alt="Carousel Slide ${idx + 1}" />
+              <span class="carousel-type-tag">📷 Images Only</span>
+              <span class="carousel-counter">${idx + 1} / ${post.slides.length}</span>
+              ${post.slides.length > 1 ? `
+                <button class="carousel-arrow prev" onclick="stepCarousel('${post.id}', -1)" aria-label="Previous slide">‹</button>
+                <button class="carousel-arrow next" onclick="stepCarousel('${post.id}', 1)" aria-label="Next slide">›</button>
+              ` : ''}
+            </div>
+            <div class="slide-caption-box">
+              <div style="font-size:12.5px;line-height:1.4;font-weight:600;">
+                ${slide.caption || 'No caption on this slide.'}
+              </div>
+              ${post.slides.length > 1 ? `
+                <div class="slide-dots">
+                  ${post.slides.map((_, i) => `
+                    <span class="slide-dot ${i === idx ? 'active' : ''}" onclick="goToSlide('${post.id}', ${i})" style="cursor:pointer;"></span>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }
+
+      // 2. THIS OR THAT (A vs. B)
+      if (post.type === 'this_or_that') {
+        const total = post.optionA.votes + post.optionB.votes;
+        const pctA = Math.round((post.optionA.votes / total) * 100);
+        const pctB = 100 - pctA;
+        return `
+          <div class="ab-arena">
+            <button class="ab-card ${post.userChoice === 'A' ? 'selected' : ''}" onclick="voteAB('${post.id}', 'A')">
+              <div style="font-size:13px;font-weight:800;">${post.optionA.label}</div>
+              <div style="font-size:11px;opacity:0.8;margin-top:3px;">${post.optionA.sub}</div>
+              ${post.userChoice ? `<div style="font-size:16px;font-weight:900;margin-top:7px;">${pctA}%</div>` : ''}
+            </button>
+            <span class="vs-badge">VS</span>
+            <button class="ab-card ${post.userChoice === 'B' ? 'selected' : ''}" onclick="voteAB('${post.id}', 'B')">
+              <div style="font-size:13px;font-weight:800;">${post.optionB.label}</div>
+              <div style="font-size:11px;opacity:0.8;margin-top:3px;">${post.optionB.sub}</div>
+              ${post.userChoice ? `<div style="font-size:16px;font-weight:900;margin-top:7px;">${pctB}%</div>` : ''}
+            </button>
+          </div>
+        `;
+      }
+
+      // 3. 0-100 SLIDER RATING
+      if (post.type === 'slider') {
+        const emoji = post.userRating < 35 ? '😟' : post.userRating < 70 ? '🙂' : '🛡️';
+        return `
+          <div class="slider-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:12px;font-weight:700;color:var(--text-secondary);">Your Rating: <strong>${post.userRating}/100</strong> ${emoji}</span>
+              <span class="format-pill">Community Avg: ${post.avgScore}/100 (${post.totalRatings})</span>
+            </div>
+            <input type="range" min="0" max="100" value="${post.userRating}" class="range-track"
+              oninput="const p=state.posts.find(x=>x.id==='${post.id}'); p.userRating=Number(this.value); render();" />
+            <button class="purple-btn" style="width:100%;padding:8px;font-size:12px;" onclick="submitSliderScore('${post.id}')">
+              ${post.submittedRating ? '✓ Score Submitted' : 'Submit Rating'}
+            </button>
+          </div>
+        `;
+      }
+
+      // 4. FILL-IN-THE-BLANK
+      if (post.type === 'fill_blank') {
+        return `
+          <div class="blank-box">
+            <div style="font-size:13px;font-weight:700;color:var(--kiki-950);line-height:1.45;">
+              ${post.promptPrefix}<span style="background:#fff;padding:2px 8px;border-radius:6px;border:1px solid var(--kiki-600);">________</span>${post.promptSuffix}
+            </div>
+            <div style="display:flex;gap:7px;margin-top:8px;">
+              <input id="blank-inp-${post.id}" class="blank-inline-input" style="margin-top:0;" placeholder="Type your completion..." />
+              <button class="purple-btn" style="padding:8px 13px;font-size:12px;flex-shrink:0;" onclick="submitFillBlank('${post.id}')">Post</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // 5. CAPTION CONTEST (Image Only)
+      if (post.type === 'caption_contest') {
+        return `
+          <div class="carousel-shell" style="margin-top:10px;">
+            <div class="carousel-viewport" style="aspect-ratio:16/10;">
+              <img class="carousel-img" src="${post.imageUrl}" onerror="this.src='https://placehold.co/800x500/4A1B7A/FFFFFF?text=Caption+Contest+Image'" alt="Caption contest" />
+              <span class="carousel-type-tag">🏆 Top Captions</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:9px;">
+            ${post.captions.map(c => `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border-radius:13px;background:#FAF8FE;border:1px solid var(--hairline);">
+                <div style="font-size:12px;">
+                  <strong style="color:var(--kiki-800);">${c.alias}:</strong> ${c.text}
+                </div>
+                <button class="soft-pill-btn ${c.voted ? 'active' : ''}" style="padding:5px 9px;font-size:11px;flex-shrink:0;" onclick="voteCaption('${post.id}', '${c.id}')">
+                  ▲ ${c.votes}
+                </button>
+              </div>
+            `).join('')}
+            <div style="display:flex;gap:6px;margin-top:3px;">
+              <input id="cap-inp-${post.id}" class="field-input" style="padding:8px 11px;font-size:12px;" placeholder="Enter your funny/clever caption..." />
+              <button class="purple-btn" style="padding:8px 12px;font-size:12px;" onclick="submitCaptionEntry('${post.id}')">Submit</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // 6. HOT TAKE / DEBATE STARTER
+      if (post.type === 'hot_take') {
+        return `
+          <div style="display:flex;gap:8px;margin-top:11px;">
+            <button class="poll-opt ${post.userStance === 'Agree' ? 'selected' : ''}" style="flex:1;text-align:center;" onclick="setHotTakeStance('${post.id}', 'Agree')">
+              <strong>👍 Agree (${post.agreeCount})</strong>
+            </button>
+            <button class="poll-opt ${post.userStance === 'Disagree' ? 'selected' : ''}" style="flex:1;text-align:center;" onclick="setHotTakeStance('${post.id}', 'Disagree')">
+              <strong>🤔 Disagree (${post.disagreeCount})</strong>
+            </button>
+          </div>
+        `;
+      }
+
+      // 7. MYTH-VS.-FACT QUIZ
+      if (post.type === 'quiz') {
+        return `
+          <div class="poll-stack">
+            ${post.options.map(opt => {
+              const revealed = post.selectedOption !== null;
+              const cls = revealed ? (opt.correct ? 'correct' : (post.selectedOption === opt.id ? 'wrong' : '')) : '';
+              return `
+                <button class="quiz-opt ${cls}" onclick="answerQuiz('${post.id}', '${opt.id}')">
+                  <span>${opt.label}</span>
+                  <span>${revealed ? (opt.correct ? '✓' : (post.selectedOption === opt.id ? '✕' : '')) : ''}</span>
+                </button>
+              `;
+            }).join('')}
+            ${post.selectedOption ? `
+              <div style="padding:10px 12px;border-radius:13px;background:var(--emerald-100);color:var(--emerald-700);font-size:12px;font-weight:600;line-height:1.4;">
+                ${post.explanation}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+
+      // 8. SPOT-THE-DIFFERENCE / SCAVENGER HUNT (Image Hotspots)
+      if (post.type === 'scavenger_hunt') {
+        const foundCount = post.hotspots.filter(h => h.found).length;
+        return `
+          <div class="carousel-shell" style="margin-top:10px;">
+            <div class="carousel-viewport">
+              <img class="carousel-img" src="${post.imageUrl}" onerror="this.src='https://placehold.co/800x600/331066/FFFFFF?text=Scavenger+Hunt+Scene'" alt="Scavenger hunt" />
+              <span class="carousel-counter">Found ${foundCount} / ${post.hotspots.length}</span>
+              ${post.hotspots.map(hs => `
+                <button class="hotspot-pin ${hs.found ? 'found' : ''}" style="left:${hs.x}%;top:${hs.y}%;" onclick="tapHotspot('${post.id}', '${hs.id}')">
+                  ${hs.found ? '✓' : '?'}
+                </button>
+              `).join('')}
+            </div>
+            <div class="slide-caption-box">
+              <div style="font-size:12px;">
+                ${foundCount === post.hotspots.length
+                  ? '🎉 All Safe Haven clues spotted! Comment your route tip below.'
+                  : 'Tap the glowing targets on the photo to uncover the safety clues.'}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 9. INTERACTIVE CHALLENGE
+      if (post.type === 'challenge') {
+        return `
+          <div style="margin-top:11px;padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,#ECFDF5 0%,#F3EEFD 100%);border:1px solid #BBF7D0;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div>
+              <div style="font-size:13px;font-weight:800;color:var(--emerald-700);">🔥 ${post.streakDays}-Day Streak · ${post.participants} Neighbors</div>
+              <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">Tap to log today’s anonymous check-in</div>
+            </div>
+            <button class="purple-btn" style="background:${post.joinedChallenge ? 'var(--emerald-700)' : 'var(--kiki-800)'};" onclick="toggleChallengeJoin('${post.id}')">
+              ${post.joinedChallenge ? '✓ Checked In' : 'Join & Check In'}
+            </button>
+          </div>
+        `;
+      }
+
+      // 10. AMA & QUESTION BOX
+      if (post.type === 'ama') {
+        return `
+          <div class="ama-sticker">
+            <div style="font-size:12px;font-weight:800;letter-spacing:0.03em;">ASK ME ANYTHING · ANONYMOUS STICKER</div>
+            <div class="ama-input-row">
+              <input id="ama-inp-${post.id}" class="ama-input" placeholder="Ask anonymously..." />
+              <button class="purple-btn" style="background:#141122;" onclick="submitAmaQuestion('${post.id}')">Ask</button>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px;margin-top:9px;">
+            ${post.questions.map(item => `
+              <div style="padding:10px 12px;border-radius:13px;background:#F8F7FC;border-left:3px solid var(--kiki-800);font-size:12px;">
+                <div style="font-weight:800;color:var(--kiki-900);">Q: ${item.q}</div>
+                <div style="color:var(--text-secondary);margin-top:3px;">A: ${item.a}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      // 11. CROWD-SOURCED DECISION & POLLS
+      if (post.type === 'crowd_decision' || post.type === 'poll') {
+        const totalVotes = post.options.reduce((s, o) => s + o.votes, 0) || 1;
+        const maxVotes = Math.max(...post.options.map(o => o.votes));
+        return `
+          <div class="poll-stack">
+            ${post.options.map(opt => {
+              const pct = Math.round((opt.votes / totalVotes) * 100);
+              const isSelected = post.votedId === opt.id;
+              const isWinning = opt.votes === maxVotes && post.votedId;
+              return `
+                <button class="poll-opt ${isSelected ? 'selected' : ''}" onclick="voteCrowdOption('${post.id}', '${opt.id}')">
+                  <div class="poll-fill" style="width:${post.votedId ? pct : 0}%;"></div>
+                  <div class="poll-row-inner">
+                    <span>${opt.text} ${isWinning ? '👑' : ''}</span>
+                    ${post.votedId ? `<span>${pct}%</span>` : ''}
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+
+      // 12. CHOOSE-YOUR-PATH CAROUSEL (Image-Only Branching)
+      if (post.type === 'choose_path') {
+        const step = post.steps[post.stepIndex || 0];
+        return `
+          <div class="carousel-shell">
+            <div class="carousel-viewport">
+              <img class="carousel-img" src="${step.image}" onerror="this.src='https://placehold.co/800x600/4A1B7A/FFFFFF?text=Choose+Your+Path'" alt="Choose path step" />
+              <span class="carousel-type-tag">🧭 Interactive Path</span>
+              <span class="carousel-counter">Step ${(post.stepIndex || 0) + 1} / ${post.steps.length}</span>
+            </div>
+            <div class="slide-caption-box">
+              <div style="font-size:12.5px;font-weight:700;line-height:1.4;">${step.caption}</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:4px;">
+                <button class="purple-btn" style="padding:8px 9px;font-size:11px;background:#7B38BF;" onclick="choosePathStep('${post.id}', 0)">
+                  ${step.choiceA}
+                </button>
+                <button class="purple-btn" style="padding:8px 9px;font-size:11px;background:rgba(255,255,255,0.16);" onclick="choosePathStep('${post.id}', 1)">
+                  ${step.choiceB}
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      return '';
+    }
+
+    function renderDiscoverView() {
+      return `
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">
+          Every community is public and moderated. Read its scope before joining.
+        </p>
+        ${state.communities.map(c => `
+          <div class="card">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <div style="width:44px;height:44px;border-radius:14px;background:#F1EFF8;color:var(--kiki-800);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;">🛡️</div>
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:7px;">
+                  <strong style="font-size:16px;">${c.name}</strong>
+                  <span class="format-pill">Kiki</span>
+                </div>
+                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px;">${c.tagline}</p>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.4;">
+                  📍 ${c.members} members · ${c.scope}
+                </p>
+                <button class="purple-btn" style="margin-top:10px;padding:8px 16px;background:${c.joined ? '#EFEBF8' : 'var(--kiki-800)'};color:${c.joined ? 'var(--kiki-800)' : '#fff'};box-shadow:none;"
+                  onclick="${c.joined ? `selectCommunity('${c.id}');setSubTab('feed')` : `joinCommunity('${c.id}')`}">
+                  ${c.joined ? 'Open' : 'Join'}
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    function renderGuardView() {
+      return `
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:8px;">
+            <div style="width:42px;height:42px;border-radius:14px;background:var(--kiki-100);color:var(--kiki-800);display:flex;align-items:center;justify-content:center;font-size:20px;">🛡️</div>
+            <div>
+              <strong style="font-size:16px;">Your privacy comes first</strong>
+              <div style="font-size:12px;color:var(--text-secondary);">Local on-device screening · Zero external AI</div>
+            </div>
+          </div>
+          <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
+            Kiki Guard screens every community post, image caption, poll option, and reply on your device preview and again on the server. Your draft isn’t sent to an AI service.
+          </p>
+        </div>
+
+        <div class="card">
+          <strong style="font-size:15px;">What it checks</strong>
+          <ul style="margin:9px 0 10px 18px;font-size:12.5px;color:var(--text-secondary);line-height:1.6;">
+            <li>Names and identifying details about you or another person</li>
+            <li>Addresses, live locations, and precise coordinates</li>
+            <li>Phone numbers, email addresses, social handles, and external contact links</li>
+            <li>Image-only MIME verification (blocks video uploads at client &amp; storage bucket level)</li>
+          </ul>
+          <button class="purple-btn" style="width:100%;" onclick="openSqlSchemaModal()">View PostgreSQL &amp; Storage SQL Migrations</button>
+        </div>
+
+        <div class="card">
+          <strong style="font-size:15px;">Recent checks</strong>
+          ${state.guardLogs.length === 0 ? `
+            <p style="font-size:12.5px;color:var(--text-muted);margin-top:8px;padding:12px;border:1px dashed var(--hairline);border-radius:14px;text-align:center;">
+              No recent checks. Kiki Guard will show a notice here when it removes or refuses risky details.
+            </p>
+          ` : state.guardLogs.map(log => `
+            <div style="margin-top:8px;padding:9px 11px;border-radius:12px;background:var(--amber-100);color:var(--amber-700);font-size:12px;font-weight:700;">
+              ${log.time}: ${log.items.join(' · ')}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderCreateCommunityView() {
+      return `
+        <div class="card">
+          <strong style="font-size:17px;">Create a community</strong>
+          <p style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;line-height:1.45;">
+            Communities are public and have no following or direct messages. Kiki’s privacy rules apply to all posts, image carousels, and replies.
+          </p>
+          <form onsubmit="handleCreateCommunity(event)" style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+            <input id="new-comm-name" class="field-input" required placeholder="Community name" />
+            <textarea id="new-comm-desc" class="field-input" rows="2" required placeholder="Description"></textarea>
+            <textarea id="new-comm-scope" class="field-input" rows="2" required placeholder="What kind of general discussion belongs here? Include privacy expectations."></textarea>
+            <button type="submit" class="purple-btn" style="padding:12px;">Create community</button>
+          </form>
+        </div>
+      `;
+    }
+
+    function handleCreateCommunity(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-comm-name').value.trim();
+      const desc = document.getElementById('new-comm-desc').value.trim();
+      const scope = document.getElementById('new-comm-scope').value.trim();
+      if (!name) return;
+      const animals = ['Bright Heron', 'Gentle Lynx', 'Calm Oriole', 'Swift Badger'];
+      const alias = `${animals[Math.floor(Math.random() * animals.length)]} ${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
+      const newId = 'comm-' + Date.now();
+      state.communities.push({
+        id: newId,
+        name,
+        badge: 'Kiki community',
+        alias,
+        tagline: desc,
+        scope,
+        members: 1,
+        joined: true,
+        acknowledged: true
+      });
+      selectCommunity(newId);
+      setSubTab('feed');
+      showToast(`Created "${name}" as ${alias}`);
+    }
+
+    // =======================================================================
+    // FULL INTERACTIVE POST & MULTI-IMAGE CAROUSEL COMPOSER MODAL
+    // =======================================================================
+    function openComposerModal(defaultType = 'carousel') {
+      const comm = getActiveCommunity();
+      openModal(`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div>
+            <h3 style="font-size:17px;font-weight:800;">Create Interactive Post</h3>
+            <div style="font-size:11.5px;color:var(--kiki-800);font-weight:700;">Posting cloaked as ${comm.alias}</div>
+          </div>
+          <button onclick="closeModal()" style="border:none;background:#F2F0F8;width:32px;height:32px;border-radius:50%;font-weight:700;cursor:pointer;">✕</button>
+        </div>
+
+        <label style="font-size:11.5px;font-weight:800;color:var(--text-secondary);display:block;margin-bottom:4px;">Interactive Format</label>
+        <select id="comp-type" class="field-input" style="margin-bottom:10px;" onchange="toggleComposerDynamicFields(this.value)">
+          <option value="carousel" ${defaultType === 'carousel' ? 'selected' : ''}>🖼️ Multi-Image Carousel (Images Only + Per-Slide Captions)</option>
+          <option value="this_or_that" ${defaultType === 'this_or_that' ? 'selected' : ''}>⚡ This or That (A vs. B Split Vote)</option>
+          <option value="poll" ${defaultType === 'poll' ? 'selected' : ''}>📊 Community Poll / Crowd-Sourced Decision</option>
+          <option value="slider" ${defaultType === 'slider' ? 'selected' : ''}>🎚️ 0–100 Rating Slider Prompt</option>
+          <option value="fill_blank" ${defaultType === 'fill_blank' ? 'selected' : ''}>✍️ Fill-in-the-Blank Prompt</option>
+          <option value="caption_contest" ${defaultType === 'caption_contest' ? 'selected' : ''}>📸 Image Caption Contest</option>
+          <option value="hot_take" ${defaultType === 'hot_take' ? 'selected' : ''}>🔥 Hot Take & Debate Starter</option>
+          <option value="quiz" ${defaultType === 'quiz' ? 'selected' : ''}>🧠 Myth vs. Fact Trivia Quiz</option>
+          <option value="ama" ${defaultType === 'ama' ? 'selected' : ''}>💬 AMA & Anonymous Question Box</option>
+        </select>
+
+        <input id="comp-title" class="field-input" placeholder="Headline or question prompt..." style="margin-bottom:8px;" />
+        <textarea id="comp-body" class="field-input" rows="2" placeholder="Optional context (no real names, phone numbers, or exact addresses)..." style="margin-bottom:10px;"></textarea>
+
+        <!-- Dynamic Format-Specific Inputs -->
+        <div id="comp-dynamic-fields"></div>
+
+        <button class="purple-btn" style="width:100%;padding:12px;margin-top:8px;" onclick="publishComposerPost()">
+          Run Kiki Guard &amp; Publish
+        </button>
+      `);
+      toggleComposerDynamicFields(defaultType);
+    }
+
+    function toggleComposerDynamicFields(type) {
+      const box = document.getElementById('comp-dynamic-fields');
+      if (!box) return;
+
+      if (type === 'carousel' || type === 'caption_contest') {
+        box.innerHTML = `
+          <div style="padding:11px;border-radius:15px;background:#F8F6FD;border:1px solid var(--kiki-200);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <strong style="font-size:12px;color:var(--kiki-900);">📷 Image Slides (${state.composerSlides.length}/6 · Images Only, No Video)</strong>
+              <label style="background:var(--kiki-800);color:#fff;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;">
+                + Add Image(s)
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple style="display:none;" onchange="handleImageOnlyUpload(event)" />
+              </label>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              ${state.composerSlides.map((s, i) => `
+                <div style="display:flex;gap:8px;align-items:center;background:#fff;padding:7px;border-radius:12px;border:1px solid var(--hairline);">
+                  <img src="${s.url}" style="width:52px;height:52px;border-radius:9px;object-fit:cover;flex-shrink:0;" />
+                  <input class="field-input" style="padding:7px 9px;font-size:11.5px;" value="${s.caption.replace(/"/g, '&quot;')}"
+                    oninput="state.composerSlides[${i}].caption = this.value"
+                    placeholder="Individual caption/story for Image ${i + 1}..." />
+                  ${state.composerSlides.length > 1 ? `
+                    <button type="button" onclick="state.composerSlides.splice(${i},1);toggleComposerDynamicFields('${type}')" style="border:none;background:#FEE2E2;color:#DC2626;width:26px;height:26px;border-radius:8px;font-weight:800;cursor:pointer;">✕</button>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } else if (type === 'this_or_that') {
+        box.innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <input id="comp-opt-a" class="field-input" placeholder="Option A (e.g., Morning Walk)" />
+            <input id="comp-opt-b" class="field-input" placeholder="Option B (e.g., Sunset Walk)" />
+          </div>
+        `;
+      } else if (type === 'poll' || type === 'quiz') {
+        box.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <input id="comp-p1" class="field-input" placeholder="Choice 1" />
+            <input id="comp-p2" class="field-input" placeholder="Choice 2" />
+            <input id="comp-p3" class="field-input" placeholder="Choice 3 (optional)" />
+          </div>
+        `;
+      } else if (type === 'fill_blank') {
+        box.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <input id="comp-prefix" class="field-input" placeholder="Sentence before blank (e.g., My top safety habit is )" />
+            <input id="comp-suffix" class="field-input" placeholder="Sentence after blank (optional)" />
+          </div>
+        `;
+      } else {
+        box.innerHTML = `<div style="font-size:12px;color:var(--text-secondary);padding:6px 2px;">Interactive ${type.replace('_', ' ')} widget will be attached automatically.</div>`;
+      }
+    }
+
+    function handleImageOnlyUpload(e) {
+      const files = Array.from(e.target.files || []);
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+          showToast('Only image files (JPEG, PNG, WebP, AVIF) are permitted — videos are blocked');
+          continue;
+        }
+        const blobUrl = URL.createObjectURL(file);
+        state.composerSlides.push({
+          url: blobUrl,
+          caption: `Slide ${state.composerSlides.length + 1}: Add your individual photo note here`
+        });
+      }
+      const typeSel = document.getElementById('comp-type');
+      toggleComposerDynamicFields(typeSel ? typeSel.value : 'carousel');
+    }
+
+    function publishComposerPost() {
+      const type = document.getElementById('comp-type').value;
+      const rawTitle = document.getElementById('comp-title').value.trim() || 'Community Interactive Check-In';
+      const rawBody = document.getElementById('comp-body').value.trim();
+
+      const gTitle = runKikiGuard(rawTitle);
+      const gBody = runKikiGuard(rawBody);
+      const allChecks = [...gTitle.checks, ...gBody.checks];
+
+      const comm = getActiveCommunity();
+      const basePost = {
+        id: 'post-' + Date.now(),
+        communityId: comm.id,
+        authorAlias: comm.alias,
+        timeAgo: 'Just now',
+        title: gTitle.cleaned,
+        body: gBody.cleaned,
+        helpful: 1,
+        liked: true,
+        replies: []
+      };
+
+      if (type === 'carousel') {
+        const cleanSlides = state.composerSlides.map(s => {
+          const gc = runKikiGuard(s.caption || '');
+          allChecks.push(...gc.checks);
+          return { url: s.url, caption: gc.cleaned };
+        });
+        Object.assign(basePost, {
+          categoryGroup: 'carousel',
+          type: 'carousel',
+          typeLabel: `🖼️ Multi-Image Carousel · ${cleanSlides.length} ${cleanSlides.length === 1 ? 'Photo' : 'Photos'}`,
+          currentSlide: 0,
+          slides: cleanSlides
+        });
+      } else if (type === 'this_or_that') {
+        const a = (document.getElementById('comp-opt-a')?.value.trim()) || 'Option A';
+        const b = (document.getElementById('comp-opt-b')?.value.trim()) || 'Option B';
+        Object.assign(basePost, {
+          categoryGroup: 'vote',
+          type: 'this_or_that',
+          typeLabel: '⚡ This or That (A vs. B)',
+          pillClass: 'amber',
+          optionA: { label: a, sub: 'Choice A', votes: 1 },
+          optionB: { label: b, sub: 'Choice B', votes: 0 },
+          userChoice: null
+        });
+      } else if (type === 'poll' || type === 'quiz') {
+        const c1 = document.getElementById('comp-p1')?.value.trim() || 'Option 1';
+        const c2 = document.getElementById('comp-p2')?.value.trim() || 'Option 2';
+        const c3 = document.getElementById('comp-p3')?.value.trim();
+        const opts = [
+          { id: 'o1', text: c1, label: c1, votes: 1, correct: true },
+          { id: 'o2', text: c2, label: c2, votes: 0, correct: false }
+        ];
+        if (c3) opts.push({ id: 'o3', text: c3, label: c3, votes: 0, correct: false });
+        Object.assign(basePost, {
+          categoryGroup: type === 'quiz' ? 'games' : 'vote',
+          type: type === 'quiz' ? 'quiz' : 'crowd_decision',
+          typeLabel: type === 'quiz' ? '🧠 Myth vs. Fact Quiz' : '📊 Community Poll',
+          pillClass: type === 'quiz' ? 'emerald' : 'amber',
+          options: opts,
+          votedId: null,
+          selectedOption: null,
+          explanation: 'Thanks for participating in the community quiz!'
+        });
+      } else if (type === 'slider') {
+        Object.assign(basePost, {
+          categoryGroup: 'vote',
+          type: 'slider',
+          typeLabel: '🎚️ 0–100 Rating Slider',
+          pillClass: 'sky',
+          avgScore: 75,
+          totalRatings: 1,
+          userRating: 75,
+          submittedRating: false
+        });
+      } else if (type === 'fill_blank') {
+        const pre = document.getElementById('comp-prefix')?.value.trim() || '“My favorite everyday safety habit is ';
+        const suf = document.getElementById('comp-suffix')?.value.trim() || '.”';
+        Object.assign(basePost, {
+          categoryGroup: 'prompts',
+          type: 'fill_blank',
+          typeLabel: '✍️ Fill-in-the-Blank',
+          promptPrefix: pre,
+          promptSuffix: suf
+        });
+      } else if (type === 'caption_contest') {
+        Object.assign(basePost, {
+          categoryGroup: 'prompts',
+          type: 'caption_contest',
+          typeLabel: '📸 Caption Contest',
+          pillClass: 'rose',
+          imageUrl: state.composerSlides[0].url,
+          captions: []
+        });
+      } else if (type === 'hot_take') {
+        Object.assign(basePost, {
+          categoryGroup: 'prompts',
+          type: 'hot_take',
+          typeLabel: '🔥 Hot Take & Debate',
+          pillClass: 'amber',
+          agreeCount: 1,
+          disagreeCount: 0,
+          userStance: null
+        });
+      } else {
+        Object.assign(basePost, {
+          categoryGroup: 'cocreate',
+          type: 'ama',
+          typeLabel: '💬 Anonymous AMA Box',
+          questions: []
+        });
+      }
+
+      if (allChecks.length > 0) {
+        state.guardLogs.unshift({ time: 'Just now', items: [...new Set(allChecks)] });
+        showToast(`Kiki Guard scrubbed: ${[...new Set(allChecks)].join(', ')}`);
+      } else {
+        showToast('Published to community feed!');
+      }
+
+      state.posts.unshift(basePost);
+      closeModal();
+      setSubTab('feed');
+    }
+
+    // =======================================================================
+    // SQL MIGRATIONS & STORAGE SCHEMA MODAL
+    // =======================================================================
+    function openSqlSchemaModal() {
+      openModal(`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div>
+            <h3 style="font-size:16.5px;font-weight:800;">PostgreSQL &amp; Image Storage Migrations</h3>
+            <div style="font-size:11.5px;color:var(--text-secondary);">Supabase SQL · RLS · Image-Only Bucket (No Video)</div>
+          </div>
+          <button onclick="closeModal()" style="border:none;background:#F2F0F8;width:32px;height:32px;border-radius:50%;font-weight:700;cursor:pointer;">✕</button>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <button class="purple-btn" style="flex:1;padding:9px;font-size:12px;" onclick="copySqlToClipboard()">📋 Copy Complete SQL Migration</button>
+        </div>
+
+        <textarea id="sql-hidden-copy" style="position:fixed;left:-9999px;">${FULL_SQL_MIGRATION}</textarea>
+        <pre class="sql-code-box">${FULL_SQL_MIGRATION.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+      `);
+    }
+
+    function copySqlToClipboard() {
+      const ta = document.getElementById('sql-hidden-copy');
+      if (!ta) return;
+      ta.select();
+      document.execCommand('copy');
+      showToast('Copied full PostgreSQL & Storage SQL migration!');
+    }
+
+    // =======================================================================
+    // STORY, INFO & BOTTOM NAVIGATION HELPERS
+    // =======================================================================
+    function openStoryModal(storyId) {
+      const st = state.stories.find(s => s.id === storyId);
+      if (!st) return;
+      openModal(`
+        <div style="background:linear-gradient(145deg,#331066,#62269E);color:#fff;padding:22px 18px;border-radius:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <span style="font-size:12px;font-weight:800;">${st.emoji} ${st.title} · ${st.alias}</span>
+            <button onclick="closeModal()" style="border:none;background:rgba(255,255,255,0.2);color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;">✕</button>
+          </div>
+          <p style="font-size:16px;font-weight:700;line-height:1.45;">${st.text}</p>
+        </div>
+      `);
+    }
+
+    function openPrivacyInfoModal() {
+      openModal(`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h3 style="font-size:17px;font-weight:800;">Social · Spatial · Anonymous</h3>
+          <button onclick="closeModal()" style="border:none;background:#F2F0F8;width:32px;height:32px;border-radius:50%;font-weight:700;cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;">
+          In Kiki Communities, your real profile is never shown. You receive a unique animal alias per community, and only images (JPEG, PNG, WebP, AVIF) are supported—never videos.
+        </p>
+      `);
+    }
+
+    function openNotificationsModal() {
+      document.getElementById('notif-badge').style.display = 'none';
+      openModal(`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h3 style="font-size:17px;font-weight:800;">Community Activity</h3>
+          <button onclick="closeModal()" style="border:none;background:#F2F0F8;width:32px;height:32px;border-radius:50%;font-weight:700;cursor:pointer;">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;">
+          <div style="padding:10px 12px;border-radius:13px;background:var(--kiki-100);color:var(--kiki-900);font-weight:600;">
+            28 neighbors marked your 3-Slide Evening Commute Carousel as Helpful
+          </div>
+          <div style="padding:10px 12px;border-radius:13px;background:var(--emerald-100);color:var(--emerald-700);font-weight:600;">
+            Kiki Guard verified all 12 interactive community threads
+          </div>
+        </div>
+      `);
+    }
+
+    function switchBottomTab(tab) {
+      document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+      const el = document.getElementById(`nav-${tab}`);
+      if (el) el.classList.add('active');
+      if (tab === 'home') setSubTab('feed');
+      else if (tab === 'trips') showToast('Spatial Trips radar active · Pretoria Safe Zone');
+      else if (tab === 'devices') showToast('Kiki Pebble connected · 94% battery');
+      else if (tab === 'account') openSqlSchemaModal();
+    }
+
+    function toggleAudio() {
+      state.audioEnabled = !state.audioEnabled;
+      document.getElementById('audio-btn').classList.toggle('active-audio', state.audioEnabled);
+      showToast(state.audioEnabled ? 'Calm chime feedback enabled' : 'Audio muted');
+    }
+
+    function syncPulse(btn) {
+      const svg = btn.querySelector('svg');
+      svg.style.transform = 'rotate(360deg)';
+      setTimeout(() => { svg.style.transform = 'rotate(0deg)'; }, 500);
+      showToast('Synced communities & interactive polls');
+    }
+
+    function openModal(html) {
+      document.getElementById('modal-sheet').innerHTML = html;
+      document.getElementById('modal-backdrop').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-backdrop').classList.add('hidden');
+    }
+
+    function showToast(msg) {
+      const host = document.getElementById('toast-host');
+      host.innerHTML = `<div class="toast-banner">🕊️ ${msg}</div>`;
+      setTimeout(() => { host.innerHTML = ''; }, 2800);
+    }
+
+    window.addEventListener('DOMContentLoaded', render);
+  </script>
+</body>
+</html>

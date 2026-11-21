@@ -1,0 +1,1133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F8F4EC">
+  <title>Kiki Connect — UI review demo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --plum: #4A2472;
+      --plum-dark: #35194F;
+      --lavender: #EEE8F6;
+      --paper: #F8F4EC;
+      --surface: #FFFDF9;
+      --ink: #29231F;
+      --muted: #756D66;
+      --pink: #EC7AAE;
+      --peach: #FCE9DF;
+      --green: #BFDFBF;
+      --green-ink: #315B37;
+      --line: #E8DED3;
+      --shadow: 0 16px 42px rgba(53, 25, 79, .08);
+      --radius: 20px;
+      --nav-width: 264px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+    * { box-sizing: border-box; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; background: var(--paper); }
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
+    .app { min-height: 100vh; }
+    .sidebar {
+      position: fixed; inset: 0 auto 0 0; z-index: 20; display: flex; width: var(--nav-width);
+      flex-direction: column; border-right: 1px solid var(--line); background: var(--surface);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 22px 22px 18px; }
+    .brand-mark { display: grid; width: 42px; height: 42px; flex: none; place-items: center; border-radius: 15px; background: var(--plum); color: white; font-size: 21px; font-weight: 900; box-shadow: 0 7px 16px #4A247229; }
+    .brand-copy { display: grid; gap: 2px; }
+    .brand-copy strong { color: var(--plum-dark); font-size: 13px; letter-spacing: .12em; }
+    .brand-copy small { color: var(--muted); font-size: 10px; }
+    .demo-badge { margin: 0 16px 14px; border: 1px solid #f1c4d7; border-radius: 12px; background: #fff3f8; padding: 9px 11px; color: #773a59; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+    .workspace { display: flex; gap: 7px; padding: 0 14px 14px; }
+    .workspace button { min-width: 0; flex: 1; border: 1px solid transparent; border-radius: 10px; background: transparent; padding: 8px 4px; color: var(--muted); font-size: 10px; font-weight: 750; }
+    .workspace button.active { border-color: var(--line); background: var(--lavender); color: var(--plum); }
+    .nav-scroll { overflow: auto; flex: 1; padding: 3px 12px 18px; scrollbar-width: thin; }
+    .nav-group { margin: 10px 0 19px; }
+    .nav-heading { padding: 0 11px 7px; color: #998d82; font-size: 9px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+    .nav-item { display: flex; width: 100%; align-items: center; gap: 11px; min-height: 40px; margin: 2px 0; border: 0; border-radius: 11px; background: transparent; padding: 0 11px; color: #665c54; text-align: left; font-size: 12px; font-weight: 650; transition: background .15s, color .15s; }
+    .nav-item:hover { background: var(--peach); color: var(--plum-dark); }
+    .nav-item.active { background: var(--lavender); color: var(--plum); font-weight: 800; }
+    .nav-icon { display: grid; width: 21px; flex: none; place-items: center; font-size: 15px; }
+    .nav-label { overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-count { border-radius: 99px; background: var(--peach); padding: 3px 7px; color: #8d5c4d; font-size: 9px; font-weight: 850; }
+    .side-user { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding: 14px 16px; }
+    .avatar { display: grid; width: 36px; height: 36px; flex: none; place-items: center; border-radius: 13px; background: var(--peach); color: var(--plum); font-weight: 850; }
+    .side-user-copy { display: grid; min-width: 0; flex: 1; gap: 3px; }
+    .side-user-copy b { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .side-user-copy small { color: var(--muted); font-size: 9px; }
+    .side-user button { border: 0; background: transparent; color: var(--muted); font-size: 17px; }
+    .main { min-height: 100vh; margin-left: var(--nav-width); }
+    .topbar { position: sticky; top: 0; z-index: 10; display: flex; min-height: 70px; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); background: #F8F4ECed; padding: 0 30px; backdrop-filter: blur(14px); }
+    .mobile-menu { display: none; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 18px; }
+    .crumb { display: grid; min-width: 0; gap: 3px; }
+    .crumb small { color: var(--muted); font-size: 10px; }
+    .crumb strong { overflow: hidden; color: var(--plum-dark); font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+    .top-spacer { flex: 1; }
+    .search { display: flex; width: min(250px, 24vw); align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 9px 11px; color: var(--muted); }
+    .search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 11px; }
+    .top-action { position: relative; display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 16px; }
+    .notification-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border: 1px solid white; border-radius: 50%; background: var(--pink); }
+    .top-profile { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; }
+    .top-profile .avatar { width: 34px; height: 34px; }
+    .top-profile span:last-child { display: grid; gap: 2px; text-align: left; }
+    .top-profile b { font-size: 10px; }
+    .top-profile small { color: var(--muted); font-size: 9px; }
+    .content { width: min(100%, 1420px); margin: 0 auto; padding: 29px 30px 60px; }
+    .demo-notice { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 23px; border: 1px solid #f2c5d8; border-radius: 13px; background: #fff5f9; padding: 11px 14px; color: #754052; font-size: 10px; line-height: 1.5; }
+    .demo-notice b { color: #62223f; }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 23px; }
+    .eyebrow { margin: 0 0 7px; color: var(--plum); font-size: 9px; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
+    h1 { margin: 0; color: var(--ink); font-size: clamp(24px, 3vw, 34px); font-weight: 850; letter-spacing: -.045em; line-height: 1.12; }
+    .page-subtitle { max-width: 680px; margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .head-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .btn { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); padding: 0 13px; color: var(--ink); font-size: 10px; font-weight: 800; transition: .15s; }
+    .btn:hover { border-color: #d3bce4; background: var(--lavender); color: var(--plum); }
+    .btn-primary { border-color: var(--plum); background: var(--plum); color: white; }
+    .btn-primary:hover, .btn-primary:active { border-color: var(--plum-dark); background: var(--plum-dark); color: white; }
+    .btn-soft { border-color: transparent; background: var(--lavender); color: var(--plum); }
+    .btn-danger { border-color: #a4404e; background: #a4404e; color: white; }
+    .btn-success { border-color: #b1d0b1; background: var(--green); color: var(--green-ink); }
+    .grid { display: grid; gap: 16px; }
+    .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 17px; }
+    .stat, .card { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: 0 4px 16px rgba(53, 25, 79, .035); }
+    .stat { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 17px; }
+    .stat-label { color: var(--muted); font-size: 10px; font-weight: 700; }
+    .stat-value { display: block; margin-top: 8px; color: var(--plum-dark); font-size: 25px; font-weight: 850; letter-spacing: -.04em; }
+    .stat-note { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+    .stat-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 12px; background: var(--lavender); color: var(--plum); font-size: 16px; }
+    .dashboard-grid { grid-template-columns: minmax(0, 1.55fr) minmax(260px, .85fr); align-items: start; }
+    .card { padding: 18px; }
+    .card + .card { margin-top: 15px; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+    .card-head h2, .card-head h3 { margin: 0; color: var(--plum-dark); font-size: 13px; font-weight: 850; }
+    .card-head p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+    .text-link { border: 0; background: transparent; padding: 4px; color: var(--plum); font-size: 10px; font-weight: 800; }
+    .hero-card { position: relative; overflow: hidden; border-color: #e9d7c9; background: linear-gradient(120deg, #FCE9DF 0%, #FFFDF9 66%); padding: 22px; }
+    .hero-card::after { position: absolute; top: -50px; right: -40px; width: 220px; height: 220px; border: 1px solid #EC7AAE38; border-radius: 50%; box-shadow: 0 0 0 22px #EC7AAE0b, 0 0 0 48px #EC7AAE09; content: ""; }
+    .hero-card h2 { position: relative; z-index: 1; max-width: 520px; margin: 0; color: var(--plum-dark); font-size: 20px; letter-spacing: -.03em; }
+    .hero-card p { position: relative; z-index: 1; max-width: 510px; margin: 8px 0 15px; color: #6d5e55; font-size: 11px; line-height: 1.6; }
+    .hero-bottom { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 99px; background: var(--surface); padding: 6px 9px; color: #655b54; font-size: 9px; font-weight: 800; white-space: nowrap; }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #65a36f; }
+    .pill.pink { border-color: #f0bdd2; background: #fff3f8; color: #7f3e5b; }
+    .pill.orange { border-color: #edc9b5; background: var(--peach); color: #76533f; }
+    .map { position: relative; min-height: 245px; overflow: hidden; border: 1px solid #e6ddd0; border-radius: 16px; background-color: #eff0e5; background-image: linear-gradient(33deg, transparent 47%, #fffdf9 47.5%, #fffdf9 50%, transparent 50.5%), linear-gradient(145deg, transparent 34%, #fffdf9 34.5%, #fffdf9 37%, transparent 37.5%), linear-gradient(85deg, transparent 58%, #fffdf9 58.5%, #fffdf9 61%, transparent 61.5%), repeating-linear-gradient(0deg, #dfe6d7 0 1px, transparent 1px 42px), repeating-linear-gradient(90deg, #dfe6d7 0 1px, transparent 1px 52px); }
+    .map::before { position: absolute; inset: 12% 25% 19% 34%; border: 1px solid #cadec7; border-radius: 45% 36% 42% 28%; background: #e6eddc; content: ""; transform: rotate(-17deg); }
+    .map::after { position: absolute; top: 17%; right: 9%; width: 25%; height: 28%; border-radius: 48%; background: #e1eddb; content: ""; transform: rotate(20deg); }
+    .map-label { position: absolute; z-index: 1; color: #74806b; font-size: 8px; font-weight: 700; letter-spacing: .04em; }
+    .map-label.one { top: 25%; left: 8%; }.map-label.two { right: 11%; bottom: 23%; }.map-label.three { bottom: 13%; left: 37%; }
+    .map-road { position: absolute; z-index: 1; height: 8px; border: 2px solid #f9f8f2; border-width: 2px 0; background: #d3c7b1; transform-origin: left center; }
+    .road-one { top: 65%; left: -4%; width: 112%; transform: rotate(-21deg); }.road-two { top: 6%; left: 63%; width: 85%; transform: rotate(74deg); }
+    .map-marker { position: absolute; z-index: 2; display: grid; width: 34px; height: 34px; place-items: center; border: 3px solid white; border-radius: 50% 50% 50% 3px; background: var(--plum); color: white; font-size: 12px; box-shadow: 0 3px 10px #35194f44; transform: rotate(-45deg); }
+    .map-marker span { transform: rotate(45deg); }
+    .marker-me { top: 48%; left: 48%; background: #EC7AAE; }.marker-a { top: 25%; left: 28%; }.marker-b { top: 63%; right: 22%; background: #708d6c; }
+    .map-controls { position: absolute; z-index: 3; top: 10px; right: 10px; display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: white; }
+    .map-controls button { width: 30px; height: 29px; border: 0; border-bottom: 1px solid var(--line); background: white; font-weight: 850; }
+    .map-controls button:last-child { border-bottom: 0; }
+    .map-legend { position: absolute; z-index: 3; right: 10px; bottom: 10px; border: 1px solid var(--line); border-radius: 9px; background: #fffdf9eF; padding: 7px 9px; color: var(--muted); font-size: 8px; }
+    .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .quick-action { display: flex; min-height: 72px; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 12px; text-align: left; transition: .15s; }
+    .quick-action:hover { border-color: #dec7eb; background: var(--lavender); }
+    .quick-icon { display: grid; width: 35px; height: 35px; flex: none; place-items: center; border-radius: 12px; background: var(--lavender); color: var(--plum); font-size: 16px; }
+    .quick-action span:last-child { display: grid; gap: 4px; }
+    .quick-action b { font-size: 10px; }.quick-action small { color: var(--muted); font-size: 9px; line-height: 1.3; }
+    .list { display: grid; gap: 0; }
+    .list-row { display: flex; align-items: center; gap: 11px; border-bottom: 1px solid #f1ece5; padding: 12px 0; }
+    .list-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .list-row:first-child { padding-top: 0; }
+    .list-icon { display: grid; width: 36px; height: 36px; flex: none; place-items: center; border-radius: 13px; background: var(--peach); font-size: 16px; }
+    .list-copy { display: grid; min-width: 0; flex: 1; gap: 4px; }
+    .list-copy b { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .list-copy small { color: var(--muted); font-size: 9px; }
+    .list-end { text-align: right; }
+    .list-end b { display: block; font-size: 10px; }.list-end small { color: var(--muted); font-size: 8px; }
+    .section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .feature-card { position: relative; min-height: 145px; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); padding: 17px; text-align: left; transition: .15s; }
+    .feature-card:hover { border-color: #d9c6e8; transform: translateY(-2px); box-shadow: var(--shadow); }
+    .feature-card .feature-icon { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 14px; background: var(--lavender); color: var(--plum); font-size: 18px; }
+    .feature-card h3 { margin: 13px 0 5px; color: var(--plum-dark); font-size: 13px; }
+    .feature-card p { max-width: 390px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .feature-card > small { position: absolute; top: 18px; right: 16px; color: var(--muted); font-size: 9px; }
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 14px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: #F8F4EC; color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    th, td { padding: 12px 13px; white-space: nowrap; }
+    td { border-top: 1px solid #f1ece5; font-size: 10px; }
+    td small { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; }
+    .status { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; background: var(--lavender); padding: 5px 8px; color: var(--plum); font-size: 8px; font-weight: 850; }
+    .status.green { background: #e8f2e5; color: var(--green-ink); }
+    .status.orange { background: var(--peach); color: #8b5b39; }
+    .status.pink { background: #fff0f6; color: #8c4665; }
+    .setting-row { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #f0ebe4; padding: 14px 0; }
+    .setting-row:last-child { border-bottom: 0; }
+    .setting-copy { flex: 1; }
+    .setting-copy b { display: block; font-size: 11px; }
+    .setting-copy small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+    .switch { position: relative; width: 42px; height: 24px; flex: none; border: 0; border-radius: 99px; background: #ddd6cf; transition: .18s; }
+    .switch::after { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #0002; content: ""; transition: .18s; }
+    .switch[aria-checked="true"] { background: var(--plum); }.switch[aria-checked="true"]::after { transform: translateX(18px); }
+    .profile-hero { display: flex; align-items: center; gap: 16px; border: 1px solid #ead8c9; border-radius: 18px; background: linear-gradient(120deg, var(--peach), var(--surface)); padding: 17px; }
+    .profile-hero .avatar { width: 62px; height: 62px; border: 3px solid white; border-radius: 21px; font-size: 22px; }
+    .profile-hero h2 { margin: 0 0 4px; color: var(--plum-dark); font-size: 16px; }.profile-hero p { margin: 0; color: var(--muted); font-size: 10px; }
+    .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 14px; }
+    .field { display: grid; gap: 6px; color: #655c55; font-size: 9px; font-weight: 800; }
+    .field input, .field select { width: 100%; min-height: 38px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 0 10px; color: var(--ink); font-size: 10px; }
+    .avatar-row { display: flex; align-items: center; gap: 8px; }
+    .avatar-chip { display: grid; width: 34px; height: 34px; place-items: center; border: 2px solid white; border-radius: 50%; background: var(--lavender); font-size: 14px; box-shadow: 0 2px 7px #35194f18; }
+    .game-board { display: grid; width: min(100%, 440px); aspect-ratio: 1; margin: 15px auto; place-items: center; border: 1px solid var(--line); border-radius: 23px; background: linear-gradient(145deg, #f8f2e7, #f2e7d8); padding: 20px; }
+    .board-grid { display: grid; width: 100%; aspect-ratio: 1; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr); border: 3px solid #5b3b64; border-radius: 4px; background: linear-gradient(90deg, transparent 49.5%, #805c86 49.5% 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, #805c86 49.5% 50.5%, transparent 50.5%); }
+    .board-grid span { display: grid; place-items: center; color: var(--plum); font-size: 24px; }
+    .board-grid span:nth-child(3n) { color: #cb638f; }
+    .game-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 12px; }
+    .game-status b { font-size: 10px; }.game-status small { color: var(--muted); font-size: 9px; }
+    .journal-preview { min-height: 230px; border: 1px solid #e9d8c8; border-radius: 18px; background: linear-gradient(145deg, #FCE9DF, #FFFDF9); padding: 22px; }
+    .journal-preview h2 { margin: 8px 0; color: var(--plum-dark); font-size: 18px; }.journal-preview p { color: #685e55; font-size: 11px; line-height: 1.7; }
+    .timeline { position: relative; display: grid; gap: 13px; margin: 4px 0 0 7px; padding-left: 19px; }
+    .timeline::before { position: absolute; top: 7px; bottom: 9px; left: 4px; width: 2px; background: var(--line); content: ""; }
+    .timeline-item { position: relative; border: 1px solid var(--line); border-radius: 13px; background: white; padding: 11px; }
+    .timeline-item::before { position: absolute; top: 14px; left: -20px; width: 9px; height: 9px; border: 2px solid white; border-radius: 50%; background: var(--pink); box-shadow: 0 0 0 1px var(--pink); content: ""; }
+    .timeline-item b { font-size: 10px; }.timeline-item p { margin: 4px 0 0; color: var(--muted); font-size: 9px; }
+    .game-room { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; }
+    .safety-panel { border: 1px solid #ecc1ce; border-radius: 16px; background: #fff4f7; padding: 15px; }
+    .safety-panel h3 { margin: 0 0 7px; color: #823d55; font-size: 12px; }.safety-panel p { margin: 0; color: #765965; font-size: 9px; line-height: 1.5; }
+    .empty { display: grid; min-height: 190px; place-items: center; border: 1px dashed #dccfbe; border-radius: 15px; background: #fffdfa; padding: 18px; text-align: center; }
+    .empty span { font-size: 26px; }.empty h3 { margin: 8px 0 4px; color: var(--plum-dark); font-size: 12px; }.empty p { max-width: 340px; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+    .bottom-nav { display: none; }
+    .backdrop { position: fixed; inset: 0; z-index: 40; display: none; background: #21172d77; backdrop-filter: blur(2px); }
+    .backdrop.open { display: block; }
+    .sheet { position: fixed; z-index: 41; right: 0; bottom: 0; left: 0; max-height: 86vh; overflow: auto; border-radius: 22px 22px 0 0; background: var(--surface); padding: 20px 18px max(24px, env(safe-area-inset-bottom)); box-shadow: 0 -12px 40px #21172d22; transform: translateY(105%); transition: transform .24s ease; }
+    .backdrop.open .sheet { transform: translateY(0); }
+    .sheet-handle { width: 38px; height: 4px; margin: 0 auto 16px; border-radius: 99px; background: #d8cfc4; }
+    .sheet-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }.sheet-title h2 { margin: 0; color: var(--plum-dark); font-size: 15px; }.sheet-title button { border: 0; background: transparent; font-size: 20px; }
+    .toast { position: fixed; right: 20px; bottom: 20px; z-index: 50; max-width: 340px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); padding: 12px 15px; color: var(--ink); font-size: 10px; font-weight: 750; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transform: translateY(10px); transition: .2s; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .admin-theme .stat-icon { background: #e7f2e8; color: #416d49; }
+    .responder-theme .stat-icon { background: #fce9df; color: #9c3e4c; }
+    .org-theme .stat-icon { background: #eee8f6; color: var(--plum); }
+    @media (max-width: 1120px) {
+      :root { --nav-width: 240px; }
+      .content { padding-right: 22px; padding-left: 22px; }
+      .topbar { padding-right: 22px; padding-left: 22px; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .dashboard-grid { grid-template-columns: minmax(0, 1.25fr) minmax(245px, .85fr); }
+    }
+    @media (max-width: 800px) {
+      :root { --nav-width: 280px; }
+      .sidebar { z-index: 42; box-shadow: 12px 0 36px #21172d22; transform: translateX(-105%); transition: transform .24s ease; }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; padding-bottom: 70px; }
+      .mobile-menu { display: grid; place-items: center; }
+      .topbar { min-height: 62px; gap: 10px; padding: 0 15px; }
+      .search { width: min(200px, 38vw); }
+      .top-profile span:last-child { display: none; }
+      .content { padding: 21px 16px 38px; }
+      .dashboard-grid, .game-room { grid-template-columns: 1fr; }
+      .bottom-nav { position: fixed; inset: auto 0 0; z-index: 30; display: grid; height: calc(64px + env(safe-area-inset-bottom)); grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); background: #FFFDF9f5; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(14px); }
+      .bottom-nav button { display: grid; align-content: center; justify-items: center; gap: 3px; border: 0; border-top: 2px solid transparent; background: transparent; color: var(--muted); font-size: 9px; font-weight: 750; }
+      .bottom-nav button.active { border-top-color: var(--plum); color: var(--plum); }
+      .bottom-nav button span:first-child { font-size: 17px; }
+      .toast { right: 12px; bottom: calc(78px + env(safe-area-inset-bottom)); left: 12px; max-width: none; }
+    }
+    @media (max-width: 560px) {
+      .topbar { gap: 8px; }
+      .crumb strong { max-width: 38vw; font-size: 13px; }
+      .crumb small { font-size: 9px; }
+      .search { width: 38px; height: 38px; justify-content: center; border: 0; background: transparent; padding: 0; }
+      .search input { display: none; }
+      .top-action { width: 36px; height: 36px; border: 0; background: transparent; }
+      .top-profile { display: none; }
+      .content { padding: 18px 13px 30px; }
+      .demo-notice { margin-bottom: 17px; font-size: 9px; }
+      .page-head { display: grid; align-items: start; margin-bottom: 17px; }
+      .head-actions { justify-content: flex-start; }
+      .stats { gap: 9px; }
+      .stat { padding: 12px; }.stat-value { font-size: 21px; }
+      .stat-icon { width: 30px; height: 30px; }
+      .card { padding: 14px; border-radius: 17px; }
+      .hero-card { padding: 17px; }
+      .hero-card h2 { font-size: 18px; }
+      .quick-grid, .section-grid, .profile-grid { grid-template-columns: 1fr; }
+      .quick-action { min-height: 64px; }
+      .feature-card { min-height: 128px; }
+      .map { min-height: 215px; }
+      .table-wrap { margin-right: -4px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+    /* Match the member AccountShell; demo-only portal navigation stays outside the app chrome. */
+    :root { --nav-width: 260px; font-family: "Plus Jakarta Sans", "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .sidebar { border: 0; background: var(--plum-dark); color: #fff; }
+    .brand { min-height: 76px; gap: 10px; border-bottom: 1px solid #ffffff2b; padding: 0 17px; }
+    .brand-mark { width: 42px; height: 42px; border-radius: 14px; background: transparent; box-shadow: none; font-size: 0; }
+    .brand-mark::before { content: none; }
+    .brand-mark img { width: 42px; height: 24px; object-fit: contain; transform: scale(2); }
+    .brand-copy strong { color: #fff; font-size: 14px; letter-spacing: .1em; }
+    .brand-copy small { color: #eadff0; font-size: 9px; }
+    .demo-badge { margin: 10px 14px 5px; border: 1px solid #ffffff2b; border-radius: 9px; background: #ffffff10; padding: 7px 9px; color: #f8d6e6; font-size: 9px; }
+    .workspace { display: none; }
+    .nav-scroll { padding: 7px 10px 14px; }
+    .nav-group { margin: 0 0 6px; }
+    .nav-heading { display: none; }
+    .nav-item { min-height: 44px; margin: 3px 0; border-radius: 10px; padding: 0 12px; color: #eadff0; font-size: 12px; font-weight: 650; }
+    .nav-item:hover, .nav-item.active { background: var(--plum); color: #fff; }
+    .nav-icon { display: grid; width: 28px; height: 28px; flex: none; place-items: center; border: 1px solid #f8d6e655; border-radius: 9px 4px 9px 4px; color: #f8d6e6; font-size: 0; }
+    .nav-icon svg { width: 17px; height: 17px; }
+    .nav-item.active .nav-icon { border-color: #ffffff70; color: #fff; }
+    .desktop-actions { display: grid; gap: 7px; padding: 10px 12px 15px; }
+    .desktop-actions button { display: flex; min-height: 42px; align-items: center; justify-content: center; gap: 9px; border: 1px solid #ffffff35; border-radius: 12px; background: transparent; padding: 0 12px; color: #fff; font-size: 12px; font-weight: 800; }
+    .desktop-actions .send-sos { border-color: #d94362; background: #d94362; }
+    .desktop-actions button:hover { filter: brightness(1.08); }
+    .main { background: var(--paper); }
+    .topbar { min-height: 72px; border-bottom-color: var(--line); background: #F8F4ECed; padding: 0 24px; }
+    .mobile-menu, .crumb, .search { display: none !important; }
+    .top-spacer { display: none; }
+    .top-profile { order: 0; display: flex; min-width: 0; margin: 0 0 0 auto; padding: 0; }
+    .top-profile .avatar { width: 44px; height: 44px; border: 2px solid #4A247266; border-radius: 50%; background: linear-gradient(135deg, var(--plum-dark), var(--plum)); color: #fff; }
+    .top-profile span:last-child { display: grid; }
+    .top-profile b { color: var(--ink); font-size: 12px; }
+    .top-profile small { display: none; }
+    .top-action { width: 36px; height: 36px; border: 0; border-radius: 12px; background: var(--lavender); color: var(--plum); }
+    .mobile-call, .mobile-signout { display: none; }
+    .content { width: min(100%, 896px); padding: 24px 24px 56px; }
+    .demo-notice { margin-bottom: 14px; border-color: #f1c4d7; background: #fff3f8; padding: 8px 11px; font-size: 9px; }
+    .page-head { margin-bottom: 20px; }
+    .eyebrow { font-size: 10px; }
+    h1 { font-family: "Plus Jakarta Sans", "Manrope", sans-serif; }
+    .btn { min-height: 42px; border-radius: 12px; background: var(--lavender); color: var(--plum); font-size: 11px; }
+    .btn:hover { background: #e4d9ef; color: var(--plum-dark); }
+    .btn-primary { border-color: var(--plum); background: var(--plum); color: #fff; }
+    .btn-primary:hover { border-color: var(--plum-dark); background: var(--plum-dark); color: #fff; }
+    .btn-danger { border-color: #d94362; background: #d94362; }
+    .bottom-nav { display: none; }
+    .account-nav-link { display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 0; border-top: 2px solid transparent; background: transparent; color: var(--muted); font-size: 10px; font-weight: 700; }
+    .account-nav-link[aria-current="page"] { border-top-color: var(--plum); color: var(--plum); }
+    .account-nav-link svg { width: 19px; height: 19px; }
+    .mobile-sos { z-index: 1; display: grid; width: 78px; min-width: 78px; height: 78px; margin: -30px 2px 0; place-items: center; border: 4px solid var(--paper); border-radius: 50%; background: #d94362; color: #fff; box-shadow: 0 8px 18px #d9436247; }
+    .mobile-sos svg { width: 30px; height: 30px; }
+    .bottom-nav { height: calc(68px + env(safe-area-inset-bottom)); grid-template-columns: minmax(0,1fr) minmax(0,1fr) 82px minmax(0,1fr) minmax(0,1fr); border-top-color: var(--line); background: #FFFDF9f2; padding-bottom: env(safe-area-inset-bottom); }
+    .card { border-radius: 24px; background: var(--surface); box-shadow: 0 8px 30px -4px #35194f0f; }
+    .card-head h2, .card-head h3 { color: var(--plum-dark); font-size: 15px; }
+    .list-icon { background: var(--lavender); color: var(--plum); }
+    .status.green { background: #e7f5ed; color: #315b37; }
+    .status.orange { background: var(--peach); color: #8b5b39; }
+    .profile-hero { border-color: var(--line); background: linear-gradient(120deg, var(--peach), var(--surface)); }
+    .safe-spots-heading { margin: 0 2px 20px; }
+    .safe-spots-heading h1 { margin: 3px 0 0; color: var(--ink); font-size: 30px; letter-spacing: -.8px; line-height: 1.08; }
+    .safe-spots-eyebrow { margin: 0; color: var(--plum); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .safe-spots-tabs, .trip-tabs, .game-filters, .device-switch { display: flex; gap: 4px; margin-bottom: 14px; border-radius: 16px; background: var(--lavender); padding: 4px; }
+    .safe-spots-tabs button, .trip-tabs button, .game-filters button, .device-switch button { display: inline-flex; min-height: 40px; flex: 1; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 12px; background: transparent; padding: 0 8px; color: var(--muted); font-size: 11px; font-weight: 800; }
+    .safe-spots-tabs button[aria-selected="true"], .trip-tabs button[aria-selected="true"], .game-filters button[aria-pressed="true"], .device-switch button[aria-pressed="true"] { background: var(--surface); color: var(--plum); box-shadow: 0 2px 8px #35194f1a; }
+    .safe-map-card, .hamba-planner, .buddies-panel { overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 8px 30px -4px #35194f0f; }
+    .safe-map-topline, .safe-map-legend, .safe-spots-list-heading, .spot-card, .trip-callout, .trip-setting, .trip-destination, .device-actions > div, .profile-menu-row { display: flex; align-items: center; }
+    .safe-map-topline { min-height: 52px; justify-content: space-between; padding: 0 15px; color: var(--plum-dark); font-size: 12px; font-weight: 800; }
+    .safe-map-canvas, .safe-map-intro, .garden-map { position: relative; min-height: 230px; overflow: hidden; margin: 0 12px 12px; border: 1px solid #dfe4d8; border-radius: 16px; background-color: #eff0e5; background-image: linear-gradient(34deg, transparent 47%, #fffdf9 47.5% 50%, transparent 50.5%), linear-gradient(145deg, transparent 34%, #fffdf9 34.5% 37%, transparent 37.5%), repeating-linear-gradient(0deg,#dfe6d7 0 1px,transparent 1px 42px), repeating-linear-gradient(90deg,#dfe6d7 0 1px,transparent 1px 52px); }
+    .safe-map-block { position: absolute; border-radius: 40%; background: #dce8d3; }
+    .safe-map-block-one { inset: 18% 55% 48% 8%; }.safe-map-block-two { inset: 55% 12% 9% 62%; }.safe-map-block-three { inset: 8% 12% 60% 70%; }
+    .safe-map-road { position: absolute; z-index: 1; height: 9px; border: 2px solid #fffdf9; border-width: 2px 0; background: #d3c7b1; transform-origin: left center; }
+    .safe-map-road-a { top: 50%; left: -3%; width: 110%; transform: rotate(-12deg); }.safe-map-road-b { top: 8%; left: 47%; width: 90%; transform: rotate(73deg); }.safe-map-road-c { top: 75%; left: 10%; width: 90%; transform: rotate(-39deg); }
+    .safe-map-label { position: absolute; z-index: 2; top: 13%; left: 8%; color: #74806b; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+    .safe-map-pin, .safe-map-you { position: absolute; z-index: 3; display: grid; width: 34px; height: 34px; place-items: center; border: 3px solid #fff; border-radius: 50% 50% 50% 4px; background: var(--plum); color: #fff; box-shadow: 0 3px 10px #35194f44; transform: rotate(-45deg); }
+    .safe-map-pin svg, .safe-map-you i { transform: rotate(45deg); }
+    .safe-map-pin.is-selected { background: #ec7aae; }
+    .safe-map-you { top: 49%; left: 49%; background: #ec7aae; }
+    .safe-map-you b { transform: rotate(45deg); font-size: 8px; }
+    .safe-map-disclaimer { position: absolute; z-index: 4; right: 9px; bottom: 8px; border-radius: 8px; background: #fffdf9ed; padding: 6px 8px; color: var(--muted); font-size: 8px; }
+    .safe-map-legend { flex-wrap: wrap; gap: 10px; padding: 0 15px 14px; color: var(--muted); font-size: 9px; }
+    .safe-map-legend small { flex-basis: 100%; }
+    .safe-map-intro { display: grid; min-height: 180px; place-content: center; justify-items: center; gap: 8px; margin-bottom: 0; background: #f5f0f8; padding: 20px; text-align: center; }
+    .safe-map-intro b { color: var(--plum-dark); font-size: 14px; }.safe-map-intro p { margin: 4px 0; color: var(--muted); font-size: 11px; }
+    .safe-map-search { display: inline-flex; min-height: 40px; align-items: center; gap: 7px; border: 0; border-radius: 12px; background: var(--plum); padding: 0 13px; color: #fff; font-weight: 800; }
+    .safe-category-chips { display: flex; gap: 7px; overflow-x: auto; margin: 13px 0; padding-bottom: 3px; }
+    .safe-category-chips button { display: inline-flex; min-height: 34px; flex: none; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 99px; background: var(--surface); padding: 0 10px; color: var(--muted); font-size: 10px; font-weight: 800; }
+    .safe-category-chips button[aria-pressed="true"] { border-color: var(--plum); background: var(--lavender); color: var(--plum); }
+    .safe-spots-list-heading { justify-content: space-between; margin: 18px 4px 9px; }
+    .safe-spots-list-heading h2 { margin: 0; font-size: 16px; }.safe-spots-list-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+    .spot-list { display: grid; gap: 9px; }
+    .spot-card { gap: 11px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 12px; }
+    .spot-card .quick-icon { flex: none; }.spot-card-copy { min-width: 0; flex: 1; }.spot-card-copy b,.spot-card-copy small { display: block; }.spot-card-copy b { font-size: 12px; }.spot-card-copy small { margin-top: 4px; color: var(--muted); font-size: 9px; }
+    .spot-note, .demo-location { margin: 12px 0; border: 1px solid #f1c4d7; border-radius: 13px; background: #fff3f8; padding: 10px 12px; color: #754052; font-size: 10px; line-height: 1.5; }
+    .trip-tabs { margin: 0 0 10px; }
+    .trip-callout { min-height: 58px; gap: 11px; margin: 10px 0; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 10px 13px; color: var(--plum); }
+    .trip-callout span { display: grid; gap: 3px; }.trip-callout b { font-size: 11px; }.trip-callout small { color: var(--muted); font-size: 9px; }.trip-callout svg:last-child { margin-left: auto; }
+    .trip-planner { display: grid; gap: 13px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); padding: 16px; box-shadow: 0 8px 30px -4px #35194f0f; }
+    .trip-field { display: grid; gap: 7px; color: var(--plum-dark); font-size: 10px; font-weight: 800; }
+    .trip-destination { min-height: 48px; gap: 9px; border: 1px solid var(--line); border-radius: 14px; background: #faf8fc; padding: 0 12px; color: var(--plum); }
+    .trip-destination input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 12px; }
+    .travel-modes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+    .travel-modes button { display: grid; min-height: 61px; justify-items: center; align-content: center; gap: 5px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); font-size: 9px; font-weight: 800; }
+    .travel-modes button[aria-pressed="true"] { border-color: var(--plum); background: var(--lavender); color: var(--plum); }
+    .trip-setting { min-height: 58px; gap: 10px; border-top: 1px solid #f0ebe4; padding: 9px 0; color: var(--plum); }
+    .trip-setting span { display: grid; flex: 1; gap: 3px; }.trip-setting b { color: var(--ink); font-size: 10px; }.trip-setting small { color: var(--muted); font-size: 9px; }
+    .trip-location { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border: 1px solid #cfe2d1; border-radius: 13px; background: #f2f8f1; padding: 10px; color: #315b37; font-size: 10px; }
+    .trip-location button { margin-left: auto; border: 0; background: transparent; color: var(--plum); font-size: 10px; font-weight: 800; }
+    .hamba-recent { margin-top: 16px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); padding: 0 15px 12px; }
+    .hamba-recent-head { padding: 16px 0 12px; }.hamba-recent-head h2 { margin: 0; color: var(--plum-dark); font-size: 14px; }
+    .hamba-recent-item { display: flex; width: 100%; align-items: center; gap: 11px; border: 0; border-top: 1px solid #f0ebe4; background: transparent; padding: 12px 2px; text-align: left; }
+    .hamba-recent-item b { font-size: 11px; }.hamba-recent-item p { margin: 3px 0 0; color: var(--muted); font-size: 9px; }
+    .hamba-page { max-width: 720px; margin: 0 auto; }
+    .hamba-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+    .hamba-heading .page-title { color: var(--plum-dark); font-size: 25px; font-weight: 850; }
+    .hamba-engine { border: 1px solid var(--line); border-radius: 99px; background: var(--lavender); padding: 6px 10px; color: var(--plum); font-size: 9px; font-weight: 800; white-space: nowrap; }
+    .garden-map { min-height: 320px; border-color: #e7ccf0; border-radius: 22px; background: radial-gradient(circle at 50% 50%,#fffdf9 0,#fce9df 55%,#eee8f6 100%); }
+    .garden-map::before, .garden-map::after { position: absolute; inset: 13%; border: 1px solid #4a247244; border-radius: 50%; content: ""; }
+    .garden-map::after { inset: 27%; }
+    .garden-buddy { position: absolute; z-index: 2; display: grid; width: 72px; height: 72px; place-content: center; justify-items: center; border: 1px solid #fff; border-radius: 50%; background: #fffdf9; color: var(--plum); box-shadow: 0 4px 14px #35194f1f; }
+    .garden-buddy b { font-size: 10px; }.garden-buddy small { color: var(--muted); font-size: 8px; }.garden-buddy.you { top: 41%; left: 43%; width: 80px; height: 80px; border: 4px solid #ec7aae; }.garden-buddy.jayden { top: 18%; left: 17%; }.garden-buddy.mia { right: 15%; bottom: 18%; }
+    .buddies-heading { margin: 0 0 15px; }.buddies-heading .page-title { font-size: 23px; }
+    .buddies-page .page-subtitle { margin-top: 5px; }
+    .profile-hub { max-width: 640px; margin: 0 auto; }
+    .profile-hub > header > span { color: var(--plum); font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+    .profile-hub > header h1 { margin: 4px 0 18px; color: var(--ink); font-size: 25px; }
+    .profile-card { border: 1px solid var(--line); border-radius: 22px; background: var(--surface); padding: 16px; box-shadow: 0 8px 30px -4px #35194f0f; }
+    .profile-identity { display: flex; align-items: center; gap: 13px; border-bottom: 1px solid var(--line); padding-bottom: 15px; }
+    .profile-identity .avatar { width: 58px; height: 58px; border-radius: 16px; font-size: 21px; }
+    .profile-identity-copy { min-width: 0; flex: 1; }.profile-identity-copy h2 { margin: 0; font-size: 15px; }.profile-identity-copy p { margin: 4px 0; color: var(--muted); font-size: 10px; }
+    .profile-identity-copy small { color: var(--plum); font-size: 10px; font-weight: 800; }.profile-identity-copy b { display: inline-block; margin-top: 6px; border-radius: 99px; background: var(--lavender); padding: 4px 8px; color: var(--plum); font-size: 9px; }
+    .profile-menu { display: grid; gap: 7px; margin-top: 14px; }
+    .profile-menu-row { min-height: 48px; justify-content: space-between; gap: 10px; border: 1px solid #f0ebe4; border-radius: 14px; background: #faf8fc; padding: 9px 11px; font-size: 10px; font-weight: 800; }
+    .profile-menu-row span:first-child { display: flex; align-items: center; gap: 9px; }.profile-menu-row span:first-child svg { color: var(--plum); }
+    .profile-menu-row > svg:last-child { color: #9a8b9f; }
+    .profile-menu-row .switch { transform: scale(.85); transform-origin: right center; }
+    .location-card { margin-top: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 13px; }
+    .location-card h2 { margin: 0 0 5px; font-size: 12px; }.location-card p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+    .profile-logout { width: 100%; margin-top: 13px; border: 0; border-radius: 14px; background: #fff0f2; padding: 12px; color: #b92b49; font-size: 11px; font-weight: 900; }
+    .member-detail-page { width: min(100%, 640px); margin: 0 auto; }
+    .member-detail-heading { margin-bottom: 16px; }
+    .member-detail-heading > span { color: var(--plum); font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+    .member-detail-heading h1 { margin-top: 4px; color: var(--plum-dark); font-size: 25px; }
+    .member-detail-heading p { max-width: 560px; margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .member-detail-card { margin-bottom: 13px; }
+    .member-detail-card > p { color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .member-detail-card .field { margin-top: 10px; }
+    .member-detail-card .btn { margin-top: 12px; }
+    .member-contact { display: flex; align-items: center; gap: 11px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .member-contact:last-child { border-bottom: 0; }
+    .member-contact > span:nth-child(2) { min-width: 0; flex: 1; }
+    .member-contact b, .member-contact small { display: block; }
+    .member-contact b { font-size: 11px; }
+    .member-contact small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .member-contact > .btn { margin: 0; }
+    .journal-demo { display: grid; min-height: 100dvh; grid-template-rows: auto minmax(400px,1fr) auto; background: #f5f0fa; color: #2a1536; }
+    .journal-demo-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px; }
+    .journal-demo-header > div { display: flex; align-items: center; gap: 9px; }
+    .journal-demo-header strong { font-size: 13px; }
+    .journal-demo-header button { display: inline-flex; min-height: 38px; align-items: center; gap: 6px; border: 1px solid #e6dcf0; border-radius: 12px; background: #fff; padding: 0 11px; color: #522868; font-size: 10px; font-weight: 800; }
+    .journal-landscape { position: relative; overflow: hidden; min-height: 420px; background: linear-gradient(180deg,#c9d9f1 0%,#f2d9e8 47%,#d1dfae 48%,#84b58b 100%); }
+    .journal-sun { position: absolute; top: 11%; right: 20%; width: 58px; height: 58px; border-radius: 50%; background: #ffe2a1; box-shadow: 0 0 0 18px #ffe2a12e; }
+    .journal-hill { position: absolute; right: -8%; bottom: 20%; left: -8%; height: 42%; border-radius: 50% 50% 0 0; background: #9cc793; transform: rotate(-4deg); }
+    .journal-hill.back { bottom: 27%; left: 34%; height: 34%; background: #b2d49d; transform: rotate(7deg); }
+    .journal-path { position: absolute; right: 20%; bottom: -28%; left: 25%; height: 70%; border-radius: 50% 48% 0 0; background: #d7bf9c; transform: rotate(-9deg); }
+    .journal-tree { position: absolute; z-index: 1; bottom: 22%; left: 20%; width: 120px; height: 200px; }
+    .journal-tree::before { position: absolute; bottom: 0; left: 57px; width: 10px; height: 95px; border-radius: 9px; background: #71575d; content: ""; }
+    .journal-tree::after { position: absolute; top: 12px; left: 12px; width: 110px; height: 110px; border-radius: 50%; background: #b891d2; box-shadow: -25px 22px 0 -7px #c89acb, 23px 26px 0 -7px #a986c6; content: ""; }
+    .journal-entry-token { position: absolute; z-index: 2; display: grid; width: 52px; height: 52px; place-items: center; border: 2px solid #fff; border-radius: 50%; background: #fffdf9; color: var(--plum); font-size: 22px; box-shadow: 0 5px 15px #35194f26; }
+    .journal-entry-token.one { bottom: 20%; left: 52%; }.journal-entry-token.two { bottom: 35%; left: 70%; }.journal-entry-token.three { bottom: 14%; left: 79%; }
+    .journal-writing-sign { position: absolute; z-index: 2; right: 8%; bottom: 9%; color: #fff; font-size: 11px; font-weight: 800; text-shadow: 0 1px 5px #284335; }
+    .journal-demo-panel { position: relative; z-index: 3; width: min(calc(100% - 28px), 540px); margin: -20px auto 18px; border: 1px solid #e6dcf0; border-radius: 22px; background: #fffdf9; padding: 15px; box-shadow: 0 12px 30px #2a15361a; }
+    .journal-demo-prompt { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .journal-demo-prompt .quick-icon { width: 42px; height: 42px; border-radius: 50%; }
+    .journal-demo-prompt b, .journal-demo-prompt small { display: block; }.journal-demo-prompt b { font-size: 12px; }.journal-demo-prompt small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .journal-demo-panel > button { width: 100%; min-height: 44px; }
+    .immersive-mode .sidebar, .immersive-mode .topbar, .immersive-mode .bottom-nav { display: none !important; }
+    .immersive-mode .main { margin-left: 0; padding-bottom: 0; }
+    .immersive-mode .content { width: 100%; max-width: none; min-height: 100vh; padding: 0; }
+    .devices-page { width: 100%; max-width: 430px; margin: 0 auto; padding-bottom: 60px; }
+    .devices-heading { display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 10px; margin: 0 2px 13px; }
+    .devices-heading h1 { margin: 0; color: var(--plum-dark); font-size: 28px; font-weight: 850; letter-spacing: -.7px; }.devices-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+    .devices-link { display: inline-flex; min-height: 39px; align-items: center; gap: 6px; border-radius: 99px; background: var(--plum); padding: 0 13px; color: #fff; font-size: 10px; font-weight: 800; }
+    .device-switch { margin-bottom: 13px; }.device-switch button { min-height: 42px; }
+    .device-hero { position: relative; overflow: hidden; border: 1px solid #dce5dc; border-radius: 26px; background: radial-gradient(85% 67% at 50% 32%,#fffefa 0%,#f2f5ef 70%,#e8eee7 100%); }
+    .device-stage { position: relative; display: grid; height: 235px; place-items: center; overflow: hidden; }
+    .device-stage::before, .device-stage::after { position: absolute; width: 190px; height: 190px; border: 1px solid #23634d24; border-radius: 50%; content: ""; }
+    .device-stage::after { width: 145px; height: 145px; }
+    .device-pendant { position: relative; z-index: 1; display: grid; width: 94px; height: 150px; place-items: center; border: 1px solid #ffffff88; border-radius: 42% 42% 35% 35% / 23% 23% 18% 18%; background: linear-gradient(108deg,#d3c1fa,#a98be3 45%,#8664c4); box-shadow: inset 8px 1px 16px #ffffff66,inset -10px -2px 16px #4c2f884f,0 16px 22px #1608234a; transform: rotate(-3deg); }
+    .device-pendant::before { position: absolute; top: 17px; width: 12px; height: 12px; border: 3px solid #dfd9eb; border-radius: 50%; background: #21172e; content: ""; }
+    .device-pendant strong { color: #fff; font-size: 23px; }
+    .device-copy { margin-top: -6px; padding: 0 16px 15px; text-align: center; }.device-copy h2 { margin: 0; font-size: 19px; }.device-copy p { margin: 3px 0; color: var(--muted); font: 10px ui-monospace, monospace; }
+    .device-status { display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; border-radius: 99px; background: #e0f2e6; padding: 6px 10px; color: #24633f; font-size: 9px; font-weight: 800; }
+    .device-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 11px; }
+    .device-metrics article { min-height: 90px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); padding: 10px; }
+    .device-metrics article svg { color: var(--plum); }.device-metrics small,.device-metrics b { display: block; }.device-metrics small { margin-top: 7px; color: var(--muted); font-size: 9px; }.device-metrics b { margin-top: 3px; font-size: 10px; }
+    .device-actions { display: grid; overflow: hidden; margin-top: 11px; border: 1px solid var(--line); border-radius: 19px; background: var(--surface); }
+    .device-actions > button { display: flex; min-height: 58px; align-items: center; gap: 10px; border: 0; border-bottom: 1px solid #f0ebe4; background: transparent; padding: 9px 12px; text-align: left; }
+    .device-actions > button:last-child { border-bottom: 0; }.device-actions > button span:nth-child(2) { flex: 1; }.device-actions b,.device-actions small { display: block; }.device-actions b { font-size: 11px; }.device-actions small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .game-screen { width: 100%; max-width: 560px; margin: 0 auto; }
+    .game-screen h1 { color: var(--plum-dark); font-size: 27px; }
+    .game-subtitle { margin: 5px 0 14px; color: var(--muted); font-size: 11px; }
+    .game-list { display: grid; gap: 9px; }
+    .game-row { display: grid; min-height: 83px; grid-template-columns: 44px minmax(0,1fr) auto; align-items: center; gap: 10px; border: 1px solid #e8dfea; border-radius: 15px; background: var(--surface); padding: 10px; box-shadow: 0 5px 16px #3b26440b; }
+    .game-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; background: var(--lavender); color: var(--plum); }
+    .game-copy { display: grid; min-width: 0; gap: 3px; }.game-copy small { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }.game-copy strong { font-size: 11px; }.game-category { color: var(--plum); font-size: 8px; font-weight: 900; text-transform: uppercase; }
+    .game-action { display: flex; align-items: center; gap: 4px; color: var(--plum); font-size: 9px; font-weight: 800; white-space: nowrap; }
+    .calm-mode .sidebar, .calm-mode .topbar, .calm-mode .bottom-nav { display: none !important; }
+    .calm-mode .main { margin-left: 0; padding-bottom: 0; }
+    .calm-mode .content { width: 100%; max-width: none; min-height: 100vh; padding: 0; }
+    .calm-shell { --garden-purple: #7a4f9a; --garden-purple-soft: #e9dcf0; min-height: 100dvh; background: #f6f1fc; color: #2a1536; }
+    .calm-header { display: grid; height: 64px; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; padding: 0 14px; }
+    .calm-header button { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #e6dcf0; border-radius: 14px; background: #fff; color: #522868; }
+    .calm-header strong { font-size: 16px; }.calm-header-actions { display: flex; gap: 7px; }
+    .calm-content { width: min(100% - 28px, 560px); margin: 5px auto 0; }
+    .calm-hero { position: relative; min-height: 270px; overflow: hidden; border-radius: 25px; background: linear-gradient(145deg,#eee8f6,#fce9df); padding: 24px 20px; text-align: center; }
+    .calm-hero h1 { margin: 8px 0; color: #2a1536; font-size: 28px; }.calm-hero p { color: #6e5a7c; font-size: 12px; line-height: 1.5; }
+    .calm-pond { display: grid; width: 110px; height: 110px; place-items: center; margin: 14px auto 0; border-radius: 50%; background: radial-gradient(circle,#e9dcf0,#f6f1fc 70%); color: #fff; }
+    .calm-pond span { display: grid; width: 66px; height: 66px; place-items: center; border-radius: 50%; background: linear-gradient(135deg,#7a4f9a,#a2659c); font-size: 27px; }
+    .calm-tools { display: grid; gap: 9px; margin-top: 13px; }
+    .calm-tool { display: grid; min-height: 82px; grid-template-columns: 44px minmax(0,1fr) 20px; align-items: center; gap: 11px; border: 1px solid #e6dcf0; border-radius: 18px; background: #fff; padding: 12px; }
+    .calm-tool .game-icon { background: #e9dcf0; }.calm-tool strong,.calm-tool small { display: block; }.calm-tool strong { font-size: 12px; }.calm-tool small { margin-top: 4px; color: #6e5a7c; font-size: 9px; line-height: 1.4; }
+    .calm-actions { display: flex; justify-content: space-between; gap: 9px; margin: 14px 0; }
+    .calm-disclaimer { margin: 15px 0; color: #6e5a7c; font-size: 10px; text-align: center; }
+    .kiki-overview { display: block; width: min(430px,calc(100% + 40px)); max-width: none; margin: -20px auto 0; background: #f9f5fd; padding: 22px 20px 48px; color: #241a2c; font-family: -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,"Segoe UI",Roboto,system-ui,sans-serif; }
+    .kiki-overview-title { margin: 0 0 20px; color: #241a2c; font-size: 33px; font-weight: 700; letter-spacing: -.9px; line-height: 1.08; }
+    .kiki-overview-hero { overflow: hidden; border-radius: 27px; background: radial-gradient(120% 90% at 100% 0%,#2b7554 0%,transparent 60%),linear-gradient(160deg,#1f5a41,#143d2d); padding: 22px 20px 20px; color: #fff; box-shadow: 0 24px 40px -22px #143d2db3; }
+    .kiki-overview-hero-copy h2 { margin: 0; color: #fff; font-size: 25px; letter-spacing: -.5px; line-height: 1.15; }
+    .kiki-overview-hero-copy p { margin: 6px 0 0; color: #ffffffc2; font-size: 14px; line-height: 1.45; }
+    .kiki-overview-cta { display: flex; width: 100%; min-height: 52px; align-items: center; justify-content: center; gap: 9px; margin-top: 20px; border: 0; border-radius: 17px; background: #bfdfbf; color: #244b34; font-size: 14px; font-weight: 750; }
+    .kiki-overview-section { margin-top: 28px; }
+    .kiki-overview-section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 4px 10px; }
+    .kiki-overview-section-head h2 { margin: 0; color: #241a2c; font-size: 19px; font-weight: 700; letter-spacing: -.3px; }
+    .kiki-overview-section-head button { border: 0; background: transparent; color: var(--plum); font-size: 12px; font-weight: 700; }
+    .kiki-overview-group { overflow: hidden; border-radius: 21px; background: #fff; box-shadow: inset 0 0 0 1px #e6d8f2; }
+    .kiki-overview-status-row { position: relative; display: flex; width: 100%; min-height: 68px; align-items: center; gap: 12px; border: 0; background: #fff; padding: 12px 13px; color: #241a2c; text-align: left; }
+    .kiki-overview-status-row + .kiki-overview-status-row::before,.kiki-overview-trip-row + .kiki-overview-trip-row::before { position: absolute; top: 0; right: 0; left: 67px; height: 1px; background: #e6d8f2; content: ""; }
+    .kiki-overview-tile-icon { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 13px; background: #eee8f6; color: var(--plum); }
+    .kiki-overview-status-copy { min-width: 0; flex: 1; }.kiki-overview-status-copy strong { display: block; color: #241a2c; font-size: 14px; font-weight: 650; line-height: 1.25; }.kiki-overview-status-copy > span { display: block; overflow: hidden; margin-top: 3px; color: #70687a; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .kiki-overview-state { display: flex; flex: none; align-items: center; gap: 6px; color: #70687a; font-size: 10px; white-space: nowrap; }.kiki-overview-state i { width: 7px; height: 7px; border-radius: 50%; background: #c8bfd1; }.kiki-overview-state.is-on i { background: #2fd37f; box-shadow: 0 0 0 4px #2fd37f2e; }.kiki-overview-status-row > svg:last-child,.kiki-overview-trip-row > svg:last-child { flex: none; color: #b7abc4; }
+    .kiki-overview-trip-row { position: relative; display: flex; width: 100%; min-height: 72px; align-items: center; gap: 10px; border: 0; background: #fff; padding: 10px 13px; color: #241a2c; text-align: left; }
+    .kiki-overview-route { display: flex; width: 30px; height: 50px; flex: 0 0 30px; flex-direction: column; align-items: center; justify-content: center; }.kiki-overview-route i { width: 10px; height: 10px; border: 2px solid var(--plum); border-radius: 50%; background: #fff; }.kiki-overview-route i:last-child { background: var(--plum); }.kiki-overview-route u { width: 2px; min-height: 15px; flex: 1; margin: 2px 0; background: repeating-linear-gradient(#bca7cd 0 3px,transparent 3px 6px); }
+    .kiki-overview-trip-copy { min-width: 0; flex: 1; }.kiki-overview-trip-copy strong { display: block; overflow: hidden; color: #241a2c; font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }.kiki-overview-trip-copy span { display: block; margin-top: 3px; color: #70687a; font-size: 11px; }
+    .more-option { display: flex; width: 100%; min-height: 62px; align-items: center; gap: 10px; border: 0; border-bottom: 1px solid #eee8f3; background: transparent; padding: 8px; color: var(--plum-dark); text-align: left; }
+    .more-option .nav-icon { border-color: #e9e2f5; color: var(--plum); }.more-option > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 3px; }.more-option b { font-size: 12px; }.more-option small { color: var(--muted); font-size: 10px; }.more-option > svg:last-child { color: #998aa0; }
+    .demo-portals-heading { display: block; padding: 16px 8px 6px; color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .1em; }
+    .sos-preview,.call-preview { display: grid; justify-items: center; gap: 10px; padding: 15px 8px; text-align: center; }.sos-preview > span,.call-preview > span { display: grid; width: 68px; height: 68px; place-items: center; border-radius: 50%; background: #fff0f2; color: #d94362; }.sos-preview h3,.call-preview h3 { margin: 0; color: var(--plum-dark); font-size: 19px; }.sos-preview p,.call-preview small { max-width: 38ch; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }.sos-countdown { display: grid; justify-items: center; color: #d94362; font-size: 40px; font-weight: 900; }.sos-countdown small { color: var(--muted); font-size: 9px; font-weight: 700; }
+    .sheet { width: min(100%,520px); margin: 0 auto; }.sheet .nav-item { color: var(--ink); }.sheet .nav-item.active { background: var(--lavender); color: var(--plum); }
+    @media (max-width: 767px) {
+      :root { --nav-width: 0px; }
+      body { min-width: 0; }
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+      .topbar { min-height: calc(76px + env(safe-area-inset-top)); align-items: center; gap: 8px; padding: env(safe-area-inset-top) 12px 0; }
+      .top-profile { margin: 0 auto 0 0; }.top-profile .avatar { width: 38px; height: 38px; }
+      .top-profile b { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .top-action { width: 32px; height: 32px; }
+      .mobile-call, .mobile-signout { display: grid; }
+      .topbar > .top-profile span:last-child { display: grid; }
+      .content { padding: 19px 16px 32px; }
+      .kiki-overview { width: min(100%, 430px); margin: 0 auto; }
+      .demo-notice { font-size: 8px; }
+      .bottom-nav { display: grid; }
+      .game-screen { max-width: 430px; }
+      .spot-card { align-items: flex-start; }
+      .journal-demo-header { padding: 10px 12px; }
+      .journal-demo-header button { min-height: 36px; padding: 0 8px; }
+      .journal-landscape { min-height: 56vh; }
+      .member-contact { flex-wrap: wrap; }
+      .member-contact > span:nth-child(2) { flex-basis: calc(100% - 60px); }
+    }
+    @media (max-width: 390px) {
+      .top-profile b { max-width: 94px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .content { padding-right: 13px; padding-left: 13px; }
+      .device-metrics { gap: 6px; }.device-metrics article { padding: 8px; }
+      .game-row { grid-template-columns: 40px minmax(0,1fr) auto; gap: 8px; padding: 9px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="App navigation">
+      <a class="brand" href="#" data-page="overview" aria-label="Kiki Connect home">
+        <span class="brand-mark"><img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAABECAYAAABK3PEEAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAh3SURBVHhe7dp9TBv3GQfwtGs7VUratdqW/rNp0jpNqjRN6qQ0E7axgaQhybSoGluXtEnw2Wdjk/cQAgHMi8E2L37BNu8veQMSwouNsTFgsHkLtEBeWiZlS0jSCJKQRFW6jRDSJd/pDkyIV+2PbiGp9HykR2cf+PdY+uq547hbtowQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEfMecLj/55gVb/cGLlqakS9ZTiZeKGw5cLm44cKm4+cBFe+P+8aLmfZftjfuDNV7UdHCi3HPoQnlDWOha30SxIeUX7HrNB9KoQ3Lp+6lK+XqNit2Yrmaj09WyaI1yW1SanInSyBTrM/fIozUH5L9PkO3alii2WCzfD12LfAvni4798kuzG1/benDf6sOMrRMzdh/u27tx3zZXs/au+erGA7sfqB7BuLXRELpW0F527w/Z9ZkJbJR2RCbOno2T5EMlNiJOYoQqwgx1pAXxUUaoo0zYvcaKnWsLIY/KHFWs06i2R+/5Vdzmg28AeCF0XfItDB079tpEgWPqrrENN/VO3DQ4MGVwYiq3ha9b3DaPKxem8ty4nefCA1sAVywtmaFrcdSbtEpGnDWpjjBDJTFDKcqDTJQLhiuhgS+ZMAdyoQHxkRYoonLG2bWaTaHrkP+jL4wOz7TZhxs6J27wIbfgpoHbckFzFQy9FbdzWzFr7cEViyt98RpsKfsyE5lVvSPKijhRPhQCAxTiAsjFeigjjGDCDZCJ5ooLWS0xQR6p7d/JJK1cvA55CsbNzcx9azdu6FtwXdfCb7mgF8LWOzGl57YuTBlcuF8YwCWjQxP8vEaz7MVYSVrzjgg7WGEeFCIDWLHunvx9zU7ZhiQhE5HmiAvP54OVCnVQiy2QR2aN7Nq26wdPfhPyVAx5PK9dK2i69ndjJ67zUzwXdLBu6lowpXPxxb2+b/XjqsWRFvy8NEpj3CEphEKQC7lAhzixBdvF6aXBnydIE1YwQu1tNjwXCm66xTlfqf5w8O2FL0Cevgu2pj/+w+rDLUMrH/LiujEf8lw5MVPYjcvmuQlWbsqIVnDBCXLBCnMgE+qhiihErDi9Mrh2Isu+zoh0d7iA4yKMYNcl736iOVka48aGsq/tAdzMcWJS51iYZv7czIU7f+i+V+jHVdPcBMeGZ4wpRSbIBDlgRHow3OFZlAuZKHtWFpWeGLsmOVoqTnUpw/OhCDeCXZN91eLZQZdAz4If/peu5jc1zdp6+TAXAp6v6/y+ZsxYuzFd6d0d9htWwIbnQSbQQSbQz5VQB0aYzYeskhRAKc5DnDif36+KMEG9Mesb//omS0QD/0vj5uaye4VdCJ6TJ+eLP2TrnZixdOGr4tb9H/w2uSQu3AJZWA5kYXrIuRLMF3cpJNBBLgy+N4AN10G9UfNuaE/yDPzV7Nx23ei+zJ1v7xZ4+WAndA7+cD1t6cRf8k6a/rQq9XMFd53LBcxPMXd9q4NcYODDlYXpwMxPNneIZgQZ11UxquWhvcgzohnTvDJpc8VPmNxjd4xe3C1ox518N/5paUd/Wq1ny6q0L7lA5wLOXqjgFHNTzYXMvVaHmyAVZfaH9iBLwFN58kctpfU/bStu/llrdetby7Dshca8oz92ZpevjFFplhecPvnqxZLWdRcsDuvfjI6RSaPrYaOqevrj1emP+FBDAuZCXVxcwPFiCxhxujO0N3nK6hHzPbfdM+qz9053FvXMeOztY2NT/uVtKUc+6TlUOz2Q0TDt0hz9sCqr6iftyTW3vImH7/Sk1jwq2V6Cj1ZnQirIBsMH+zhkOf86WNn8+XiHxAxGklUd2p8sAa+to3+w8hy6S4bgtXY99Ps/ecuXfKT2bKYLoxlOdCQdHuB+z5N4ZOxchhv9qSdg32bD5vcy+IC54oJkwrRPTvKiipeYIY3MSAntTZaA196RNVAxijZzAAOlI3DbO7e2Z5WIhrOa0H2gBkOpp+DOPr65vr7+dV/Ksf6RjGYcllYuTLA0TPtfw+XO03GSXMjXadaG9iZLoLPSI+gu7uMDDhSdRou1/Ry335t8pGc43Yne5DoEUmoftmVWydgR9uWuwsZfa7dYjNxdIqkgZ2GKg/U4bC0YgQ5KUQGY8PQvCvYUvBramywBQPOi29ox1Fs6CI/Jh/6KYbhLvfH9CYYVgUMnJofSGuE/WIfB9AZ0pR3/NKCtS8zcXHBYGsbdGdL9R8DByWW4yyaBDjsjzJBGHEoO7UuWkLfKuyZQNgCvNYBOey+6ivr+5bA5ROU7k1Z2ptacP6NtxWBaI4bSTuFzbSuq2Sp89J4WsfwEax8HHJzeMO59Fri7SKwk81pCQsKK0J5kiXns3pKh6jPwmH3wWfvRae2dbavuiuEum/yaI7sDSTUXe5NP4LMcF44rjvIBSwXcBC+qsBx+cqUC/fxtQz2U0RnRob3IM1A/Vv+Ku9DrG6w4C7fFhy77afSVDqHd7qv11HX9XFP/ziuefZZ3AtqjMbotpjpGwD2loQ8JWIdYgRYykR7qCAtkkZq9oX3IM1RRUbHCU9zpHKz6DB2WPniNAfQWj8JT2P3IW+ILdFb0pXQcG9iQstWqkwvz+FBj+VDnA+b/52wCKzZAKklMCF2fPCfcVl9Wu7n3wUD5Wf6c3GHvQ6B0GANl5/Dp4fMo39+Mj1dlghFyh2TuSQ0D5CLufq8ZssicK+zG1N+FrkmeMy0lLe+2lwZqvTb/vd7SUfQWn0G3fQgDFcMo29eMrat1UISbECexQCkxI1acPRkrSdVzT1WGrkWeY06b8+2WwnZFW2FXndcaON9d1jdh31tz68+rUie2CzOHY0WaMvm67A/3MHveDP0s+Q7y1/uXF+mK3lDFxNCtP0IIIYQQQgghhBBCCCGEEEIIIYQQQggh/5N/A2GS1yezxiWmAAAAAElFTkSuQmCC"></span><span class="brand-copy"><strong>KIKI CONNECT</strong><small>PERSONAL SAFETY NETWORK</small></span>
+      </a>
+      <div class="demo-badge">UI REVIEW DEMO · FICTIONAL DATA</div>
+      <nav class="nav-scroll" id="navigation"></nav>
+      <div class="desktop-actions">
+        <button class="send-sos" type="button" data-action="sos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="M12 8v4m0 4h.01"/></svg>Send SOS</button>
+        <button type="button" data-action="safety-call"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2Z"/></svg>Safety call</button>
+        <button type="button" data-action="signout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3"/><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></svg>Sign out</button>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <button type="button" class="top-profile" data-action="profile-menu" aria-label="Open profile">
+          <span class="avatar">T</span><span><b>Tumi Mokoena</b><small>Member</small></span>
+        </button>
+        <button type="button" class="top-action mobile-call" aria-label="Start safety call" data-action="safety-call"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2Z"/></svg></button>
+        <button type="button" class="top-action" aria-label="Mock notifications" data-action="notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><i class="notification-dot"></i></button>
+        <button type="button" class="top-action" aria-label="Refresh app" data-action="refresh"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 11.6-2L20 12M4 12l2.9 5a7 7 0 0 0 11.6-2"/></svg></button>
+        <button type="button" class="top-action mobile-signout" aria-label="Sign out" data-action="signout"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3"/><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></svg></button>
+      </header>
+      <main class="content" id="content"></main>
+    </div>
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Mobile navigation"></nav>
+  </div>
+  <div class="backdrop" id="backdrop" data-action="close-sheet">
+    <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div><div class="sheet-title"><h2 id="sheet-title">Menu</h2><button type="button" data-action="close-sheet" aria-label="Close">×</button></div><div id="sheet-content"></div>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script>
+    "use strict";
+    const catalog = {
+      overview: ["Overview", "Your Kiki at a glance.", "dashboard", "⌂"],
+      devices: ["Devices", "Your connected Kiki devices and phone links.", "devices", "▣"],
+      "link-device": ["Link a device", "Pair a Kiki device to your account.", "link", "＋"],
+      "device-security": ["Device security", "Manage access and security for your device.", "settings", "◈"],
+      profile: ["Profile", "Your account, preferences, and safety details.", "profile", "◉"],
+      "personal-details": ["Personal details", "Keep your contact details up to date.", "profile", "♙"],
+      "medical-profile": ["Medical profile", "Information you choose to share in an emergency.", "settings", "＋"],
+      "smart-safety": ["Smart safety", "Choose how Kiki supports your day-to-day safety.", "settings", "⌁"],
+      "profile-security": ["Security", "Manage your account protection preferences.", "settings", "◈"],
+      "buddy-list": ["Buddy list", "People you have chosen to stay connected with.", "people", "♡"],
+      "my-organisations": ["My Organisations", "Organisations you have connected to.", "people", "▦"],
+      ringtones: ["Ringtones", "Choose how your Kiki alerts you.", "settings", "♫"],
+      triggers: ["Safety triggers", "Configure gestures and device trigger behavior.", "settings", "⌁"],
+      "trigger-lab": ["Trigger Lab", "Explore and calibrate your trigger controls.", "settings", "⌘"],
+      trips: ["Trips & Route Watch", "Plan a route and keep your trusted people in the loop.", "trip", "⌖"],
+      travel: ["Travel Together", "Privacy-first location rings for your community.", "travel", "◎"],
+      "safe-spots": ["Safe spots & reports", "Explore trusted places and community reports.", "map", "⌖"],
+      "buddy-history": ["Buddy history", "A private history of your recent shared journeys.", "history", "◷"],
+      guardians: ["Guardian Circle", "The people who can support you on a trip.", "people", "♡"],
+      "guardian-walks": ["Shared walks", "Walks where a buddy has invited you as a guardian.", "history", "⌁"],
+      games: ["Stoep", "Games and shared moments with your buddies.", "games", "✿"],
+      morabaraba: ["Morabaraba Garden", "A thoughtful strategy game, played together.", "game", "◉"],
+      linkup: ["Kiki Links", "A quick, cooperative word game.", "game", "⌘"],
+      teach: ["Each One Teach One", "Share a small lesson with a buddy.", "game", "✎"],
+      readroom: ["Read the Room", "A social-emotional learning game for two.", "game", "◌"],
+      calm: ["Calm", "Gentle, optional tools for your everyday wellbeing.", "calm", "❋"],
+      winds: ["Gentle Winds", "Follow a soft breathing rhythm, at your own pace.", "calm-tool", "≈"],
+      baseline: ["Spot the Baseline", "Notice an ordinary scene and what is in it.", "calm-tool", "⌕"],
+      bodycheck: ["Body Check", "Map how different parts of your body feel.", "calm-tool", "◎"],
+      "calm-settings": ["Calm settings", "Choose what is remembered and what stays on this device.", "settings", "⚙"],
+      journal: ["Private journal", "A personal space for notes and reflection.", "journal", "▤"],
+      "journal-entry": ["Journal entry", "A private note from your demo garden.", "journal", "✎"],
+      "journal-list": ["Garden entries", "Browse example pages in your private garden.", "journal", "▤"],
+      "admin-overview": ["Overview", "Monitor incoming Kiki alerts, response progress and platform activity from one place.", "dashboard", "▦"],
+      "admin-alerts": ["Alert audit log", "Review recent alerts and response activity.", "table", "≡"],
+      "admin-devices": ["Device fleet", "Registered Kiki devices and latest status.", "table", "▣"],
+      "admin-triggers": ["Bluetooth triggers", "Device trigger events and configuration.", "table", "⌁"],
+      "admin-users": ["Users", "Manage member accounts and enrollment.", "table", "♙"],
+      organisations: ["Organisations", "Partner organisations across the network.", "table", "▦"],
+      "admin-responders": ["Responder partners", "Responder teams and service coverage.", "table", "✚"],
+      "admin-buddies": ["Buddies safety", "Community visibility, reports, and member safety.", "table", "♡"],
+      moderation: ["Teach moderation", "Review community teaching content.", "table", "▤"],
+      "admin-places": ["Buddy safe spots", "Review submitted safe spots and reports.", "table", "⌖"],
+      "admin-settings": ["Platform settings", "Platform-wide defaults and safety controls.", "settings", "⚙"],
+      "responder-alerts": ["Live response", "Active alerts and responder activity.", "responder", "⌖"],
+      "responder-overview": ["Responder overview", "Your response activity and availability.", "dashboard", "▦"],
+      "responder-history": ["Response history", "Recently completed response assignments.", "table", "◷"],
+      "responder-settings": ["Responder settings", "Manage your availability and response preferences.", "settings", "⚙"],
+      "org-dashboard": ["Organisation dashboard", "Coverage, people, and response at a glance.", "dashboard", "▦"],
+      beneficiaries: ["Beneficiaries", "People linked to your organisation.", "table", "♡"],
+      "org-responders": ["Responders", "Team availability and response assignments.", "table", "✚"],
+      members: ["Members", "Manage your organisation's team members.", "table", "♙"],
+      roster: ["Roster", "Membership records and enrollment.", "table", "≡"],
+      "org-settings": ["Organisation settings", "Manage your organisation's preferences.", "settings", "⚙"],
+      configurations: ["Configurations", "Branches, units, and service coverage.", "settings", "⌁"],
+      "org-links": ["Link requests", "Review member requests to join your organisation.", "table", "↔"]
+    };
+    const workspaces = {
+      member: [
+        ["Your Kiki", ["overview", "devices", "link-device", "profile"]],
+        ["Safety & community", ["trips", "travel", "safe-spots", "buddy-history", "guardians", "guardian-walks"]],
+        ["Everyday", ["games", "calm", "journal"]],
+        ["Profile & settings", ["personal-details", "medical-profile", "smart-safety", "profile-security", "buddy-list", "ringtones", "triggers", "trigger-lab", "calm-settings"]]
+      ],
+      admin: [
+        ["Operations", ["admin-overview", "admin-alerts"]],
+        ["Fleet", ["admin-devices", "admin-triggers"]],
+        ["People", ["admin-users", "organisations", "admin-responders"]],
+        ["Community", ["admin-buddies", "moderation", "admin-places", "admin-settings"]]
+      ],
+      responder: [
+        ["Response", ["responder-alerts", "responder-overview", "responder-history", "responder-settings"]]
+      ],
+      organisation: [
+        ["Organisation", ["org-dashboard", "beneficiaries", "org-responders", "members", "roster", "org-links", "configurations", "org-settings"]]
+      ]
+    };
+    const workspaceLabels = { member: "Member", admin: "Admin", responder: "Responder", organisation: "Organisation" };
+    let activeWorkspace = "member";
+    let activePage = "overview";
+    let selectedTab = "active";
+    let toastTimer;
+    const $ = (selector) => document.querySelector(selector);
+    const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+    const info = (id) => catalog[id] || [id, "A mock screen for reviewing this app experience.", "table", "•"];
+    const title = (id) => info(id)[0];
+    const iconPaths = {
+      home: '<path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/>',
+      devices: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+      profile: '<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/>',
+      route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h3"/><circle cx="18" cy="5" r="3"/>',
+      map: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15m6-12v15"/>',
+      pin: '<path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
+      game: '<path d="M6 12h4m-2-2v4"/><path d="M16 11h.01M18 13h.01"/><path d="M7 6h10a4 4 0 0 1 3.8 5.2l-1.1 3.6a2.5 2.5 0 0 1-4.1 1.1l-1.2-1.1h-4.8l-1.2 1.1a2.5 2.5 0 0 1-4.1-1.1l-1.1-3.6A4 4 0 0 1 7 6Z"/>',
+      flower: '<path d="M12 12c-1-2-4-2-4-5a3 3 0 0 1 6 0c0 3-3 3-2 5Z"/><path d="M12 12c2-1 2-4 5-4a3 3 0 0 1 0 6c-3 0-3-3-5-2Z"/><path d="M12 12c1 2 4 2 4 5a3 3 0 0 1-6 0c0-3 3-3 2-5Z"/><path d="M12 12c-2 1-2 4-5 4a3 3 0 0 1 0-6c3 0 3 3 5 2Z"/><circle cx="12" cy="12" r="2"/>',
+      journal: '<path d="M5 3h12a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2z"/><path d="M5 17a2 2 0 0 1 2-2h12M9 7h6m-6 4h6"/>',
+      menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+      bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/>',
+      phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.8a2 2 0 0 1-.6 1.8L7.7 9.6a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 1.8-.6l2.8.5a2 2 0 0 1 1.7 2Z"/>',
+      refresh: '<path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 11.6-2L20 12M4 12l2.9 5a7 7 0 0 0 11.6-2"/>',
+      shield: '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/>',
+      chevron: '<path d="m9 18 6-6-6-6"/>',
+      arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+      plus: '<path d="M12 5v14m-7-7h14"/>',
+      check: '<path d="m5 12 4 4L19 6"/>',
+      wind: '<path d="M3 8h12a3 3 0 1 0-3-3"/><path d="M2 12h17a3 3 0 1 1-3 3"/><path d="M4 16h6"/>',
+      heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/>',
+      clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      shieldAlert: '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="M12 8v4m0 4h.01"/>',
+      search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+      copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+      settings: '<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.7Z"/>',
+      organization: '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 10h1m4 0h1m-6 4h1m4 0h1m-5 7v-4h4v4"/>'
+    };
+    function icon(name, size = 17) {
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.home}</svg>`;
+    }
+    function iconForPage(id) {
+      return ({ overview: "home", devices: "devices", profile: "profile", trips: "route", travel: "route", "safe-spots": "pin", games: "game", calm: "flower", journal: "journal" })[id] || "home";
+    }
+    function showToast(message) {
+      const toast = $("#toast"); toast.textContent = message; toast.classList.add("show");
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 2300);
+    }
+    function setPage(id) {
+      if (!catalog[id]) return;
+      if (id === "travel") { id = "trips"; selectedTab = "travel"; }
+      else if (id === "trips") selectedTab = "route";
+      else if (id === "safe-spots") selectedTab = "spots";
+      else if (id === "games") selectedTab = "all";
+      else selectedTab = "active";
+      activePage = id;
+      render();
+      $("#sidebar").classList.remove("open");
+      $("#backdrop").classList.remove("open");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function setWorkspacePage(role, id) {
+      if (role && workspaces[role]) activeWorkspace = role;
+      setPage(id);
+    }
+    function renderNav() {
+      const links = activeWorkspace === "member"
+        ? [["overview", "Overview"], ["devices", "Devices"], ["profile", "Profile"], ["trips", "Trips"], ["safe-spots", "Safe spots & reports"], ["games", "Stoep"], ["calm", "Calm"], ["journal", "Journal"]]
+        : workspaces[activeWorkspace].flatMap(([, ids]) => ids.map((id) => [id, title(id)]));
+      $("#navigation").innerHTML = links.map(([id, label]) => {
+        const active = activePage === id || (id === "trips" && selectedTab === "travel" && activePage === "trips");
+        return `<button type="button" class="nav-item ${active ? "active" : ""}" ${active ? 'aria-current="page"' : ""} data-page="${id}"><span class="nav-icon">${icon(iconForPage(id), 17)}</span><span class="nav-label">${escapeHtml(label)}</span></button>`;
+      }).join("");
+    }
+    function stat(label, value, note, icon) {
+      return `<article class="stat"><div><span class="stat-label">${label}</span><b class="stat-value">${value}</b><small class="stat-note">${note}</small></div><span class="stat-icon">${icon}</span></article>`;
+    }
+    function cardHead(heading, detail = "", action = "") {
+      return `<div class="card-head"><div><h2>${heading}</h2>${detail ? `<p>${detail}</p>` : ""}</div>${action}</div>`;
+    }
+    function mockMap() {
+      return `<div class="map" role="img" aria-label="Illustrated mock map showing your approximate area and two buddy markers"><span class="map-road road-one"></span><span class="map-road road-two"></span><span class="map-label one">PARKVIEW</span><span class="map-label two">ROSEBANK</span><span class="map-label three">COMMUNITY GARDEN</span><i class="map-marker marker-a"><span>J</span></i><i class="map-marker marker-me"><span>Y</span></i><i class="map-marker marker-b"><span>M</span></i><div class="map-controls"><button type="button" data-action="map-zoom">＋</button><button type="button" data-action="map-zoom">−</button></div><span class="map-legend">Approximate areas · not live locations</span></div>`;
+    }
+    function listRow(icon, name, detail, end, status = "") {
+      return `<div class="list-row"><span class="list-icon">${icon}</span><span class="list-copy"><b>${name}</b><small>${detail}</small></span><span class="list-end">${status ? `<span class="status ${status[1]}">${status[0]}</span>` : `<b>${end || ""}</b><small>${end ? "Today" : ""}</small>`}</span></div>`;
+    }
+    function feature(id, icon, heading, detail, tag = "") {
+      return `<button type="button" class="feature-card" data-page="${id}"><span class="feature-icon">${icon}</span>${tag ? `<small>${tag}</small>` : ""}<h3>${heading}</h3><p>${detail}</p></button>`;
+    }
+    function settingsRows(rows) {
+      return rows.map(([heading, detail, checked]) => `<div class="setting-row"><div class="setting-copy"><b>${heading}</b><small>${detail}</small></div><button class="switch" type="button" role="switch" aria-checked="${checked ? "true" : "false"}" aria-label="${heading}" data-action="toggle"></button></div>`).join("");
+    }
+    function demoTable(headings, rows) {
+      return `<div class="table-wrap"><table><thead><tr>${headings.map((item) => `<th>${item}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    }
+    function pageHeader(page) {
+      if (activeWorkspace === "member" && ["overview", "devices", "profile", "trips", "travel", "safe-spots", "games", "calm", "winds", "baseline", "bodycheck", "calm-settings", "journal", "journal-entry", "journal-list", "guardians", "guardian-walks", "buddy-list", "my-organisations"].includes(page)) return "";
+      const [heading, description, kind] = info(page);
+      const actions = page === "overview"
+        ? `<button class="btn" type="button" data-page="profile">Edit profile</button><button class="btn btn-primary" type="button" data-page="trips">＋ Plan a safe trip</button>`
+        : page === "trips" || page === "travel"
+          ? `<button class="btn btn-soft" type="button" data-page="safe-spots">⌖ Safe spots</button><button class="btn" type="button" data-page="buddy-history">◷ History</button>`
+          : page === "devices"
+            ? `<button class="btn btn-primary" type="button" data-page="link-device">＋ Link a device</button>`
+            : page === "games"
+              ? `<span class="pill"><span class="dot"></span>Buddy garden open</span>`
+              : `<button class="btn" type="button" data-action="mock-action">••• More options</button>`;
+      return `<div class="page-head"><div><p class="eyebrow">${workspaceLabels[activeWorkspace]} · demo</p><h1>${escapeHtml(heading)}</h1><p class="page-subtitle">${escapeHtml(description)}</p></div><div class="head-actions">${actions}</div></div>`;
+    }
+    function dashboard(page) {
+      const admin = page === "admin-overview";
+      const responder = page === "responder-overview" || page === "responder-alerts";
+      const org = page === "org-dashboard";
+      if (admin) {
+        return `<div class="grid stats">${stat("Live alerts","03","1 needs acknowledgement","♧")}${stat("Alerts today","08","8 recorded overall","◷")}${stat("Resolved today","02","2 completed responses","✓")}${stat("False alarm rate","13%","1 of 8 today","↗")}</div><div class="grid dashboard-grid"><section class="card">${cardHead("Response queue","Most recent alerts across the platform",`<button class="text-link" type="button" data-page="admin-alerts">View all →</button>`)}<div class="list">${listRow("♧","Kiki Mini · Parkview","A. N. · SOS · 1.2 km","",["New","orange"])}${listRow("＋","Kiki Phone · Rosebank","M. K. · Medical · 2.8 km","",["Acknowledged","pink"])}${listRow("♧","Kiki Mini · Melville","J. P. · SOS · 4.1 km","",["En route","green"])}</div></section><aside><section class="card">${cardHead("Alert status","9 total · fictional data")}${[["New","1","orange"],["Acknowledged","2","pink"],["En route","1","green"],["On scene","0",""],["Resolved","4","green"],["False alarm","1",""]].map(([label,count,tone])=>`<div class="setting-row"><div class="setting-copy"><b>${label}</b></div><span class="status ${tone}">${count}</span></div>`).join("")}</section><section class="card" style="margin-top:13px">${cardHead("Emergency types")}<div class="list">${listRow("♧","SOS","General safety alerts","",["5","pink"])}${listRow("＋","Medical","Medical assistance requests","",["2","orange"])}</div></section><section class="card" style="margin-top:13px">${cardHead("Response readiness","Real-time alert monitoring is active.")}<div class="head-actions"><button class="btn" type="button" data-page="admin-users">Users</button><button class="btn" type="button" data-page="admin-devices">Devices</button></div></section></aside></div>`;
+      }
+      if (responder) {
+        return `<div class="grid stats">${stat("Active alerts","03","1 requires acknowledgement","♧")}${stat("Responders nearby","06","Across 3 partner teams","✚")}${stat("Your availability","On duty","Until 18:00 today","◷")}${stat("Avg. response","4m 20s","This week · demo","⌁")}</div><div class="grid dashboard-grid"><section class="card">${cardHead("Active response queue","Mock incidents · no dispatch actions",`<span class="pill pink"><span class="dot" style="background:#EC7AAE"></span>3 active</span>`)}<div class="list">${listRow("🚨","Safety alert · Parkview","A. N. · SOS · 1.2 km","2 min",["En route","orange"])}${listRow("＋","Medical support · Rosebank","M. K. · Medical · 2.8 km","8 min",["Acknowledged","pink"])}${listRow("🚨","Safety alert · Melville","J. P. · SOS · 4.1 km","14 min",["New","orange"])}</div><div style="margin-top:15px">${mockMap()}</div></section><aside><section class="card">${cardHead("Your response status")}<div class="profile-hero"><span class="avatar">R</span><div><h2>Reneilwe Dlamini</h2><p>City Response · On duty</p></div></div>${settingsRows([["Available for dispatch","Your team can include you in new alerts.",true]])}</section><section class="card">${cardHead("Quick links")}<div class="grid">${feature("responder-history","◷","Response history","Review completed incidents.")}${feature("responder-settings","⚙","Settings","Availability and response preferences.")}</div></section></aside></div>`;
+      }
+      if (org) {
+        return `<div class="grid stats">${stat("Beneficiaries","2,840","Linked to your organisation","♡")}${stat("Responders on duty","18","Across 4 branches","✚")}${stat("Open link requests","12","Awaiting review","↔")}${stat("Median response","5m 12s","Last 30 days · demo","◷")}</div><div class="grid dashboard-grid"><div class="grid"><section class="card">${cardHead("Organisation readiness","Demo organisation · Gauteng")}<div class="grid section-grid">${feature("beneficiaries","♡","Beneficiaries","View linked members and safety activity.")}${feature("org-responders","✚","Responder team","Availability and response overview.")}${feature("roster","≡","Membership roster","Manage enrolment and membership records.")}${feature("configurations","⌁","Coverage & branches","Configure service areas and operating units.")}</div></section><section class="card">${cardHead("Recent response activity")}<div class="list">${listRow("♧","Alert acknowledged","Parkview Branch · City Response","4 min",["In progress","orange"])}${listRow("↔","New member link request","L. Ndlovu · Community member","17 min",["Review","pink"])}</div></section></div><aside class="card">${cardHead("Coverage at a glance")}${mockMap()}<div class="setting-row"><div class="setting-copy"><b>4 branches active</b><small>Gauteng service area</small></div><button class="btn" type="button" data-page="configurations">Manage</button></div></aside></div>`;
+      }
+      return `<div class="grid stats">${stat("Protection setup","Ready","3 of 3 essentials are in place","✿")}${stat("Connected devices","02","Kiki Mini · Phone link","▣")}${stat("Guardian Circle","04","People you trust","♡")}${stat("Recent trips","03","Last trip · today at 08:42","⌖")}</div>
+        <section class="card hero-card" style="margin-bottom:17px"><h2>Your safety network, on your terms.</h2><p>Your people and your Kiki are close by. Start a trip when you want extra support, or explore a wellbeing tool for a quieter moment.</p><div class="hero-bottom"><button class="btn btn-primary" type="button" data-page="trips">⌖ Plan a safe trip</button><span class="pill"><span class="dot"></span>Everything looks good</span></div></section>
+        <div class="grid dashboard-grid"><div class="grid"><section class="card">${cardHead("Your safety readiness","A quick view of your account setup",`<button class="text-link" type="button" data-page="profile">View profile →</button>`)}<div class="list">${listRow("▣","Kiki Mini connected","Last seen just now","",["Online","green"])}${listRow("♡","Guardian Circle ready","4 trusted contacts","",["Ready","green"])}${listRow("⌖","Route Watch ready","Location permission available","",["Ready","green"])}</div></section><section class="card">${cardHead("Your recent trips","Only you choose when to share",`<button class="text-link" type="button" data-page="buddy-history">See history →</button>`)}<div class="list">${listRow("🚶","Morning walk · Zoo Lake","Today · 08:42 · Guardian notified","38 min",["Completed","green"])}${listRow("🚕","Work commute · Sandton","Yesterday · 17:20","26 min",["Completed","green"])}</div></section><section class="card">${cardHead("Quick access")}<div class="grid quick-grid"><button class="quick-action" data-page="guardians"><span class="quick-icon">♡</span><span><b>Guardian Circle</b><small>Your trusted people</small></span></button><button class="quick-action" data-page="safe-spots"><span class="quick-icon">⌖</span><span><b>Safe spots</b><small>Explore nearby places</small></span></button><button class="quick-action" data-page="games"><span class="quick-icon">✿</span><span><b>Play together</b><small>Meet in the garden</small></span></button><button class="quick-action" data-page="calm"><span class="quick-icon">❋</span><span><b>Take a calm moment</b><small>Tools at your pace</small></span></button></div></section></div>
+        <aside><section class="card">${cardHead("Guardian Circle","Your people are close",`<button class="text-link" type="button" data-page="guardians">Manage →</button>`)}<div class="avatar-row"><span class="avatar-chip">J</span><span class="avatar-chip">M</span><span class="avatar-chip">L</span><span class="avatar-chip">A</span><button class="avatar-chip" data-page="guardians">＋</button></div><p class="page-subtitle" style="font-size:9px">4 trusted people · sharing stays in your control.</p></section><section class="card">${cardHead("Travel Together","Privacy-first community map",`<button class="text-link" type="button" data-page="travel">Open →</button>`)}${mockMap()}<div class="hero-bottom" style="margin-top:10px"><span class="pill"><span class="dot"></span>Visibility is off</span><span class="pill">Approximate rings only</span></div></section><section class="card">${cardHead("A little room to breathe","Short, optional wellbeing tools")}<div class="list">${listRow("≈","Gentle Winds","1–2 min · breathing","",["Open","green"])}${listRow("◎","Body Check","Your pace · no judgement","",["Open","green"])}</div><button class="text-link" data-page="calm">Explore Calm →</button></section></aside></div>`;
+    }
+    function overviewScreen() {
+      const rows = [
+        ["devices", "Kiki hardware", "1 device linked", "Connected", true],
+        ["shield", "Responders", "6 on duty · location demo", "Nearby", true],
+        ["heart", "Buddy watch", "No Buddy trip active", "Off", false],
+        ["route", "Route Watch", "No active trip", "Off", false]
+      ];
+      return `<div class="kiki-overview">
+        <h1 class="kiki-overview-title">You’re protected.</h1>
+        <section class="kiki-overview-hero" aria-label="Safety readiness">
+          <div class="kiki-overview-hero-copy"><h2>Systems ready</h2><p>Your device and emergency contacts are ready. Start a trip to activate Route Watch.</p></div>
+          <button type="button" class="kiki-overview-cta" data-page="trips">${icon("route",21)}Plan a safe trip</button>
+        </section>
+        <section class="kiki-overview-section">
+          <div class="kiki-overview-section-head"><h2>Your safety circle</h2></div>
+          <div class="kiki-overview-group">${rows.map(([glyph, label, detail, status, active]) => {
+            const action = label === "Responders" ? 'data-action="responders"' : `data-page="${label === "Kiki hardware" ? "devices" : "trips"}"`;
+            return `<button type="button" class="kiki-overview-status-row" ${action}><span class="kiki-overview-tile-icon">${icon(glyph,21)}</span><span class="kiki-overview-status-copy"><strong>${label}</strong><span>${detail}</span></span><span class="kiki-overview-state${active ? " is-on" : ""}"><i></i>${status}</span>${icon("chevron",17)}</button>`;
+          }).join("")}</div>
+        </section>
+        <section class="kiki-overview-section kiki-overview-recent">
+          <div class="kiki-overview-section-head"><h2>Recent trips</h2><button type="button" data-page="trips">See all</button></div>
+          <div class="kiki-overview-group">
+            ${[
+              ["Zoo Lake loop", "Today · Walk"],
+              ["Home to Sandton", "Yesterday · E-hail"],
+              ["Rosebank station", "Mon · Train"]
+            ].map(([destination, detail]) => `<button type="button" class="kiki-overview-trip-row" data-page="trips"><span class="kiki-overview-route"><i></i><u></u><i></i></span><span class="kiki-overview-trip-copy"><strong>${destination}</strong><span>${detail}</span></span>${icon("chevron",17)}</button>`).join("")}
+          </div>
+        </section>
+      </div>`;
+    }
+    function tripMap() {
+      return `<div class="map trip-map" role="img" aria-label="Schematic demo route from your area to Rosebank"><span class="map-road road-one"></span><span class="map-road road-two"></span><span class="map-label one">YOUR AREA</span><span class="map-label two">ROSEBANK</span><i class="map-marker marker-me"><span>T</span></i><i class="map-marker marker-b"><span>●</span></i><span class="map-legend">Illustrative route · not live</span></div>`;
+    }
+    function renderTrips() {
+      if (selectedTab === "travel") {
+        return `<div class="hamba-page buddies-page">
+          <div class="buddies-heading"><div><p class="eyebrow">Privacy-first matching</p><h1 class="page-title">Travel together</h1></div><button class="btn" type="button" data-page="safe-spots">${icon("pin",16)}Safe spots &amp; reports</button></div>
+          <section class="buddies-panel">
+            <div class="garden-map" role="img" aria-label="Approximate travel zones, not geographic locations">
+              <span class="garden-buddy you"><b>YOU</b><small>Your area</small></span><span class="garden-buddy jayden"><b>Jayden</b><small>Walk</small></span><span class="garden-buddy mia"><b>Mia</b><small>Bus</small></span>
+            </div>
+            <p class="spot-note">Exact locations are hidden. Matches use generated aliases and broad travel zones.</p>
+            <div class="head-actions"><button class="btn" type="button" data-action="mock-action">${icon("refresh",16)}Refresh nearby</button></div>
+          </section>
+          <section class="trip-planner" style="margin-top:13px">
+            <h2 style="margin:0;font-size:15px">${icon("profile",17)} Plan a walk or ride</h2>
+            <label class="trip-field">Where are you going?<span class="trip-destination">${icon("pin",18)}<input placeholder="Type destination address..." value="Rosebank, Johannesburg" readonly></span></label>
+            <span class="trip-field">Travel mode</span>
+            <div class="travel-modes"><button aria-pressed="true">${icon("home",18)}Walk</button><button aria-pressed="false">${icon("devices",18)}E-hail</button><button aria-pressed="false">${icon("route",18)}Bus</button></div>
+            <div class="trip-location">${icon("shield",17)}Your trip starts hidden. Visibility requires consent and a fresh face check.</div>
+            <button type="button" class="btn btn-primary" data-action="mock-action">${icon("profile",16)}Create travel group</button>
+            <div class="trip-setting"><span class="avatar">J</span><span><b>Jayden · Walking</b><small>Approx. Rosebank area</small></span><button type="button" class="btn" data-action="mock-action">Invite</button></div>
+          </section>
+        </div>`;
+      }
+      return `<div class="hamba-page">
+        <div class="hamba-heading"><h1 class="page-title">Where to?</h1><span class="hamba-engine">No active trip</span></div>
+        <div class="trip-tabs" role="tablist" aria-label="Trip safety mode">
+          <button type="button" role="tab" aria-selected="true" data-tab="route">${icon("route",16)}Route Watch</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="travel">${icon("profile",16)}Travel Together</button>
+        </div>
+        <button type="button" class="trip-callout" data-page="winds">${icon("wind",19)}<span><b>Need a minute?</b><small>Open Gentle Winds in Quiet mode</small></span>${icon("chevron",17)}</button>
+        <section class="trip-planner">
+          <label class="trip-field" for="trip-destination">Where are you going?<span class="trip-destination">${icon("pin",18)}<input id="trip-destination" placeholder="Type destination address..." value="Rosebank Mall, Johannesburg" readonly></span></label>
+          <span class="trip-field">Travel mode</span>
+          <div class="travel-modes"><button type="button" aria-pressed="false">${icon("home",18)}Taxi</button><button type="button" aria-pressed="true">${icon("route",18)}Walk</button><button type="button" aria-pressed="false">${icon("devices",18)}E-hail</button><button type="button" aria-pressed="false">${icon("route",18)}Bus</button><button type="button" aria-pressed="false">${icon("route",18)}Train</button><button type="button" aria-pressed="false">${icon("route",18)}Cycling</button></div>
+          <div class="trip-setting">${icon("clock",18)}<span><b>Check-in frequency</b><small>Adaptive · up to 15 min</small></span>${icon("chevron",16)}</div>
+          <button type="button" class="trip-setting" data-page="guardians">${icon("profile",18)}<span><b>Guardian Circle</b><small>Manage contacts</small></span>${icon("chevron",16)}</button>
+          ${tripMap()}
+          <div class="trip-location">${icon("pin",17)}Demo location active · sample route only<button type="button" data-action="mock-action">Change</button></div>
+          <button type="button" class="btn btn-primary" data-action="mock-action">${icon("route",17)}Start active trip protection</button>
+        </section>
+        <section class="hamba-recent"><div class="hamba-recent-head"><h2>${icon("clock",17)}Recent destinations</h2></div>
+          ${listRow("●", "Zoo Lake loop", "Walk · Arrived safely", "", ["Completed", "green"])}
+          ${listRow("●", "Sandton City", "E-hail · Arrived safely", "", ["Completed", "green"])}
+        </section>
+      </div>`;
+    }
+    function renderSafeSpots() {
+      const tab = selectedTab === "active" ? "spots" : selectedTab;
+      const tabs = `<div class="safe-spots-tabs" role="tablist" aria-label="Safe spots and reports">
+        <button type="button" role="tab" aria-selected="${tab === "spots"}" data-tab="spots">${icon("pin",16)}Spots <span>8</span></button>
+        <button type="button" role="tab" aria-selected="${tab === "alerts"}" data-tab="alerts">${icon("shieldAlert",16)}Reports <span>3</span></button>
+        <button type="button" role="tab" aria-selected="${tab === "meetings"}" data-tab="meetings">${icon("profile",16)}Meetings <span>1</span></button>
+      </div>`;
+      if (tab === "alerts") return `<div class="hamba-page buddy-places"><div class="safe-spots-heading"><p class="safe-spots-eyebrow">Community safety</p><h1>Safe spots<br>and reports</h1></div>${tabs}<div class="safe-spots-list-heading"><div><h2>Community reports</h2><p>Recent reports around your area</p></div><span>3</span></div><div class="spot-list">${[
+        ["Construction · Jan Smuts Avenue", "Roadworks · Reported 18 min ago", "orange"],
+        ["Broken streetlight · Parkview", "Lighting · Reported 42 min ago", "pink"],
+        ["Road hazard · Rosebank", "Road safety · Reported yesterday", "orange"]
+      ].map(([name, detail, tone]) => `<article class="spot-card"><span class="quick-icon">${icon("shieldAlert",18)}</span><span class="spot-card-copy"><b>${name}</b><small>${detail}</small></span><span class="status ${tone}">Unverified</span></article>`).join("")}</div><p class="spot-note">Community reports are not verified emergency alerts. Contact local services if you need urgent help.</p></div>`;
+      if (tab === "meetings") return `<div class="hamba-page buddy-places"><div class="safe-spots-heading"><p class="safe-spots-eyebrow">Community safety</p><h1>Safe spots<br>and reports</h1></div>${tabs}<div class="empty"><span>${icon("profile",24)}</span><h3>Your Bubble meetings</h3><p>Open a meeting to help your group choose a safe place together. No active Bubble meetings in this demo.</p><button class="btn btn-primary" type="button" data-page="trips">${icon("profile",16)}Go to Travel Together</button></div></div>`;
+      return `<div class="hamba-page buddy-places">
+        <div class="safe-spots-heading"><p class="safe-spots-eyebrow">Community safety</p><h1>Safe spots<br>and reports</h1></div>
+        ${tabs}
+        <section class="safe-map-card">
+          <div class="safe-map-topline"><span>${icon("map",17)}Find a safe spot near you</span><button class="top-action" type="button" data-action="mock-action" aria-label="Refresh nearby spots">${icon("refresh",17)}</button></div>
+          <div class="safe-map-canvas" role="img" aria-label="Schematic, not-to-scale view of nearby public places">
+            <span class="safe-map-block safe-map-block-one"></span><span class="safe-map-block safe-map-block-two"></span><span class="safe-map-block safe-map-block-three"></span>
+            <span class="safe-map-road safe-map-road-a"></span><span class="safe-map-road safe-map-road-b"></span><span class="safe-map-road safe-map-road-c"></span>
+            <span class="safe-map-label">NEARBY</span><button class="safe-map-pin" style="top:35%;left:30%" aria-label="Show Corner House Café">${icon("pin",15)}</button><button class="safe-map-pin" style="top:63%;left:65%" aria-label="Show Parkview Library">${icon("pin",15)}</button><span class="safe-map-you" aria-label="Your area"><b>You</b></span>
+            <span class="safe-map-disclaimer">Approximate layout · not a navigation map</span>
+          </div>
+          <div class="safe-map-legend"><span>● Reviewed spot</span><span>● Your area</span><small>Location stays on your device until you search.</small></div>
+        </section>
+        <div class="spot-note"><b>Demo data — not verified.</b> Sample places are fictional and not safety recommendations.</div>
+        <div class="safe-category-chips"><button aria-pressed="true" data-tab="spots">All <span>8</span></button><button aria-pressed="false" data-action="mock-action">${icon("home",14)}Cafés <span>3</span></button><button aria-pressed="false" data-action="mock-action">${icon("profile",14)}Community <span>2</span></button><button aria-pressed="false" data-action="mock-action">${icon("devices",14)}Transport <span>3</span></button></div>
+        <div class="safe-spots-list-heading"><div><h2>Nearby spots</h2><p>Reviewed spots and clearly labeled demo samples</p></div><span>8</span></div>
+        <div class="spot-list">${[
+          ["Corner House Café", "Café · Parkview", "Reviewed spot"],
+          ["Parkview Library", "Community · Parkview", "Reviewed spot"],
+          ["Rosebank Gautrain Station", "Transport · Rosebank", "Demo sample · unverified"]
+        ].map(([name, detail, state]) => `<article class="spot-card"><span class="quick-icon">${icon("pin",18)}</span><span class="spot-card-copy"><b>${name}</b><small>${detail} · Open hours may vary</small></span><span class="status ${state.startsWith("Reviewed") ? "green" : "orange"}">${state}</span>${icon("chevron",16)}</article>`).join("")}</div>
+        <section class="card" style="margin-top:12px">${cardHead("Know a public place?","Suggest it for review so it can help people nearby.")}<button type="button" class="btn" data-action="mock-action">${icon("plus",16)}Suggest a spot</button></section>
+      </div>`;
+    }
+    function renderDevices() {
+      return `<div class="devices-page">
+        <header class="devices-heading"><div><h1>My devices</h1><p>2 devices linked</p></div><button class="devices-link" type="button" data-page="link-device">${icon("plus",16)}Link device</button></header>
+        <div class="device-switch" role="group" aria-label="Choose which devices to view"><button type="button" aria-pressed="true">${icon("shield",17)}Kiki devices</button><button type="button" aria-pressed="false">${icon("devices",17)}Phone-connected</button></div>
+        <section class="device-hero"><div class="device-stage"><div class="device-pendant"><strong>K</strong></div></div><div class="device-copy"><h2>Kiki Mini</h2><p>KIKI-MINI-2048</p><span class="device-status">● Connected</span></div></section>
+        <section class="device-metrics" aria-label="Device status"><article>${icon("plus",20)}<small>Battery</small><b>84%</b></article><article>${icon("wind",20)}<small>Signal</small><b>Good · −62 dBm</b></article><article>${icon("clock",20)}<small>Last seen</small><b>Just now</b></article></section>
+        <section class="device-actions">
+          <button type="button" data-action="mock-action"><span class="quick-icon">${icon("profile",18)}</span><span><b>Rename</b><small>Kiki Mini</small></span>${icon("chevron",17)}</button>
+          <button type="button" data-action="mock-action"><span class="quick-icon">${icon("shield",18)}</span><span><b>Device PIN</b><small>Required to change or unlink</small></span><span class="switch" role="switch" aria-checked="true"></span></button>
+          <button type="button" data-action="mock-action"><span class="quick-icon">${icon("devices",18)}</span><span><b>Remove device</b><small>Unlink it from your account</small></span>${icon("chevron",17)}</button>
+        </section>
+        <section class="devices-page" style="margin-top:18px"><h2 style="font-size:15px">All devices <span class="status">2</span></h2>${listRow("▣","Kiki Mini","KIKI-MINI-2048","",["Connected","green"])}${listRow("▣","Kiki Tag","KIKI-TAG-1920","",["Offline","orange"])}</section>
+      </div>`;
+    }
+    function renderProfile() {
+      const rows = [
+        ["journal", "Medical ID & Emergency Info", "medical-profile"],
+        ["profile", "My Organisations", "my-organisations"],
+        ["shield", "Security & PIN Code", "profile-security"],
+        ["wind", "Ringtones", "ringtones"],
+        ["devices", "Bluetooth Triggers", "triggers"],
+        ["profile", "My Buddies", "buddy-list"],
+        ["route", "Shared Walks", "guardian-walks"]
+      ];
+      return `<div class="profile-hub"><header><span>MY ACCOUNT</span><h1>User Profile</h1></header>
+        <section class="profile-card">
+          <button type="button" class="profile-identity" data-page="personal-details"><span class="avatar">T</span><span class="profile-identity-copy"><h2>Tumi Mokoena</h2><p>tumi@example.com</p><small>View profile details ${icon("chevron",14)}</small><b>Premium Safety Subscriber</b></span>${icon("chevron",18)}</button>
+          <nav class="profile-menu" aria-label="Account settings">${rows.map(([glyph,label,page]) => `<button type="button" class="profile-menu-row" data-page="${page}"><span>${icon(glyph,17)}${label}</span>${icon("chevron",17)}</button>`).join("")}
+            <button type="button" class="profile-menu-row" role="switch" aria-checked="false" data-action="toggle"><span>${icon("wind",17)}<span><b>Dark mode</b><small style="display:block;margin-top:3px;color:var(--muted);font-weight:500">Use a softer look in low light</small></span></span><span class="switch" aria-hidden="true"></span></button>
+            <button type="button" class="profile-menu-row" data-page="guardians"><span>${icon("shield",17)}Guardian Circle</span>${icon("chevron",17)}</button>
+          </nav>
+          <section class="location-card"><h2>${icon("pin",17)}Location &amp; community alerts</h2><p>To get community alerts within 1 km, enable both switches and allow location and notifications for Kiki. Both settings start off and can be turned off at any time.</p>${settingsRows([["Live Location Sharing","Lets Kiki use your current location for nearby responders and safety alerts.",false],["Safety Intelligence Alerts","Get a notification when community reports are near you. Requires Live Location Sharing.",false]])}</section>
+          <button type="button" class="profile-logout" data-action="signout">Log Out Account</button>
+        </section>
+      </div>`;
+    }
+    function renderJournal(page) {
+      if (page === "journal-entry") return `<section class="journal-demo"><header class="journal-demo-header"><div><button type="button" aria-label="Back to garden" data-page="journal">${icon("arrow",17)}</button><strong>A slower morning</strong></div><button type="button" data-action="mock-action">Quick hide</button></header><article class="member-detail-page card" style="align-self:start;padding:22px"><p class="eyebrow">MOMENT · TODAY, 08:16</p><h1 style="font-size:26px">A slower morning</h1><p style="font-size:13px;line-height:1.7;color:var(--muted)">I took the longer route past the garden today. The light was soft, and I noticed I wasn't in a rush for once.</p><span class="pill">Private example entry · not saved</span></article></section>`;
+      if (page === "journal-list") return `<section class="journal-demo"><header class="journal-demo-header"><div><button type="button" aria-label="Back to garden" data-page="journal">${icon("arrow",17)}</button><strong>Your garden</strong></div><button type="button" data-action="mock-action">Quick hide</button></header><div class="member-detail-page" style="padding:0 16px 18px"><div class="page-head"><div><p class="eyebrow">PRIVATE SPACE</p><h1>Garden entries</h1></div><button class="btn" type="button" data-page="journal">${icon("flower",16)} Garden</button></div><div class="card list">${listRow("✿","A slower morning","Today · 08:16 · Moment","",["Example","green"])}${listRow("☁","Things that helped","Yesterday · 20:42 · Feeling","",["Example","green"])}${listRow("🦋","A note to myself","12 Nov · 09:20 · Thought","",["Example","green"])}</div><button class="btn btn-primary" type="button" data-page="journal-entry">Open example entry</button></div></section>`;
+      return `<section class="journal-demo"><header class="journal-demo-header"><div><button type="button" aria-label="Back to Kiki" data-page="overview">${icon("arrow",17)}</button><strong>Your private journal</strong></div><div><button type="button" data-page="journal-list">${icon("journal",16)} List</button><button type="button" data-action="mock-action" aria-label="Journal settings">${icon("settings",16)}</button><button type="button" data-action="mock-action">Quick hide</button></div></header><div class="journal-landscape" role="img" aria-label="Illustrated private garden with sample journal entries"><span class="journal-sun"></span><span class="journal-hill back"></span><span class="journal-hill"></span><span class="journal-path"></span><span class="journal-tree"></span><button class="journal-entry-token one" type="button" aria-label="Open A slower morning" data-page="journal-entry">✿</button><button class="journal-entry-token two" type="button" aria-label="Open Things that helped" data-page="journal-entry">☁</button><button class="journal-entry-token three" type="button" aria-label="Open A note to myself" data-page="journal-entry">♡</button><span class="journal-writing-sign">Still writing<br>this one.</span></div><div class="journal-demo-panel"><div class="journal-demo-prompt"><span class="quick-icon">${icon("flower",21)}</span><span><b>This is your garden</b><small>Your private space · example entries only</small></span></div><button class="btn btn-primary" type="button" data-action="mock-action">${icon("plus",18)} Leave something here</button></div></section>`;
+    }
+    function renderGuardians() {
+      return `<div class="member-detail-page"><header class="member-detail-heading"><span>EMERGENCY DISPATCH</span><h1>Guardian Circle</h1><p>Tier 2 Guardians are private friends and family. They do not appear in responder tools.</p></header><section class="card member-detail-card"><h2>Add trusted Guardian</h2><label class="field">Full name<input placeholder="Full name" readonly></label><label class="field">Mobile number<input placeholder="Mobile number" readonly></label><label class="field">Relationship<input placeholder="Relationship" readonly></label><button class="btn btn-primary" type="button" data-action="mock-action">${icon("plus",16)} Add Guardian</button></section><section class="card member-detail-card"><div class="card-head"><div><h2>Your Guardians</h2><p>Private contacts you choose to add</p></div><span class="status">2</span></div><div class="member-contact"><span class="avatar">J</span><span><b>Jayden Nkosi</b><small>Sibling · +27 82 555 0142</small></span><button class="btn" type="button" data-action="mock-action">Remove</button></div><div class="member-contact"><span class="avatar">M</span><span><b>Mia Jacobs</b><small>Friend · +27 82 555 0194</small></span><button class="btn" type="button" data-action="mock-action">Remove</button></div></section><section class="card member-detail-card"><h2>Tier 1 emergency contact</h2><p>Your Tier 1 emergency contact is managed in your profile and is the only personal contact supplied to authorised responders during an alert.</p><button class="btn" type="button" data-page="personal-details">View profile details ${icon("chevron",15)}</button></section></div>`;
+    }
+    function renderBuddyList() {
+      return `<div class="member-detail-page"><header class="member-detail-heading"><span>MY ACCOUNT</span><h1>My Buddies</h1><p>Connect with people you know. Requests must be accepted before you can invite each other to games or walks.</p></header><section class="card member-detail-card"><h2>${icon("profile",17)} Your Kiki ID</h2><p>Share this ID with someone you trust so they can find you. Your email, phone number and location are not shown.</p><div class="member-contact"><code>KIKI-4821</code><button class="btn" type="button" data-action="mock-action">${icon("copy",15)} Copy ID</button></div></section><section class="card member-detail-card"><h2>${icon("plus",17)} Add a buddy</h2><p>Enter the Kiki ID they shared with you. Check the name and profile before you send a request.</p><label class="field">Kiki ID<input placeholder="KIKI-0123456789ABCDEF" readonly></label><button class="btn btn-primary" type="button" data-action="mock-action">Find person</button></section><section class="card member-detail-card"><h2>Requests for you <span class="status">1</span></h2><div class="member-contact"><span class="avatar">L</span><span><b>Lerato Maseko</b><small>KIKI-6390 · Sent today</small></span><button class="btn btn-primary" type="button" data-action="mock-action">Accept</button><button class="btn" type="button" data-action="mock-action">Decline</button></div></section><section class="card member-detail-card"><h2>Your buddy list <span class="status">2</span></h2><p>Accepted buddies can be selected when you invite people to multiplayer games or walks.</p><div class="member-contact"><span class="avatar">J</span><span><b>Jayden Nkosi</b><small>KIKI-1034</small></span><button class="btn" type="button" data-action="mock-action">Remove</button></div><div class="member-contact"><span class="avatar">M</span><span><b>Mia Jacobs</b><small>KIKI-2871</small></span><button class="btn" type="button" data-action="mock-action">Remove</button></div></section><section class="card member-detail-card"><h2>Sent requests <span class="status">1</span></h2><div class="member-contact"><span class="avatar">A</span><span><b>Ayesha Khan</b><small>KIKI-4418</small></span><span class="pill">Waiting for acceptance</span></div></section><p class="spot-note">Fictional contacts · requests and profile changes are not sent or saved.</p></div>`;
+    }
+    function renderGuardianWalks() {
+      return `<div class="member-detail-page"><header class="member-detail-heading"><span>CONSENT-BASED SAFETY SHARING</span><h1>Shared walks</h1><button class="btn" type="button" data-page="trips">${icon("route",16)} My trips</button></header><p class="page-subtitle" style="margin:0 0 15px">Only walks you have accepted appear here. Location access ends when a trip ends or the owner revokes sharing.</p><section class="card member-detail-card"><div class="member-contact"><span class="avatar">J</span><span><b>Jayden invited you as a walk guardian</b><small>Walk · Today, 08:20</small></span><span class="status orange">Awaiting your response</span></div><div class="head-actions"><button class="btn btn-primary" type="button" data-action="mock-action">${icon("check",15)} Accept live sharing</button><button class="btn" type="button" data-action="mock-action">Decline</button></div></section><section class="card member-detail-card"><div class="member-contact"><span class="avatar">M</span><span><b>Mia Jacobs · Rosebank Mall</b><small>Walk · Active now</small></span><span class="status green">Trip active</span></div><button class="btn btn-primary" type="button" data-action="mock-action">${icon("pin",15)} View live walk</button><button class="btn" type="button" data-action="mock-action">Stop viewing</button><div class="map" role="img" aria-label="Illustrative shared walk map, not a live location"><span class="map-road road-one"></span><span class="map-road road-two"></span><span class="map-marker marker-me"><span>M</span></span><span class="map-legend">Sample route · no live location</span></div><div class="grid profile-grid"><div class="stat"><span class="stat-label">Next check-in</span><b class="stat-value" style="font-size:15px">08:45</b></div><div class="stat"><span class="stat-label">Last location update</span><b class="stat-value" style="font-size:15px">08:32</b></div></div></section><section class="card member-detail-card"><div class="member-contact"><span class="avatar">L</span><span><b>Lerato Maseko · Walk ended</b><small>Yesterday · Live location no longer available</small></span><span class="status">Ended</span></div></section><p class="spot-note">Sample invitations only · location is illustrative, never live.</p></div>`;
+    }
+    function renderMyOrganisations() {
+      return `<div class="member-detail-page"><header class="member-detail-heading"><span>MY ACCOUNT</span><h1>My Organisations</h1><p>Connect to an eligible school, employer, or home support organisation to access its safety coverage.</p></header><section class="card member-detail-card"><h2>${icon("search",17)} Find an organisation</h2><p>Search by name, then choose your relationship and provide the identifier supplied by your organisation.</p><label class="field">Organisation name<input placeholder="Search organisations" readonly></label><label class="field">Relationship<select><option>School</option><option>Work</option><option>Home</option></select></label><button class="btn btn-primary" type="button" data-action="mock-action">Search organisations</button></section><section class="card member-detail-card"><div class="card-head"><div><h2>Linked organisations</h2><p>Membership status and contact details</p></div><span class="status">1</span></div><div class="member-contact"><span class="quick-icon">${icon("organization",18)}</span><span><b>Parkview Community School</b><small>School · Parkview branch</small></span><span class="status green">Linked</span></div><p>Alerts route to your linked organisation while your membership is active.</p></section><p class="spot-note">Organisation searches and membership links are preview-only.</p></div>`;
+    }
+    function renderGames() {
+      const games = [
+        ["buddy","Play Kiki AI","Solo Morabaraba with easy, medium, or hard AI","Solo","morabaraba","game"],
+        ["buddy","Kiki Links with a Buddy","Find a nearby Buddy on the radar, invite them, and race to make words","Invite","linkup","game"],
+        ["buddy","Kiki Links with Kiki","Challenge Kiki AI with a mode and difficulty you choose","Play","linkup","game"],
+        ["buddy","Each One Teach One","Learn and share everyday tips with an anonymous nearby Buddy","Teach","teach","journal"],
+        ["buddy","Read the Room","Explore different perspectives on gentle, fictional everyday moments","Play","readroom","profile"],
+        ["grounding","Five Things","Notice what is around you","Start","baseline","flower"],
+        ["grounding","Calm tools","Gentle Winds, Spot the Baseline, and Body Check","Explore","calm","wind"],
+        ["release","Worry Boats","Name a worry and send it off","Launch","baseline","wind"],
+        ["buddy","Play with a Buddy","A quick, light two-player game","Play","morabaraba","game"]
+      ];
+      const filter = selectedTab === "active" ? "all" : selectedTab;
+      const visible = filter === "all" ? games : games.filter(([category]) => category === filter);
+      return `<div class="game-screen"><h1>Unwind &amp; Play</h1><p class="game-subtitle">Quick, gentle, and private mental resets.</p>
+        <div class="game-filters" role="group" aria-label="Filter games">${[["all","All"],["grounding","Grounding"],["release","Release"],["buddy","Buddy"]].map(([key,label]) => `<button type="button" aria-pressed="${filter === key}" data-tab="${key}">${label}</button>`).join("")}</div>
+        <div class="game-list" aria-live="polite">${visible.map(([category,name,description,action,page,glyph]) => `<button type="button" class="game-row" data-page="${page}"><span class="game-icon">${icon(glyph,22)}</span><span class="game-copy"><span class="game-category">${category}</span><strong>${name}</strong><small>${description}</small></span><span class="game-action">${action}${icon("arrow",14)}</span></button>`).join("")}</div>
+      </div>`;
+    }
+    function calmHeader(title, running = false) {
+      return `<header class="calm-header"><button type="button" aria-label="Back to ${title === "Calm" ? "account" : "Calm"}" data-page="${title === "Calm" ? "overview" : "calm"}">${icon("arrow",20)}</button><strong>${title === "Calm" ? `${icon("flower",21)} Calm` : title}</strong><span class="calm-header-actions"><button type="button" aria-label="Mute app sounds" data-action="mock-action">${icon("wind",18)}</button>${title !== "Settings" ? `<button type="button" aria-label="Calm settings" data-page="calm-settings">${icon("devices",18)}</button>` : ""}${running ? `<button type="button" class="btn" data-page="calm">Stop</button>` : ""}</span></header>`;
+    }
+    function renderCalm(page) {
+      if (page === "calm") return `<div class="calm-shell">${calmHeader("Calm")}<main class="calm-content">
+        <section class="calm-hero"><p class="eyebrow">Your Calm garden</p><h1>Choose what feels right</h1><p>Gentle, optional ways to breathe, notice, and check in with yourself.</p><div class="calm-pond"><span>${icon("flower",34)}</span></div></section>
+        <nav class="calm-tools" aria-label="Calm tools">
+          <button type="button" class="calm-tool" data-page="winds"><span class="game-icon">${icon("wind",22)}</span><span><strong>Gentle Winds</strong><small>Follow a soft breathing rhythm, with a quiet eyes-closed option.<br>1–2 min</small></span>${icon("arrow",18)}</button>
+          <button type="button" class="calm-tool" data-page="baseline"><span class="game-icon">${icon("profile",22)}</span><span><strong>Spot the Baseline</strong><small>Notice a calm everyday scene and what is in it.<br>1–2 min</small></span>${icon("arrow",18)}</button>
+          <button type="button" class="calm-tool" data-page="bodycheck"><span class="game-icon">${icon("heart",22)}</span><span><strong>Body Check</strong><small>Map how different parts of your body feel, without judgement.<br>Your pace</small></span>${icon("arrow",18)}</button>
+        </nav><div class="calm-actions"><button class="btn" data-action="mock-action">How this space works</button><button class="btn" data-page="calm-settings">Settings &amp; privacy ${icon("chevron",15)}</button></div><p class="calm-disclaimer">These are calming exercises, not medical advice.</p>
+      </main></div>`;
+      if (page === "calm-settings") return `<div class="calm-shell">${calmHeader("Settings")}<main class="calm-content"><section class="calm-hero" style="min-height:auto;text-align:left"><p class="eyebrow">CALM</p><h1>Settings &amp; privacy</h1><p>Choose what is remembered and what stays on this device.</p></section><section class="card" style="margin-top:13px">${settingsRows([["Save Calm history","Keep optional session summaries in your private history.",false],["Sound cues","Play gentle audio during breathing exercises.",true],["Haptics","Use vibration cues when available.",true]])}</section><p class="calm-disclaimer">You can change these preferences at any time. No session is saved by default.</p></main></div>`;
+      const titleText = page === "winds" ? "Gentle Winds" : page === "baseline" ? "Spot the Baseline" : "Body Check";
+      const exercise = page === "winds"
+        ? `<section class="calm-hero"><p class="eyebrow">A GENTLE RESET</p><h1>Follow the rhythm</h1><p>Breathe in and out comfortably. Holds are optional.</p><div class="calm-pond" style="width:170px;height:170px"><span style="width:112px;height:112px">${icon("wind",40)}</span></div><p>Inhale · Exhale</p><button class="btn btn-primary" data-action="mock-action">${icon("wind",17)}Begin breathing</button></section><section class="card" style="margin-top:12px">${cardHead("Choose a breathing pattern")}<button class="btn btn-soft" data-action="mock-action">Slow · 4 cycles</button></section>`
+        : page === "baseline"
+          ? `<section class="calm-hero"><p class="eyebrow">LOOK · NOTICE · REVEAL</p><h1>A calm everyday scene</h1><p>Take a moment to notice what is in the room. This is not a test.</p><div class="calm-pond" style="width:100%;height:160px;border-radius:18px"><span>${icon("home",38)}</span></div><button class="btn btn-primary" style="margin-top:12px" data-action="mock-action">Show me the scene</button></section>`
+          : `<section class="calm-hero"><p class="eyebrow">NOTICE · NAME · CARE</p><h1>How does your body feel?</h1><p>Choose a gentle rating, or skip it. There are no right answers.</p><div class="grid quick-grid" style="margin-top:14px">${["Head","Shoulders","Chest","Hands","Stomach","Legs"].map((item) => `<button class="quick-action" data-action="mock-action"><span class="quick-icon">${icon("heart",17)}</span><span><b>${item}</b><small>Tap to check in</small></span></button>`).join("")}</div></section>`;
+      return `<div class="calm-shell">${calmHeader(titleText, true)}<main class="calm-content">${exercise}<p class="calm-disclaimer">These are calming exercises, not medical advice.</p></main></div>`;
+    }
+    function renderScreen(page) {
+      if (activeWorkspace === "member") {
+        if (page === "overview") return overviewScreen();
+        if (page === "devices") return renderDevices();
+        if (page === "profile") return renderProfile();
+        if (page === "trips") return renderTrips();
+        if (page === "safe-spots") return renderSafeSpots();
+        if (page === "games") return renderGames();
+        if (["calm", "winds", "baseline", "bodycheck", "calm-settings"].includes(page)) return renderCalm(page);
+        if (["journal", "journal-entry", "journal-list"].includes(page)) return renderJournal(page);
+        if (page === "guardians") return renderGuardians();
+        if (page === "guardian-walks") return renderGuardianWalks();
+        if (page === "buddy-list") return renderBuddyList();
+        if (page === "my-organisations") return renderMyOrganisations();
+      }
+      if (["overview", "admin-overview", "responder-overview", "responder-alerts", "org-dashboard"].includes(page)) return dashboard(page);
+      if (page === "games") return `<section class="card hero-card" style="margin-bottom:16px"><h2>Come sit in the garden.</h2><p>Choose a game to play on your own or invite one of your buddies. Your real account and game connections are not used in this demo.</p><div class="hero-bottom"><span class="pill"><span class="dot"></span>Mock buddy presence</span><span class="pill">No invitations are sent</span></div></section><div class="grid section-grid">${feature("morabaraba","◉","Morabaraba","A classic strategy game for two. Play a friend or practice solo.","2 PLAYERS")}${feature("linkup","⌘","Kiki Links","Make a connection, one word at a time.","WORD GAME")}${feature("teach","✎","Each One Teach One","Share something you know with a buddy.","BUDDY GAME")}${feature("readroom","◌","Read the Room","Explore feelings and social situations together.","BUDDY GAME")}</div><section class="card" style="margin-top:15px">${cardHead("Your rooms","Demo rooms are only for exploring the layout")}<div class="list">${listRow("◉","Morabaraba · waiting for your move","Hosted by Jayden · 2 players","",["Waiting","orange"])}${listRow("⌘","Kiki Links · just for fun","Solo practice · 5 rounds","",["Ready","green"])}</div></section>`;
+      if (["morabaraba", "linkup", "teach", "readroom"].includes(page)) return `<div class="grid game-room"><section class="card">${cardHead("Demo game board","This board is illustrative. Moves are not saved.")}<div class="game-status"><span><b>Round 2 of 5</b><br><small>Your turn · Move a piece to continue</small></span><span class="pill pink">Tumi · 3 points</span></div><div class="game-board"><div class="board-grid">${Array.from({ length: 25 }, (_, i) => `<span>${[0, 4, 6, 8, 12, 16, 18, 20, 24].includes(i) ? "●" : ""}</span>`).join("")}</div></div><div class="head-actions"><button class="btn" data-action="mock-action">How to play</button><button class="btn btn-primary" data-action="mock-action">Demo move</button></div></section><aside><section class="card">${cardHead("Players")}<div class="list">${listRow("T","You · Tumi","Your turn","",["Playing","green"])}${listRow("J","Jayden","Buddy · connected","",["Ready","green"])}</div></section><section class="safety-panel" style="margin-top:14px"><h3>Friendly demo reminder</h3><p>Game invitations, scores, messages, and room state are mock data only. Nothing here is shared or persisted.</p></section></aside></div>`;
+      if (page === "trips") return `<div class="grid dashboard-grid"><div class="grid"><section class="card">${cardHead("Plan a trip","Set a destination and see your demo route.")}<label class="field">Where are you going?<input value="Rosebank Mall, Johannesburg" readonly></label><div class="grid profile-grid"><label class="field">Travel mode<select><option>Walking</option><option>Taxi</option><option>Bus</option></select></label><label class="field">Check-in frequency<select><option>Adaptive · up to 15 min</option></select></label></div><div style="margin-top:14px">${mockMap()}</div><div class="head-actions" style="margin-top:13px"><button class="btn btn-primary" data-action="mock-action">Start demo trip</button><span class="pill">Route Watch is a mock</span></div></section><section class="card">${cardHead("Active trip preview","Your demo trip is visible only in this prototype")}<div class="timeline"><div class="timeline-item"><b>Trip started · Zoo Lake</b><p>Today · 08:42 · Walking</p></div><div class="timeline-item"><b>Guardian check-in</b><p>Jayden has been added as your demo guardian.</p></div><div class="timeline-item"><b>Arrive at home</b><p>Estimated in 18 minutes</p></div></div></section></div><aside><section class="card">${cardHead("Trip privacy")}<div class="setting-row"><div class="setting-copy"><b>Share with a guardian</b><small>Your route is private until you choose a person.</small></div><button class="switch" role="switch" aria-checked="true" data-action="toggle"></button></div><div class="setting-row"><div class="setting-copy"><b>Location detail</b><small>Broad location rings for this UI demo.</small></div><span class="pill">Approximate</span></div></section><section class="card">${cardHead("Recent routes")}<div class="list">${listRow("🚶","Zoo Lake loop","Walk · 3.2 km","",["Completed","green"])}${listRow("🚕","Home to Sandton","Taxi · 8.4 km","",["Completed","green"])}</div></section></aside></div>`;
+      if (page === "travel" || page === "safe-spots") return `<div class="grid dashboard-grid"><div class="grid"><section class="card">${cardHead(page === "travel" ? "Travel Together map" : "Explore your community","Illustrated map · all locations and reports are fictional",`<span class="pill"><span class="dot"></span>${page === "travel" ? "Visibility off" : "Community demo"}</span>`)}${mockMap()}<div class="hero-bottom" style="margin-top:12px"><span class="pill">Exact locations hidden</span><span class="pill">Approximate area only</span><button class="btn" data-action="mock-action">Refresh demo map</button></div></section><section class="card">${cardHead(page === "travel" ? "Travel with your buddies" : "Nearby safe spots & reports")}<div class="list">${listRow("☕","Corner House Café","Trusted public place · Parkview","",["Open","green"])}${listRow("♡","Buddy · Jayden","Walking · toward Rosebank","",["Approx. 1.2 km","orange"])}${listRow("⌖","Community report","Street lighting out · 24 min ago","",["Unverified","pink"])}</div></section></div><aside><section class="card">${cardHead("Your travel group")}<div class="profile-hero"><span class="avatar">T</span><div><h2>Your trip alias</h2><p>Visible only after you opt in</p></div><span class="pill">Hidden</span></div>${settingsRows([["Show my approximate area","Use privacy-preserving location rings.",false],["Allow buddy invites","Only connected buddies can invite you.",true]])}<button class="btn btn-primary" data-action="mock-action">Preview visibility consent</button></section><section class="card">${cardHead("Your buddy connections")}<div class="list">${listRow("♡","Jayden","Connected buddy","",["Connected","green"])}${listRow("♡","Mia","Connected buddy","",["Connected","green"])}</div><button class="btn" data-page="buddy-list">Manage buddy list</button></section></aside></div>`;
+      if (page === "profile" || page === "personal-details") return `<section class="profile-hero"><span class="avatar">T</span><div><h2>Tumi Mokoena</h2><p>Member since March 2025 · Kiki ID KIKI-4821</p></div><span class="top-spacer"></span><span class="pill"><span class="dot"></span>Profile complete</span></section><div class="grid profile-grid"><section class="card">${cardHead("Personal details","Your profile is private to your account.")}<div class="grid profile-grid"><label class="field">Full name<input value="Tumi Mokoena" readonly></label><label class="field">Kiki ID<input value="KIKI-4821" readonly></label><label class="field">Email address<input value="tumi@example.com" readonly></label><label class="field">Mobile number<input value="+27 82 555 0184" readonly></label></div><button class="btn" style="margin-top:14px" data-page="personal-details">Edit personal details</button></section><section class="card">${cardHead("Safety & privacy","Manage the details you choose to share")}<div class="list">${listRow("＋","Medical profile","Emergency details you control","",["Review","green"])}${listRow("♡","Buddy list","4 trusted connections","",["Manage","green"])}${listRow("◈","Security","Account protection","",["Protected","green"])}</div></section></div><section class="card" style="margin-top:15px">${cardHead("Profile preferences")}<div class="grid section-grid">${feature("medical-profile","＋","Medical profile","Optional information for emergency responders.")}${feature("smart-safety","⌁","Smart safety","Location, privacy, and alert preferences.")}${feature("profile-security","◈","Account security","Your sign-in and device access.")}${feature("ringtones","♫","Ringtones","Choose the alerts your Kiki uses.")}${feature("triggers","⌁","Safety triggers","Set up your preferred trigger controls.")}${feature("buddy-list","♡","Buddy list","Manage the people you stay connected to.")}</div></section>`;
+      if (page === "devices" || page === "link-device" || page === "device-security") return `<div class="grid dashboard-grid"><div class="grid"><section class="card">${cardHead(page === "link-device" ? "Link a Kiki device" : page === "device-security" ? "Device security" : "Your connected devices","Device details are fictional in this prototype.",`<button class="btn btn-primary" data-page="link-device">＋ Link a device</button>`)}${page === "link-device" ? `<div class="empty"><div><span>▣</span><h3>Ready when you are</h3><p>This mock pairing panel previews the device linking steps. No Bluetooth scan or account pairing will occur.</p><button class="btn btn-primary" style="margin-top:13px" data-action="mock-action">Preview pairing steps</button></div></div>` : `<div class="list">${listRow("▣","Kiki Mini · KIKI-2034","Battery 86% · Last seen just now","",["Online","green"])}${listRow("▣","Kiki Phone link","This phone · Linked today","",["Connected","green"])}</div>`}</section><section class="card">${cardHead("Device activity","Recent demo events")}<div class="list">${listRow("⌁","Safety check-in","Kiki Mini · today at 08:42","",["Complete","green"])}${listRow("◈","Security check","All permissions reviewed","",["Ready","green"])}</div></section></div><aside><section class="card">${cardHead("Kiki Mini")}<div class="profile-hero"><span class="avatar">✿</span><div><h2>Connected</h2><p>Battery · 86% · Rose quartz</p></div></div>${settingsRows([["Device alerts","Play a sound for a safety alert.",true],["Automatic updates","Keep your Kiki up to date.",true]])}<button class="btn" data-page="device-security">Device security</button></section></aside></div>`;
+      if (page === "calm") return `<section class="card hero-card" style="margin-bottom:16px"><h2>Make room for how you feel.</h2><p>These are gentle tools, not a test or a diagnosis. Choose what feels right, skip anything, and take everything at your own pace.</p><span class="pill">Private by default · No pressure to save</span></section><div class="grid section-grid">${feature("winds","≈","Gentle Winds","Follow a soft breathing rhythm, with a quiet option.","1–2 MIN")}${feature("baseline","⌕","Spot the Baseline","Notice an ordinary scene and what is in it.","1–2 MIN")}${feature("bodycheck","◎","Body Check","Map how different parts of your body feel.","YOUR PACE")}${feature("calm-settings","⚙","Settings & privacy","Choose what stays on this device.","PREFERENCES")}</div><section class="card" style="margin-top:15px">${cardHead("Your gentle trends","Demo only · nothing here is a diagnosis")}<div class="grid stats" style="margin:0">${stat("Check-ins","06","All optional","❋")}${stat("Favorite tool","Winds","A quiet moment","≈")}${stat("Saved history","Off","Your choice","◈")}${stat("Streak","No pressure","Come back any time","♡")}</div></section>`;
+      if (page === "winds" || page === "baseline" || page === "bodycheck") return `<div class="grid dashboard-grid"><section class="card" style="text-align:center;padding:30px"><span class="feature-icon" style="margin:auto;border-radius:50%;width:82px;height:82px;font-size:32px">${page === "winds" ? "≈" : page === "baseline" ? "⌕" : "◎"}</span><p class="eyebrow" style="margin-top:18px">OPTIONAL · YOUR PACE</p><h2 style="margin:5px 0;color:var(--plum-dark);font-size:22px">${page === "winds" ? "A gentle breath" : page === "baseline" ? "Notice what is here" : "Check in with your body"}</h2><p class="page-subtitle" style="margin:8px auto 18px">There is no right answer. You can pause, skip, or finish whenever you like.</p>${page === "winds" ? `<div style="display:grid;width:180px;height:180px;margin:12px auto;place-items:center;border:1px solid #eacbdb;border-radius:50%;background:radial-gradient(circle,#FCE9DF,#EEE8F6 72%);color:var(--plum);font-size:13px;font-weight:800">Breathe in · 4</div>` : page === "baseline" ? `<div class="journal-preview" style="max-width:520px;min-height:150px;margin:0 auto"><span class="pill">A quiet everyday scene</span><p style="font-size:12px">A familiar room. A cup on the table. Soft afternoon light. Notice one detail, if you want to.</p></div>` : `<div class="grid section-grid">${["Head","Shoulders","Chest","Hands","Stomach","Legs"].map((item) => `<button class="feature-card" style="min-height:70px" data-action="mock-action"><span class="feature-icon" style="width:28px;height:28px;font-size:12px">◎</span><h3 style="margin-top:7px">${item}</h3><p>Tap to choose a feeling</p></button>`).join("")}</div>`}<div class="head-actions" style="justify-content:center;margin-top:18px"><button class="btn" data-page="calm">Leave for now</button><button class="btn btn-primary" data-action="mock-action">Continue demo</button></div></section><aside class="card">${cardHead("A gentle reminder")}<p class="page-subtitle" style="margin:0">This is a wellbeing tool, not medical advice. You are in charge of what you notice and what you share.</p><div class="setting-row"><div class="setting-copy"><b>Saved history</b><small>Your preference is mock data.</small></div><span class="pill">Off</span></div></aside></div>`;
+      if (page === "journal" || page === "journal-entry") return `<div class="grid dashboard-grid"><section class="journal-preview">${cardHead(page === "journal" ? "Your demo garden" : "A note from your garden")}<p class="eyebrow">PRIVATE SPACE · MOCK CONTENT</p><h2>${page === "journal" ? "A little space that is yours." : "A slower morning"}</h2><p>${page === "journal" ? "Your private journal is represented here with sample entries. Nothing is encrypted, saved, or sent from this one-file prototype." : "I took the longer route past the garden today. The light was soft, and I noticed I wasn't in a rush for once."}</p><small style="color:var(--muted)">Today · 08:16 · Example entry</small><div class="head-actions" style="justify-content:flex-start;margin-top:16px"><button class="btn btn-primary" data-action="mock-action">Preview new entry</button><span class="pill">Local demo only</span></div></section><aside class="card">${cardHead("Recent pages")}<div class="list">${listRow("✎","A slower morning","Today · 08:16","",["Example","green"])}${listRow("❋","Things that helped","Yesterday · 20:42","",["Example","green"])}${listRow("♡","A note to myself","12 Nov · 09:20","",["Example","green"])}</div></aside></div>`;
+      if (["guardians", "guardian-walks", "buddy-list"].includes(page)) return `<div class="grid dashboard-grid"><div class="grid"><section class="card">${cardHead(page === "buddy-list" ? "Your buddies" : page === "guardian-walks" ? "Shared walk invitations" : "Your Guardian Circle","Manage trusted connections · all example people")}<div class="list">${listRow("J","Jayden Nkosi","Buddy · Last active today","",["Trusted","green"])}${listRow("M","Mia Jacobs","Guardian · Available","",["Trusted","green"])}${listRow("L","Lerato Maseko","Buddy · Last active yesterday","",["Trusted","green"])}${listRow("A","Ayesha Khan","Emergency contact","",["Trusted","green"])}</div><button class="btn btn-primary" style="margin-top:14px" data-action="mock-action">＋ Preview invite flow</button></section>${page === "guardian-walks" ? `<section class="card">${cardHead("Recent shared walks")}<div class="timeline"><div class="timeline-item"><b>Walk with Jayden</b><p>Accepted · Ended today at 08:42</p></div><div class="timeline-item"><b>Walk invitation from Mia</b><p>Expires in 24 hours · Example</p></div></div></section>` : ""}</div><aside><section class="card">${cardHead("Your sharing controls")}<p class="page-subtitle" style="margin:0 0 8px">You decide when to share a trip or accept an invitation.</p>${settingsRows([["Show approximate location","Only during an active, visible trip.",false],["Buddy invitations","Allow invites from your connected buddy list.",true]])}</section><section class="safety-panel"><h3>Privacy first</h3><p>Your precise location is not displayed on this demo page. All names, statuses, and locations are fictional.</p></section></aside></div>`;
+      if (page === "buddy-history" || page === "responder-history") return `<section class="card">${cardHead(page === "buddy-history" ? "Your recent journeys" : "Completed responses","Example history · personal data stays private in the real app",`<button class="btn" data-action="mock-action">Filter ▾</button>`)}<div class="grid stats">${stat("This week","04","Journeys completed","⌖")}${stat("Shared walks","02","With your buddies","♡")}${stat("Check-ins","08","All okay","✓")}${stat("Distance","14.2 km","Approximate total","↗")}</div><div class="list">${listRow("🚶","Morning walk · Zoo Lake","13 Nov · Walking · 3.2 km","38 min",["Arrived safely","green"])}${listRow("🚕","Work commute · Sandton","12 Nov · Taxi · 8.4 km","26 min",["Arrived safely","green"])}${listRow("🚶","Walk home · Parkview","11 Nov · Walking · 1.8 km","22 min",["Arrived safely","green"])}${listRow("🚆","Central line · Braamfontein","10 Nov · Train · 5.1 km","31 min",["Arrived safely","green"])}</div></section>`;
+      if (page === "smart-safety" || page.endsWith("settings") || page === "triggers" || page === "trigger-lab" || page === "medical-profile" || page === "ringtones") return `<div class="grid dashboard-grid"><section class="card">${cardHead(page === "smart-safety" ? "Location & community alerts" : title(page),"Your preferences are represented as mock controls.")}${page === "medical-profile" ? `<label class="field">Emergency information<textarea class="field" rows="4" readonly style="border:1px solid var(--line);border-radius:11px;background:white;padding:10px">No medical information has been added in this mock profile.</textarea></label><button class="btn" style="margin-top:12px" data-action="mock-action">Edit example details</button>` : page === "ringtones" ? `<div class="list">${listRow("♫","Soft chime","Current demo tone","",["Selected","green"])}${listRow("♫","Gentle bell","Available in app","",["Preview","orange"])}${listRow("♫","Calm waves","Available in app","",["Preview","orange"])}</div>` : page === "trigger-lab" ? `<section class="empty"><div><span>⌘</span><h3>Trigger calibration preview</h3><p>Illustrative setup stages: choose trigger, practice gesture, review sensitivity, confirm. Nothing is being calibrated.</p><button class="btn btn-primary" style="margin-top:12px" data-action="mock-action">Preview calibration steps</button></div></section>` : settingsRows([["Live Location Sharing","Use device location for features you choose. This control is mock-only.",true],["Community safety alerts","See fictional example reports near your area.",true],["Device safety triggers","Choose whether your linked Kiki can send an alert.",true],["Share with guardians","Your trip stays private until you opt in.",false]])}</section><aside><section class="card">${cardHead("Your controls")}<div class="list">${listRow("◈","Privacy","Your choices are shown in this prototype","",["In control","green"])}${listRow("♙","Profile","Demo information only","",["Private","green"])}</div></section><section class="safety-panel"><h3>Demo controls only</h3><p>Switches and buttons on this page change only their visual state in your browser. They do not update a profile, device, or account.</p></section></aside></div>`;
+      if (page === "linkup" || page === "teach" || page === "readroom") return `<div class="grid section-grid">${feature("games","✿","Back to Stoep","Return to the game garden.")}${feature("morabaraba","◉","Morabaraba","Open an example board.")}${feature("linkup","⌘","Kiki Links","Example round and game layout.")}${feature("readroom","◌","Read the Room","Example prompt and response cards.")}</div><section class="card" style="margin-top:15px">${cardHead("Demo lobby","Buddy invitations and room creation are not connected.")}<div class="grid section-grid">${feature("buddy-list","♡","Invite a buddy","Choose a connected friend in the real app.")}${feature("games","✿","Play solo","Explore the solo game experience.")}</div></section>`;
+      if (page === "admin-alerts" || page === "admin-devices" || page === "admin-triggers" || page === "admin-users" || page === "organisations" || page === "admin-responders" || page === "admin-buddies" || page === "moderation" || page === "admin-places" || page === "beneficiaries" || page === "org-responders" || page === "members" || page === "roster" || page === "org-links") {
+        const isAlert = page === "admin-alerts";
+        const rows = isAlert
+          ? [["🚨 A-10482","Safety alert · Parkview","Today · 14:42","City Response","<span class='status orange'>En route</span>"],["＋ A-10481","Medical support · Rosebank","Today · 14:36","Johannesburg EMS","<span class='status pink'>Acknowledged</span>"],["🚨 A-10480","Safety alert · Melville","Today · 14:21","City Response","<span class='status green'>Resolved</span>"]]
+          : [["Kiki Network Demo","Parkview · Gauteng","Updated today","—","<span class='status green'>Active</span>"],["Community Safety Hub","Rosebank · Gauteng","Updated yesterday","—","<span class='status green'>Active</span>"],["Example record · 0142","Johannesburg · Gauteng","Updated 12 Nov","—","<span class='status orange'>Review</span>"],["Example record · 0138","Sandton · Gauteng","Updated 11 Nov","—","<span class='status green'>Active</span>"]];
+        return `<section class="card">${cardHead(title(page),"Fictional example records for layout review.",`<button class="btn" data-action="mock-action">Export ▾</button><button class="btn btn-primary" data-action="mock-action">＋ Add record</button>`)}<div class="grid stats">${stat("Total records","1,284","Example entries","≡")}${stat("Active","1,106","Current demo status","✓")}${stat("Needs review","12","Mock queue","◷")}${stat("Updated today","48","Illustrative only","↻")}</div><div class="head-actions" style="justify-content:flex-start;margin-bottom:12px"><button class="btn ${selectedTab === "active" ? "btn-soft" : ""}" data-tab="active">All records</button><button class="btn ${selectedTab === "pending" ? "btn-soft" : ""}" data-tab="pending">Needs review</button><button class="btn" data-action="mock-action">Filter ▾</button></div>${demoTable(["Record","Details","Last updated","Owner / team","Status"],rows)}</section><p class="page-subtitle" style="margin-top:12px">Showing 1–4 of 1,284 fictional records. Row actions and exports are intentionally inactive.</p>`;
+      }
+      if (page === "configurations") return `<div class="grid section-grid">${feature("configurations","▦","Branches","Manage demo service locations.")}${feature("configurations","✚","Units","Configure response teams and units.")}${feature("configurations","⌖","Coverage areas","Illustrative service boundaries.")}${feature("org-settings","⚙","Dispatch policy","Response and escalation preferences.")}</div><section class="card" style="margin-top:15px">${cardHead("Organisation setup","Demo settings and example coverage")}${settingsRows([["Auto-assign alerts","Assign eligible responders automatically.",true],["After-hours coverage","Include overnight coverage for this branch.",false],["Member linking","Allow eligible members to request access.",true]])}</section>`;
+      if (page === "admin-settings" || page === "org-settings" || page === "responder-settings" || page === "calm-settings") return `<section class="card">${cardHead(title(page),"Settings shown as a visual mock only.")}${settingsRows([["Notifications","Receive updates about activity in your chosen workspace.",true],["Privacy reminders","Show prompts when sharing choices are available.",true],["Weekly summary","Display a short recap in your account.",false],["Reduced motion","Use calmer transitions in the interface.",false]])}</section>`;
+      return `<section class="card"><div class="empty"><div><span>${info(page)[3]}</span><h3>${escapeHtml(title(page))} preview</h3><p>This screen is part of the Kiki UI demo. All records and controls are mock data; use the navigation to explore other app areas.</p><button class="btn btn-primary" style="margin-top:13px" data-action="mock-action">Preview this screen</button></div></div></section>`;
+    }
+    function renderBottomNav() {
+      if (activeWorkspace === "member") {
+        const nav = [["overview", "Overview", "home"], ["devices", "Devices", "devices"], ["more", "More", "menu"], ["profile", "Profile", "profile"]];
+        $("#bottom-nav").innerHTML = `<button type="button" class="account-nav-link ${activePage === "overview" ? "active" : ""}" ${activePage === "overview" ? 'aria-current="page"' : ""} data-page="overview">${icon("home",19)}<span>Overview</span></button>
+          <button type="button" class="account-nav-link ${activePage === "devices" ? "active" : ""}" ${activePage === "devices" ? 'aria-current="page"' : ""} data-page="devices">${icon("devices",19)}<span>Devices</span></button>
+          <button type="button" class="mobile-sos" aria-label="Send SOS" data-action="sos">${icon("shieldAlert",30)}</button>
+          <button type="button" class="account-nav-link" data-action="menu">${icon("menu",19)}<span>More</span></button>
+          <button type="button" class="account-nav-link ${activePage === "profile" ? "active" : ""}" ${activePage === "profile" ? 'aria-current="page"' : ""} data-page="profile">${icon("profile",19)}<span>Profile</span></button>`;
+        $("#bottom-nav").querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+        return;
+      }
+      const nav = {
+        admin: [["admin-overview", "Overview", "▦"], ["admin-alerts", "Alerts", "♧"], ["admin-devices", "Devices", "▣"], ["admin-users", "People", "♙"], ["more", "More", "☰"]],
+        responder: [["responder-alerts", "Alerts", "⌖"], ["responder-overview", "Overview", "▦"], ["responder-history", "History", "◷"], ["responder-settings", "Settings", "⚙"], ["more", "More", "☰"]],
+        organisation: [["org-dashboard", "Dashboard", "▦"], ["beneficiaries", "People", "♡"], ["org-responders", "Responders", "✚"], ["roster", "Roster", "≡"], ["more", "More", "☰"]]
+      }[activeWorkspace];
+      $("#bottom-nav").innerHTML = nav.map(([id, label, icon]) => `<button type="button" class="${activePage === id ? "active" : ""}" ${id === "more" ? `data-action="menu"` : `data-page="${id}"`}><span>${icon}</span><span>${label}</span></button>`).join("");
+      $("#bottom-nav").querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+    }
+    function render() {
+      const calmMode = activeWorkspace === "member" && ["calm", "winds", "baseline", "bodycheck", "calm-settings"].includes(activePage);
+      const immersiveMode = calmMode || (activeWorkspace === "member" && ["journal", "journal-entry", "journal-list"].includes(activePage));
+      $(".app").classList.toggle("calm-mode", calmMode);
+      $(".app").classList.toggle("immersive-mode", immersiveMode);
+      $(".app").dataset.workspace = activeWorkspace;
+      $("#content").className = `content ${activeWorkspace === "admin" ? "admin-theme" : activeWorkspace === "responder" ? "responder-theme" : activeWorkspace === "organisation" ? "org-theme" : ""}`;
+      $("#content").innerHTML = `${pageHeader(activePage)}${renderScreen(activePage)}`;
+      renderNav(); renderBottomNav();
+      $("#content").querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+    }
+    function openMenu() {
+      $("#sheet-title").textContent = activeWorkspace === "member" ? "More" : "Explore Kiki";
+      const options = [
+        ["trips", "Trips", "Route Watch and Travel Together", "route"],
+        ["safe-spots", "Safe spots & reports", "Browse spots and community reports", "pin"],
+        ["games", "Stoep", "Unwind and play", "game"],
+        ["calm", "Calm", "Breathing, noticing, and body check-ins", "flower"],
+        ["journal", "Journal", "Your private garden", "journal"],
+        ["guardians", "Guardians", "Your private Guardian Circle", "shield"],
+        ["safety-call", "Safety call", "Start a discreet in-app call", "phone"]
+      ];
+      const memberOptions = options.map(([id,label,detail,glyph]) => `<button class="more-option" ${id === "safety-call" ? 'data-action="safety-call"' : `data-sheet-page="${id}" data-sheet-role="member"`}><span class="nav-icon">${icon(glyph,17)}</span><span><b>${label}</b><small>${detail}</small></span>${icon("chevron",17)}</button>`).join("");
+      const portalOptions = Object.entries(workspaceLabels).filter(([role]) => role !== "member").map(([role,label]) => `<button class="more-option" data-sheet-page="${workspaces[role][0][1][0]}" data-sheet-role="${role}"><span class="nav-icon">${icon("shield",17)}</span><span><b>${escapeHtml(label)} portal preview</b><small>Demo-only view of a separate console</small></span>${icon("chevron",17)}</button>`).join("");
+      const otherOptions = activeWorkspace === "member" ? `<div class="nav-heading demo-portals-heading">OTHER PORTAL PREVIEWS · DEMO ONLY</div>${portalOptions}` : `<div class="nav-heading demo-portals-heading">DEMO PORTALS</div><button class="more-option" data-sheet-page="overview" data-sheet-role="member"><span class="nav-icon">${icon("home",17)}</span><span><b>Member app preview</b><small>Return to the fictional member experience</small></span>${icon("chevron",17)}</button>${workspaces[activeWorkspace].flatMap(([, ids]) => ids).map((id) => `<button class="more-option" data-sheet-page="${id}" data-sheet-role="${activeWorkspace}"><span class="nav-icon">${icon(iconForPage(id),17)}</span><span><b>${escapeHtml(title(id))}</b><small>${escapeHtml(info(id)[1])}</small></span>${icon("chevron",17)}</button>`).join("")}`;
+      $("#sheet-content").innerHTML = activeWorkspace === "member" ? `${memberOptions}${otherOptions}` : otherOptions;
+      $("#backdrop").classList.add("open");
+      $("#sheet-content").querySelectorAll("[data-sheet-page]").forEach((button) => button.addEventListener("click", () => setWorkspacePage(button.dataset.sheetRole, button.dataset.sheetPage)));
+    }
+    $("#content").addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.dataset.action === "toggle") {
+        button.setAttribute("aria-checked", button.getAttribute("aria-checked") === "true" ? "false" : "true");
+        showToast("Demo preference changed locally. Nothing was saved.");
+      } else if (button.dataset.action === "mock-action") {
+        showToast("Demo preview only — no action was sent or saved.");
+      } else if (button.dataset.action === "map-zoom") {
+        showToast("The map is an illustration, not a live map.");
+      } else if (button.dataset.action === "responders") {
+        $("#sheet-title").textContent = "Responders nearby";
+        $("#sheet-content").innerHTML = `<p class="page-subtitle">From official partner organisations · 6 currently on duty</p><div class="list">${listRow("✚","City Response team","Community responder · Parkview","",["2.1 km","green"])}${listRow("✚","Rosebank Support","First-aid responder · Rosebank","",["3.4 km","green"])}</div><p class="spot-note">Location data is fictional in this prototype. No location permission is requested.</p>`;
+        $("#backdrop").classList.add("open");
+      } else if (button.dataset.tab) {
+        selectedTab = button.dataset.tab; render();
+      }
+    });
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action]");
+      if (!button || $("#content").contains(button)) return;
+      if (button.dataset.action === "menu") openMenu();
+      if (button.dataset.action === "close-sheet") {
+        $("#backdrop").classList.remove("open"); $("#sidebar").classList.remove("open");
+      }
+      if (button.dataset.action === "notifications") {
+        $("#sheet-title").textContent = "Notifications";
+        $("#sheet-content").innerHTML = `<div class="list">${listRow("♡","Jayden accepted your buddy invite","Today · 10:34","",["Example","green"])}${listRow("⌖","Walk check-in complete","Today · 08:56","",["Example","green"])}${listRow("✿","A new Calm tool is ready","Yesterday · 17:20","",["Example","green"])}</div>`;
+        $("#backdrop").classList.add("open");
+      }
+      if (button.dataset.action === "profile-menu") {
+        activeWorkspace = "member"; setPage("profile");
+      }
+      if (button.dataset.action === "safety-call") {
+        $("#sheet-title").textContent = "Safety call";
+        $("#sheet-content").innerHTML = `<div class="call-preview"><span>${icon("phone",30)}</span><p>SAFETY CALL</p><h3>Kiki Care</h3><small>Mock check-in · no call will be placed</small><button class="btn btn-primary" type="button" data-action="mock-action">Preview call screen</button></div>`;
+        $("#backdrop").classList.add("open");
+      }
+      if (button.dataset.action === "sos") {
+        $("#sheet-title").textContent = "Emergency alert";
+        $("#sheet-content").innerHTML = `<div class="sos-preview"><span>${icon("shieldAlert",32)}</span><h3>Emergency alert</h3><p>Your active Kiki device and available phone location would be shared with authorised responders.</p><div class="trip-tabs"><button type="button" aria-pressed="true" data-action="mock-action">SOS</button><button type="button" aria-pressed="false" data-action="mock-action">Medical</button></div><div class="sos-countdown">3 <small>Sending SOS in</small></div><button class="btn btn-primary" type="button" data-action="mock-action">Send immediately now</button><button class="btn" type="button" data-action="close-sheet">Cancel emergency alert</button><small>Demo only · nothing will be sent</small></div>`;
+        $("#backdrop").classList.add("open");
+      }
+      if (button.dataset.action === "refresh") showToast("Demo refreshed. No account data was loaded.");
+      if (button.dataset.action === "signout") showToast("Sign out is unavailable in this no-login demo.");
+      if (button.dataset.action === "safety-status") showToast("No live safety alerts in this fictional demo.");
+    });
+    $("#navigation").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-page]");
+      if (button) setPage(button.dataset.page);
+    });
+    setPage("overview");
+  </script>
+</body>
+</html>

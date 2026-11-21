@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kiki · Community</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --plum:#7556e8;--plum2:#8f73f5;--lilac:#f1ecff;--mint:#22c997;--sun:#ffc24b;--rose:#ff6f91;
+  --ink:#1d1a2b;--mute:#6c6882;--bg:#ffffff;--card:#ffffff;--line:#ece8f7;
+  --shadow:0 0 0 1px var(--line),0 8px 22px rgba(117,86,232,.07);
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;background:#f6f3ff;color:var(--ink);display:flex;justify-content:center;align-items:center}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--plum2);outline-offset:2px}
+.phone{position:relative;width:100%;max-width:430px;height:100%;max-height:900px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column}
+@media (min-width:500px){.phone{height:min(900px,94vh);border-radius:36px;box-shadow:0 30px 80px rgba(117,86,232,.18);border:1px solid var(--line)}}
+/* header */
+.top{display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 10px}
+.me{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--plum2),var(--rose));display:grid;place-items:center;font-size:22px;position:relative}
+.me i{position:absolute;right:0;bottom:0;width:12px;height:12px;border-radius:50%;background:var(--mint);border:2px solid var(--bg)}
+.top h1{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.top p{font-size:12px;color:var(--mute);font-weight:500;margin-top:2px}
+.top .sp{flex:1}
+.ib{width:40px;height:40px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:grid;place-items:center;position:relative}
+.ib svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ib b{position:absolute;top:-3px;right:-3px;background:var(--rose);color:#fff;font-size:10px;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;border:2px solid var(--bg)}
+/* segmented tabs */
+.seg{margin:6px 18px 0;background:var(--lilac);border-radius:16px;padding:4px;display:grid;grid-template-columns:repeat(4,1fr);position:relative}
+.seg::before{content:"";position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/4);background:var(--card);border-radius:12px;box-shadow:0 2px 8px rgba(117,86,232,.15);transform:translateX(calc(var(--i,0)*100%));transition:transform .3s cubic-bezier(.3,1.3,.5,1)}
+.seg button{position:relative;padding:10px 0;font-size:13px;font-weight:600;color:var(--mute);transition:color .2s}
+.seg button[aria-selected=true]{color:var(--plum2);font-weight:700}
+/* scroll area */
+main{flex:1;overflow-y:auto;padding:14px 18px 130px;scrollbar-width:none}
+main::-webkit-scrollbar{display:none}
+.view{display:none}.view.on{display:block;animation:in .35s ease}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+h2{font-size:15px;font-weight:700;margin:20px 0 10px;letter-spacing:-.01em}
+/* community rail */
+.rail{display:flex;gap:14px;overflow-x:auto;padding:4px 18px 6px;margin:0 -18px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.co{flex:none;width:68px;text-align:center;font-size:11px;font-weight:600;color:var(--mute)}
+.co .ring{width:64px;height:64px;border-radius:50%;padding:3px;background:conic-gradient(var(--plum2),var(--rose),var(--sun),var(--plum2));margin-bottom:6px}
+.co.off .ring{background:var(--line)}
+.co .ring span{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:var(--card);font-size:26px;border:3px solid var(--bg)}
+.co[aria-pressed=true]{color:var(--ink)}
+/* radar */
+.radar{position:relative;border-radius:26px;overflow:hidden;background:linear-gradient(160deg,#f1ecff,#d8ccff 85%);color:var(--ink);padding:18px;margin-top:8px;box-shadow:var(--shadow)}
+.radar svg{position:absolute;right:-30px;top:-10px;width:230px;height:230px;opacity:.95}
+.radar h3{font-size:20px;font-weight:800;letter-spacing:-.02em;max-width:60%;line-height:1.15}
+.radar p{font-size:12.5px;color:var(--mute);margin-top:6px;max-width:58%;line-height:1.4}
+.radar .row{display:flex;gap:8px;margin-top:46px;position:relative}
+.pill{color:var(--ink);display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:7px 12px;font-size:12px;font-weight:600;background:rgba(255,255,255,.75);backdrop-filter:blur(8px)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 0 rgba(34,201,151,.7);animation:pulse 2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(34,201,151,0)}100%{box-shadow:0 0 0 0 rgba(34,201,151,0)}}
+.sweep{transform-origin:115px 115px;animation:spin 6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* composer bar */
+.cbar{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:20px;padding:10px 10px 10px 12px;box-shadow:var(--shadow);margin-top:14px;text-align:left;width:100%}
+.av{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:19px}
+.cbar span{flex:1;color:var(--mute);font-size:14px}
+.cbar em{font-style:normal;background:var(--plum);color:#fff;font-size:12px;font-weight:700;padding:8px 14px;border-radius:99px}
+/* scope */
+.scope{display:flex;gap:10px;background:var(--lilac);border-radius:18px;padding:12px 14px;font-size:12.5px;line-height:1.45;margin-top:14px}
+.scope svg{flex:none;width:18px;height:18px;stroke:var(--plum2);fill:none;stroke-width:2;margin-top:1px}
+.scope b{display:block;font-size:12px;margin-bottom:2px}
+.scope div{color:var(--mute)}
+.nick{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute);margin:10px 4px 0}
+.nick svg{width:14px;height:14px;stroke:var(--mint);fill:none;stroke-width:2.4}
+.nick b{color:var(--ink)}
+/* posts */
+.post{background:var(--card);border-radius:24px;padding:16px;margin-top:14px;box-shadow:var(--shadow)}
+.ph{display:flex;align-items:center;gap:10px}
+.ph strong{font-size:14px;font-weight:700;display:block;line-height:1.2}
+.ph small{font-size:11.5px;color:var(--mute)}
+.tag{margin-left:auto;font-size:11px;font-weight:700;color:var(--plum2);background:var(--lilac);padding:4px 10px;border-radius:99px}
+.post p{font-size:14.5px;line-height:1.55;margin:12px 0 4px}
+.safe{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#0b8a65;background:rgba(34,201,151,.14);padding:4px 9px;border-radius:99px;margin-top:6px}
+.safe svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:3}
+.acts{display:flex;gap:6px;margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.acts button{display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:99px;font-size:12.5px;font-weight:600;color:var(--mute);transition:transform .15s,background .2s}
+.acts button:active{transform:scale(.92)}
+.acts button.on{background:var(--lilac);color:var(--plum2)}
+.acts svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.acts button.on .hrt{fill:currentColor}
+.reply{display:none;margin-top:10px;gap:8px}
+.reply.on{display:flex;animation:in .25s}
+.reply input{flex:1;border:1.5px solid var(--line);background:var(--bg);border-radius:99px;padding:10px 14px;font:inherit;font-size:13px;color:var(--ink)}
+.rp{display:flex;gap:10px;margin-top:10px;font-size:13px;line-height:1.45}
+.rp .av{width:28px;height:28px;font-size:14px}
+.rp div{background:var(--bg);padding:8px 12px;border-radius:4px 16px 16px 16px}
+.rp b{font-size:11.5px;display:block;color:var(--mute);margin-bottom:1px}
+/* discover */
+.search{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:18px;padding:0 14px;box-shadow:var(--shadow)}
+.search svg{width:18px;height:18px;stroke:var(--mute);fill:none;stroke-width:2}
+.search input{flex:1;border:0;background:none;padding:14px 0;font:inherit;font-size:14px;color:var(--ink)}
+.dc{display:flex;gap:14px;background:var(--card);border-radius:24px;padding:16px;margin-top:12px;box-shadow:var(--shadow);align-items:flex-start}
+.dc .ic{flex:none;width:52px;height:52px;border-radius:18px;display:grid;place-items:center;font-size:26px}
+.dc h4{font-size:15px;font-weight:700;display:flex;gap:6px;align-items:center}
+.dc p{font-size:12.5px;color:var(--mute);margin-top:2px;line-height:1.4}
+.dc small{display:block;font-size:11.5px;color:var(--mute);margin-top:8px}
+.dc .meta{flex:1}
+.btn{border-radius:99px;padding:9px 16px;font-size:13px;font-weight:700;background:var(--plum);color:#fff;transition:transform .15s,background .2s}
+.btn:active{transform:scale(.94)}
+.btn.ghost{background:var(--lilac);color:var(--plum2)}
+.btn.block{width:100%;padding:15px;font-size:15px;border-radius:18px;margin-top:6px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+/* guard */
+.hero{text-align:center;padding:10px 0 4px}
+.shield{width:132px;height:132px;margin:6px auto 14px;position:relative;display:grid;place-items:center}
+.shield::before,.shield::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--mint);opacity:.0;animation:ripple 3s infinite}
+.shield::after{animation-delay:1.5s}
+@keyframes ripple{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.3);opacity:0}}
+.shield div{width:92px;height:92px;border-radius:30px;background:linear-gradient(135deg,var(--mint),#0fa77a);display:grid;place-items:center;box-shadow:0 12px 30px rgba(34,201,151,.4)}
+.shield svg{width:44px;height:44px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.hero h3{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.hero p{font-size:13.5px;color:var(--mute);margin:6px auto 0;max-width:300px;line-height:1.5}
+.chk{display:flex;gap:14px;align-items:center;background:var(--card);border-radius:20px;padding:14px;margin-top:10px;box-shadow:var(--shadow)}
+.chk .ic{flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:20px}
+.chk b{font-size:14px;display:block}.chk small{font-size:12px;color:var(--mute)}
+.log{background:var(--card);border:1.5px dashed var(--line);border-radius:20px;padding:16px;font-size:13px;color:var(--mute);text-align:center;line-height:1.5}
+.log.has{border-style:solid;text-align:left;color:var(--ink);padding:12px 14px;margin-top:8px}
+.log.has small{display:block;color:var(--mute);margin-top:2px}
+/* create */
+label{display:block;font-size:12.5px;font-weight:700;margin:16px 4px 7px}
+.f{width:100%;border:1.5px solid transparent;background:var(--card);border-radius:18px;padding:14px 16px;font:inherit;font-size:14.5px;color:var(--ink);box-shadow:var(--shadow);resize:none}
+.f:focus{border-color:var(--plum2);outline:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 13px;border-radius:99px;background:var(--card);box-shadow:var(--shadow);font-size:12.5px;font-weight:600}
+.chip[aria-pressed=true]{background:var(--plum);color:#fff}
+.prev{margin-top:18px}
+.note{font-size:12px;color:var(--mute);line-height:1.5;margin:0 4px 4px}
+/* nav */
+nav{position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);height:70px;border-radius:30px;background:color-mix(in srgb,var(--card) 82%,transparent);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);box-shadow:0 10px 40px rgba(117,86,232,.22);display:grid;grid-template-columns:1fr 1fr 84px 1fr 1fr;align-items:center;border:1px solid var(--line)}
+nav button{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--mute)}
+nav button.on{color:var(--plum2)}
+nav svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fab{width:68px;height:68px;border-radius:50%;margin:-30px auto 0;background:linear-gradient(145deg,var(--plum2),var(--plum));display:grid;place-items:center;box-shadow:0 12px 28px rgba(117,86,232,.5);border:5px solid var(--bg);transition:transform .2s}
+.fab:active{transform:scale(.9)}
+.fab svg{width:30px;height:30px;fill:#fff;stroke:none}
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(60,45,110,.3);opacity:0;pointer-events:none;transition:opacity .3s;z-index:20}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--bg);border-radius:30px 30px 0 0;padding:10px 18px calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateY(105%);transition:transform .4s cubic-bezier(.2,.9,.3,1);z-index:30;max-height:90%;overflow:auto}
+.sheet.on{transform:none}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 14px}
+.sheet h3{font-size:18px;font-weight:800;letter-spacing:-.02em}
+.sheet textarea{margin-top:12px;height:120px}
+.gl{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px;min-height:30px;align-items:center}
+.gl .pill{background:var(--card);color:var(--ink);backdrop-filter:none;box-shadow:var(--shadow);font-size:12px}
+.gl .pill.bad i{background:var(--rose);animation:none}
+.row2{display:flex;gap:10px;margin-top:10px}
+.toast{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 16px);transform:translate(-50%,-90px);background:var(--plum);color:#fff;padding:12px 18px;border-radius:99px;font-size:13px;font-weight:600;z-index:50;transition:transform .4s cubic-bezier(.3,1.4,.5,1);max-width:90%;text-align:center}
+.toast.on{transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.q{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.35;margin:12px 0 0}
+.cw{position:relative;margin-top:12px}
+.car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:18px;scrollbar-width:none;background:var(--lilac)}
+.car::-webkit-scrollbar{display:none}
+.sl{flex:none;width:100%;scroll-snap-align:center;margin:0}
+.im{position:relative;touch-action:manipulation;user-select:none}
+.im img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;pointer-events:none}
+.sl figcaption{padding:10px 14px;font-size:13px;line-height:1.4;background:var(--lilac)}
+.cnt{position:absolute;top:10px;right:10px;background:rgba(29,26,43,.6);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px}
+.dots{display:flex;gap:5px;justify-content:center;margin-top:8px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--line);transition:.2s}
+.dots i.on{background:var(--plum);width:16px;border-radius:3px}
+.opts{display:grid;gap:8px;margin-top:12px}.opts.tt{grid-template-columns:1fr 1fr}
+.op{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;padding:13px 14px;border-radius:16px;border:1.5px solid var(--line);font-size:14px;font-weight:600;background:#fff;transition:transform .15s,border-color .2s}
+.tt .op{flex-direction:column;justify-content:center;text-align:center;min-height:84px}
+.op:not(.done):active{transform:scale(.97)}.op:not(.done):hover{border-color:var(--plum2)}
+.op .bar{position:absolute;left:0;top:0;bottom:0;background:var(--lilac);animation:grow .8s cubic-bezier(.2,.9,.3,1)}
+.op.lead .bar{background:#e0d6ff}.op.mine{border-color:var(--plum)}
+.op>*:not(.bar){position:relative}
+@keyframes grow{from{width:0!important}}
+.op.right{border-color:var(--mint);background:rgba(34,201,151,.12)}.op.wrong{border-color:var(--rose);background:rgba(255,111,145,.1)}
+.mt{display:block;font-size:11.5px;color:var(--mute);margin-top:8px}
+.exp{margin-top:10px;border-radius:16px;padding:12px 14px;font-size:13px;line-height:1.5;animation:in .3s}
+.exp.ok{background:rgba(34,201,151,.12)}.exp.no{background:rgba(255,111,145,.1)}.exp b{display:block}.exp small{display:block;color:var(--mute);margin-top:4px}
+.ans{margin-top:6px}.a{display:flex;gap:10px;align-items:flex-start;margin-top:10px}.a .av{width:30px;height:30px;font-size:15px}
+.ab{flex:1;background:var(--lilac);padding:8px 12px;border-radius:4px 16px 16px 16px;font-size:13.5px;line-height:1.45}
+.ab b{display:block;font-size:11.5px;color:var(--mute)}.ab em{font-style:normal;color:#b9770e;font-size:11px}
+.lk{font-size:12px;font-weight:700;color:var(--mute);padding:6px 8px;border-radius:99px}.lk.on{color:var(--rose)}
+.sv{text-align:center;font-size:30px;margin-top:10px}.sv b{font-size:26px;font-weight:800;color:var(--plum)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:10px;border-radius:99px;background:linear-gradient(90deg,var(--plum2) var(--p,50%),var(--lilac) var(--p,50%));margin:12px 0 6px;outline:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid var(--plum);box-shadow:0 3px 10px rgba(117,86,232,.4)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--plum)}
+.ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mute)}
+.avg{position:relative;height:28px;margin-top:6px}.avg span{position:absolute;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--mute)}.avg i{position:absolute;bottom:0;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;background:var(--rose)}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{aspect-ratio:1;border-radius:14px;background:var(--lilac);font-weight:800;color:var(--plum);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:15px;transition:transform .15s}
+.day:active{transform:scale(.9)}.day small{font-size:9px;opacity:.7}.day.on{background:var(--plum);color:#fff}
+.pn{background:var(--lilac);border-radius:18px;padding:14px 16px;margin-top:12px;animation:in .3s}
+.pn small{font-size:11px;font-weight:700;color:var(--plum);text-transform:uppercase;letter-spacing:.06em}
+.pn p{margin:4px 0 0!important;font-size:14.5px;line-height:1.5}.pn.end{background:rgba(34,201,151,.12)}.pim{width:100%;border-radius:18px;margin-top:12px}
+.spot{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border:3px solid var(--mint);border-radius:50%;box-shadow:0 0 0 6px rgba(34,201,151,.25);animation:pop .5s;pointer-events:none}
+.rip{position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:rgba(255,111,145,.45);animation:rip .7s forwards;pointer-events:none}
+@keyframes rip{to{transform:scale(2.2);opacity:0}}@keyframes pop{from{transform:scale(0)}}
+.hp{position:absolute;left:50%;top:50%;font-size:80px;animation:hp .8s forwards;pointer-events:none}
+@keyframes hp{0%{transform:translate(-50%,-50%) scale(.3);opacity:1}60%{transform:translate(-50%,-50%) scale(1.2)}100%{transform:translate(-50%,-60%);opacity:0}}
+.tch{display:flex;gap:8px;overflow-x:auto;margin:12px -18px 0;padding:2px 18px;scrollbar-width:none}.tch::-webkit-scrollbar{display:none}.tch .chip{flex:none;white-space:nowrap}
+#cform{display:grid;gap:8px;margin-top:12px}#cform .f{padding:12px 14px;font-size:14px;margin:0}#cform textarea{height:90px}
+.addp{display:inline-flex;gap:8px;align-items:center;margin:12px 10px 0 0;padding:10px 14px;border-radius:99px;background:var(--lilac);color:var(--plum);font-weight:700;font-size:13px;cursor:pointer}
+.mi{display:flex;gap:10px;align-items:center;margin-top:10px}.mi .th{position:relative;width:76px;height:76px;flex:none;border-radius:14px;overflow:hidden}
+.mi .th img{width:100%;height:100%;object-fit:cover;display:block}.mi .f{padding:11px 14px;font-size:13px}
+.mi button{width:30px;height:30px;border-radius:50%;background:var(--lilac);flex:none}
+.mi.big{flex-wrap:wrap}.mi.big .th{width:100%;height:auto;order:-1;cursor:crosshair}.mi.big .th img{height:auto}
+</style>
+</head>
+<body>
+<div class="phone" id="app">
+  <header class="top">
+    <div class="me" aria-hidden="true">🧑🏾<i></i></div>
+    <div><h1>Hi, Tumisho</h1><p>Around you · anonymous & moderated</p></div>
+    <div class="sp"></div>
+    <button class="ib" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 003.4 0"/></svg><b>9+</b></button>
+  </header>
+
+  <div class="seg" role="tablist" id="seg">
+    <button role="tab" aria-selected="true" data-v="feed">Feed</button>
+    <button role="tab" aria-selected="false" data-v="discover">Discover</button>
+    <button role="tab" aria-selected="false" data-v="guard">Guard</button>
+    <button role="tab" aria-selected="false" data-v="create">Create</button>
+  </div>
+
+  <main id="main">
+    <!-- FEED -->
+    <section class="view on" id="v-feed">
+      <div class="rail" id="rail"></div>
+      <div class="radar">
+        <svg viewBox="0 0 230 230" aria-hidden="true">
+          <g fill="none" stroke="rgba(117,86,232,.3)"><circle cx="115" cy="115" r="30"/><circle cx="115" cy="115" r="60"/><circle cx="115" cy="115" r="92"/></g>
+          <g class="sweep"><path d="M115 115 L115 23 A92 92 0 0 1 195 69 Z" fill="rgba(117,86,232,.25)"/></g>
+          <g><circle cx="150" cy="80" r="6" fill="#22c997"/><circle cx="82" cy="140" r="5" fill="#ffc24b"/><circle cx="160" cy="150" r="5" fill="#ff6f91"/><circle cx="100" cy="70" r="4" fill="#7556e8"/><circle cx="115" cy="115" r="8" fill="#fff" stroke="#7a4fd6" stroke-width="4"/></g>
+        </svg>
+        <h3>Your neighbourhood is talking</h3>
+        <p>Ideas from people nearby. No names, no pins, just helpful.</p>
+        <div class="row"><span class="pill"><i></i>12 active nearby</span><span class="pill">Area only</span></div>
+      </div>
+      <button class="cbar" id="cbar"><div class="av" id="cav" style="background:var(--lilac)">🐢</div><span>Share a safety idea…</span><em>Post</em></button>
+      <div class="scope"><svg viewBox="0 0 24 24"><path d="M12 22s8-6 8-12a8 8 0 10-16 0c0 6 8 12 8 12z"/><circle cx="12" cy="10" r="3"/></svg><div><b id="sc-t">Everyday Safety</b><span id="sc-d"></span></div></div>
+      <div class="nick"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="3"/><path d="M8 11V8a4 4 0 018 0v3"/></svg><span>You’re <b id="nk"></b> here. Your name is different in every community.</span></div>
+      <div id="posts"></div>
+    </section>
+
+    <!-- DISCOVER -->
+    <section class="view" id="v-discover">
+      <label class="search" style="margin:0"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="Search communities" aria-label="Search communities"></label>
+      <p class="note" style="margin-top:12px">Every community is public and moderated. Read its scope before joining.</p>
+      <div id="dlist"></div>
+    </section>
+
+    <!-- GUARD -->
+    <section class="view" id="v-guard">
+      <div class="hero"><div class="shield"><div><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5L16 9.5"/></svg></div></div>
+        <h3>Your privacy comes first</h3>
+        <p>Kiki Guard checks every post on your phone and again on our server. Your draft is never sent to an AI service.</p></div>
+      <h2>What Guard looks for</h2>
+      <div class="chk"><div class="ic" style="background:#ede7fa">🪪</div><div><b>Names & identifying details</b><small>About you or anyone else</small></div></div>
+      <div class="chk"><div class="ic" style="background:#dff7ee">📍</div><div><b>Addresses & live locations</b><small>Including precise coordinates</small></div></div>
+      <div class="chk"><div class="ic" style="background:#fff1d6">📞</div><div><b>Contact details</b><small>Phone, email, handles, links</small></div></div>
+      <div class="chk"><div class="ic" style="background:#ffe3ea">💬</div><div><b>Personal story or general advice?</b><small>General tips and public emergency numbers are welcome</small></div></div>
+      <p class="note" style="margin-top:14px">Risky details are removed when the message still makes sense. Otherwise it isn’t posted. Repeated severe breaches may pause posting for a while.</p>
+      <h2>Recent checks</h2>
+      <div id="glog" class="log">All clear. Guard will show a note here when it removes or refuses risky details.</div>
+    </section>
+
+    <!-- CREATE -->
+    <section class="view" id="v-create">
+      <div class="scope" style="margin-top:0"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-4 3-6 6.500-6s6 2 6.500 6M16 4.500a3.500 3.500 0 010 7M18 14c2.200.6 3.500 2.500 3.800 6"/></svg><div><b>Create a community</b>Communities are public with no following or direct messages. Kiki’s privacy rules apply to every post and reply.</div></div>
+      <label for="cn">Community name</label><input class="f" id="cn" maxlength="40" placeholder="e.g. Safe Commutes">
+      <label>Pick an icon</label>
+      <div class="chips" id="icons"></div>
+      <label for="cd">Description</label><textarea class="f" id="cd" rows="2" maxlength="100" placeholder="One line about what this is for"></textarea>
+      <label for="cs">Community scope</label><textarea class="f" id="cs" rows="3" placeholder="What belongs here? Include privacy expectations."></textarea>
+      <div class="prev" id="cprev"></div>
+      <button class="btn block" id="mk" disabled>Create community</button>
+    </section>
+  </main>
+
+  <nav>
+    <button class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Home</button>
+    <button><svg viewBox="0 0 24 24"><circle cx="6" cy="19" r="2.500"/><circle cx="18" cy="5" r="2.500"/><path d="M8.500 19H15a3.500 3.500 0 000-7H9a3.500 3.500 0 010-7h6.500"/></svg>Trips</button>
+    <button class="fab" id="fab" aria-label="Write a post"><svg viewBox="0 0 24 24"><path d="M21 4c-5 0-8 1.500-10.500 4.500C9 10.500 8 13 8 15c-2 0-3.500-.500-5-2 .500 4 3.500 7 8 7 6 0 10-5 10-16zM4 21c1-3 3-5 6-6" opacity=".95"/></svg></button>
+    <button><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 8v3"/></svg>Devices</button>
+    <button><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7"/></svg>Account</button>
+  </nav>
+
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-label="New post">
+    <div class="grab"></div>
+    <h3>Create a post</h3><p class="note" id="sh-as" style="margin-top:4px"></p>
+    <div class="tch" id="tchips"></div>
+    <div id="cform"></div>
+    <label class="addp"><input type="file" id="file" accept="image/*" multiple hidden>📷 Add photos</label><small class="note" id="phn"></small>
+    <div id="mlist"></div>
+    <div class="gl" id="gl"></div>
+    <div class="row2"><button class="btn ghost" id="cancel" style="flex:1;padding:14px;border-radius:16px">Cancel</button><button class="btn" id="send" style="flex:2;padding:14px;border-radius:16px" disabled>Post anonymously</button></div>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const ADJ=['Steady','Sunny','Calm','Brave','Gentle','Bright'],ANI=[['Turtle','🐢'],['Seal','🦭'],['Owl','🦉'],['Fox','🦊'],['Otter','🦦'],['Heron','🪶']];
+const hex=()=>Math.random().toString(16).slice(2,8).toUpperCase();
+const COMS=[
+ {id:'e',n:'Everyday Safety',i:'🛡️',c:'#ede7fa',m:1,d:'Small ideas for safer everyday routines.',s:'Discuss general safety habits and resources. Keep examples broad and never identify yourself or another person.',j:true},
+ {id:'k',n:'Kiki Tips',i:'💡',c:'#fff1d6',m:1,d:'Practical, calm safety ideas from Kiki.',s:'Share general safety guidance and questions. Do not post personal details, contact information, exact addresses or live locations.',j:true},
+ {id:'s',n:'Support & Wellbeing',i:'🫶',c:'#ffe3ea',m:0,d:'A kind place for general encouragement and coping ideas.',s:'Offer supportive, non-clinical conversation. Do not share names, contact details, private health records or identifying stories.',j:false},
+ {id:'w',n:'Walking Together',i:'🚶🏽',c:'#dff7ee',m:0,d:'Supportive ideas for planning safer walks.',s:'Share route-planning tips, not live routes, meeting points or identifiable details about walkers.',j:false}];
+COMS.forEach(c=>{const a=ANI[Math.floor(Math.random()*ANI.length)];c.nick=ADJ[Math.floor(Math.random()*ADJ.length)]+' '+a[0]+' '+hex();c.em=a[1]});
+const POSTS={
+ e:[{u:'Calm Heron 8A21B0',e:'🪶',t:'2h',x:'Tip: share your trip plan with someone you trust before you leave, then let them know when you arrive. Small habit, big peace of mind.',l:24,r:[['Brave Otter 4D90C2','🦦','Doing this every week now. Works.']]},
+    {u:'Sunny Fox C03E7A',e:'🦊',t:'5h',x:'Keep your phone charged above 30% before heading out. A dead phone is the easiest risk to remove.',l:41,r:[]}],
+ k:[{u:'Kiki',e:'🕊️',t:'1d',x:'Reminder: public emergency numbers are always fine to share here. Names, addresses and live locations are not.',l:63,r:[]}]};
+let cur='e',tab='feed',myLikes=new Set();
+const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),2600)};
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const COM=()=>COMS.find(c=>c.id===cur);
+
+function rail(){ $('#rail').innerHTML=COMS.map(c=>`<button class="co ${c.j?'':'off'}" aria-pressed="${c.id===cur}" data-id="${c.id}"><div class="ring"><span>${c.i}</span></div>${c.n.split(' ')[0]}</button>`).join('') }
+const TYPES={post:['Post','✍️'],poll:['Poll','📊'],tt:['This or that','⚖️'],slider:['Rate it','🎚️'],fill:['Fill the blank','✏️'],cap:['Caption it','🖼️'],hot:['Hot take','🔥'],quiz:['Quiz','🧠'],mf:['Myth or fact','🕵️'],hunt:['Spot it','🔍'],chal:['Challenge','🏁'],ama:['Ask me','🙋'],decide:['Decide','🗳️'],path:['Your path','🧭']};
+const ANS={fill:1,cap:1,ama:1,hot:1};
+const norm=p=>{p.type=p.type||'post';p.d=p.d||{};p.media=p.media||[];p.r=p.r||[];p.l=p.l||0;p.s=Object.assign({my:null,a:[],found:false,tries:0,in:false,days:Array(7).fill(false),n:0},p.s);return p};
+const find=id=>(POSTS[cur]||[]).find(p=>p.id==id);
+const pc=(v,t)=>t?Math.round(v/t*100):0,emo=v=>v<25?'😴':v<55?'🙂':v<80?'😀':'🤩';
+function mediaH(p){const m=p.media;if(!m.length||p.type==='path')return '';const h=p.type==='hunt';
+ return `<div class="cw"><div class="car">${m.map((im,i)=>`<figure class="sl"><div class="im" ${h?`data-hunt="1"`:`data-dbl="1"`}><img src="${im.src}" alt="${esc(im.cap||'Photo '+(i+1))}" draggable="false">${h&&p.s.found?`<b class="spot" style="left:${p.d.spot.x}%;top:${p.d.spot.y}%"></b>`:''}</div>${im.cap?`<figcaption>${esc(im.cap)}</figcaption>`:''}</figure>`).join('')}</div>${m.length>1?`<span class="cnt">1/${m.length}</span>`:''}</div>${m.length>1?`<div class="dots">${m.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>`:''}`}
+function pollB(p){const o=p.d.o,s=p.s,tot=o.reduce((a,b)=>a+b.v,0),done=s.my!=null,mx=Math.max(...o.map(y=>y.v));
+ return `${p.type==='decide'?`<span class="safe" style="margin-top:8px">🗳️ Community decides · ends in ${p.d.ends||'2d'}</span>`:''}<div class="opts ${p.type==='tt'?'tt':''}">${o.map((x,i)=>`<button class="op ${done?'done':''} ${s.my===i?'mine':''} ${done&&x.v===mx?'lead':''}" data-act="vote" data-i="${i}"><span class="bar" style="width:${done?pc(x.v,tot):0}%"></span><span>${esc(x.t)}</span>${done?`<b>${pc(x.v,tot)}%</b>`:''}</button>`).join('')}</div><small class="mt">${tot} vote${tot==1?'':'s'}${done?' · you voted':' · results show after you vote'}</small>`}
+function quizB(p){const d=p.d,s=p.s,done=s.my!=null;
+ return `<div class="opts">${d.o.map((t,i)=>`<button class="op ${done?'done':''} ${done&&i===d.c?'right':''} ${done&&s.my===i&&i!==d.c?'wrong':''}" data-act="quiz" data-i="${i}"><span>${esc(t)}</span>${done?(i===d.c?'<b>✓</b>':s.my===i?'<b>✕</b>':''):''}</button>`).join('')}</div>${done?`<div class="exp ${s.my===d.c?'ok':'no'}"><b>${s.my===d.c?'Nice one! 🎉':'Not quite'}</b>${esc(d.ex||'')}${d.pct!=null?`<small>${d.pct}% of people got this right</small>`:''}</div>`:''}`}
+function sliderB(p){const d=p.d,s=p.s,v=s.my??50,w=Math.min(92,Math.max(8,d.avg));
+ return `<div class="sv">${emo(v)} <b>${v}</b></div><input type="range" min="0" max="100" value="${v}" ${s.my!=null?'disabled':''} data-act="slide" style="--p:${v}%" aria-label="Rating"><div class="ends"><span>${esc(d.lo||'Not at all')}</span><span>${esc(d.hi||'Totally')}</span></div>${s.my!=null?`<div class="avg"><span style="left:${w}%">avg ${d.avg}</span></div><small class="mt">You said ${s.my} · community average ${d.avg} · ${d.n} rating${d.n==1?'':'s'}</small>`:`<button class="btn" data-act="lock" style="width:100%;margin-top:12px">Lock in my rating</button>`}`}
+function ansB(p){const a=[...p.s.a].sort((x,y)=>y.l-x.l),ph={fill:'Complete it…',cap:'Write your caption…',ama:'Ask a question…',hot:'Add your take…'}[p.type];
+ return `<div class="ans">${a.slice(0,4).map((x,i)=>`<div class="a"><div class="av" style="background:var(--lilac)">${x.e}</div><div class="ab"><b>${esc(x.u)} ${i===0&&x.l>2&&p.type!=='ama'?'<em>🏆 Top</em>':''}</b>${esc(x.t)}</div><button class="lk ${x.my?'on':''}" data-act="alike" data-j="${p.s.a.indexOf(x)}">♥ ${x.l+(x.my?1:0)}</button></div>`).join('')}</div><div class="reply on"><input placeholder="${ph}" maxlength="140" aria-label="${ph}"><button class="btn" data-act="asend">${p.type==='ama'?'Ask':'Add'}</button></div>`}
+function chalB(p){const s=p.s,n=s.days.filter(Boolean).length;
+ return `<p class="note" style="margin:8px 0 10px">${esc(p.x||'')}</p>${s.in?`<div class="days">${s.days.map((d,i)=>`<button class="day ${d?'on':''}" data-act="day" data-i="${i}"><small>DAY</small>${d?'✓':i+1}</button>`).join('')}</div><small class="mt">${n}/7 days · ${p.d.n+1} people in${n==7?' · Completed! 🎉':''}</small><button class="btn ghost" data-act="attempt" style="margin-top:10px">📷 Share my attempt</button>`:`<button class="btn" data-act="join" style="width:100%">I’m in · 7-day challenge</button><small class="mt">${p.d.n} people already joined</small>`}`}
+function pathB(p){const n=p.d.nodes[p.s.n],im=p.media[p.s.n];
+ return `${im?`<img class="pim" src="${im.src}" alt="${esc(im.cap||'')}">`:''}<div class="pn ${n.end?'end':''}"><small>${n.end?'What happens':'What would you do?'}</small><p>${esc(n.t)}</p></div>${n.end?`<button class="btn ghost" data-act="prestart" style="margin-top:10px">↺ Try the other path</button>`:`<div class="opts">${n.ch.map(c=>`<button class="op" data-act="pgo" data-i="${c.to}"><span>${esc(c.t)}</span><b>→</b></button>`).join('')}</div>`}`}
+function huntB(p){return `<small class="mt">${p.s.found?'🎉 You spotted it!':'Tap the photo where you think it is · '+p.s.tries+' tries'}</small>`}
+function art(p){const ty=p.type,on=myLikes.has(p.id),B={poll:pollB,tt:pollB,decide:pollB,hot:x=>pollB(x)+ansB(x),quiz:quizB,mf:quizB,slider:sliderB,fill:ansB,cap:ansB,ama:ansB,hunt:huntB,chal:chalB,path:pathB}[ty];
+ return `<article class="post" id="p${p.id}" data-id="${p.id}"><div class="ph"><div class="av" style="background:var(--lilac)">${p.e}</div><div><strong>${esc(p.u)}</strong><small>${p.t} · checked by Guard</small></div><span class="tag">${TYPES[ty][1]} ${ty==='post'?COM().n.split(' ')[0]:TYPES[ty][0]}</span></div>
+ ${p.x&&ty==='post'?`<p>${esc(p.x)}</p>`:''}${p.d.q?`<p class="q">${esc(p.d.q)}</p>`:''}${ty==='chal'?'':''}${mediaH(p)}${B?B(p):''}${p.g?'<span class="safe"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Guard removed risky details</span>':''}
+ ${p.r.map(r=>`<div class="rp"><div class="av" style="background:var(--lilac)">${r[1]}</div><div><b>${esc(r[0])}</b>${esc(r[2])}</div></div>`).join('')}
+ <div class="acts"><button class="${on?'on':''}" data-act="like"><svg class="hrt" viewBox="0 0 24 24"><path d="M12 21s-8-5-8-11a4.500 4.500 0 018-2.500A4.500 4.500 0 0120 10c0 6-8 11-8 11z"/></svg>${p.l+(on?1:0)}</button>${ANS[ty]?'':`<button data-act="rep"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 01-11.500 7.200L3 21l1.800-5.500A8 8 0 1121 12z"/></svg>${p.r.length||'Reply'}</button>`}<button data-act="help"><svg viewBox="0 0 24 24"><path d="M4 13l5 5L20 6"/></svg>Helpful</button></div>
+ ${ANS[ty]?'':`<div class="reply" id="rp${p.id}"><input placeholder="Reply as ${esc(COM().nick)}" maxlength="140" aria-label="Reply"><button class="btn" data-act="rsend">Send</button></div>`}</article>`}
+function re(p){const o=$('#p'+p.id),sl=(o.querySelector('.car')||{}).scrollLeft;o.outerHTML=art(p);const c=$('#p'+p.id+' .car');if(c&&sl)c.scrollLeft=sl}
+function posts(){const c=COM();$('#sc-t').textContent=c.n;$('#sc-d').textContent=c.s;$('#nk').textContent=c.nick;$('#cav').textContent=c.em;
+ const l=POSTS[cur]||[];$('#posts').innerHTML=l.length?l.map(art).join(''):`<div class="log" style="margin-top:14px">No posts yet. Be the first to share something helpful.</div>`}
+
+function disc(){
+  const q=$('#q').value.toLowerCase();
+  $('#dlist').innerHTML=COMS.filter(c=>(c.n+c.d).toLowerCase().includes(q)).map(c=>`
+  <div class="dc"><div class="ic" style="background:${c.c}">${c.i}</div><div class="meta"><h4>${esc(c.n)}</h4><p>${esc(c.d)}</p><small>${c.m} member${c.m==1?'':'s'} · ${esc(c.s)}</small><div style="margin-top:12px"><button class="btn ${c.j?'ghost':''}" data-join="${c.id}">${c.j?'Open':'Join'}</button></div></div></div>`).join('')||'<div class="log" style="margin-top:12px">No communities match. Try another word, or create your own.</div>';
+}
+function go(v){
+  tab=v;const ids=['feed','discover','guard','create'];
+  $('#seg').style.setProperty('--i',ids.indexOf(v));
+  $$('#seg button').forEach(b=>b.setAttribute('aria-selected',b.dataset.v===v));
+  $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  $('#main').scrollTop=0;
+}
+$('#seg').onclick=e=>{const b=e.target.closest('button');if(b)go(b.dataset.v)};
+$('#rail').onclick=e=>{const b=e.target.closest('.co');if(!b)return;const c=COMS.find(x=>x.id===b.dataset.id);if(!c.j){go('discover');return toast('Join '+c.n+' to see its feed')}cur=c.id;rail();posts()};
+$('#dlist').onclick=e=>{const b=e.target.closest('[data-join]');if(!b)return;const c=COMS.find(x=>x.id===b.dataset.join);if(c.j){cur=c.id;rail();posts();go('feed')}else{c.j=true;c.m++;toast('You joined '+c.n+' as '+c.nick);disc();rail()}};
+$('#q').oninput=disc;
+const PS=$('#posts');
+PS.onclick=e=>{const A=e.target.closest('.post');if(!A)return;const p=find(A.dataset.id);if(!p)return;const s=p.s;
+ const hw=e.target.closest('[data-hunt]');
+ if(hw){if(s.found)return;const r=hw.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*100,y=(e.clientY-r.top)/r.height*100;
+  if(Math.hypot((x-p.d.spot.x)*1.33,y-p.d.spot.y)<14){s.found=true;re(p);toast('🎉 You spotted it!')}
+  else{s.tries++;const d=document.createElement('b');d.className='rip';d.style.cssText=`left:${x}%;top:${y}%`;hw.appendChild(d);setTimeout(()=>d.remove(),700);const m=A.querySelector('.mt');if(m)m.textContent='Not quite. Keep looking · '+s.tries+' tries'}return}
+ const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,i=+b.dataset.i;
+ if(a==='rep'){const el=$('#rp'+p.id);el.classList.toggle('on');if(el.classList.contains('on'))el.querySelector('input').focus();return}
+ if(a==='help')return toast('Thanks. Marked as helpful');
+ if(a==='like')myLikes.has(p.id)?myLikes.delete(p.id):myLikes.add(p.id);
+ else if(a==='vote'){if(s.my!=null)return;p.d.o[i].v++;s.my=i}
+ else if(a==='quiz'){if(s.my!=null)return;s.my=i}
+ else if(a==='lock'){const v=+A.querySelector('input[type=range]').value;p.d.avg=Math.round((p.d.avg*p.d.n+v)/(p.d.n+1));p.d.n++;s.my=v}
+ else if(a==='join')s.in=true;
+ else if(a==='day')s.days[i]=!s.days[i];
+ else if(a==='attempt')return openSheet(true,'post');
+ else if(a==='pgo')s.n=i;
+ else if(a==='prestart')s.n=0;
+ else if(a==='alike'){const x=s.a[+b.dataset.j];x.my=!x.my}
+ else if(a==='asend'||a==='rsend'){const inp=A.querySelector('.reply input');if(!inp.value.trim())return;const g=guard(inp.value);if(g.refuse||!g.clean)return toast('Guard couldn’t post that. Keep it general.');
+  if(a==='asend')s.a.unshift({u:COM().nick,e:COM().em,t:g.clean,l:0,my:false});else p.r.push([COM().nick,COM().em,g.clean]);
+  if(g.found.length)toast('Guard removed '+g.found.join(', '))}
+ re(p)};
+PS.ondblclick=e=>{const im=e.target.closest('[data-dbl]');if(!im)return;const p=find(im.closest('.post').dataset.id);myLikes.add(p.id);re(p);const h=document.createElement('b');h.className='hp';h.textContent='💜';$('#p'+p.id+' .cw').appendChild(h);setTimeout(()=>h.remove(),800)};
+PS.addEventListener('input',e=>{if(e.target.dataset.act==='slide'){const v=+e.target.value;e.target.style.setProperty('--p',v+'%');e.target.previousElementSibling.innerHTML=emo(v)+' <b>'+v+'</b>'}});
+PS.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('.reply input'))e.target.nextElementSibling.click()});
+PS.addEventListener('scroll',e=>{const c=e.target;if(!c.classList||!c.classList.contains('car'))return;const i=Math.round(c.scrollLeft/c.clientWidth),A=c.closest('.post');A.querySelectorAll('.dots i').forEach((d,k)=>d.classList.toggle('on',k===i));const n=A.querySelector('.cnt');if(n)n.textContent=(i+1)+'/'+c.children.length},true);
+
+/* Kiki Guard (on-device preview) */
+const RULES=[[/(\+?\d[\d\s().-]{7,}\d)/g,'phone number'],[/[\w.+-]+@[\w-]+\.[\w.]+/g,'email address'],[/(^|\s)@\w{2,}/g,'social handle'],[/https?:\/\/\S+|www\.\S+/g,'link'],[/\b\d{1,5}\s+[A-Z][a-z]+(\s[A-Z][a-z]+)?\s(Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln)\b/g,'address']];
+function guard(t){let clean=t,found=[];RULES.forEach(([re,n])=>{if(re.test(clean)){found.push(n);clean=clean.replace(re,' ')}re.lastIndex=0});clean=clean.replace(/\s{2,}/g,' ').trim();return{clean,found,refuse:found.length&&clean.split(' ').length<4}}
+const sheet=$('#sheet'),scrim=$('#scrim');
+const FM={post:[['x','Share a general safety idea…','t']],poll:[['q','Ask a question','i'],['o1','Option 1','i'],['o2','Option 2','i'],['o3','Option 3 (optional)','i'],['o4','Option 4 (optional)','i']],tt:[['q','Ask it: this or that?','i'],['o1','This','i'],['o2','That','i']],slider:[['q','What should people rate?','i'],['lo','Low end, e.g. Not hyped (optional)','i'],['hi','High end, e.g. Very hyped (optional)','i']],fill:[['q','Start a sentence: My safest habit is ___','i']],cap:[['q','Prompt, e.g. Caption this photo','i']],hot:[['q','Your hot take or debate starter','t']],quiz:[['q','Question','i'],['o1','Correct answer','i'],['o2','Wrong answer','i'],['o3','Wrong answer (optional)','i'],['ex','Why it’s right (optional)','i']],mf:[['q','A claim to test','i'],['ans','','s'],['ex','Explain the truth (optional)','i']],hunt:[['q','What should people spot?','i']],chal:[['q','Challenge title','i'],['x','What do people do? (optional)','i']],ama:[['q','Ask me about…','i']],decide:[['q','What should the community decide?','i'],['o1','Option 1','i'],['o2','Option 2','i'],['o3','Option 3 (optional)','i']],path:[['q','The situation','i'],['c1','Choice A','i'],['r1','What happens if A','i'],['c2','Choice B','i'],['r2','What happens if B','i']]};
+let cz={type:'post',media:[],spot:null};
+function tch(){$('#tchips').innerHTML=Object.entries(TYPES).map(([k,v])=>`<button class="chip" aria-pressed="${k===cz.type}" data-t="${k}">${v[1]} ${v[0]}</button>`).join('')}
+function form(){$('#cform').innerHTML=FM[cz.type].map(([k,ph,t])=>t==='t'?`<textarea class="f" data-k="${k}" placeholder="${ph}" maxlength="280"></textarea>`:t==='s'?`<select class="f" data-k="${k}"><option value="0">This claim is a myth</option><option value="1">This claim is a fact</option></select>`:`<input class="f" data-k="${k}" placeholder="${ph}" maxlength="90">`).join('')}
+function mlist(){const h=cz.type==='hunt';if(h)cz.media=cz.media.slice(0,1);
+ $('#mlist').innerHTML=cz.media.map((m,i)=>`<div class="mi ${h?'big':''}"><div class="th" ${h?'data-spot="1"':''}><img src="${m.src}" alt="">${h&&cz.spot?`<b class="spot" style="left:${cz.spot.x}%;top:${cz.spot.y}%"></b>`:''}</div><input class="f" data-cap="${i}" placeholder="Caption for photo ${i+1} (optional)" maxlength="120" value="${esc(m.cap||'')}"><button data-rm="${i}" aria-label="Remove photo">✕</button></div>`).join('')}
+const vals=()=>{const v={};$$('#cform [data-k]').forEach(e=>v[e.dataset.k]=e.value.trim());return v};
+function chk(){const v=vals(),found=new Set();let bad=false,miss=false;
+ FM[cz.type].forEach(([k,ph,t])=>{if(t==='s')return;const g=guard(v[k]||'');g.found.forEach(x=>found.add(x));if(g.refuse)bad=true;if(!/optional/.test(ph)&&!v[k])miss=true});
+ cz.media.forEach(m=>{const g=guard(m.cap||'');g.found.forEach(x=>found.add(x));if(g.refuse)bad=true});
+ if((cz.type==='cap'||cz.type==='hunt')&&!cz.media.length)miss=true;if(cz.type==='hunt'&&!cz.spot)miss=true;
+ $('#gl').innerHTML=[...found].map(x=>`<span class="pill bad"><i></i>Will remove ${x}</span>`).join('')||(Object.values(v).some(Boolean)?'<span class="pill"><i></i>Looks good. Nothing risky found</span>':'');
+ $('#send').disabled=miss||bad;$('#phn').textContent={cap:'Add a photo to caption.',hunt:cz.media.length?(cz.spot?'Target hidden ✓ tap again to move it':'Tap the photo to hide your target.'):'Add a photo to hide something in.'}[cz.type]||''}
+function openSheet(on,t){sheet.classList.toggle('on',on);scrim.classList.toggle('on',on);if(on){cz={type:t||'post',media:[],spot:null};$('#sh-as').textContent='Posting in '+COM().n+' as '+COM().nick;tch();form();mlist();chk();sheet.scrollTop=0}}
+$('#fab').onclick=()=>{go('feed');openSheet(true)};$('#cbar').onclick=()=>openSheet(true);$('#cancel').onclick=scrim.onclick=()=>openSheet(false);
+$('#cbar').insertAdjacentHTML('afterend','<div class="tch" id="qt" style="margin-top:10px">'+Object.entries(TYPES).filter(([k])=>k!=='post').map(([k,v])=>`<button class="chip" data-t="${k}">${v[1]} ${v[0]}</button>`).join('')+'</div>');
+$('#qt').onclick=e=>{const b=e.target.closest('[data-t]');if(b)openSheet(true,b.dataset.t)};
+$('#tchips').onclick=e=>{const b=e.target.closest('[data-t]');if(!b)return;cz.type=b.dataset.t;cz.spot=null;tch();form();mlist();chk()};
+$('#cform').addEventListener('input',chk);$('#cform').addEventListener('change',chk);
+const shrink=f=>new Promise(r=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,900/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);r(c.toDataURL('image/jpeg',.82))};im.onerror=()=>r(null);im.src=u});
+$('#file').onchange=async e=>{const fs=[...e.target.files].slice(0,10-cz.media.length);for(const f of fs){const s=await shrink(f);if(s)cz.media.push({src:s,cap:''})}e.target.value='';mlist();chk()};
+$('#mlist').addEventListener('input',e=>{if(e.target.dataset.cap!=null){cz.media[+e.target.dataset.cap].cap=e.target.value;chk()}});
+$('#mlist').onclick=e=>{const r=e.target.closest('[data-rm]');if(r){cz.media.splice(+r.dataset.rm,1);if(!cz.media.length)cz.spot=null;mlist();chk();return}
+ const t=e.target.closest('[data-spot]');if(t){const b=t.getBoundingClientRect();cz.spot={x:Math.round((e.clientX-b.left)/b.width*100),y:Math.round((e.clientY-b.top)/b.height*100)};mlist();chk()}};
+$('#send').onclick=()=>{const v=vals(),found=[],T=cz.type,G=s=>{const g=guard(s||'');found.push(...g.found);return g.clean},
+ P=norm({id:'u'+Date.now(),u:COM().nick,e:COM().em,t:'now',type:T,d:{}}),O=ks=>ks.map(k=>v[k]).filter(Boolean).map(t=>({t:G(t),v:0}));
+ if(T==='post')P.x=G(v.x);else{P.d.q=G(v.q);
+  if(T==='poll'||T==='decide')P.d.o=O(['o1','o2','o3','o4']);if(T==='tt')P.d.o=O(['o1','o2']);if(T==='decide')P.d.ends='3d';
+  if(T==='hot')P.d.o=[{t:'Agree',v:0},{t:'Disagree',v:0}];
+  if(T==='slider')Object.assign(P.d,{lo:G(v.lo),hi:G(v.hi),avg:50,n:0});
+  if(T==='quiz'){const o=[v.o1,v.o2,v.o3].filter(Boolean).map(G),r=o[0];o.sort(()=>Math.random()-.5);Object.assign(P.d,{o,c:o.indexOf(r),ex:G(v.ex),pct:null})}
+  if(T==='mf')Object.assign(P.d,{o:['Myth','Fact'],c:+v.ans,ex:G(v.ex),pct:null});
+  if(T==='hunt')P.d.spot=cz.spot;if(T==='chal'){P.d.n=0;P.x=G(v.x)}
+  if(T==='path')P.d.nodes=[{t:P.d.q,ch:[{t:G(v.c1),to:1},{t:G(v.c2),to:2}]},{t:G(v.r1),end:1},{t:G(v.r2),end:1}]}
+ P.media=cz.media.map(m=>({src:m.src,cap:G(m.cap)}));P.g=found.length>0;
+ POSTS[cur]=POSTS[cur]||[];POSTS[cur].unshift(P);
+ if(found.length){const l=$('#glog');l.className='log has';l.innerHTML=`<b>Removed ${[...new Set(found)].join(', ')}</b><small>Just now · ${COM().n}. Your post went up without it.</small>`}
+ openSheet(false);posts();$('#main').scrollTop=0;toast(found.length?'Posted. Guard removed risky details':'Posted anonymously')};
+
+/* create */
+const ICONS=['🌍','🚌','🌙','🏫','🏃🏽','🐾','☕','🎒'];let icon=ICONS[0];
+$('#icons').innerHTML=ICONS.map((x,i)=>`<button class="chip" aria-pressed="${!i}" data-ic="${x}" style="font-size:20px;padding:6px 12px">${x}</button>`).join('');
+$('#icons').onclick=e=>{const b=e.target.closest('[data-ic]');if(!b)return;icon=b.dataset.ic;$$('#icons .chip').forEach(c=>c.setAttribute('aria-pressed',c===b));prev()};
+function prev(){const n=$('#cn').value.trim(),d=$('#cd').value.trim(),s=$('#cs').value.trim();
+  $('#cprev').innerHTML=n?`<p class="note">Preview</p><div class="dc" style="margin-top:0"><div class="ic" style="background:var(--lilac)">${icon}</div><div class="meta"><h4>${esc(n)}</h4><p>${esc(d||'Add a short description')}</p><small>0 members · ${esc(s||'Add a scope so people know what belongs here')}</small></div></div>`:'';
+  $('#mk').disabled=!(n&&s.length>10)}
+['#cn','#cd','#cs'].forEach(i=>$(i).oninput=prev);
+$('#mk').onclick=()=>{const a=ANI[Math.floor(Math.random()*ANI.length)];
+  const c={id:'n'+Date.now(),n:$('#cn').value.trim(),i:icon,c:'#ede7fa',m:1,d:$('#cd').value.trim()||'A new community.',s:$('#cs').value.trim(),j:true,nick:ADJ[Math.floor(Math.random()*ADJ.length)]+' '+a[0]+' '+hex(),em:a[1]};
+  COMS.push(c);cur=c.id;['#cn','#cd','#cs'].forEach(i=>$(i).value='');prev();rail();posts();disc();go('feed');toast(c.n+' is live. You’re '+c.nick)};
+const svg=(a,b,t)=>'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="600" height="450" fill="url(#g)"/><text x="300" y="270" font-size="170" text-anchor="middle">${t}</text></svg>`);
+const scene='data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450"><rect width="600" height="450" fill="#ece5ff"/><rect y="320" width="600" height="130" fill="#d3c8f5"/><g font-size="70"><text x="20" y="300">🏠</text><text x="150" y="300">🏢</text><text x="300" y="300">🏠</text><text x="470" y="300">🏬</text></g><g font-size="56"><text x="90" y="400">🌳</text><text x="240" y="410">🚗</text><text x="360" y="395">🚶🏽</text><text x="500" y="410">🐕</text></g><text x="408" y="335" font-size="24">📱</text></svg>`);
+const H=(t,v)=>({t,v}),A=(u,e,t,l)=>({u,e,t,l,my:false});let _i=1;
+const S=(type,d,o={})=>norm(Object.assign({id:'s'+_i++,u:'Kiki',e:'🕊️',t:(_i*3)+'m',type,d,l:12+_i*9},o));
+POSTS.e=[
+S('poll',{q:'Which habit do you actually do every time you head out?',o:[H('Share my trip plan',48),H('Check my battery',31),H('Keep my volume low',22),H('Carry a personal alarm',14)]}),
+S('tt',{q:'Walking home at night:',o:[H('Main road, a bit longer',187),H('Shortcut, much quicker',34)]},{u:'Calm Heron 8A21B0',e:'🪶'}),
+S('slider',{q:'How safe do you feel on your daily commute?',lo:'Uneasy',hi:'Totally safe',avg:64,n:212}),
+S('quiz',{q:'Which number reaches emergency services from any cellphone in South Africa?',o:['112','911','999'],c:0,ex:'112 works on any mobile network, even without airtime.',pct:71}),
+S('mf',{q:'Sharing your live location with everyone nearby makes you safer.',o:['Myth','Fact'],c:0,ex:'Broad sharing can expose you. Share only with people you trust.',pct:83}),
+S('post',{},{x:'Our 3-step leaving-home checklist. Swipe 👉',media:[{src:svg('#ede7fa','#cdbdff','🔋'),cap:'1 · Charge above 50% before you go'},{src:svg('#e0f7ee','#bdeedb','🗺️'),cap:'2 · Share your plan with one trusted person'},{src:svg('#fff1d6','#ffe0a3','💡'),cap:'3 · Pick well-lit, busy routes'}],l:96}),
+S('fill',{q:'The one safety habit I’d tell my younger self about is ___'},{s:{a:[A('Brave Otter 4D90C2','🦦','always telling someone when I arrive',12),A('Sunny Fox C03E7A','🦊','trusting that uneasy feeling',7),A('Gentle Seal 19E4AB','🦭','keeping my phone charged',3)]}}),
+S('hunt',{q:'Spot it: something easy to leave behind on this street',spot:{x:70,y:73}},{media:[{src:scene,cap:'Hint: it fits in a pocket'}]}),
+S('cap',{q:'Caption this 🦦'},{media:[{src:svg('#e8e0ff','#c5f0e0','🦦'),cap:''}],s:{a:[A('Calm Heron 8A21B0','🪶','Me checking if my ride has arrived',9),A('Steady Owl 7F20C1','🦉','Plan shared. Battery charged. Ready.',5)]}}),
+S('hot',{q:'Hot take: live-location sharing should always be opt-in, never default.',o:[H('Agree',412),H('Disagree',96)]},{s:{a:[A('Brave Fox 22B7E9','🦊','Agree, but make the opt-in easy to find.',14)]}}),
+S('chal',{q:'7-day Charged & Ready',n:128},{x:'Each day: leave home with 50%+ battery and one trusted person who knows your plan.'}),
+S('ama',{q:'Ask me anything about planning safer routes'},{s:{a:[A('Gentle Otter 5C11AF','🦦','How do I pick a route I haven’t walked before?',6),A('Calm Seal B20D9E','🦭','Are well-lit routes always better?',2)]}}),
+S('decide',{q:'Help us pick next week’s community topic',ends:'2d',o:[H('Safe commuting',62),H('Walking alone',41),H('Meeting new people',28)]}),
+S('path',{nodes:[{t:'A car you don’t know slows down beside you at night. What do you do?',ch:[{t:'Keep walking and ignore it',to:1},{t:'Move toward a lit, busy place',to:2}]},{t:'Ignoring it can leave you exposed. Pause, move toward people and light, and trust your instincts.',end:1},{t:'Good call. Head for people and light, keep your phone ready, and call someone or 112 if it feels wrong.',end:1}]},{u:'Steady Owl 7F20C1',e:'🦉'})
+];
+POSTS.k=[S('post',{},{x:'Reminder: public emergency numbers are always fine to share here. Names, addresses and live locations are not.',l:63})];
+rail();posts();disc();prev();
+</script>
+</body>
+</html>

@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const parsed = searchSchema.safeParse({ lat: query.has("lat") ? Number(query.get("lat")) : undefined, lng: query.has("lng") ? Number(query.get("lng")) : undefined, radius: query.has("radius") ? Number(query.get("radius")) : undefined });
     if (!parsed.success) return meetingJson({ error: "invalid_location" }, 400);
     const { lat, lng, radius } = parsed.data;
-    return meetingJson({ places: await meetingRpc(client, "list_meetup_candidates_near", { p_lat: lat, p_lng: lng, p_radius_m: radius }) });
+    return meetingJson({ places: await meetingRpc(client, "list_safe_places_near", { p_lat: lat, p_lng: lng, p_radius_m: radius }) });
   } catch (error) { return meetingError(error); }
 }
 

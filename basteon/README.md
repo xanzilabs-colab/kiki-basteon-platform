@@ -51,6 +51,12 @@ Responders receive the browser permission prompt after their first interaction w
 
 Apply `supabase/migrations/20261116000000_recurring_safety_intel_acknowledgements.sql` before deploying this version. With Live Location Sharing and Safety Intelligence Alerts enabled, Kiki checks reported incident locations within 1 km while the app is open. Each unacknowledged nearby report repeats every five minutes; acknowledge it from the notification inbox or the push notification action. Marking a notification read does not acknowledge the report. Turning location off pauses checks; turning it back on resumes them.
 
+## Gauteng Judge Demo Data
+
+For a judge/demo environment only, apply `supabase/migrations/20261117000000_gauteng_demo_data_support.sql`, then run `scripts/demo-gauteng-seed.sql` in the Supabase SQL editor. It idempotently adds 40 fictional spot placeholders and 50 fictional report samples across Gauteng. Every item is marked as demo data in the database and visibly labeled in the app; the spots remain unverified and cannot be used as curated Bubble meeting candidates. Demo reports are not copied into `community_intel_records`, are excluded from meeting hazard checks, and cannot be voted on or resolved, so they do not trigger safety-intelligence notifications.
+
+After the demo, run `scripts/demo-gauteng-rollback.sql` to remove only rows with the seed's fixed IDs and demo markers. Keep the seed and rollback files together; do not use the seed in a production environment where demo content would confuse users.
+
 ## Scheduled Jobs
 
 Scheduled cron jobs are disabled in [vercel.json](./vercel.json). The watchdog, alert escalation, and roster revalidation endpoints remain available for manually authorized service-to-service calls. Because schedules are off, expired roster links will not be ended automatically; invoke roster revalidation manually when required.

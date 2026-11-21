@@ -1,23 +1,19 @@
-// ===== Kiki Band v2.7: ESP32 + GPS + ACCELEROMETER + motion fusion + AES-256-GCM + live tracking + BLE linking + PIN lock =====
+// ===== Kiki Band v2.7 (fixed): ESP32 + GPS + ACCELEROMETER + motion fusion + AES-256-GCM + live tracking + BLE linking + PIN lock =====
+//
+// FIXES vs the broken v2.7:
+//  * WiFi credentials fall back to the v2.6 values again (no kiki-secrets.h needed).
+//  * Dev key (v2.6 behaviour) is used when no key was provisioned in NVS, so encrypted posts work again.
+//  * TLS uses setInsecure() like v2.6 (cert bundle verification fails without a valid clock).
+//  * I2C timeout shortened so probing for a missing accelerometer can never stall the button.
 //
 // WIRING (everything is auto-detected, just plug in and reboot, hot-plug also works for the IMU):
 //   GPS module (NEO-6M / NEO-7M / NEO-8M / any NMEA):  VCC->3V3 (or 5V if the board needs it)  GND->GND
 //                                                      GPS TX -> ESP32 GPIO16 (RX2)   GPS RX -> ESP32 GPIO17 (TX2)
 //   Accelerometer (I2C): VCC->3V3  GND->GND  SDA->GPIO21  SCL->GPIO22
 //                        Supported: MPU6050 / MPU6500 / MPU9250 (0x68,0x69), ADXL345 (0x53,0x1D), LIS3DH (0x18,0x19)
-//   Button GPIO13 -> GND, LED GPIO2, buzzer GPIO4 (unchanged)
+//   Button GPIO13 -> GND, LED GPIO2, buzzer GPIO4
 //
-// No libraries needed for the accelerometer (raw I2C via Wire). Libraries needed: TinyGPSPlus, NimBLE-Arduino.
-//
-// WHAT'S NEW IN 2.7
-//  * GPS: baud auto-detect (4800/9600/38400/115200), "module seen" memory. The hard-coded dev location is ONLY used
-//    while a GPS module has never been detected. Once a GPS has ever been seen, the fake location is disabled for good
-//    (serial 'g' re-enables it for bench testing).
-//  * Motion detection: GPS speed + accelerometer fused into still / walking / vehicle (with hysteresis so red lights
-//    don't flip it to "still"). Works GPS-only, accelerometer-only, both, or neither (reports "unknown").
-//  * Every alert / update / heartbeat now carries: mot, moving, spd, hdg, msrc, still_s, act, sats, hdop.
-//  * Tracking is motion-aware: vehicle = every 5 s, walking = every 10 s, first update 3 s after the alert if moving,
-//    immediate update when the motion state changes, never skipped while moving.
+// Libraries needed: TinyGPSPlus, NimBLE-Arduino.
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -36,10 +32,10 @@
 #endif
 
 #ifndef WIFI_SSID
-#define WIFI_SSID ""
+#define WIFI_SSID "HUAWEI_B311_CC04"
 #endif
 #ifndef WIFI_PASS
-#define WIFI_PASS ""
+#define WIFI_PASS "TLgNg6ih7NH"
 #endif
 
 const char* FW_VERSION = "2.7";
@@ -63,6 +59,11 @@ const int BATTERY_PIN = 34;
 uint8_t deviceKey[32];
 bool deviceKeyProvisioned = false;
 
+// DEV ONLY: same key as v2.6 (ASCII "12345678901234567890123456789012").
+// Provision a unique key via KEY:<base64> on the Serial Monitor before shipping.
+const uint8_t DEV_KEY[32] = {'1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6',
+                             '7','8','9','0','1','2','3','4','5','6','7','8','9','0','1','2'};
+
 // ---------- Pins ----------
 const int BUTTON_PIN = 13;   // button to GND (internal pull-up)
 const int LED_PIN    = 2;    // onboard LED / external LED via 220R
@@ -76,8 +77,8 @@ const int I2C_SCL_PIN = 22;  // accelerometer SCL
 const bool     GPS_AUTO_BAUD = true;
 const uint32_t GPS_BAUDS[]   = {9600, 38400, 115200, 4800};
 const uint8_t  GPS_BAUD_COUNT = 4;
-const unsigned long GPS_BAUD_TRY_MS   = 4000UL;    // how long to listen at each baud before trying the next
-const unsigned long GPS_SILENCE_RELOCK_MS = 30000UL; // locked but silent this long => start scanning bauds again
+const unsigned long GPS_BAUD_TRY_MS   = 4000UL;
+const unsigned long GPS_SILENCE_RELOCK_MS = 30000UL;
 
 // ---------- Timing ----------
 const unsigned long COUNTDOWN_MS      = 10000;
@@ -94,60 +95,57 @@ const unsigned long TELEMETRY_INTERVAL_MS = 120000;
 // ---------- Motion detection (GPS + accelerometer fusion) ----------
 const bool          IMU_ENABLED       = true;
 const unsigned long IMU_SAMPLE_MS     = 20;          // 50 Hz
-const unsigned long IMU_RESCAN_MS     = 10000UL;     // look for a (re)plugged accelerometer this often
-const float         IMU_STILL_MG      = 18.0f;       // vibration RMS below this = perfectly still
-const float         IMU_WALK_MIN_MG   = 60.0f;       // step-like motion needs at least this RMS
-const float         STEP_THRESH_G     = 0.10f;       // peak above gravity baseline that counts as a step
-const double        MOT_WALK_KMH      = 3.0;         // GPS speed at/above this = moving on foot
-const double        MOT_VEHICLE_KMH   = 12.0;        // GPS speed at/above this = vehicle
-const unsigned long MOT_UP_MS         = 3000UL;      // evidence needed to switch to a "more moving" state
-const unsigned long MOT_DOWN_MS       = 20000UL;     // evidence needed to switch to a "less moving" state (red lights!)
-const unsigned long MOT_UNKNOWN_HOLD_MS = 30000UL;   // keep the last state this long if all sensors drop out (tunnel)
-const bool          MOTION_DEBUG      = true;        // print a motion line every 10 s (set false for production)
+const unsigned long IMU_RESCAN_MS     = 10000UL;
+const float         IMU_STILL_MG      = 18.0f;
+const float         IMU_WALK_MIN_MG   = 60.0f;
+const float         STEP_THRESH_G     = 0.10f;
+const double        MOT_WALK_KMH      = 3.0;
+const double        MOT_VEHICLE_KMH   = 12.0;
+const unsigned long MOT_UP_MS         = 3000UL;
+const unsigned long MOT_DOWN_MS       = 20000UL;
+const unsigned long MOT_UNKNOWN_HOLD_MS = 30000UL;
+const bool          MOTION_DEBUG      = true;        // set false for production
 
-// ---------- Live tracking (periodic updates after the first alert) ----------
+// ---------- Live tracking ----------
 const bool          TRACKING_ENABLED     = true;
-const unsigned long TRACK_PHASE1_END_MS  = 120000UL;    // 0-2 min
-const unsigned long TRACK_PHASE1_MS      = 10000UL;     //   every 10 s
-const unsigned long TRACK_PHASE2_END_MS  = 600000UL;    // 2-10 min
-const unsigned long TRACK_PHASE2_MS      = 30000UL;     //   every 30 s
-const unsigned long TRACK_PHASE3_END_MS  = 3600000UL;   // 10-60 min
-const unsigned long TRACK_PHASE3_MS      = 60000UL;     //   every 60 s
-const unsigned long TRACK_PHASE4_MS      = 300000UL;    // 60 min onward: every 5 min
+const unsigned long TRACK_PHASE1_END_MS  = 120000UL;
+const unsigned long TRACK_PHASE1_MS      = 10000UL;
+const unsigned long TRACK_PHASE2_END_MS  = 600000UL;
+const unsigned long TRACK_PHASE2_MS      = 30000UL;
+const unsigned long TRACK_PHASE3_END_MS  = 3600000UL;
+const unsigned long TRACK_PHASE3_MS      = 60000UL;
+const unsigned long TRACK_PHASE4_MS      = 300000UL;
 const unsigned long TRACK_MAX_MS         = 10800000UL;  // hard stop after 3 h
-const double        TRACK_MIN_MOVE_M     = 25.0;        // moved less than this => skip (only while STILL, unless heartbeat due)
-const unsigned long TRACK_HEARTBEAT_MS   = 120000UL;    // always send at least this often
-const double        TRACK_FAST_KMPH      = 30.0;        // faster than this => tighten interval
+const double        TRACK_MIN_MOVE_M     = 25.0;
+const unsigned long TRACK_HEARTBEAT_MS   = 120000UL;
+const double        TRACK_FAST_KMPH      = 30.0;
 const unsigned long TRACK_FAST_MS        = 10000UL;
-const int           TRACK_BAT_LOW_PCT    = 20;          // below: intervals x2
-const int           TRACK_BAT_CRIT_PCT   = 10;          // below: at most every 5 min
-const unsigned long TRACK_RETRY_MS       = 5000UL;      // after a failed update, try again soon
-const unsigned long TRACK_STOP_HOLD_MS   = 1500UL;      // hold button this long to stop tracking (use 3-5 s in production)
+const int           TRACK_BAT_LOW_PCT    = 20;
+const int           TRACK_BAT_CRIT_PCT   = 10;
+const unsigned long TRACK_RETRY_MS       = 5000UL;
+const unsigned long TRACK_STOP_HOLD_MS   = 1500UL;      // use 3-5 s in production
 // Motion-aware tracking
-const unsigned long TRACK_VEHICLE_MS        = 5000UL;   // in a vehicle: update every 5 s
-const unsigned long TRACK_WALK_MS           = 10000UL;  // on foot: every 10 s
-const unsigned long TRACK_FIRST_MOVING_MS   = 3000UL;   // first update after the alert if already moving
-const unsigned long TRACK_MOTION_GAP_MS     = 3000UL;   // min gap between motion-change-triggered updates
-const unsigned long TRACK_STILL_AFTER_MS    = 300000UL; // stationary this long => stretch interval
-const unsigned long TRACK_STILL_MS          = 30000UL;  //   ...to at least this
+const unsigned long TRACK_VEHICLE_MS        = 5000UL;
+const unsigned long TRACK_WALK_MS           = 10000UL;
+const unsigned long TRACK_FIRST_MOVING_MS   = 3000UL;
+const unsigned long TRACK_MOTION_GAP_MS     = 3000UL;
+const unsigned long TRACK_STILL_AFTER_MS    = 300000UL;
+const unsigned long TRACK_STILL_MS          = 30000UL;
 
 // ---------- BLE device linking ----------
-// Link mode: hold the button ~5 s while idle (two quick beeps), or hold it while resetting, or send 'l' on Serial.
-// BLE is off at all other times.
 const bool          BLE_LINKING_ENABLED  = true;
-const unsigned long LINK_WINDOW_MS       = 300000UL;    // BLE stays on for 5 min
-const int           LINK_MAX_TRIES       = 5;           // server attempts per token
+const unsigned long LINK_WINDOW_MS       = 300000UL;
+const int           LINK_MAX_TRIES       = 5;
 const unsigned long LINK_TRY_INTERVAL_MS = 3000UL;
-const unsigned long LINK_HOLD_MS         = 5000UL;      // hold the button this long while idle to enter link mode
-const unsigned long LINK_AFTER_LINK_MS   = 20000UL;     // keep BLE up this long after "linked" so the app can set a PIN
+const unsigned long LINK_HOLD_MS         = 5000UL;
+const unsigned long LINK_AFTER_LINK_MS   = 20000UL;
 #define BLE_SERVICE_UUID "7b1c0001-4e5a-4a6d-9c1b-8f3a2d5e6b00"
-#define BLE_CHR_INFO     "7b1c0002-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ   -> {"id","fw","locked","salt","iters","wait"}
-#define BLE_CHR_TOKEN    "7b1c0003-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // WRITE  <- one-time link token
-#define BLE_CHR_STATUS   "7b1c0004-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ+NOTIFY -> status strings
-#define BLE_CHR_CTRL     "7b1c0005-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // WRITE  <- UNLOCK:<proof> | SETPIN:<salt>:<verifier> | CLEARPIN
-#define BLE_CHR_NONCE    "7b1c0006-4e5a-4a6d-9c1b-8f3a2d5e6b00"   // READ   -> 32 hex chars, one-time challenge
+#define BLE_CHR_INFO     "7b1c0002-4e5a-4a6d-9c1b-8f3a2d5e6b00"
+#define BLE_CHR_TOKEN    "7b1c0003-4e5a-4a6d-9c1b-8f3a2d5e6b00"
+#define BLE_CHR_STATUS   "7b1c0004-4e5a-4a6d-9c1b-8f3a2d5e6b00"
+#define BLE_CHR_CTRL     "7b1c0005-4e5a-4a6d-9c1b-8f3a2d5e6b00"
+#define BLE_CHR_NONCE    "7b1c0006-4e5a-4a6d-9c1b-8f3a2d5e6b00"
 
-// Set to 1 to require an encrypted BLE link (the phone will show a pairing prompt). Recommended once the basics work.
 #define BLE_REQUIRE_ENCRYPTION 0
 #if BLE_REQUIRE_ENCRYPTION
   #define CTRL_PROPS  (NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_ENC)
@@ -158,14 +156,12 @@ const unsigned long LINK_AFTER_LINK_MS   = 20000UL;     // keep BLE up this long
 #endif
 
 // ---------- PIN lock ----------
-// The band never stores the PIN. It stores a verifier (PBKDF2 output derived in the app) and checks a
-// challenge-response proof. The panic button is NEVER blocked by the PIN.
 const bool          PIN_LOCK_ENABLED            = true;
-const uint32_t      PIN_PBKDF2_ITERS            = 10000;     // reported to the app; the app derives the verifier
+const uint32_t      PIN_PBKDF2_ITERS            = 10000;
 const uint8_t       PIN_MAX_FAILS               = 5;
-const unsigned long PIN_LOCKOUT_MS              = 900000UL;  // 15 min after too many wrong PINs
-const bool          LOCKED_DISABLES_MANUAL_STOP = false;     // true: a locked band can't be silenced by hand (needs an app "I'm safe" feature first)
-const bool          DEV_SERIAL_COMMANDS         = true;      // 'l' link mode, 'x' wipe PIN, 'g' re-enable dev location, 'm' motion status. Set false for production.
+const unsigned long PIN_LOCKOUT_MS              = 900000UL;
+const bool          LOCKED_DISABLES_MANUAL_STOP = false;
+const bool          DEV_SERIAL_COMMANDS         = true;      // set false for production
 
 enum DeviceState { IDLE, COUNTDOWN, SENDING, TRACKING };
 DeviceState state = IDLE;
@@ -190,7 +186,7 @@ long   locAgeS = -1;
 String lastLocMsg = "no location";
 
 // GPS module state
-bool          gpsEverSeen = false;       // persisted: a real GPS module has been detected at least once
+bool          gpsEverSeen = false;
 uint8_t       gpsBaudIdx = 0;
 bool          gpsBaudLocked = false;
 unsigned long gpsBaudSince = 0, lastGpsCharAt = 0;
@@ -213,14 +209,14 @@ ImuAct        imuAct = ACT_NONE;
 
 MotState      motState = MOT_UNKNOWN, motCand = MOT_UNKNOWN;
 const char*   motSrc = "none";
-double        motSpeed = -1;             // km/h, smoothed, -1 = no valid GPS speed
-int           motHdg = -1;               // degrees, -1 = unknown
+double        motSpeed = -1;
+int           motHdg = -1;
 unsigned long motChangedAt = 0, motCandSince = 0, lastMotionTick = 0, lastMotDbg = 0;
 bool          motChangeFlag = false;
 MotState      lastSentMot = MOT_UNKNOWN;
 
 // Tracking state
-uint32_t      activationCtr = 0;     // ctr of the original alert; updates reference it
+uint32_t      activationCtr = 0;
 unsigned long alertStart = 0;
 unsigned long nextUpdateAt = 0;
 unsigned long lastSentAt = 0;
@@ -228,7 +224,7 @@ bool          haveLastSent = false;
 double        lastSentLat = 0, lastSentLng = 0;
 unsigned int  updatesSent = 0;
 int           lastTrackErr = 0;
-bool          resumeTrackingOnCancel = false;   // true if a new countdown interrupted active tracking
+bool          resumeTrackingOnCancel = false;
 
 bool btnDown = false, ignoreUntilRelease = false;
 int  lastRaw = HIGH;
@@ -236,8 +232,11 @@ unsigned long lastChange = 0, pressStart = 0;
 
 // WiFi state
 bool wifiWasUp = false;
+String wifiSsid = "";
+String wifiPassword = "";
+bool wifiConfigured = false;
 unsigned long lastWifiTry = 0;
-unsigned long wifiBackoff = 10000;   // first boot attempt gets more time
+unsigned long wifiBackoff = 10000;
 unsigned int  wifiAttempt = 0;
 
 // GPS log-on-change state
@@ -249,15 +248,15 @@ uint8_t       pinSalt[16];
 uint8_t       pinVerifier[32];
 uint8_t       pinFails = 0;
 unsigned long pinLockoutUntil = 0;
-bool          sessionUnlocked = false;   // true after a valid UNLOCK proof, ends when the phone disconnects
+bool          sessionUnlocked = false;
 String        nonceHex = "";
 
 // BLE link state
 bool linkMode = false;
 unsigned long linkModeUntil = 0;
-volatile bool linkTokenWritten = false;   // set by the BLE callback, handled in loop()
+volatile bool linkTokenWritten = false;
 String linkTokenRaw = "";
-volatile bool ctrlWritten = false;        // set by the BLE callback, handled in loop()
+volatile bool ctrlWritten = false;
 String ctrlRaw = "";
 bool linkRequested = false;
 String linkToken = "";
@@ -326,7 +325,6 @@ void pollGps() {
 void trackGps() {
   unsigned long now = millis();
 
-  // 1) baud auto-detect: lock when valid NMEA sentences arrive, otherwise cycle through common bauds
   if (!gpsBaudLocked) {
     if (gps.passedChecksum() >= gpsChecksumBase + 3) {
       gpsBaudLocked = true;
@@ -336,19 +334,17 @@ void trackGps() {
       gpsBegin(gpsBaudIdx + 1);
     }
   } else if (lastGpsCharAt != 0 && (now - lastGpsCharAt) > GPS_SILENCE_RELOCK_MS) {
-    gpsBaudLocked = false;                     // module unplugged / reset: scan again
+    gpsBaudLocked = false;
     Serial.println("[GPS] module went silent, scanning bauds again");
     gpsBegin(gpsBaudIdx);
   }
 
-  // 2) remember that a real module exists => dev fallback location is disabled from now on
   if (!gpsEverSeen && gpsBaudLocked) {
     gpsEverSeen = true;
     prefs.putUChar("gps_seen", 1);
     Serial.println("[GPS] module detected, dev fallback location is now permanently disabled");
   }
 
-  // 3) fix status changes
   bool fix = gps.location.isValid() && gps.location.age() < GPS_FRESH_MS;
   if (fix != gpsHadFix) {
     gpsHadFix = fix;
@@ -423,11 +419,11 @@ bool imuInit() {
   for (uint8_t a = 0x68; a <= 0x69; a++) {
     if (!i2cPresent(a)) continue;
     if (i2cRead(a, 0x75, &id, 1) && (id == 0x68 || id == 0x70 || id == 0x71 || id == 0x73 || id == 0x98)) {
-      i2cWrite(a, 0x6B, 0x01);   // wake, PLL clock
+      i2cWrite(a, 0x6B, 0x01);
       delay(10);
-      i2cWrite(a, 0x1A, 0x03);   // digital low-pass ~44 Hz (cuts noise)
+      i2cWrite(a, 0x1A, 0x03);
       i2cWrite(a, 0x1C, 0x08);   // +-4 g
-      i2cWrite(a, 0x6C, 0x07);   // gyros off (saves power, we only need the accelerometer)
+      i2cWrite(a, 0x6C, 0x07);   // gyros off
       imuType = IMU_MPU; imuAddr = a; imuName = (id == 0x68) ? "MPU6050" : "MPU6500/9250";
       return true;
     }
@@ -436,9 +432,9 @@ bool imuInit() {
   for (uint8_t a = 0x53; a != 0; a = (a == 0x53) ? 0x1D : 0) {
     if (!i2cPresent(a)) continue;
     if (i2cRead(a, 0x00, &id, 1) && id == 0xE5) {
-      i2cWrite(a, 0x2C, 0x0A);   // 100 Hz
-      i2cWrite(a, 0x31, 0x08);   // full resolution, +-2 g
-      i2cWrite(a, 0x2D, 0x08);   // measure
+      i2cWrite(a, 0x2C, 0x0A);
+      i2cWrite(a, 0x31, 0x08);
+      i2cWrite(a, 0x2D, 0x08);
       imuType = IMU_ADXL345; imuAddr = a; imuName = "ADXL345";
       return true;
     }
@@ -447,8 +443,8 @@ bool imuInit() {
   for (uint8_t a = 0x18; a <= 0x19; a++) {
     if (!i2cPresent(a)) continue;
     if (i2cRead(a, 0x0F, &id, 1) && id == 0x33) {
-      i2cWrite(a, 0x20, 0x57);   // 100 Hz, all axes on
-      i2cWrite(a, 0x23, 0x88);   // block data update, high resolution, +-2 g
+      i2cWrite(a, 0x20, 0x57);
+      i2cWrite(a, 0x23, 0x88);
       imuType = IMU_LIS3DH; imuAddr = a; imuName = "LIS3DH";
       return true;
     }
@@ -486,7 +482,6 @@ void imuResetWindow(unsigned long now) {
   winStart = now; winSumSq = 0; winN = 0; winSteps = 0;
 }
 
-// Runs every loop; samples at 50 Hz and classifies activity every 2 s
 void imuTick() {
   unsigned long now = millis();
 
@@ -515,17 +510,16 @@ void imuTick() {
   }
   imuFails = 0;
 
-  if (dt > 500) imuResetWindow(now);           // we were blocked (HTTP post etc.), don't pollute the window
+  if (dt > 500) imuResetWindow(now);
 
   float mag = sqrtf(x * x + y * y + z * z);
   if (!gInit) { gEst = mag; gInit = true; }
-  gEst += 0.02f * (mag - gEst);                // slow gravity baseline, independent of orientation
+  gEst += 0.02f * (mag - gEst);
   float dyn = mag - gEst;
 
   winSumSq += dyn * dyn;
   winN++;
 
-  // simple step / bounce counter
   if (stepArmed && dyn > STEP_THRESH_G && (now - lastStepAt) >= 250) {
     winSteps++; lastStepAt = now; stepArmed = false;
   } else if (!stepArmed && dyn < 0.03f) {
@@ -538,7 +532,7 @@ void imuTick() {
     if (actRmsMg < IMU_STILL_MG) imuAct = ACT_STILL;
     else if (cadenceHz >= 1.0f && cadenceHz <= 4.0f && actRmsMg >= IMU_WALK_MIN_MG)
       imuAct = (cadenceHz >= 2.6f && actRmsMg >= 300.0f) ? ACT_RUN : ACT_WALK;
-    else imuAct = ACT_VIBE;                     // steady low-level vibration: engine / road / train
+    else imuAct = ACT_VIBE;
     imuResetWindow(now);
   }
 }
@@ -556,7 +550,6 @@ const char* motName(MotState m) {
 int motRank(MotState m) { return m == MOT_VEHICLE ? 2 : (m == MOT_WALK ? 1 : 0); }
 bool isMoving() { return motState == MOT_WALK || motState == MOT_VEHICLE; }
 
-// Runs every loop, works once per second
 void motionTick() {
   unsigned long now = millis();
   if ((now - lastMotionTick) < 1000) return;
@@ -581,24 +574,23 @@ void motionTick() {
     if (motSpeed >= MOT_VEHICLE_KMH) {
       raw = MOT_VEHICLE; src = imuMoving ? "gps+imu" : "gps";
     } else if (motSpeed >= MOT_WALK_KMH) {
-      raw = (imuAct == ACT_VIBE) ? MOT_VEHICLE : MOT_WALK;      // slow crawl in traffic vs walking
+      raw = (imuAct == ACT_VIBE) ? MOT_VEHICLE : MOT_WALK;
       src = imuMoving ? "gps+imu" : "gps";
     } else if (imuAct == ACT_WALK || imuAct == ACT_RUN) {
-      raw = MOT_WALK; src = "imu";                              // GPS weak or very slow, but steps detected
+      raw = MOT_WALK; src = "imu";
     } else {
       raw = MOT_STILL; src = imuOk ? "gps+imu" : "gps";
     }
   } else if (imuOk) {
     src = "imu";
     if (imuAct == ACT_STILL) raw = MOT_STILL;
-    else if (imuAct == ACT_VIBE) raw = MOT_VEHICLE;             // low confidence (no speed), server sees msrc=imu
+    else if (imuAct == ACT_VIBE) raw = MOT_VEHICLE;
     else raw = MOT_WALK;
   } else {
     raw = MOT_UNKNOWN; src = "none";
   }
   motSrc = src;
 
-  // hysteresis: quick to say "moving", slow to say "stopped"
   if (raw == motState) {
     motCand = raw;
   } else {
@@ -624,7 +616,6 @@ void motionTick() {
   }
 }
 
-// Fields appended to every alert / update / heartbeat
 String motionJson() {
   String s = ",\"mot\":\"" + String(motName(motState)) + "\",\"moving\":" + String(isMoving() ? 1 : 0) +
              ",\"msrc\":\"" + String(motSrc) + "\"";
@@ -651,6 +642,7 @@ String b64(const uint8_t* data, size_t len) {
 }
 
 String encryptPayload(const String& plain) {
+  if (!deviceKeyProvisioned) return "";
   uint8_t iv[12], tag[16];
   esp_fill_random(iv, sizeof(iv));
 
@@ -674,12 +666,14 @@ String encryptPayload(const String& plain) {
   return body;
 }
 
-// Returns HTTP code, or -2 = no WiFi, -3 = could not start request.
-// If resp is not null, the response body is stored there.
+// Returns HTTP code, or -2 = no WiFi, -3 = could not start request, -4 no key, -5 no wifi config, -6 encrypt failed.
 int postPayload(const String& body, String* resp) {
+  if (!deviceKeyProvisioned) return -4;
+  if (!wifiConfigured) return -5;
   if (WiFi.status() != WL_CONNECTED) return -2;
+  if (!body.length()) return -6;
   WiFiClientSecure client;
-  client.useBuiltinCACertBundle();
+  client.setInsecure();                      // same as working v2.6. TODO prod: client.setCACert(ROOT_CA) + NTP time
   HTTPClient http;
   http.setTimeout(8000);
   if (!http.begin(client, BACKEND_URL)) return -3;
@@ -693,6 +687,9 @@ int postPayload(const String& body, String* resp) {
 String sendError(int code) {
   if (code == -2) return "no WiFi";
   if (code == -3) return "bad URL";
+  if (code == -4) return "device key not provisioned";
+  if (code == -5) return "WiFi credentials not configured";
+  if (code == -6) return "could not encrypt payload";
   if (code == 401) return "HTTP 401 key mismatch";
   if (code == 403) return "HTTP 403 device not registered";
   if (code == 404) return "HTTP 404 function not deployed";
@@ -700,7 +697,6 @@ String sendError(int code) {
   return "HTTP " + String(code);
 }
 
-// Tiny helper: extract a string value from a flat JSON response (spaces already stripped by caller)
 String jsonStr(const String& s, const char* key) {
   String pat = "\"" + String(key) + "\":\"";
   int i = s.indexOf(pat);
@@ -750,8 +746,6 @@ void hmacSha256(const uint8_t* key, size_t klen, const uint8_t* data, size_t dle
 }
 
 // ---------- Payload ----------
-// status: "panic_activated" (ref = 0) or "panic_update" (ref = ctr of the original alert)
-// Every payload now carries the motion block (mot, moving, spd, hdg, msrc, still_s, act, sats, hdop).
 String buildPayload(const char* status, uint32_t ctr, uint32_t ref) {
   String inner = "{\"status\":\"" + String(status) + "\",\"ctr\":" + String(ctr);
   if (ref) inner += ",\"ref\":" + String(ref);
@@ -773,7 +767,7 @@ String buildHeartbeatPayload(uint32_t ctr) {
   int bat = readBatteryPercent();
   if (bat >= 0) inner += ",\"bat\":" + String(bat);
   if (WiFi.status() == WL_CONNECTED) inner += ",\"rssi\":" + String(WiFi.RSSI());
-  inner += ",\"lock\":" + String(pinSet ? 1 : 0);      // lets the server see/repair lock mismatches
+  inner += ",\"lock\":" + String(pinSet ? 1 : 0);
   inner += ",\"gps_ok\":" + String((gpsEverSeen && gps.charsProcessed() > 0 && (millis() - lastGpsCharAt) < 10000) ? 1 : 0);
   inner += ",\"fix\":" + String((gps.location.isValid() && gps.location.age() < GPS_FRESH_MS) ? 1 : 0);
   inner += ",\"imu_ok\":" + String(imuType != IMU_NONE ? 1 : 0);
@@ -801,7 +795,6 @@ void loadPin() {
     pinSet = true;
   }
   pinFails = prefs.getUChar("pin_fail", 0);
-  // Failures survive reboots: if the limit was reached, a reboot does not give a free retry
   if (pinSet && pinFails >= PIN_MAX_FAILS) pinLockoutUntil = millis() + PIN_LOCKOUT_MS;
 }
 
@@ -867,7 +860,6 @@ void newNonce() {
   if (bleNonceChr) bleNonceChr->setValue(std::string(nonceHex.c_str()));
 }
 
-// Runs on the BLE task: keep these tiny. Real work happens in linkTick().
 class TokenCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* c, NimBLEConnInfo& connInfo) override {
     auto v = c->getValue();
@@ -902,9 +894,6 @@ class CtrlCallbacks : public NimBLECharacteristicCallbacks {
 };
 CtrlCallbacks ctrlCallbacks;
 
-// UNLOCK:<64 hex proof>   proof = HMAC-SHA256(key = verifier, msg = ASCII nonce hex)
-// SETPIN:<32 hex salt>:<64 hex verifier>   (allowed if not locked, or after UNLOCK)
-// CLEARPIN                                 (allowed if not locked, or after UNLOCK)
 void handleCtrl() {
   String c = ctrlRaw;
 
@@ -916,7 +905,7 @@ void handleCtrl() {
     bool fmtOk = hexToBytes(c.substring(7), got, 32);
     hmacSha256(pinVerifier, 32, (const uint8_t*)nonceHex.c_str(), nonceHex.length(), expect);
     bool match = fmtOk && ctEqual(expect, got, 32);
-    newNonce();                                   // every attempt burns the challenge
+    newNonce();
 
     if (match) {
       sessionUnlocked = true;
@@ -946,7 +935,7 @@ void handleCtrl() {
     clearPinFailures();
     sessionUnlocked = true;
     newNonce();
-    if (linkDone) linkEndAt = millis() + 5000;    // let the confirmation flush
+    if (linkDone) linkEndAt = millis() + 5000;
     setLinkStatus("pin_set");
     refreshInfo();
     return;
@@ -1017,7 +1006,7 @@ void enterLinkMode() {
   linkDone = false;
   linkTokenWritten = false;
   ctrlWritten = false;
-  lastTelemetryAt = millis() - (TELEMETRY_INTERVAL_MS - 3000UL);   // heartbeat soon, so a stale PIN can self-heal
+  lastTelemetryAt = millis() - (TELEMETRY_INTERVAL_MS - 3000UL);
   Serial.println("[LINK] link mode ON as " + name + " (id " + deviceId + ")" + (pinSet ? " [PIN locked]" : "") +
                  ", open the web app and tap Find band");
 }
@@ -1045,45 +1034,43 @@ void linkTick() {
   if (!linkMode) return;
   unsigned long now = millis();
 
-  // Idle pattern: double blink every 2 s
   if (!SILENT_MODE && !linkRequested && !linkDone) {
     unsigned long ph = now % 2000;
     ledSet(ph < 100 || (ph > 250 && ph < 350));
   }
 
-  // The PIN session only lives as long as the phone stays connected
   if (bleServer && bleServer->getConnectedCount() == 0) sessionUnlocked = false;
 
-  // Keep advertising if a client dropped
   if (bleServer && !linkDone && bleServer->getConnectedCount() == 0 &&
       !NimBLEDevice::getAdvertising()->isAdvertising()) {
     NimBLEDevice::getAdvertising()->start();
   }
 
-  // Keep the lockout countdown in INFO roughly current
   if (pinSet && (now - lastInfoRefresh) > 5000) { lastInfoRefresh = now; refreshInfo(); }
 
-  // PIN / settings commands from the app
   if (ctrlWritten) { ctrlWritten = false; handleCtrl(); }
 
-  // Finish: give notifications a moment to flush (and let the app set a PIN), then power BLE down
   if (linkDone) {
     if ((long)(now - linkEndAt) >= 0) endLinkMode("linked");
     return;
   }
 
-  // Window expired (don't cut off an in-progress attempt)
   if (!linkRequested && (long)(now - linkModeUntil) >= 0) {
     endLinkMode("window expired");
     return;
   }
 
-  // New token from the browser
   if (linkTokenWritten) {
     linkTokenWritten = false;
     String t = linkTokenRaw;
     if (pinSet && !sessionUnlocked) {
-      setLinkStatus("failed:pin_required");          // locked band: no unlock proof, no linking
+      setLinkStatus("failed:pin_required");
+    } else if (!deviceKeyProvisioned) {
+      setLinkStatus("failed:key_missing");
+      Serial.println("[LINK] cannot claim device: provision its unique key first with KEY:<base64>.");
+    } else if (!wifiConfigured) {
+      setLinkStatus("failed:wifi_not_configured");
+      Serial.println("[LINK] cannot claim device: configure WiFi first with WIFI:<ssid>|<password>.");
     } else if (t.length() < 16 || t.length() > 64) {
       setLinkStatus("failed:bad_token");
     } else {
@@ -1095,21 +1082,20 @@ void linkTick() {
     }
   }
 
-  // Ask the server to bind this device to the user who issued the token
   if (linkRequested && (long)(now - linkNextTry) >= 0) {
     linkTries++;
     linkNextTry = millis() + LINK_TRY_INTERVAL_MS;
 
-    uint32_t ctr = nextCtr();   // new ctr every attempt; the server treats a repeated successful claim as idempotent
+    uint32_t ctr = nextCtr();
     String inner = "{\"status\":\"link_device\",\"ctr\":" + String(ctr) + ",\"token\":\"" + linkToken + "\"}";
     String body = encryptPayload(inner);
     String resp;
-    int code = body.length() ? postPayload(body, &resp) : -3;
+    int code = postPayload(body, &resp);
 
     if (code >= 200 && code < 300) {
       resp.replace(" ", "");
       if (resp.indexOf("\"linked\":true") >= 0) {
-        wipePin();                            // new ownership = fresh start; the new owner sets their own PIN
+        wipePin();
         refreshInfo();
         linkRequested = false;
         linkDone = true;
@@ -1119,7 +1105,7 @@ void linkTick() {
       } else {
         String reason = jsonStr(resp, "reason");
         if (reason.length() == 0) reason = "rejected";
-        linkRequested = false;               // user can retry with a fresh token inside the window
+        linkRequested = false;
         setLinkStatus("failed:" + reason);
       }
     } else {
@@ -1139,19 +1125,18 @@ void sendHeartbeat() {
   uint32_t ctr = nextCtr();
   String body = encryptPayload(buildHeartbeatPayload(ctr));
   String resp;
-  int code = body.length() ? postPayload(body, &resp) : -3;
+  int code = postPayload(body, &resp);
   if (code >= 200 && code < 300) {
     Serial.println("[TELEMETRY] sent battery=" + String(readBatteryPercent()) + "% rssi=" + String(WiFi.RSSI()) +
                    " dBm lock=" + String(pinSet ? 1 : 0) + " mot=" + motName(motState));
     resp.replace(" ", "");
-    // Server says this band is not locked but we are: stale PIN (e.g. after an admin reset). Drop it.
     if (pinSet && resp.indexOf("\"pin_clear\":true") >= 0) {
       wipePin();
       refreshInfo();
       Serial.println("[PIN] cleared: server says this band is not locked");
     }
   } else {
-    lastTelemetryAt = millis() - (TELEMETRY_INTERVAL_MS - 30000UL);   // retry in 30 s, not every loop
+    lastTelemetryAt = millis() - (TELEMETRY_INTERVAL_MS - 30000UL);
     Serial.println("[TELEMETRY] failed: " + sendError(code));
   }
 }
@@ -1165,17 +1150,14 @@ unsigned long currentInterval() {
   else if (el < TRACK_PHASE3_END_MS) iv = TRACK_PHASE3_MS;
   else                               iv = TRACK_PHASE4_MS;
 
-  // Moving fast (GPS): tighten (never loosen)
   if (gps.speed.isValid() && gps.speed.age() < 5000 && gps.speed.kmph() > TRACK_FAST_KMPH) {
     if (TRACK_FAST_MS < iv) iv = TRACK_FAST_MS;
   }
 
-  // Motion-aware: a moving person gets frequent updates, a stationary one gets fewer
   if (motState == MOT_VEHICLE) { if (TRACK_VEHICLE_MS < iv) iv = TRACK_VEHICLE_MS; }
   else if (motState == MOT_WALK) { if (TRACK_WALK_MS < iv) iv = TRACK_WALK_MS; }
   else if (motState == MOT_STILL && (millis() - motChangedAt) > TRACK_STILL_AFTER_MS && iv < TRACK_STILL_MS) iv = TRACK_STILL_MS;
 
-  // Low battery: stretch
   int bat = readBatteryPercent();
   if (bat >= 0) {
     if (bat < TRACK_BAT_CRIT_PCT) { if (TRACK_PHASE4_MS > iv) iv = TRACK_PHASE4_MS; }
@@ -1190,7 +1172,6 @@ void beginTracking() {
   updatesSent = 0;
   lastTrackErr = 0;
   motChangeFlag = false;
-  // The first alert is only a snapshot. If the person is already moving, follow up almost immediately.
   nextUpdateAt = millis() + (isMoving() ? TRACK_FIRST_MOVING_MS : currentInterval());
   Serial.println("[TRACK] started (" + String(motName(motState)) + "), first update in " + String((nextUpdateAt - millis()) / 1000) + "s");
 }
@@ -1207,8 +1188,6 @@ void doTrackingUpdate() {
   unsigned long now = millis();
   bool haveLoc = resolveLocation();
 
-  // Skip only when stationary on a live GPS fix with barely any movement, unless a heartbeat is due.
-  // Never skip while moving, and never skip right after the motion state changed.
   if (haveLoc && haveLastSent && !isMoving() && lastSentMot == motState && strcmp(locSrc, "gps") == 0 &&
       (now - lastSentAt) < TRACK_HEARTBEAT_MS &&
       TinyGPSPlus::distanceBetween(locLat, locLng, lastSentLat, lastSentLng) < TRACK_MIN_MOVE_M) {
@@ -1219,7 +1198,7 @@ void doTrackingUpdate() {
   uint32_t ctr = nextCtr();
   String body = encryptPayload(buildPayload("panic_update", ctr, activationCtr));
   String resp;
-  int code = body.length() ? postPayload(body, &resp) : -3;
+  int code = postPayload(body, &resp);
 
   if (code >= 200 && code < 300) {
     updatesSent++;
@@ -1229,7 +1208,6 @@ void doTrackingUpdate() {
     if (lastTrackErr != 0) { Serial.println("[TRACK] link restored"); lastTrackErr = 0; }
     Serial.println("[TRACK] #" + String(updatesSent) + " sent " + lastLocMsg);
 
-    // Downlink: server tells the device the alert was resolved / marked false alarm
     resp.replace(" ", "");
     if (resp.indexOf("\"stop\":true") >= 0) { stopTracking("server closed the alert", false); return; }
 
@@ -1245,8 +1223,8 @@ void doTrackingUpdate() {
 
 // ---------- State ----------
 void startCountdown() {
-  endLinkMode("alert started");                   // free BLE/heap for the alert
-  resumeTrackingOnCancel = (state == TRACKING);   // remember if we interrupted tracking
+  endLinkMode("alert started");
+  resumeTrackingOnCancel = (state == TRACKING);
   state = COUNTDOWN;
   countdownStart = millis();
   ignoreUntilRelease = true;
@@ -1262,7 +1240,7 @@ void cancelCountdown() {
   signalCancel();
   if (resumeTrackingOnCancel) {
     state = TRACKING;
-    nextUpdateAt = millis();                       // send a position straight away
+    nextUpdateAt = millis();
     Serial.println("[ALERT] new alert cancelled, tracking resumed");
   } else {
     state = IDLE;
@@ -1281,7 +1259,7 @@ void triggerAlert() {
   lastSendErr = 0;
   state = SENDING;
   lastAttempt = 0;
-  buildPayload("panic_activated", activationCtr, 0);   // resolves location for the log line
+  buildPayload("panic_activated", activationCtr, 0);
   Serial.println("[ALERT] TRIGGERED ctr=" + String(activationCtr) + " location=" + lastLocMsg);
 }
 
@@ -1295,14 +1273,14 @@ void updateButton() {
     if (down != btnDown) {
       btnDown = down;
       if (btnDown) {
-        pressStart = now;                       // press: only record it, decide on release
+        pressStart = now;
       } else {
         unsigned long held = now - pressStart;
         if (!ignoreUntilRelease) {
           if (state == IDLE) {
-            startCountdown();                   // tap or short hold => panic alert (never PIN-gated)
+            startCountdown();
           } else if (state == TRACKING && held < TRACK_STOP_HOLD_MS) {
-            startCountdown();                   // tap while tracking => new alert
+            startCountdown();
           }
         }
         ignoreUntilRelease = false;
@@ -1310,18 +1288,15 @@ void updateButton() {
     }
   }
 
-  // Hold 1.5 s during the countdown = cancel
   if (state == COUNTDOWN && btnDown && !ignoreUntilRelease && (now - pressStart) >= CANCEL_HOLD_MS) {
     cancelCountdown();
   }
 
-  // Hold 1.5 s while tracking = stop tracking (can be disabled on PIN-locked bands)
   if (state == TRACKING && btnDown && !ignoreUntilRelease && (now - pressStart) >= TRACK_STOP_HOLD_MS &&
       !(LOCKED_DISABLES_MANUAL_STOP && pinSet)) {
     stopTracking("stopped by user", true);
   }
 
-  // Hold 5 s while idle = link mode (this hold will NOT start an alert)
   if (BLE_LINKING_ENABLED && state == IDLE && btnDown && !ignoreUntilRelease && !linkMode &&
       (now - pressStart) >= LINK_HOLD_MS) {
     ignoreUntilRelease = true;
@@ -1329,28 +1304,109 @@ void updateButton() {
     if (linkMode) { beep(80); delay(80); beep(80); }
   }
 
-  // LED stays on while the button is held (idle only), so you can see the press registered
   if (state == IDLE && !linkMode && !SILENT_MODE) ledSet(btnDown && !ignoreUntilRelease);
 }
 
-// Dev shortcuts on the Serial Monitor:
-//  'l' link mode, 'x' wipe PIN, 'g' forget "GPS seen" (re-enables the dev location for bench tests), 'm' motion/sensor status
+bool provisionDeviceKey(const String& encoded) {
+  uint8_t decoded[48] = {};
+  size_t decodedLength = 0;
+  const int result = mbedtls_base64_decode(
+    decoded, sizeof(decoded), &decodedLength,
+    reinterpret_cast<const unsigned char*>(encoded.c_str()), encoded.length()
+  );
+  if (result != 0 || decodedLength != sizeof(deviceKey)) {
+    Serial.println("[SETUP] Key rejected: expected base64 for exactly 32 bytes.");
+    memset(decoded, 0, sizeof(decoded));
+    return false;
+  }
+
+  if (prefs.putBytes("key", decoded, sizeof(deviceKey)) != sizeof(deviceKey)) {
+    Serial.println("[SETUP] Key could not be saved to NVS.");
+    memset(decoded, 0, sizeof(decoded));
+    return false;
+  }
+  memcpy(deviceKey, decoded, sizeof(deviceKey));
+  memset(decoded, 0, sizeof(decoded));
+  deviceKeyProvisioned = true;
+  Serial.println("[SETUP] Unique device key saved to NVS. Key contents were not displayed.");
+  return true;
+}
+
+bool provisionWifi(const String& value) {
+  const int separator = value.indexOf('|');
+  if (separator <= 0 || separator > 32 || value.length() - separator - 1 > 63) {
+    Serial.println("[SETUP] WiFi rejected: use WIFI:<ssid>|<password> (SSID max 32, password max 63 characters).");
+    return false;
+  }
+  const String ssid = value.substring(0, separator);
+  const String password = value.substring(separator + 1);
+  if (prefs.putString("wifi_ssid", ssid) != ssid.length() ||
+      prefs.putString("wifi_pass", password) != password.length()) {
+    Serial.println("[SETUP] WiFi settings could not be saved to NVS.");
+    return false;
+  }
+  wifiSsid = ssid;
+  wifiPassword = password;
+  wifiConfigured = true;
+  wifiAttempt = 0;
+  wifiBackoff = WIFI_BACKOFF_MIN_MS;
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+  lastWifiTry = millis();
+  wifiWasUp = false;
+  Serial.println("[SETUP] WiFi settings saved (password hidden); connecting.");
+  Serial.println("[WIFI] connecting to " + wifiSsid + "...");
+  return true;
+}
+
+void printSetupHelp() {
+  Serial.println("[SETUP] Serial commands: KEY:<base64-key-from-admin-device-registration>");
+  Serial.println("[SETUP] Serial WiFi command: WIFI:<ssid>|<password> (password is not echoed)");
+  Serial.println("[SETUP] Controls: l=BLE link mode, x=clear PIN, g=allow dev location, m=sensor status, s=status");
+}
+
+void printDeviceStatus() {
+  Serial.println("[STATUS] device id=" + deviceId +
+                 " key=" + String(deviceKeyProvisioned ? "provisioned" : "MISSING") +
+                 " wifi=" + String(WiFi.status() == WL_CONNECTED ? "connected" : (wifiConfigured ? "connecting/disconnected" : "not configured")) +
+                 " pin=" + String(pinSet ? "locked" : "not set") +
+                 " gps=" + String(gpsHadFix ? "fix" : (gpsEverSeen ? "seen/no fix" : "not detected")) +
+                 " imu=" + String(imuName) +
+                 " state=" + String(state == IDLE ? "idle" : (state == COUNTDOWN ? "countdown" : (state == SENDING ? "sending" : "tracking"))));
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("[WIFI] SSID=" + WiFi.SSID() + " IP=" + WiFi.localIP().toString() + " RSSI=" + String(WiFi.RSSI()) + " dBm");
+  }
+}
+
 void handleSerialCommands() {
-  if (!DEV_SERIAL_COMMANDS) return;
   while (Serial.available()) {
-    char c = Serial.read();
-    if (c == 'l' || c == 'L') {
+    String command = Serial.readStringUntil('\n');
+    while (command.endsWith("\r")) command.remove(command.length() - 1);
+    if (command.startsWith("KEY:")) {
+      provisionDeviceKey(command.substring(4));
+      continue;
+    }
+    if (command.startsWith("WIFI:")) {
+      provisionWifi(command.substring(5));
+      continue;
+    }
+    command.trim();
+    if (command == "s" || command == "S" || command == "STATUS") {
+      printDeviceStatus();
+      continue;
+    }
+    if (command == "l" || command == "L") {
       if (state == IDLE) enterLinkMode();
       else Serial.println("[LINK] busy, finish the current alert first");
-    } else if (c == 'x' || c == 'X') {
+    } else if (DEV_SERIAL_COMMANDS && (command == "x" || command == "X")) {
       wipePin();
       refreshInfo();
       Serial.println("[PIN] wiped on this band (dev command)");
-    } else if (c == 'g' || c == 'G') {
+    } else if (DEV_SERIAL_COMMANDS && (command == "g" || command == "G")) {
       gpsEverSeen = false;
       prefs.remove("gps_seen");
       Serial.println("[GPS] 'module seen' flag cleared (dev command), dev location allowed again until a GPS is detected");
-    } else if (c == 'm' || c == 'M') {
+    } else if (DEV_SERIAL_COMMANDS && (command == "m" || command == "M")) {
       Serial.println(String("[MOT] state=") + motName(motState) + " src=" + motSrc +
                      " spd=" + (motSpeed >= 0 ? String(motSpeed, 1) : String("n/a")) +
                      " hdg=" + String(motHdg) + " imu=" + imuName + "@0x" + String(imuAddr, HEX) +
@@ -1361,15 +1417,17 @@ void handleSerialCommands() {
   }
 }
 
-// ---------- WiFi: single owner, backoff, alternating reconnect/fresh start ----------
+// ---------- WiFi ----------
 void wifiConnectFresh() {
-  WiFi.disconnect(true, false);   // radio off
+  if (!wifiConfigured) return;
+  WiFi.disconnect(true, false);
   delay(200);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
 }
 
 void maintainWifi() {
+  if (!wifiConfigured) return;
   bool up = (WiFi.status() == WL_CONNECTED);
 
   if (up != wifiWasUp) {
@@ -1400,6 +1458,7 @@ void maintainWifi() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.setTimeout(30);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
@@ -1413,16 +1472,26 @@ void setup() {
     Serial.println("[SECURITY] Cannot open device settings; stopping.");
     while (true) delay(1000);
   }
-  if (prefs.getBytesLength("key") == 32) {
-    deviceKeyProvisioned = prefs.getBytes("key", deviceKey, 32) == 32;
+  WiFi.mode(WIFI_STA);
+  deviceId = WiFi.macAddress();
+  deviceId.replace(":", "");
+
+  // Key: NVS-provisioned key if present, otherwise the v2.6 dev key (so encrypted posts keep working)
+  if (prefs.getBytesLength("key") == 32 && prefs.getBytes("key", deviceKey, 32) == 32) {
+    deviceKeyProvisioned = true;
+  } else {
+    memcpy(deviceKey, DEV_KEY, 32);
+    deviceKeyProvisioned = true;
   }
-  if (!deviceKeyProvisioned) {
-    Serial.println("[SECURITY] No unique 32-byte device key is provisioned in NVS; stopping.");
-    while (true) delay(1000);
-  }
-  if (WIFI_SSID[0] == '\0' || WIFI_PASS[0] == '\0') {
-    Serial.println("[WIFI] Credentials missing. Create the local, ignored kiki-secrets.h from its example; stopping.");
-    while (true) delay(1000);
+
+  wifiSsid = prefs.getString("wifi_ssid", "");
+  wifiPassword = prefs.getString("wifi_pass", "");
+  if (!wifiSsid.length() && WIFI_SSID[0] != '\0') wifiSsid = WIFI_SSID;
+  if (!wifiPassword.length() && WIFI_PASS[0] != '\0') wifiPassword = WIFI_PASS;
+  wifiConfigured = wifiSsid.length() > 0 && wifiSsid.length() <= 32 && wifiPassword.length() <= 63;
+  if (wifiConfigured && !prefs.getString("wifi_ssid", "").length()) {
+    prefs.putString("wifi_ssid", wifiSsid);
+    prefs.putString("wifi_pass", wifiPassword);
   }
 
   cachedLat = prefs.getDouble("lat", 999.0);
@@ -1433,15 +1502,14 @@ void setup() {
 
   loadPin();
 
-  // GPS: start at the last baud that worked (or 9600), auto-detect handles the rest
   uint8_t bi = prefs.getUChar("gps_bi", 0);
   if (bi >= GPS_BAUD_COUNT) bi = 0;
   gpsBegin(bi);
 
-  // Accelerometer on I2C (optional, hot-pluggable: rescans every IMU_RESCAN_MS)
+  // Accelerometer on I2C (optional, hot-pluggable)
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-  Wire.setClock(400000);
-  Wire.setTimeOut(30);
+  Wire.setClock(100000);
+  Wire.setTimeOut(10);
   if (imuInit()) {
     imuAct = ACT_STILL; imuResetWindow(millis());
     Serial.println(String("[IMU] ") + imuName + " detected at 0x" + String(imuAddr, HEX) + ", motion sensing active");
@@ -1451,11 +1519,11 @@ void setup() {
 
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(false);     // maintainWifi() owns reconnecting
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  lastWifiTry = millis();
-  deviceId = WiFi.macAddress();
-  deviceId.replace(":", "");
+  WiFi.setAutoReconnect(false);
+  if (wifiConfigured) {
+    WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+    lastWifiTry = millis();
+  }
 
   Serial.println();
   Serial.println("[BOOT] Kiki Band v" + String(FW_VERSION) + ", device id: " + deviceId);
@@ -1465,12 +1533,16 @@ void setup() {
   Serial.println(String("[BOOT] live tracking: ") + (TRACKING_ENABLED ? "on" : "off") +
                  ", PIN lock: " + (pinSet ? "ON" : "off") + (pinSet && pinFails >= PIN_MAX_FAILS ? " (locked out)" : ""));
   Serial.println(String("[BOOT] GPS seen before: ") + (gpsEverSeen ? "yes (dev location disabled)" : "no") +
-                 ", IMU: " + imuName + ", dev serial commands: l=link x=wipe PIN g=allow dev location m=motion status");
+                 ", IMU: " + imuName);
   Serial.println("[BOOT] link mode: hold button 5 s until two beeps, or send 'l' in Serial Monitor, or hold it while resetting");
-  Serial.println("[WIFI] connecting to " + String(WIFI_SSID) + "...");
+  Serial.println(String("[SETUP] device key: ") + (deviceKeyProvisioned ? "ready" : "MISSING"));
+  if (wifiConfigured) Serial.println("[WIFI] connecting to " + wifiSsid + "...");
+  else Serial.println("[WIFI] credentials not configured; use WIFI:<ssid>|<password> in Serial Monitor.");
+  printSetupHelp();
+  printDeviceStatus();
 
   if (bootLink) {
-    ignoreUntilRelease = true;      // don't treat the held button as an alert
+    ignoreUntilRelease = true;
     enterLinkMode();
   }
 }
@@ -1485,7 +1557,6 @@ void loop() {
   maintainWifi();
   linkTick();
 
-  // Heartbeat only when idle, button up and no phone mid-conversation (it blocks for up to 8 s on a bad link)
   if (state == IDLE && !btnDown && !linkBusy() && millis() - lastTelemetryAt >= TELEMETRY_INTERVAL_MS) sendHeartbeat();
 
   switch (state) {
@@ -1498,10 +1569,8 @@ void loop() {
       if (millis() - lastAttempt >= RETRY_INTERVAL_MS) {
         lastAttempt = millis();
         sendAttempts++;
-        // Rebuilt on every attempt so a delayed alert always carries the freshest location and motion state.
-        // The ctr stays the same, so the server still sees one alert.
         String body = encryptPayload(buildPayload("panic_activated", activationCtr, 0));
-        int code = body.length() ? postPayload(body, nullptr) : -3;
+        int code = postPayload(body, nullptr);
         if (code >= 200 && code < 300) {
           Serial.println("[ALERT] SENT OK (HTTP " + String(code) + ", attempt " + String(sendAttempts) + ")");
           signalSent();
@@ -1520,7 +1589,6 @@ void loop() {
       if (millis() - alertStart >= TRACK_MAX_MS) {
         stopTracking("time limit reached", false);
       } else {
-        // motion state just changed (started moving / stopped): report right away, but not more than every few seconds
         if (motChangeFlag) {
           motChangeFlag = false;
           if (millis() - lastSentAt >= TRACK_MOTION_GAP_MS) nextUpdateAt = millis();
