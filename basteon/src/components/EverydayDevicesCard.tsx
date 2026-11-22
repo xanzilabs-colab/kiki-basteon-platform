@@ -474,7 +474,19 @@ export default function EverydayDevicesCard() {
                 <h2 id="everyday-sheet-title">Name it</h2>
                 <p>A label you’ll recognise. This is the only device name Kiki’s server sees.</p>
                 <label className="everyday-name-label">Device name
-                  <input className="everyday-name-input" maxLength={40} value={name} onChange={(event) => setName(event.target.value)} required />
+                  <input
+                    className="everyday-name-input"
+                    maxLength={40}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    onFocus={(event) => {
+                      const target = event.currentTarget;
+                      window.setTimeout(() => target.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
+                    }}
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    required
+                  />
                 </label>
                 {selected && <p className="everyday-selected-note">Selected from this phone’s paired devices: {selected.btName}</p>}
                 <button className="everyday-primary-button full" type="button" disabled={busy || !name.trim()} onClick={() => void addDevice(kind, selected ?? undefined)}>Add device and continue</button>

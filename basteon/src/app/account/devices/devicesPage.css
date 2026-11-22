@@ -256,3 +256,6 @@
 }
 
 .everyday-native-hint { grid-column:1/-1; margin:0; color:var(--ed-muted); font-size:11px; line-height:1.45; text-align:center; }
+
+.everyday-sheet { scroll-padding-bottom: 45vh; }
+.everyday-name-label, .everyday-name-input { scroll-margin-bottom: 45vh; }
