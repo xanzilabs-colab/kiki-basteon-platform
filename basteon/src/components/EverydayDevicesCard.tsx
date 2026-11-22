@@ -57,9 +57,21 @@ export default function EverydayDevicesCard() {
   const [reconnectDevice, setReconnectDevice] = useState<EverydayDevice | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [sheetViewport, setSheetViewport] = useState<{ height: number; top: number } | null>(null);
   const practiceTimeout = useRef<number | null>(null);
   const mounted = useRef(true);
   const pairingSnapshot = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (flowStep <= 0 || typeof window === "undefined") { setSheetViewport(null); return; }
+    const vv = window.visualViewport;
+    if (!vv) { setSheetViewport(null); return; }
+    const update = () => setSheetViewport({ height: vv.height, top: vv.offsetTop });
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
+  }, [flowStep]);
 
   const refresh = useCallback(async () => {
     if (!native || !mounted.current) return;
@@ -411,7 +423,11 @@ export default function EverydayDevicesCard() {
       <p className="everyday-footnote">Pairing alone doesn’t confirm a device sends supported controls. Practice it to be sure.</p>
 
       {flowStep > 0 && typeof document !== "undefined" && createPortal(
-        <div className="everyday-sheet-backdrop" onClick={(event) => { if (event.target === event.currentTarget) void closeFlow(); }}>
+        <div
+          className="everyday-sheet-backdrop"
+          style={sheetViewport ? { height: `${sheetViewport.height}px`, top: `${sheetViewport.top}px`, bottom: "auto" } : undefined}
+          onClick={(event) => { if (event.target === event.currentTarget) void closeFlow(); }}
+        >
           <section className="everyday-sheet" role="dialog" aria-modal="true" aria-labelledby="everyday-sheet-title">
             <div className="everyday-sheet-top">
               <div className="everyday-progress" aria-label={`Step ${Math.min(flowStep, 5)} of 5`}>
