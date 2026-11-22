@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { evaluateInteractiveCommunityText } from "@/lib/communities/guardrails";
+import "./communities-looply.css";
 
 type Community = {
   id: string; slug: string; name: string; description: string; scope: string; iconKey: string;
@@ -166,8 +167,19 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
   const [activeStory, setActiveStory] = useState<Story | null>(null);
   const [createDraft, setCreateDraft] = useState({ name: "", description: "", scope: "", iconKey: "shield" });
   const [discoverQuery, setDiscoverQuery] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const [replyFor, setReplyFor] = useState<Post | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [guardTest, setGuardTest] = useState("");
+  const toastTimer = useRef<number | null>(null);
 
   const joined = useMemo(() => communities.filter((c) => c.isMember), [communities]);
+
+  function showToast(message: string) {
+    setToast(message);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 2400);
+  }
   const activeCommunity = useMemo(() => communities.find((c) => c.slug === activeSlug) ?? joined[0] ?? communities[0] ?? null, [communities, joined, activeSlug]);
   const discoverList = useMemo(() => {
     const q = discoverQuery.trim().toLowerCase();
@@ -221,6 +233,7 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
       if (slug) await loadFeed(slug, group);
       await loadGuard();
       setNotice("Community feed refreshed.");
+      showToast("Feed refreshed · All posts Kiki Guard verified");
     } catch (e) { setError(errText(e)); }
   }
 
@@ -237,6 +250,7 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
       setCommunities((prev) => prev.map((c) => c.id === id ? { ...c, isMember: true, pseudonym: data.pseudonym } : c));
       await openCommunity(slug);
       setNotice("You joined with an anonymous alias.");
+      showToast("Joined community");
     } catch (e) { setError(errText(e)); }
   }
 
@@ -356,6 +370,7 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
       await loadFeed(activeCommunity.slug, group);
       await loadGuard();
       setNotice("Your post was shared safely.");
+      showToast("Post published with Kiki Guard check");
     } catch (e) { setError(errText(e)); }
     finally { setSubmitting(false); }
   }
@@ -400,6 +415,7 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
       await loadFeed(activeCommunity.slug, group);
       await loadGuard();
       setNotice("Shared safely.");
+      showToast("Reply posted safely");
     } catch (e) { setError(errText(e)); }
   }
 
@@ -425,371 +441,351 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
       await openCommunity(result.slug);
       setTab("feed");
       setNotice("Community created.");
+      showToast("Community created");
     } catch (e) { setError(errText(e)); }
   }
 
   const headerAlias = feed?.pseudonym ?? activeCommunity?.pseudonym ?? "Your alias";
+  const showSmartStrips = tab === "feed";
 
   return (
-    <section className="kiki-communities-page" aria-label="Communities">
-      {showPrivacy && (
-        <div className="kiki-communities-alert" role="dialog" aria-label="Privacy">
-          <p><strong>Your identity is protected.</strong> Communities use per-community aliases and Kiki Guard to remove identifying details before anything is shared.</p>
-          {activeCommunity ? <p style={{ marginTop: 8 }}>You appear as <strong>{headerAlias}</strong> in this community.</p> : null}
-          <button type="button" onClick={() => setShowPrivacy(false)}>Close</button>
-        </div>
-      )}
+    <div className="communities-looply">
+      <div className="app-viewport">
+        <div className="app-shell">
+          <div className={`toast-banner${toast ? " show" : ""}`}>{toast || "Action saved"}</div>
 
-      <nav className="kiki-communities-tabs" aria-label="Community tabs">
-        {(["feed", "discover", "guard", "create"] as const).map((t) => (
-          <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)}>{t === "feed" ? "Feed" : t === "discover" ? "Discover" : t === "guard" ? "Kiki Guard" : "Create"}</button>
-        ))}
-      </nav>
-
-      {error ? <p className="kiki-communities-alert" role="alert">{error}</p> : null}
-      {notice ? <p className="kiki-communities-notice">{notice}</p> : null}
-      {loading ? <p className="kiki-communities-loading">Loading communities…</p> : null}
-
-      {tab === "feed" && (
-        <>
-          <div className="kiki-communities-switcher" role="tablist" aria-label="Joined communities">
-            {joined.map((c) => (
-              <button key={c.id} type="button" aria-pressed={c.slug === activeCommunity?.slug} onClick={() => void openCommunity(c.slug)}>
-                <CommunityIcon iconKey={c.iconKey} /> {c.name}
+          <header className="kiki-header">
+            <div className="header-user">
+              <div className="user-avatar-wrap">
+                <div className="user-avatar" style={{ display: "grid", placeItems: "center", color: "var(--kiki-purple)", fontWeight: 700 }}>K</div>
+                <span className="online-dot" title="Online" />
+              </div>
+              <span className="user-name">Communities</span>
+            </div>
+            <div className="header-actions">
+              <button className="header-icon-btn" onClick={() => void refreshAll()} aria-label="Refresh">
+                <RefreshCw size={18} />
               </button>
-            ))}
-          </div>
+              <button className="header-icon-btn info-circle" onClick={() => setTab("guard")} aria-label="Kiki Guard Info">
+                <Info size={16} />
+              </button>
+            </div>
+          </header>
 
-          {(feed?.stories ?? []).length ? (
-            <div aria-label="Stories" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-              {(feed?.stories ?? []).map((s) => (
-                <button key={s.id} type="button" onClick={() => setActiveStory(s)} style={{ minWidth: 92, border: "1px solid var(--divider)", borderRadius: 14, padding: 10, background: "var(--surface-1)", textAlign: "left" }}>
-                  <div style={{ fontSize: 20 }}>{s.emoji ?? "✨"}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)" }}>{s.title}</div>
-                </button>
+          <div className="looply-nav-section">
+            <div className="primary-pills no-scrollbar" role="tablist">
+              {(["feed", "discover", "guard", "create"] as const).map((t) => (
+                <button key={t} className={`primary-pill${tab === t ? " active" : ""}`} data-tab={t} onClick={() => setTab(t)}>{t === "feed" ? "Feed" : t === "discover" ? "Discover" : t === "guard" ? "Kiki Guard" : "Create"}</button>
               ))}
             </div>
-          ) : null}
 
-          {activeStory && (
-            <div className="kiki-community-scope-card" role="dialog" aria-label="Story">
-              <h2>{activeStory.emoji} {activeStory.title}</h2>
-              <p className="kiki-community-scope-note"><strong>{activeStory.byline}</strong></p>
-              <p>{activeStory.body}</p>
-              <button type="button" onClick={() => setActiveStory(null)}>Close</button>
-            </div>
-          )}
-
-          {activeCommunity && feed ? (
-            <>
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  aria-label="Community info"
-                  onClick={() => setShowPrivacy((v) => !v)}
-                  className="kiki-community-icon-btn"
-                  title="Community info"
-                  style={{ minHeight: 34, minWidth: 34, borderRadius: 10, border: "1px solid var(--divider)", background: "var(--surface-1)", padding: 0, display: "inline-grid", placeItems: "center", color: "var(--text-2)" }}
-                >
-                  <Info size={15} />
-                </button>
+            {showSmartStrips && (
+              <div id="feedSmartStrips">
+                <div className="secondary-strip no-scrollbar">
+                  {joined.map((c) => (
+                    <button key={c.id} className={`space-pill${c.slug === activeSlug ? " active" : ""}`} onClick={() => void openCommunity(c.slug)}>{c.isSystem ? "🛡️" : "💠"} {c.name}</button>
+                  ))}
+                  {!joined.length && communities.slice(0, 1).map((c) => (
+                    <button key={c.id} className={`space-pill${c.slug === activeSlug ? " active" : ""}`} onClick={() => void openCommunity(c.slug)}>🛡️ {c.name}</button>
+                  ))}
+                </div>
+                <div className="category-strip no-scrollbar">
+                  {groups.map((g) => (
+                    <button key={g.id || "all"} className={`filter-chip${group === g.id ? " active" : ""}`} onClick={() => { setGroup(g.id); if (activeCommunity) void loadFeed(activeCommunity.slug, g.id); }}>{g.label}</button>
+                  ))}
+                </div>
               </div>
+            )}
+          </div>
 
-              {feed.welcomeRequired ? (
-                <section className="kiki-community-scope-card kiki-community-welcome">
-                  <h2>Welcome to {feed.community.name}</h2>
-                  <p>{feed.welcomeBody ?? "Please read the community space before participating."}</p>
-                  <button type="button" onClick={() => void acknowledgeWelcome()}>I understand, continue</button>
-                </section>
-              ) : (
-                <>
-                  <div style={{ display: "grid", gap: 8 }}>
-                    <button
-                      type="button"
-                      onClick={() => { setDraft(emptyDraft("post")); setComposerOpen(true); }}
-                      style={{ width: "100%", minHeight: 44, borderRadius: 14, border: "1px solid var(--divider)", background: "var(--surface-1)", color: "var(--muted)", textAlign: "left", padding: "10px 14px", font: "inherit", lineHeight: 1.4, whiteSpace: "normal", overflowWrap: "anywhere" }}
-                    >
-                      Share something helpful…
-                    </button>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {createTypes.filter((t) => t !== "post").slice(0, 6).map((t) => (
-                        <button key={t} type="button" title={typeMeta[t].label} onClick={() => { setDraft(emptyDraft(t)); setComposerOpen(true); }} style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid var(--divider)", background: "var(--surface-1)", flex: "0 0 auto" }}>{typeMeta[t].emoji}</button>
-                      ))}
+          <main className="app-content" id="mainScroll">
+            {error ? <div className="section-pad"><div className="guard-status-banner warning" role="alert">{error}</div></div> : null}
+            {notice ? <div className="section-pad" style={{ paddingBottom: 0 }}><div className="guard-status-banner">{notice}</div></div> : null}
+            {loading ? <div className="section-pad"><div className="community-desc">Loading communities…</div></div> : null}
+
+            {tab === "feed" && (
+              <section id="tab-feed" className="tab-panel active">
+                {activeCommunity && feed ? (
+                  <>
+                    {feed.welcomeRequired ? (
+                      <div className="section-pad">
+                        <div className="widget-box">
+                          <h3 className="post-title">Welcome to {feed.community.name}</h3>
+                          <p className="post-text" style={{ marginTop: 6 }}>{feed.welcomeBody ?? "Please read the community space before participating."}</p>
+                          <button type="button" className="pill-btn-primary full-width" onClick={() => void acknowledgeWelcome()}>I understand, continue</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="inline-composer-wrap">
+                          <div className="inline-composer-trigger" onClick={() => { if (!composerOpen) setDraft(emptyDraft("post")); setComposerOpen((v) => !v); }}>
+                            <div className="composer-placeholder-left">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                              <span>Share something helpful...</span>
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--kiki-purple)" }}>Create</span>
+                          </div>
+                          <div className="composer-type-shortcuts no-scrollbar">
+                            {[["post","🖼️ Post"],["poll","📊 Poll"],["tt","⚖️ This/That"],["slider","🎚️ Slider"],["fill","✍️ Fill Blank"],["cap","📸 Caption"],["carousel","🖼️ Carousel"]].map(([t,l]) => (
+                              <button key={t} className="type-shortcut-btn" onClick={() => { setDraft(emptyDraft(t)); setComposerOpen(true); }}>{l}</button>
+                            ))}
+                          </div>
+
+                          {composerOpen && (
+                            <div className="create-post-drawer open">
+                              <div className="drawer-top-row">
+                                <span className="drawer-title">Create a post</span>
+                                <button type="button" className="close-pill-btn" onClick={() => setComposerOpen(false)}>Close</button>
+                              </div>
+                              <div className="composer-field-row">
+                                <label className="composer-field-label" htmlFor="postTypeSelect">Post type</label>
+                                <select id="postTypeSelect" className="post-type-select" value={draft.type} onChange={(e) => setDraft((d) => ({ ...emptyDraft(e.target.value), postId: d.postId }))}>
+                                  {createTypes.map((t) => <option key={t} value={t}>{typeMeta[t].emoji} {typeMeta[t].label}</option>)}
+                                </select>
+                              </div>
+                              {draft.type !== "post" && (
+                                <div className="composer-field-row"><label className="composer-field-label">Title</label><input className="form-input" value={draft.title} onChange={(e) => updateDraft({ title: e.target.value })} placeholder="Optional title" /></div>
+                              )}
+                              <div className="composer-field-row">
+                                <label className="composer-field-label" htmlFor="postBodyTextarea">{draft.type === "post" ? "Post" : "Prompt / body"}</label>
+                                <textarea id="postBodyTextarea" className="composer-textarea" placeholder={draft.type === "post" ? "Share something helpful with the community..." : "Add context for this interactive post..."} value={draft.body} onChange={(e) => updateDraft({ body: e.target.value })} />
+                              </div>
+
+                              {["poll","decide","tt","quiz"].includes(draft.type) && (
+                                <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+                                  {draft.options.map((opt, i) => (
+                                    <div key={i} style={{ display: "grid", gap: 6 }}>
+                                      <input className="form-input" value={opt.label} onChange={(e) => updateDraft({ options: draft.options.map((o, idx) => idx === i ? { ...o, label: e.target.value } : o) })} placeholder={`Option ${i + 1}`} />
+                                      {draft.type !== "quiz" && <input className="form-input" value={opt.subLabel} onChange={(e) => updateDraft({ options: draft.options.map((o, idx) => idx === i ? { ...o, subLabel: e.target.value } : o) })} placeholder="Sub-label (optional)" />}
+                                      {draft.type === "quiz" && <label style={{ fontSize: 12 }}><input type="radio" name="correct" checked={Boolean(opt.correct)} onChange={() => updateDraft({ options: draft.options.map((o, idx) => ({ ...o, correct: idx === i })) })} /> Correct answer</label>}
+                                      {draft.options.length > 2 && draft.type !== "tt" && <button type="button" className="close-pill-btn" onClick={() => updateDraft({ options: draft.options.filter((_, idx) => idx !== i) })}>Remove</button>}
+                                    </div>
+                                  ))}
+                                  {draft.type !== "tt" && draft.options.length < 4 && <button type="button" className="close-pill-btn" onClick={() => updateDraft({ options: [...draft.options, { label: "", subLabel: "" }] })}>Add option</button>}
+                                </div>
+                              )}
+                              {draft.type === "slider" && (
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                                  <input className="form-input" value={draft.sliderLo} onChange={(e) => updateDraft({ sliderLo: e.target.value })} placeholder="Low label" />
+                                  <input className="form-input" value={draft.sliderHi} onChange={(e) => updateDraft({ sliderHi: e.target.value })} placeholder="High label" />
+                                </div>
+                              )}
+                              {draft.type === "fill" && (
+                                <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+                                  <input className="form-input" value={draft.prefix} onChange={(e) => updateDraft({ prefix: e.target.value })} placeholder="Prefix" />
+                                  <input className="form-input" value={draft.suffix} onChange={(e) => updateDraft({ suffix: e.target.value })} placeholder="Suffix" />
+                                </div>
+                              )}
+                              {draft.type === "chal" && (
+                                <div className="composer-field-row"><label className="composer-field-label">Days</label><input className="form-input" type="number" min={1} max={30} value={draft.challengeDays} onChange={(e) => updateDraft({ challengeDays: Number(e.target.value) })} /></div>
+                              )}
+
+                              <div className="file-upload-row">
+                                <div className="file-upload-meta"><strong>Images</strong> (JPEG/PNG/WebP/AVIF, images only){draft.type === "carousel" || draft.type === "cap" || draft.type === "hunt" ? " — required" : " — optional"}</div>
+                                <label className="file-picker-btn">
+                                  <span>{draft.media.length ? `${draft.media.length} selected` : "Choose files"}</span>
+                                  <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple={draft.type !== "cap" && draft.type !== "hunt"} style={{ display: "none" }} onChange={(e) => void onSelectImages(e.target.files)} />
+                                </label>
+                              </div>
+                              {draft.media.length ? (
+                                <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+                                  {draft.media.map((m, i) => (
+                                    <div key={i} style={{ border: "1px solid var(--border-input)", borderRadius: 14, padding: 8 }}>
+                                      <img src={m.previewUrl} alt={m.altText || "Selected image preview"} style={{ width: "100%", maxHeight: 170, objectFit: "cover", borderRadius: 10 }} />
+                                      <input className="form-input" style={{ marginTop: 8 }} value={m.caption} onChange={(e) => updateMedia(i, { caption: e.target.value })} placeholder="Caption (optional)" />
+                                      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                                        <button type="button" className="close-pill-btn" onClick={() => moveMedia(i, -1)} disabled={i === 0}>Up</button>
+                                        <button type="button" className="close-pill-btn" onClick={() => moveMedia(i, 1)} disabled={i === draft.media.length - 1}>Down</button>
+                                        <button type="button" className="close-pill-btn" onClick={() => removeMedia(i)}>Remove</button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+
+                              <div className={`guard-status-banner${liveGuard?.refused || liveGuard?.redacted ? " warning" : ""}`}>
+                                {liveGuard?.refused ? "Kiki Guard cannot make this safe to share. Please remove identifying details." : liveGuard?.redacted ? `Will remove or generalize: ${(liveGuard.removed || []).join(", ") || "identifying details"}.` : "Looks good. Nothing risky found."}
+                              </div>
+                              <p className="guard-helper-note">Images are re-encoded to JPEG before upload. Kiki Guard checks text before publishing.</p>
+                              <button type="button" className="pill-btn-primary full-width" onClick={() => void publishPost()} disabled={submitting || Boolean(liveGuard?.refused)}>{submitting ? "Publishing…" : "Run Kiki Guard & Publish"}</button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div id="feedList">
+                          {feedLoading ? <div className="section-pad"><div className="community-desc">Loading feed…</div></div> : null}
+                          {(feed.posts ?? []).map((post) => (
+                            <LooplyPostCard
+                              key={post.id}
+                              post={post}
+                              onVote={(optionId) => void actOnPost(post.id, { action: "vote", optionId })}
+                              onRate={(value) => void actOnPost(post.id, { action: "rate", value })}
+                              onChallenge={(mode) => void actOnPost(post.id, { action: "challenge", mode })}
+                              onHunt={(x, y) => void actOnPost(post.id, { action: "hunt", x, y })}
+                              onPath={(endNode) => void actOnPost(post.id, { action: "path_finish", endNode })}
+                              onHelpful={() => void toggleLike(post.id, "helpful")}
+                              onOpenReply={() => { setReplyFor(post); setReplyText(""); }}
+                            />
+                          ))}
+                          {!feedLoading && !(feed.posts ?? []).length ? <div className="section-pad"><p className="community-desc">No posts in this view yet.</p></div> : null}
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (!loading ? <div className="section-pad"><p className="community-desc">Join a community to see its feed.</p></div> : null)}
+              </section>
+            )}
+
+            {tab === "discover" && (
+              <section id="tab-discover" className="tab-panel active section-pad">
+                <div className="search-input-wrap">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <input className="search-input" value={discoverQuery} onChange={(e) => setDiscoverQuery(e.target.value)} placeholder="Search communities..." />
+                </div>
+                <div id="communityList">
+                  {discoverList.map((c) => (
+                    <div key={c.id} className="community-row">
+                      <div className="community-row-left">
+                        <div className="community-icon-badge"><CommunityIcon iconKey={c.iconKey} /></div>
+                        <div>
+                          <div className="community-title-line">
+                            <span className="community-title">{c.name}</span>
+                            {c.isSystem ? <span className="kiki-tag">Kiki</span> : null}
+                          </div>
+                          <p className="community-subtitle">{c.description}</p>
+                          <p className="community-desc">{c.scope} · {c.memberCount ?? 0} members</p>
+                        </div>
+                      </div>
+                      {c.isMember ? (
+                        <button type="button" className="join-pill-btn joined" onClick={() => { setTab("feed"); void openCommunity(c.slug); }}>Open</button>
+                      ) : (
+                        <button type="button" className="join-pill-btn" onClick={() => void joinCommunity(c.slug, c.id)}>Join</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {tab === "guard" && (
+              <section id="tab-guard" className="tab-panel active section-pad">
+                <div className="guard-hero">
+                  <div className="guard-shield-icon"><ShieldCheck size={22} /></div>
+                  <div>
+                    <h3 className="post-title" style={{ marginBottom: 4 }}>Kiki Guard</h3>
+                    <p className="post-text" style={{ fontSize: 13, color: "var(--text-secondary)" }}>Content is checked before it is shared. Identifying details are removed or blocked to keep communities safer.</p>
+                  </div>
+                </div>
+                <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>What Guard looks for</h4>
+                <ul className="guard-list" style={{ marginBottom: 20 }}>
+                  <li><span>•</span> Personal names and identifying handles</li>
+                  <li><span>•</span> Phone numbers, emails, links, IDs, and addresses</li>
+                  <li><span>•</span> Precise locations or details that could identify someone</li>
+                </ul>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="guardTestInput">Try a safety check (Sandbox)</label>
+                  <textarea id="guardTestInput" className="form-textarea" value={guardTest} onChange={(e) => setGuardTest(e.target.value)} placeholder="Type something to see how Kiki Guard redacts it..." />
+                  <div className="guard-preview-box">
+                    {(() => {
+                      if (!guardTest.trim()) return "Guard preview will appear here...";
+                      const r = evaluateInteractiveCommunityText(guardTest);
+                      if (r.decision === "refuse") return <strong>Unsafe to share as written.</strong>;
+                      if (r.decision === "redact") return <><strong>Safe Output:</strong> {r.safeText}</>;
+                      return <><strong>Looks good:</strong> {guardTest}</>;
+                    })()}
+                  </div>
+                </div>
+                <h4 style={{ fontSize: 14, fontWeight: 600, margin: "20px 0 8px" }}>Recent checks</h4>
+                <div id="recentGuardLog" style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12.5, color: "var(--text-secondary)" }}>
+                  {guardHistory.length ? guardHistory.map((item) => (
+                    <div key={item.id} style={{ padding: "8px 12px", borderRadius: 10, background: "var(--bg-subtle)", color: "var(--text-body)" }}>
+                      <strong>{item.reason || item.action}</strong><div>{item.contextType} · {fmtTime(item.createdAt)}{item.details ? ` · ${item.details}` : ""}</div>
+                    </div>
+                  )) : <div style={{ padding: "8px 12px", borderRadius: 10, background: "var(--bg-subtle)" }}>No recent guard events.</div>}
+                </div>
+              </section>
+            )}
+
+            {tab === "create" && (
+              <section id="tab-create" className="tab-panel active section-pad">
+                <h3 className="post-title" style={{ marginBottom: 16, fontSize: 18 }}>Create a community</h3>
+                <div className="form-group">
+                  <label className="form-label">Community name</label>
+                  <input type="text" className="form-input" value={createDraft.name} onChange={(e) => setCreateDraft({ ...createDraft, name: e.target.value })} placeholder="e.g. Late Commute Crew" maxLength={80} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Description</label>
+                  <textarea className="form-textarea" value={createDraft.description} onChange={(e) => setCreateDraft({ ...createDraft, description: e.target.value })} placeholder="What this space is for..." maxLength={200} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Community space / scope</label>
+                  <input type="text" className="form-input" value={createDraft.scope} onChange={(e) => setCreateDraft({ ...createDraft, scope: e.target.value })} placeholder="Who this space helps and what belongs here..." maxLength={220} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Choose an icon</label>
+                  <div className="icon-picker-grid">
+                    {iconChoices.map((icon) => (
+                      <button key={icon.value} type="button" className={`icon-choice${createDraft.iconKey === icon.value ? " selected" : ""}`} onClick={() => setCreateDraft({ ...createDraft, iconKey: icon.value })}>
+                        <CommunityIcon iconKey={icon.value} />
+                        <span>{icon.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="guard-helper-note" style={{ marginTop: 4 }}>Kiki Guard checks names and descriptions before the community is created.</p>
+                <button type="button" className="pill-btn-primary full-width" onClick={() => void createCommunity()} disabled={!createDraft.name.trim() || !createDraft.description.trim() || !createDraft.scope.trim()}>Run Kiki Guard &amp; Create</button>
+              </section>
+            )}
+          </main>
+
+          <nav className="kiki-bottom-nav" aria-label="Bottom Navigation">
+            <button className="nav-item active" onClick={() => setTab("feed")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg><span>Home</span></button>
+            <button className="nav-item" onClick={() => router.push("/account/trips")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg><span>Trips</span></button>
+            <div className="nav-center-wrap"><button className="kiki-center-fab" onClick={() => { setTab("feed"); setDraft(emptyDraft("post")); setComposerOpen(true); }} aria-label="Quick Post"><span className="device-pod-icon">+</span></button></div>
+            <button className="nav-item" onClick={() => router.push("/account/devices")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg><span>Devices</span></button>
+            <button className="nav-item" onClick={() => router.push("/account/profile")}><Users size={22} /><span>Account</span></button>
+          </nav>
+
+          <div className={`drawer-backdrop${replyFor ? " open" : ""}`} onClick={(e) => { if (e.target === e.currentTarget) setReplyFor(null); }}>
+            <div className="reply-drawer" onClick={(e) => e.stopPropagation()}>
+              <div className="drawer-handle"></div>
+              <div className="drawer-header">
+                <span style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{replyFor?.title || "Community Replies"}</span>
+                <button type="button" className="post-more-btn" onClick={() => setReplyFor(null)}>✕</button>
+              </div>
+              <div className="drawer-replies-list">
+                {(replyFor?.comments ?? []).length ? (replyFor?.comments ?? []).map((c) => (
+                  <div key={c.id} className="reply-item">
+                    <div className="post-avatar" style={{ width: 32, height: 32, fontSize: 14 }}>🛡️</div>
+                    <div className="reply-bubble">
+                      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{c.authorAlias} · {fmtTime(c.createdAt)}</div>
+                      <div>{c.body}</div>
                     </div>
                   </div>
-
-                  <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-                    {groups.map((g) => (
-                      <button key={g.id || "all"} type="button" aria-pressed={group === g.id} onClick={() => { setGroup(g.id); if (activeCommunity) void loadFeed(activeCommunity.slug, g.id); }} style={{ border: "1px solid var(--divider)", borderRadius: 999, padding: "6px 10px", background: group === g.id ? "var(--accent-bg)" : "var(--surface-1)", color: group === g.id ? "var(--accent)" : "var(--text-2)", fontSize: 12, fontWeight: 700 }}>{g.label}</button>
-                    ))}
-                  </div>
-
-                  {composerOpen && (
-                    <Composer
-                      draft={draft}
-                      setDraft={updateDraft}
-                      onSelectImages={onSelectImages}
-                      updateMedia={updateMedia}
-                      removeMedia={removeMedia}
-                      moveMedia={moveMedia}
-                      liveGuard={liveGuard}
-                      submitting={submitting}
-                      onClose={() => setComposerOpen(false)}
-                      onPublish={() => void publishPost()}
-                    />
-                  )}
-
-                  {feedLoading ? <p className="kiki-communities-loading">Loading feed…</p> : null}
-                  <div className="kiki-community-post-list">
-                    {(feed.posts ?? []).map((post) => (
-                      <PostCard
-                        key={post.id}
-                        post={post}
-                        onVote={(optionId) => void actOnPost(post.id, { action: "vote", optionId })}
-                        onRate={(value) => void actOnPost(post.id, { action: "rate", value })}
-                        onChallenge={(mode) => void actOnPost(post.id, { action: "challenge", mode })}
-                        onHunt={(x, y) => void actOnPost(post.id, { action: "hunt", x, y })}
-                        onPath={(endNode) => void actOnPost(post.id, { action: "path_finish", endNode })}
-                        onHelpful={() => void toggleLike(post.id, "helpful")}
-                        onComment={submitComment}
-                        onCommentLike={(commentId) => void actOnPost(post.id, { action: "comment_like", commentId })}
-                      />
-                    ))}
-                    {!feedLoading && !(feed.posts ?? []).length ? <p className="kiki-communities-intro">No posts in this view yet.</p> : null}
-                  </div>
-                </>
-              )}
-            </>
-          ) : (!loading ? <p className="kiki-communities-intro">Join a community to see its feed.</p> : null)}
-        </>
-      )}
-
-      {tab === "discover" && (
-        <section className="kiki-communities-list" aria-label="Discover communities">
-          <label className="kiki-community-composer" style={{ gap: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>Search communities</span>
-            <input value={discoverQuery} onChange={(e) => setDiscoverQuery(e.target.value)} placeholder="Search by name or description" style={{ minHeight: 44, border: "1px solid var(--divider)", borderRadius: 12, padding: "0 12px", background: "var(--surface-2)", color: "var(--text)" }} />
-          </label>
-          {discoverList.map((c) => (
-            <article key={c.id} className="kiki-community-discovery-card">
-              <span className="kiki-community-card-icon"><CommunityIcon iconKey={c.iconKey} /></span>
-              <div className="kiki-community-discovery-copy">
-                <h2>{c.name} {c.isSystem ? <span className="kiki-community-system-badge">Kiki</span> : null}</h2>
-                <p>{c.description}</p>
-                <small>{c.scope} · {c.memberCount ?? 0} members{c.joinedRecently ? ` · ${c.joinedRecently} joined recently` : ""}</small>
+                )) : <div className="community-desc">No replies yet.</div>}
               </div>
-              {c.isMember ? <button type="button" onClick={() => { setTab("feed"); void openCommunity(c.slug); }}>Open</button> : <button type="button" onClick={() => void joinCommunity(c.slug, c.id)}>Join</button>}
-            </article>
-          ))}
-        </section>
-      )}
-
-      {tab === "guard" && (
-        <section className="kiki-community-guard-page">
-          <div className="kiki-community-guard-hero"><span><ShieldCheck size={18} /></span><div><h2>Kiki Guard</h2><p>Content is checked before it is shared. Identifying details are removed or blocked to keep communities safer.</p></div></div>
-          <div className="kiki-community-guard-rules"><h3>What Guard looks for</h3><ul><li>Personal names and identifying handles</li><li>Phone numbers, emails, links, IDs, and addresses</li><li>Precise locations or details that could identify someone</li></ul></div>
-          <h3 className="kiki-community-history-title">Recent checks</h3>
-          <div className="kiki-communities-list">
-            {guardHistory.map((item) => (
-              <article key={item.id} className="kiki-community-guard-event"><ShieldCheck size={16} /><div><strong>{item.reason || item.action}</strong><p>{item.contextType} · {fmtTime(item.createdAt)}{item.details ? ` · ${item.details}` : ""}</p></div></article>
-            ))}
-            {!guardHistory.length ? <p className="kiki-communities-intro">No recent guard events.</p> : null}
-          </div>
-        </section>
-      )}
-
-      {tab === "create" && (
-        <section className="kiki-community-create-form">
-          <h2>Create a community</h2>
-          <label>Community name<input value={createDraft.name} onChange={(e) => setCreateDraft({ ...createDraft, name: e.target.value })} maxLength={80} /></label>
-          <label>Description<textarea value={createDraft.description} onChange={(e) => setCreateDraft({ ...createDraft, description: e.target.value })} maxLength={200} /></label>
-          <label>Community space / scope<textarea value={createDraft.scope} onChange={(e) => setCreateDraft({ ...createDraft, scope: e.target.value })} maxLength={220} placeholder="Who this space is for and what should stay out." /></label>
-          <label>Icon
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {iconChoices.map((icon) => (
-                <button key={icon.value} type="button" aria-pressed={createDraft.iconKey === icon.value} onClick={() => setCreateDraft({ ...createDraft, iconKey: icon.value })} style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: "8px 10px", background: createDraft.iconKey === icon.value ? "var(--accent-bg)" : "var(--surface-1)", color: "var(--text)" }}>
-                  <CommunityIcon iconKey={icon.value} /> {icon.label}
-                </button>
-              ))}
-            </div>
-          </label>
-          <button type="button" onClick={() => void createCommunity()} disabled={!createDraft.name.trim() || !createDraft.description.trim() || !createDraft.scope.trim()}>Run Kiki Guard & Create</button>
-        </section>
-      )}
-    </section>
-  );
-}
-
-function GuardPill({ preview }: { preview: GuardPreview | null }) {
-  if (!preview) return null;
-  if (preview.refused) return <p className="kiki-communities-alert" role="alert">Kiki Guard cannot make this safe to share. Please remove identifying details.</p>;
-  if (preview.redacted || (preview.removed?.length ?? 0) > 0) return <p className="kiki-communities-notice">Will remove or generalize: {(preview.removed ?? []).join(", ") || "identifying details"}.</p>;
-  return <p className="kiki-communities-notice">Looks good. Nothing risky found.</p>;
-}
-
-function Composer(props: {
-  draft: ReturnType<typeof emptyDraft>;
-  setDraft: (patch: Partial<ReturnType<typeof emptyDraft>>) => void;
-  onSelectImages: (files: FileList | null) => void;
-  updateMedia: (index: number, patch: Partial<DraftMedia>) => void;
-  removeMedia: (index: number) => void;
-  moveMedia: (index: number, dir: -1 | 1) => void;
-  liveGuard: GuardPreview | null;
-  submitting: boolean;
-  onClose: () => void;
-  onPublish: () => void;
-}) {
-  const { draft, setDraft, onSelectImages, updateMedia, removeMedia, moveMedia, liveGuard, submitting, onClose, onPublish } = props;
-  const mediaAccept = "image/jpeg,image/png,image/webp,image/avif";
-  const needsImage = draft.type === "carousel" || draft.type === "cap" || draft.type === "hunt";
-  const hasRequiredOptions = !["poll", "decide", "tt", "quiz"].includes(draft.type) || (draft.type === "tt" ? draft.options.slice(0, 2).every((o) => o.label.trim()) : draft.options.filter((o) => o.label.trim()).length >= 2);
-  const quizHasCorrect = draft.type !== "quiz" || draft.options.some((o) => o.correct && o.label.trim());
-  const huntOk = draft.type !== "hunt" || ((draft.huntTargets?.length ?? 0) >= 1 && draft.media.length >= 1);
-  const canPublish = !submitting && !liveGuard?.refused && hasRequiredOptions && quizHasCorrect && huntOk && (draft.type === "slider" || draft.type === "chal" || draft.type === "path" || draft.body.trim() || draft.title.trim() || draft.media.length) && (!needsImage || draft.media.length > 0);
-
-  function setOption(i: number, patch: Partial<DraftOption>) { setDraft({ options: draft.options.map((o, idx) => idx === i ? { ...o, ...patch } : o) }); }
-  function addOption() { if (draft.options.length < 4) setDraft({ options: [...draft.options, { label: "", subLabel: "" }] }); }
-  function removeOption(i: number) { if (draft.options.length > 2) setDraft({ options: draft.options.filter((_, idx) => idx !== i) }); }
-
-  return (
-    <section className="kiki-community-composer" aria-label="Create post" style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", overflowX: "hidden", overflowY: "auto", maxHeight: "calc(100dvh - 180px)", WebkitOverflowScrolling: "touch" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0, fontSize: 16 }}>Create a post</h3>
-        <button type="button" onClick={onClose} aria-label="Close composer" style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--divider)", borderRadius: 10, minHeight: 36, padding: "0 12px" }}>Close</button>
-      </div>
-      <label>Post type
-        <select value={draft.type} onChange={(e) => setDraft({ ...emptyDraft(e.target.value), postId: draft.postId })} style={{ width: "100%", minHeight: 42, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", color: "var(--text)", boxSizing: "border-box" }}>
-          {createTypes.map((t) => <option key={t} value={t}>{typeMeta[t].emoji} {typeMeta[t].label}</option>)}
-        </select>
-      </label>
-      {draft.type !== "post" && <label>Title<input value={draft.title} onChange={(e) => setDraft({ title: e.target.value })} placeholder="Optional title" /></label>}
-      <label>{draft.type === "post" ? "Post" : "Prompt / body"}
-        <textarea value={draft.body} onChange={(e) => setDraft({ body: e.target.value })} placeholder={draft.type === "post" ? "Share something helpful with the community…" : "Add context for this interactive post…"} />
-      </label>
-
-      {["poll", "decide", "tt", "quiz"].includes(draft.type) && (
-        <div style={{ display: "grid", gap: 8 }}>
-          <strong>Options</strong>
-          {draft.options.map((opt, i) => (
-            <div key={i} style={{ display: "grid", gap: 6, border: "1px solid var(--divider)", borderRadius: 12, padding: 10, minWidth: 0 }}>
-              <input value={opt.label} onChange={(e) => setOption(i, { label: e.target.value })} placeholder={`Option ${i + 1}`} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
-              {draft.type !== "quiz" && <input value={opt.subLabel} onChange={(e) => setOption(i, { subLabel: e.target.value })} placeholder="Sub-label (optional)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 36, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />}
-              {draft.type === "quiz" && <label style={{ fontSize: 12, fontWeight: 600 }}><input type="radio" name="correct" checked={Boolean(opt.correct)} onChange={() => setDraft({ options: draft.options.map((o, idx) => ({ ...o, correct: idx === i })) })} /> Correct answer</label>}
-              {draft.options.length > 2 && draft.type !== "tt" && <button type="button" onClick={() => removeOption(i)} style={{ width: "fit-content" }}>Remove</button>}
-            </div>
-          ))}
-          {draft.type !== "tt" && draft.options.length < 4 && <button type="button" onClick={addOption} style={{ width: "fit-content" }}>Add option</button>}
-        </div>
-      )}
-
-      {draft.type === "slider" && (
-        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
-          <label>Low label<input value={draft.sliderLo} onChange={(e) => setDraft({ sliderLo: e.target.value })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>
-          <label>High label<input value={draft.sliderHi} onChange={(e) => setDraft({ sliderHi: e.target.value })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>
-        </div>
-      )}
-      {draft.type === "fill" && (
-        <div style={{ display: "grid", gap: 8 }}>
-          <label>Prefix<input value={draft.prefix} onChange={(e) => setDraft({ prefix: e.target.value })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>
-          <label>Suffix<input value={draft.suffix} onChange={(e) => setDraft({ suffix: e.target.value })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>
-        </div>
-      )}
-      {draft.type === "chal" && <label>Days<input type="number" min={1} max={30} value={draft.challengeDays} onChange={(e) => setDraft({ challengeDays: Number(e.target.value) })} style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} /></label>}
-      {draft.type === "path" && <PathEditor draft={draft} setDraft={setDraft} />}
-      {draft.type === "hot" && <p className="kiki-community-scope-note">This post will include Agree/Disagree voting and answer replies with stance.</p>}
-      {draft.type === "mf" && <p className="kiki-community-scope-note">This post will include Myth/Fact options and a reveal after answering.</p>}
-
-      <div style={{ display: "grid", gap: 8 }}>
-        <label>Images (JPEG/PNG/WebP/AVIF, images only){needsImage ? " — required" : " — optional"}
-          <input type="file" accept={mediaAccept} multiple={draft.type !== "cap" && draft.type !== "hunt"} onChange={(e) => onSelectImages(e.target.files)} style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box" }} />
-        </label>
-        {draft.media.map((m, i) => (
-          <div key={i} style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
-            <img src={m.previewUrl} alt={m.altText || "Selected image preview"} style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 10 }} />
-            <input value={m.caption} onChange={(e) => updateMedia(i, { caption: e.target.value })} placeholder="Caption (optional)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
-            <input value={m.altText} onChange={(e) => updateMedia(i, { altText: e.target.value })} placeholder="Alt text (optional)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => moveMedia(i, -1)} disabled={i === 0}>Up</button>
-              <button type="button" onClick={() => moveMedia(i, 1)} disabled={i === draft.media.length - 1}>Down</button>
-              <button type="button" onClick={() => removeMedia(i)}>Remove</button>
-            </div>
-          </div>
-        ))}
-        {draft.type === "hunt" && draft.media[0] && (
-          <div style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
-            <strong>Hunt targets</strong>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Tap the image to place targets (1–5). Labels are optional.</p>
-            <div style={{ position: "relative" }}>
-              <img src={draft.media[0].previewUrl} alt="Place targets" onClick={(e) => {
-                if ((draft.huntTargets?.length ?? 0) >= 5) return;
-                const rect = (e.currentTarget as HTMLImageElement).getBoundingClientRect();
-                const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-                const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
-                setDraft({ huntTargets: [...(draft.huntTargets ?? []), { x, y, label: `Spot ${(draft.huntTargets?.length ?? 0) + 1}` }] });
-              }} style={{ width: "100%", borderRadius: 10, cursor: "crosshair", display: "block" }} />
-              {(draft.huntTargets ?? []).map((t, i) => (
-                <span key={i} style={{ position: "absolute", left: `${t.x}%`, top: `${t.y}%`, transform: "translate(-50%,-50%)", width: 22, height: 22, borderRadius: 999, background: "var(--accent)", color: "#fff", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
-              ))}
-            </div>
-            {(draft.huntTargets ?? []).map((t, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>#{i + 1}</span>
-                <input value={t.label} onChange={(e) => setDraft({ huntTargets: (draft.huntTargets ?? []).map((x, xi) => xi === i ? { ...x, label: e.target.value } : x) })} placeholder="Target label" style={{ flex: "1 1 140px", minWidth: 0, boxSizing: "border-box", minHeight: 38, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)" }} />
-                <button type="button" onClick={() => setDraft({ huntTargets: (draft.huntTargets ?? []).filter((_, xi) => xi !== i) })}>Remove</button>
+              <div className="widget-input-row" style={{ marginTop: 8 }}>
+                <input type="text" className="clean-input" placeholder="Add a kind, anonymous reply..." value={replyText} onChange={(e) => setReplyText(e.target.value)} />
+                <button type="button" className="pill-btn-primary" onClick={async () => { if (!replyFor || !replyText.trim()) return; await submitComment(replyFor.id, replyText.trim(), { commentKind: replyFor.type === "cap" || replyFor.type === "fill" ? "answer" : replyFor.type === "ama" ? "question" : "reply" }); setReplyText(""); }}>Reply</button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <GuardPill preview={liveGuard} />
-      <div className="kiki-community-composer-footer">
-        <small style={{ minWidth: 0, overflowWrap: "anywhere" }}>Images are re-encoded to JPEG before upload. Kiki Guard checks text before publishing.</small>
-        <button type="button" onClick={onPublish} disabled={!canPublish} style={{ maxWidth: "100%", whiteSpace: "normal" }}>{submitting ? "Publishing…" : "Run Kiki Guard & Publish"}</button>
-      </div>
-    </section>
-  );
-}
-
-function PathEditor({ draft, setDraft }: { draft: ReturnType<typeof emptyDraft>; setDraft: (patch: Partial<ReturnType<typeof emptyDraft>>) => void }) {
-  function updateNode(index: number, patch: Partial<PathNode>) {
-    const nodes = draft.pathNodes.map((n, i) => i === index ? { ...n, ...patch } : n);
-    setDraft({ pathNodes: nodes });
-  }
-  function addNode() {
-    if (draft.pathNodes.length >= 7) return;
-    setDraft({ pathNodes: [...draft.pathNodes, { id: `node${draft.pathNodes.length + 1}`, text: "New step", end: true, choices: [] }] });
-  }
-  function addChoice(nodeIndex: number) {
-    const node = draft.pathNodes[nodeIndex];
-    if (!node || node.choices.length >= 3) return;
-    updateNode(nodeIndex, { end: false, choices: [...node.choices, { text: "Choice", to: "", tip: "" }] });
-  }
-  return (
-    <div style={{ display: "grid", gap: 8 }}>
-      <strong>Path nodes</strong>
-      {draft.pathNodes.map((node, i) => (
-        <div key={i} style={{ border: "1px solid var(--divider)", borderRadius: 12, padding: 10, display: "grid", gap: 6 }}>
-          <input value={node.id} onChange={(e) => updateNode(i, { id: e.target.value })} placeholder="Node id (e.g. start)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
-          <textarea value={node.text} onChange={(e) => updateNode(i, { text: e.target.value })} placeholder="Node text" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
-          <label style={{ fontSize: 12 }}><input type="checkbox" checked={node.end} onChange={(e) => updateNode(i, { end: e.target.checked, choices: e.target.checked ? [] : node.choices })} /> End node</label>
-          {!node.end && node.choices.map((c, ci) => (
-            <div key={ci} style={{ display: "grid", gap: 4, paddingLeft: 8 }}>
-              <input value={c.text} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, text: e.target.value } : x) })} placeholder="Choice text" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
-              <input value={c.to} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, to: e.target.value } : x) })} placeholder="Go to node id" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
-              <input value={c.tip} onChange={(e) => updateNode(i, { choices: node.choices.map((x, xi) => xi === ci ? { ...x, tip: e.target.value } : x) })} placeholder="Tip (optional)" style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }} />
             </div>
-          ))}
-          {!node.end && node.choices.length < 3 && <button type="button" onClick={() => addChoice(i)}>Add choice</button>}
+          </div>
+
+          {activeStory && (
+            <div className="drawer-backdrop open" onClick={() => setActiveStory(null)}>
+              <div className="reply-drawer" onClick={(e) => e.stopPropagation()}>
+                <div className="drawer-handle"></div>
+                <div className="drawer-header"><span style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 600 }}>{activeStory.emoji} {activeStory.title}</span><button type="button" className="post-more-btn" onClick={() => setActiveStory(null)}>✕</button></div>
+                <div className="drawer-replies-list"><p className="community-subtitle"><strong>{activeStory.byline}</strong></p><p className="post-text">{activeStory.body}</p></div>
+              </div>
+            </div>
+          )}
         </div>
-      ))}
-      {draft.pathNodes.length < 7 && <button type="button" onClick={addNode}>Add node</button>}
-      <small>Set the first node id to <code>start</code>. End nodes should have no choices.</small>
+      </div>
     </div>
   );
 }
-
-function PostCard(props: {
+function LooplyPostCard(props: {
   post: Post;
   onVote: (optionId: string) => void;
   onRate: (value: number) => void;
@@ -797,208 +793,145 @@ function PostCard(props: {
   onHunt: (x: number, y: number) => void;
   onPath: (endNode: number) => void;
   onHelpful: () => void;
-  onComment: (postId: string, body: string, opts?: { commentKind?: string; stance?: string; parentId?: string }) => Promise<void> | void;
-  onCommentLike: (commentId: string) => void;
+  onOpenReply: () => void;
 }) {
-  const { post, onVote, onRate, onChallenge, onHunt, onPath, onHelpful, onComment, onCommentLike } = props;
-  const [reply, setReply] = useState("");
-  const [showReply, setShowReply] = useState(false);
-  const [sliderValue, setSliderValue] = useState(Number(post.my?.rating ?? post.my?.value ?? 50));
-  const meta = typeMeta[post.type] ?? { label: post.type, emoji: "💬", group: "general" };
-  const comments = post.comments ?? [];
-  const replyKind = post.type === "cap" || post.type === "fill" ? "answer" : post.type === "ama" ? "question" : "reply";
+  const { post, onVote, onRate, onChallenge, onHunt, onPath, onHelpful, onOpenReply } = props;
+  const meta = typeMeta[post.type] ?? { label: post.type, emoji: "💬", group: "posts" };
   const helpfulCount = post.helpfulCount ?? post.helpful?.count ?? 0;
   const helpfulMine = post.iHelpful ?? post.helpful?.mine ?? false;
+  const replyCount = (post.comments ?? []).length;
+  const myVoteOptionId = (post.options ?? []).find((o) => o.mine)?.id || post.my?.vote || post.my?.optionId || "";
 
   return (
-    <article className="kiki-community-post">
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <p className="kiki-community-post-author"><span className="kiki-community-author-dot" aria-hidden /> {post.authorEmoji ? `${post.authorEmoji} ` : ""}{post.authorAlias}</p>
-        <span style={{ fontSize: 11, color: "var(--muted)" }}>{meta.emoji} {meta.label}{post.closed ? " · closed" : ""}</span>
-      </div>
-      {post.title ? <h3 style={{ margin: 0, overflowWrap: "anywhere" }}>{post.title}</h3> : null}
-      {post.body ? <p className="kiki-community-post-body" style={{ overflowWrap: "anywhere" }}>{post.body}</p> : null}
-
-      {post.media && post.media.length ? <Carousel media={post.media} onReact={onHelpful} /> : null}
-
-      <PostInteractive post={post} onVote={onVote} onRate={onRate} onChallenge={onChallenge} onHunt={onHunt} onPath={onPath} sliderValue={sliderValue} setSliderValue={setSliderValue} onComment={onComment} onCommentLike={onCommentLike} />
-
-      <div className="kiki-community-post-actions">
-        <button type="button" aria-pressed={Boolean(helpfulMine)} onClick={onHelpful}><ThumbsUp size={14} /> Helpful {helpfulCount}</button>
-        <button type="button" onClick={() => setShowReply((v) => !v)}><MessageCircle size={14} /> Reply</button>
-      </div>
-
-      {comments.length ? (
-        <div style={{ display: "grid", gap: 8 }}>
-          {comments.slice(0, 8).map((c) => {
-            const kind = c.kind ?? c.commentKind ?? "reply";
-            const likes = c.likes ?? c.likeCount ?? 0;
-            return (
-              <div key={c.id} className="kiki-community-comment">
-                <p className="kiki-community-post-author">{c.authorAlias} {kind === "host_answer" ? <span className="kiki-community-system-badge">Host</span> : null} {c.stance ? <span style={{ fontSize: 10, color: "var(--muted)" }}>({c.stance})</span> : null}</p>
-                <p style={{ overflowWrap: "anywhere" }}>{c.body}</p>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <button type="button" onClick={() => onCommentLike(c.id)} style={{ minHeight: 28, fontSize: 11, background: "var(--surface-2)", color: "var(--accent)", border: 0, borderRadius: 8, padding: "0 8px" }}>❤ {likes}</button>
-                  <small style={{ color: "var(--muted)" }}>{fmtTime(c.createdAt)}</small>
-                </div>
-              </div>
-            );
-          })}
+    <article className="feed-post">
+      <div className="post-header">
+        <div className="post-author-left">
+          <div className="post-avatar">{post.authorEmoji || (post.isKiki ? "🪶" : "🛡️")}</div>
+          <div className="post-author-meta">
+            <div className="post-author-row">
+              <span className="post-author-name">{post.authorAlias}</span>
+            </div>
+            <div className="post-time-row"><span>{fmtTime(post.createdAt)}</span><span>·</span><span>{meta.group}</span></div>
+          </div>
         </div>
-      ) : null}
+        <div className="post-header-right">
+          <span className="post-type-pill">{meta.emoji} {meta.label}</span>
+        </div>
+      </div>
 
-      {showReply ? (
-        <form className="kiki-community-reply" onSubmit={async (e) => { e.preventDefault(); if (!reply.trim()) return; await onComment(post.id, reply.trim(), { commentKind: replyKind }); setReply(""); setShowReply(false); }}>
-          <label>{post.type === "ama" ? "Ask a question" : post.type === "cap" ? "Add a caption" : post.type === "fill" ? "Your answer" : "Reply"}
-            <textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder={post.type === "ama" ? "Ask a general question…" : "Write a supportive response…"} />
-          </label>
-          <div><small>{fmtTime(post.createdAt)}</small><button type="submit">Send</button></div>
-        </form>
-      ) : null}
-      <time dateTime={post.createdAt}>{fmtTime(post.createdAt)}</time>
+      <div className="post-body">
+        {post.title ? <h3 className="post-title">{post.title}</h3> : null}
+        {post.body ? <p className="post-text">{post.body}</p> : null}
+        {post.media && post.media.length ? <LooplyCarousel media={post.media} /> : null}
+        <LooplyInteractive post={post} myVoteOptionId={myVoteOptionId} onVote={onVote} onRate={onRate} onChallenge={onChallenge} onHunt={onHunt} onPath={onPath} />
+      </div>
+
+      <div className="post-footer">
+        <div className="footer-left">
+          <button className={`engage-btn${helpfulMine ? " liked" : ""}`} onClick={onHelpful}>
+            <svg className="heart-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <span className="engage-count">{helpfulCount}</span>
+            <span className="engage-label">Helpful</span>
+          </button>
+          <button className="engage-btn" onClick={onOpenReply}>
+            <MessageCircle size={17} />
+            <span className="engage-count">{replyCount}</span>
+            <span className="engage-label">Replies</span>
+          </button>
+        </div>
+        <div className="footer-right">
+          <button className="icon-action-btn" aria-label="Bookmark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
+        </div>
+      </div>
     </article>
   );
 }
 
-function Carousel({ media, onReact }: { media: Media[]; onReact: () => void }) {
+function LooplyCarousel({ media }: { media: Media[] }) {
   const [index, setIndex] = useState(0);
-  const lastTap = useRef(0);
   const current = media[index];
-  function prev() { setIndex((i) => (i - 1 + media.length) % media.length); }
-  function next() { setIndex((i) => (i + 1) % media.length); }
-  function tap() {
-    const now = Date.now();
-    if (now - lastTap.current < 350) onReact();
-    lastTap.current = now;
-  }
   if (!current) return null;
+  const prev = () => setIndex((i) => (i - 1 + media.length) % media.length);
+  const next = () => setIndex((i) => (i + 1) % media.length);
   return (
-    <div className="kiki-carousel" style={{ display: "grid", gap: 8 }}>
-      <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", background: "var(--surface-2)" }}>
-        {current.url ? <img src={current.url} alt={current.altText || current.caption || "Community image"} onClick={tap} style={{ width: "100%", display: "block", aspectRatio: "4 / 3", objectFit: "cover", cursor: "pointer" }} /> : <div style={{ aspectRatio: "4/3", display: "grid", placeItems: "center", color: "var(--muted)" }}>Image unavailable</div>}
+    <div>
+      <div className="carousel-frame">
+        {current.url ? <img className="carousel-img" src={current.url} alt={current.altText || current.caption || "Community image"} /> : <div className="carousel-img" style={{ display: "grid", placeItems: "center", color: "var(--text-muted)" }}>Image unavailable</div>}
         {media.length > 1 ? (
           <>
-            <button type="button" onClick={prev} aria-label="Previous image" style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", borderRadius: 999, border: 0, width: 32, height: 32 }}><ChevronLeft size={16} /></button>
-            <button type="button" onClick={next} aria-label="Next image" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", borderRadius: 999, border: 0, width: 32, height: 32 }}><ChevronRight size={16} /></button>
-            <span style={{ position: "absolute", right: 8, bottom: 8, background: "rgba(0,0,0,.55)", color: "#fff", borderRadius: 999, padding: "2px 8px", fontSize: 11 }}>{index + 1}/{media.length}</span>
+            <button type="button" className="carousel-arrow prev" onClick={prev} aria-label="Previous slide">‹</button>
+            <button type="button" className="carousel-arrow next" onClick={next} aria-label="Next slide">›</button>
+            <span className="carousel-counter-badge">{index + 1}/{media.length}</span>
           </>
         ) : null}
       </div>
-      {current.caption ? <p style={{ margin: 0, fontSize: 12, color: "var(--text-2)", overflowWrap: "anywhere" }}>{current.caption}</p> : null}
-      {media.length > 1 ? <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>{media.map((_, i) => <button key={i} type="button" onClick={() => setIndex(i)} aria-label={`Go to image ${i + 1}`} style={{ width: 8, height: 8, borderRadius: 999, border: 0, background: i === index ? "var(--accent)" : "var(--divider)", padding: 0 }} />)}</div> : null}
+      {current.caption ? <p className="carousel-step-caption">{current.caption}</p> : null}
+      {media.length > 1 ? <div className="carousel-bars">{media.map((_, i) => <div key={i} className={`carousel-bar${i === index ? " active" : ""}`} onClick={() => setIndex(i)} />)}</div> : null}
     </div>
   );
 }
 
-function PostInteractive(props: any) {
-  const { post, onVote, onRate, onChallenge, onHunt, onPath, sliderValue, setSliderValue, onComment, onCommentLike } = props;
-  const [fillText, setFillText] = useState("");
-  const [caption, setCaption] = useState("");
-  const [question, setQuestion] = useState("");
+function LooplyInteractive(props: {
+  post: Post;
+  myVoteOptionId: string;
+  onVote: (optionId: string) => void;
+  onRate: (value: number) => void;
+  onChallenge: (mode: "join" | "leave" | "checkin") => void;
+  onHunt: (x: number, y: number) => void;
+  onPath: (endNode: number) => void;
+}) {
+  const { post, myVoteOptionId, onVote, onRate, onChallenge, onHunt, onPath } = props;
+  const [slider, setSlider] = useState(Number(post.my?.rating ?? post.my?.value ?? 50));
   const [pathNode, setPathNode] = useState("start");
   const [pathTip, setPathTip] = useState<string | null>(null);
 
-  const myVoteId = post.my?.voteOptionId ?? post.my?.optionId ?? null;
-  const hasVoted = Boolean(myVoteId || post.my?.voted);
-  const tallyRows: any[] = Array.isArray(post.results?.tallies) ? post.results.tallies : [];
-  const tallyMap = new Map<string, number>(tallyRows.map((t: any) => [String(t.optionId ?? ""), Number(t.votes ?? 0)]));
-  const totalVotes = tallyRows.reduce((sum: number, t: any) => sum + Number(t.votes ?? 0), 0) as number;
-
-  if (["poll", "tt", "decide", "hot", "quiz", "mf"].includes(post.type)) {
-    const isQuizLike = post.type === "quiz" || post.type === "mf";
-    const resultsVisible = tallyRows.length > 0 || (isQuizLike && hasVoted) || (post.type === "decide" && post.closed);
-    const closed = Boolean(post.closed);
-    const explanation = post.results?.quiz?.explanation ?? post.results?.explanation ?? null;
-    const correctOptionId = post.results?.quiz?.correctOptionId ?? null;
+  if (post.type === "poll" || post.type === "decide" || post.type === "tt" || post.type === "quiz" || post.type === "mf") {
+    const total = (post.options ?? []).reduce((sum, o) => sum + Number(o.count ?? 0), 0) || 1;
     return (
-      <div style={{ display: "grid", gap: 8 }}>
-        {(post.options ?? []).map((o: Option) => {
-          const selected = Boolean((myVoteId && o.id === myVoteId) || o.mine);
-          const correct = Boolean(o.correct || (correctOptionId && o.id === correctOptionId));
-          const count = o.id && tallyMap.has(o.id) ? Number(tallyMap.get(o.id) ?? 0) : Number(o.count ?? 0);
-          const p = resultsVisible ? (o.percent ?? (totalVotes > 0 ? pct(count, totalVotes) : 0)) : 0;
-          const disabled = closed || (post.type !== "hot" && hasVoted && !selected ? true : hasVoted);
-          return (
-            <button key={o.id ?? o.position ?? o.label} type="button" onClick={() => o.id && onVote(o.id)} disabled={disabled} style={{ textAlign: "left", border: "1px solid var(--divider)", borderRadius: 12, padding: 10, background: selected ? "var(--accent-bg)" : "var(--surface-1)", color: "var(--text)", opacity: disabled && !selected && !correct ? 0.85 : 1, cursor: disabled ? "default" : "pointer", width: "100%", boxSizing: "border-box" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}><span style={{ overflowWrap: "anywhere" }}>{o.label}{o.subLabel ? <small style={{ color: "var(--muted)" }}> · {o.subLabel}</small> : null}</span>{resultsVisible ? <strong>{p}%</strong> : null}</div>
-              {resultsVisible ? <div style={{ marginTop: 6, height: 6, borderRadius: 999, background: "var(--surface-2)", overflow: "hidden" }}><div style={{ width: `${p}%`, height: "100%", borderRadius: 999, background: correct ? "var(--ok, #2f9e44)" : "var(--accent)" }} /></div> : null}
-              {isQuizLike && hasVoted && correct ? <small style={{ color: "var(--ok, #2f9e44)", fontWeight: 700 }}>Correct answer</small> : null}
-              {selected ? <small style={{ color: "var(--accent)", fontWeight: 700 }}>Your choice</small> : null}
-            </button>
-          );
-        })}
-        {isQuizLike && hasVoted && explanation ? <p className="kiki-community-scope-note">{explanation}</p> : null}
-        {post.type === "hot" ? <HotTakeAnswers post={post} onComment={onComment} onCommentLike={onCommentLike} /> : null}
-        {post.type === "decide" && closed ? <p className="kiki-community-scope-note">Voting closed.</p> : null}
+      <div className="widget-box">
+        <div className="choice-stack">
+          {(post.options ?? []).map((o) => {
+            const count = Number(o.count ?? 0);
+            const selected = Boolean(o.mine) || (myVoteOptionId && (o.id === myVoteOptionId || o.label === myVoteOptionId));
+            return (
+              <button key={o.id ?? o.label} type="button" className={`choice-pill${selected ? " selected" : ""}`} onClick={() => o.id && onVote(o.id)}>
+                <div className="choice-bar-fill" style={{ width: `${pct(count, total)}%` }} />
+                <div className="choice-text-wrap"><span className="choice-main-label">{o.label}</span>{o.subLabel ? <span className="choice-sub-label"> {o.subLabel}</span> : null}</div>
+                <span className="choice-pct">{pct(count, total)}%</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
 
   if (post.type === "slider") {
-    const myRating = post.my?.rating ?? post.my?.value;
-    const voted = myRating != null;
-    const summary = post.results?.slider ?? post.results ?? {};
+    const lo = String(post.config?.lo ?? "Not ready");
+    const hi = String(post.config?.hi ?? "Very ready");
+    const avg = Number(post.results?.slider?.avg ?? post.results?.average ?? 0);
     return (
-      <div style={{ display: "grid", gap: 8 }}>
-        {!voted ? (
-          <>
-            <input type="range" min={0} max={100} value={sliderValue} onChange={(e) => setSliderValue(Number(e.target.value))} />
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, color: "var(--muted)" }}><span>{post.config?.lo || "Low"}</span><strong>{sliderValue}</strong><span>{post.config?.hi || "High"}</span></div>
-            <button type="button" onClick={() => onRate(sliderValue)}>Submit rating</button>
-          </>
-        ) : (
-          <p className="kiki-community-scope-note">You rated <strong>{myRating}</strong>. Average: <strong>{summary.avg ?? summary.average ?? 0}</strong> from {summary.count ?? 0} ratings.</p>
-        )}
+      <div className="widget-box">
+        <div className="slider-header"><span>{lo}</span><span className="slider-val-badge">{slider}%</span><span>{hi}</span></div>
+        <input type="range" className="kiki-range" min={0} max={100} value={slider} onChange={(e) => setSlider(Number(e.target.value))} />
+        <button type="button" className="pill-btn-primary full-width" onClick={() => onRate(slider)}>Submit rating</button>
+        {avg ? <div className="feedback-callout show" style={{ marginTop: 9 }}>Community average: {Math.round(avg)}%</div> : null}
       </div>
     );
   }
 
   if (post.type === "fill") {
-    return (
-      <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!fillText.trim()) return; await onComment(post.id, fillText.trim(), { commentKind: "answer" }); setFillText(""); }}>
-        <p className="kiki-community-scope-note" style={{ overflowWrap: "anywhere" }}>{post.config?.prefix} <strong>____</strong> {post.config?.suffix}</p>
-        <input value={fillText} onChange={(e) => setFillText(e.target.value)} placeholder="Your answer" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", width: "100%", boxSizing: "border-box" }} />
-        <button type="submit">Share answer</button>
-        <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
-      </form>
-    );
+    return <div className="widget-box"><div className="prompt-sentence">{String(post.config?.prefix ?? "")} <span className="blank-highlight">_____</span> {String(post.config?.suffix ?? "")}</div><div className="community-desc">Reply in comments to complete the blank.</div></div>;
   }
 
-  if (post.type === "cap") {
+  if (post.type === "hot") {
     return (
-      <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!caption.trim()) return; await onComment(post.id, caption.trim(), { commentKind: "answer" }); setCaption(""); }}>
-        <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a caption…" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", width: "100%", boxSizing: "border-box" }} />
-        <button type="submit">Submit caption</button>
-        <AnswersList post={post} onCommentLike={onCommentLike} showLikes ranked />
-      </form>
-    );
-  }
-
-  if (post.type === "ama") {
-    return (
-      <div style={{ display: "grid", gap: 8 }}>
-        <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!question.trim()) return; await onComment(post.id, question.trim(), { commentKind: "question" }); setQuestion(""); }}>
-          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask a question…" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", width: "100%", boxSizing: "border-box" }} />
-          <button type="submit">Ask</button>
-        </form>
-        <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
-      </div>
-    );
-  }
-
-  if (post.type === "hunt") {
-    const huntMine = post.my?.hunt ?? {};
-    const found = huntMine.found ?? post.results?.hunt?.found ?? post.my?.foundTargets ?? post.results?.foundTargets ?? [];
-    const total = Number(post.results?.hunt?.total ?? post.config?.targets_count ?? post.results?.targetCount ?? post.results?.total ?? 0);
-    const tries = Number(huntMine.tries ?? post.my?.tries ?? 0);
-    const foundCount = Array.isArray(found) ? found.length : 0;
-    const allFound = total > 0 && foundCount >= total;
-    return (
-      <div style={{ display: "grid", gap: 8 }}>
-        <p className="kiki-community-scope-note">Found {foundCount}/{total || "?"} · Tries: {tries}</p>
-        {allFound ? <p className="kiki-communities-notice">All targets found. Well done.</p> : <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Tap the image to search for hidden spots.</p>}
-        {foundCount ? <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>{(Array.isArray(found) ? found : []).map((t: any, i: number) => <li key={t.id ?? i}>{t.label || `Target ${i + 1}`}</li>)}</ul> : null}
-        {post.media?.[0]?.url ? <HuntImage url={post.media[0].url} found={Array.isArray(found) ? found : []} onGuess={onHunt} /> : null}
+      <div className="widget-box">
+        <div className="stance-row">
+          <button type="button" className="stance-btn" onClick={() => onVote((post.options ?? []).find((o) => /agree/i.test(o.label))?.id || (post.options ?? [])[0]?.id || "")}>Agree</button>
+          <button type="button" className="stance-btn" onClick={() => onVote((post.options ?? []).find((o) => /disagree/i.test(o.label))?.id || (post.options ?? [])[1]?.id || "")}>Disagree</button>
+        </div>
+        <div className="community-desc">Share your view in replies.</div>
       </div>
     );
   }
@@ -1010,19 +943,37 @@ function PostInteractive(props: any) {
     const days = Number(post.config?.days ?? 7);
     const daysDone = Array.isArray(c.daysDone) ? c.daysDone.length : Number(post.my?.checkins ?? post.my?.checkinCount ?? 0);
     const streak = Number(c.streak ?? post.my?.streak ?? 0);
-    const participants = Number(post.results?.challenge?.participants ?? post.results?.participants ?? 0);
     return (
-      <div style={{ display: "grid", gap: 8 }}>
-        <p className="kiki-community-scope-note">Participants: {participants} · Streak: {streak} · Check-ins: {daysDone}/{days}</p>
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(days, 7)}, minmax(0, 1fr))`, gap: 4 }}>
-          {Array.from({ length: days }).map((_, i) => (
-            <div key={i} title={`Day ${i + 1}`} style={{ height: 10, borderRadius: 999, background: i < daysDone ? "var(--accent)" : "var(--surface-2)" }} />
-          ))}
-        </div>
+      <div className="widget-box">
+        <div className="challenge-stats">Participants: {Number(post.results?.challenge?.participants ?? post.results?.participants ?? 0)} · Streak: {streak} · Check-ins: {daysDone}/{days}</div>
+        <div className="segments-row">{Array.from({ length: days }).map((_, i) => <div key={i} className={`segment-bar${i < daysDone ? " filled" : ""}`} />)}</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {!enrolled ? <button type="button" onClick={() => onChallenge("join")}>Join challenge</button> : <button type="button" onClick={() => onChallenge("leave")}>Leave</button>}
-          {enrolled ? <button type="button" onClick={() => onChallenge("checkin")} disabled={checked}>{checked ? "Checked in today" : "Check in today"}</button> : null}
+          {!enrolled ? <button type="button" className="pill-btn-primary" onClick={() => onChallenge("join")}>Join challenge</button> : <button type="button" className="close-pill-btn" onClick={() => onChallenge("leave")}>Leave</button>}
+          {enrolled ? <button type="button" className="pill-btn-primary" onClick={() => onChallenge("checkin")} disabled={checked}>{checked ? "Checked in today" : "Check in today"}</button> : null}
         </div>
+      </div>
+    );
+  }
+
+  if (post.type === "hunt") {
+    const found = post.my?.hunt?.found ?? post.results?.hunt?.found ?? post.my?.foundTargets ?? [];
+    const total = Number(post.results?.hunt?.total ?? post.config?.targets_count ?? (Array.isArray(post.config?.targets) ? post.config.targets.length : 0));
+    const tries = Number(post.my?.hunt?.tries ?? post.my?.tries ?? 0);
+    const foundCount = Array.isArray(found) ? found.length : 0;
+    return (
+      <div className="widget-box">
+        <div className="hunt-status-pill"><span>Found {foundCount}/{total || "?"}</span><span>Tries: {tries}</span></div>
+        {post.media?.[0]?.url ? (
+          <div className="single-photo-frame hunt-canvas" style={{ marginTop: 10 }}>
+            <img src={post.media[0].url} alt="Hunt image" onClick={(e) => {
+              const rect = (e.currentTarget as HTMLImageElement).getBoundingClientRect();
+              const x = ((e.clientX - rect.left) / rect.width) * 100;
+              const y = ((e.clientY - rect.top) / rect.height) * 100;
+              onHunt(Math.round(x * 100) / 100, Math.round(y * 100) / 100);
+            }} />
+            {(Array.isArray(found) ? found : []).map((t: any, i: number) => <span key={t.id ?? i} className="hunt-hotspot found" style={{ left: `${Number(t.x)}%`, top: `${Number(t.y)}%` }}>✓</span>)}
+          </div>
+        ) : <div className="community-desc">Tap the image in this hunt to search for spots.</div>}
       </div>
     );
   }
@@ -1033,80 +984,27 @@ function PostInteractive(props: any) {
     const current = nodeMap.get(pathNode) ?? nodeMap.get("start") ?? nodes[0];
     if (!current) return null;
     return (
-      <div style={{ display: "grid", gap: 8 }}>
-        <p className="kiki-community-scope-note" style={{ overflowWrap: "anywhere" }}>{current.t || current.text}</p>
-        {pathTip ? <p className="kiki-communities-notice">{pathTip}</p> : null}
+      <div className="widget-box">
+        <p className="post-text" style={{ marginBottom: 10 }}>{current.t || current.text}</p>
+        {pathTip ? <div className="feedback-callout show">{pathTip}</div> : null}
         {!current.end ? (
-          <div style={{ display: "grid", gap: 6 }}>
+          <div className="choice-stack" style={{ marginTop: 8 }}>
             {(current.ch ?? current.choices ?? []).map((choice: any, i: number) => (
-              <button key={i} type="button" onClick={() => { const to = choice.to; setPathNode(to); setPathTip(choice.tip || null); const target = nodeMap.get(to); if (target?.end) { const idx = nodes.findIndex((n: any) => n.id === to); onPath(idx >= 0 ? idx : 0); } }} style={{ width: "100%", textAlign: "left", boxSizing: "border-box" }}>
-                {choice.t || choice.text}
+              <button key={i} type="button" className="choice-pill" onClick={() => {
+                const to = choice.to; setPathNode(to); setPathTip(choice.tip || null);
+                const target = nodeMap.get(to);
+                if (target?.end) { const idx = nodes.findIndex((n: any) => n.id === to); onPath(idx >= 0 ? idx : 0); }
+              }}>
+                <div className="choice-text-wrap"><span className="choice-main-label">{choice.t || choice.text}</span></div>
               </button>
             ))}
           </div>
-        ) : (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" onClick={() => { setPathNode("start"); setPathTip(null); }}>Start over</button>
-          </div>
-        )}
-        {post.results?.completions != null ? <small style={{ color: "var(--muted)" }}>{post.results.completions} completions</small> : null}
+        ) : <button type="button" className="pill-btn-primary full-width" onClick={() => { setPathNode("start"); setPathTip(null); }}>Start over</button>}
       </div>
     );
   }
 
+  if (post.type === "ama") return <div className="widget-box"><div className="community-desc">Ask a question in replies. Host answers will appear in the thread.</div></div>;
+  if (post.type === "cap") return <div className="widget-box"><div className="community-desc">Add your caption in replies.</div></div>;
   return null;
-}
-
-function HotTakeAnswers({ post, onComment, onCommentLike }: { post: Post; onComment: (postId: string, body: string, opts?: { commentKind?: string; stance?: string }) => Promise<void> | void; onCommentLike: (id: string) => void }) {
-  const [body, setBody] = useState("");
-  const [stance, setStance] = useState<"agree" | "disagree">("agree");
-  return (
-    <div style={{ display: "grid", gap: 8 }}>
-      <form style={{ display: "grid", gap: 8 }} onSubmit={async (e) => { e.preventDefault(); if (!body.trim()) return; await onComment(post.id, body.trim(), { commentKind: "answer", stance }); setBody(""); }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => setStance("agree")} aria-pressed={stance === "agree"}>Agree</button>
-          <button type="button" onClick={() => setStance("disagree")} aria-pressed={stance === "disagree"}>Disagree</button>
-        </div>
-        <input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Add your view (optional detail)" style={{ minHeight: 40, borderRadius: 10, border: "1px solid var(--divider)", padding: "0 10px", background: "var(--surface-2)", width: "100%", boxSizing: "border-box" }} />
-        <button type="submit" disabled={!body.trim()}>Share view</button>
-      </form>
-      <AnswersList post={post} onCommentLike={onCommentLike} showLikes />
-    </div>
-  );
-}
-
-function AnswersList({ post, onCommentLike, showLikes, ranked }: { post: Post; onCommentLike: (id: string) => void; showLikes?: boolean; ranked?: boolean }) {
-  let items = [...(post.topAnswers ?? []), ...(post.recentReplies ?? []), ...(post.comments ?? [])].filter((c, i, arr) => c && arr.findIndex((x) => x.id === c.id) === i);
-  if (ranked) items = items.sort((a, b) => ((b.likes ?? b.likeCount ?? 0) - (a.likes ?? a.likeCount ?? 0)));
-  if (!items.length) return null;
-  return (
-    <div style={{ display: "grid", gap: 6 }}>
-      {items.slice(0, 6).map((c, i) => {
-        const likes = c.likes ?? c.likeCount ?? 0;
-        return (
-          <div key={c.id} className="kiki-community-comment">
-            <p className="kiki-community-post-author">{ranked && i === 0 ? "🏆 " : ""}{c.authorAlias} {c.stance ? <span style={{ fontSize: 10, color: "var(--muted)" }}>({c.stance})</span> : null}</p>
-            <p style={{ overflowWrap: "anywhere" }}>{c.body}</p>
-            {showLikes ? <button type="button" onClick={() => onCommentLike(c.id)} style={{ minHeight: 28, fontSize: 11, background: "var(--surface-2)", color: "var(--accent)", border: 0, borderRadius: 8, padding: "0 8px", width: "fit-content" }}>❤ {likes}</button> : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function HuntImage({ url, found, onGuess }: { url: string; found: any[]; onGuess: (x: number, y: number) => void }) {
-  return (
-    <div style={{ position: "relative", borderRadius: 14, overflow: "hidden" }}>
-      <img src={url} alt="Hunt image" onClick={(e) => {
-        const rect = (e.currentTarget as HTMLImageElement).getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        onGuess(Math.round(x * 100) / 100, Math.round(y * 100) / 100);
-      }} style={{ width: "100%", display: "block", cursor: "crosshair" }} />
-      {found.map((t, i) => (
-        <span key={t.id ?? i} title={t.label} style={{ position: "absolute", left: `${Number(t.x)}%`, top: `${Number(t.y)}%`, transform: "translate(-50%,-50%)", minWidth: 22, height: 22, borderRadius: 999, background: "var(--ok, #2f9e44)", color: "#fff", fontSize: 10, display: "grid", placeItems: "center", padding: "0 4px" }}>✓</span>
-      ))}
-    </div>
-  );
 }
