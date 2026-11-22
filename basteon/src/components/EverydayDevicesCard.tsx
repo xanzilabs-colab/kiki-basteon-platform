@@ -133,7 +133,7 @@ export default function EverydayDevicesCard() {
     return () => { void subscription.then((handle) => handle.remove()); };
   }, [devices, lastAddedRef, practiceRef, refresh]);
 
-  async function pairDevice() {
+  async function pairDevice(openSettings = true) {
     setError("");
     setBusy(true);
     try {
@@ -141,9 +141,12 @@ export default function EverydayDevicesCard() {
       if (!permission.granted) throw new Error("Allow Nearby devices permission before choosing a paired device.");
       const current = await KikiTrigger.pairedDevices();
       pairingSnapshot.current = new Set(current.devices.map((device) => device.address));
+      setPaired(current.devices);
       setFlowStep(2);
-      setPairingMessage("Pair the accessory in Android settings, then return here.");
-      await KikiTrigger.openBluetoothSettings();
+      setPairingMessage(openSettings
+        ? "Pair the accessory in Android settings, then return here to select it."
+        : "Select a paired device below, or open Bluetooth settings to pair a new one.");
+      if (openSettings) await KikiTrigger.openBluetoothSettings();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not open Bluetooth settings.");
     } finally {
@@ -435,18 +438,19 @@ export default function EverydayDevicesCard() {
                     setName("Wired headphones");
                     setFlowStep(3);
                   } else if (EVERYDAY_DEVICE_GUIDES[kind].pairing === "manual") {
-                    setFlowStep(2);
+                    void pairDevice(false);
                   } else {
-                    void pairDevice();
+                    void pairDevice(true);
                   }
                 }}>Continue</button>
                 <button className="everyday-sheet-text-button" type="button" onClick={() => void closeFlow()}>Cancel</button>
               </>}
               {flowStep === 2 && <>
                 <h2 id="everyday-sheet-title">Connect it</h2>
-                <p>{EVERYDAY_DEVICE_GUIDES[kind].connect} Select it below once it’s paired.</p>
-                <button className="everyday-secondary-button full" type="button" disabled={busy} onClick={() => void pairDevice()}><Bluetooth size={18} />Open Bluetooth settings</button>
-                {paired.length > 0 && <>
+                <p>{EVERYDAY_DEVICE_GUIDES[kind].connect} If it’s already paired, select it below. To pair a new device, open Bluetooth settings, then return here.</p>
+                <button className="everyday-secondary-button full" type="button" disabled={busy} onClick={() => void pairDevice(true)}><Bluetooth size={18} />Open Bluetooth settings</button>
+                <button className="everyday-sheet-text-button" type="button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={16} />Refresh paired devices</button>
+                {paired.length > 0 ? <>
                   <h3 className="everyday-paired-title">Paired on this phone</h3>
                   <div className="everyday-paired-list">
                     {paired.map((device) => (
@@ -456,7 +460,7 @@ export default function EverydayDevicesCard() {
                       </button>
                     ))}
                   </div>
-                </>}
+                </> : <p className="everyday-selected-note" role="status">No paired Bluetooth devices found yet. Pair your accessory in Bluetooth settings, then return here and tap “Refresh paired devices”.</p>}
                 <button className="everyday-sheet-text-button" type="button" onClick={() => {
                   setSelected(null);
                   setName(kind === "watch" ? "My watch" : `${KIND_NAMES[kind]} device`);
