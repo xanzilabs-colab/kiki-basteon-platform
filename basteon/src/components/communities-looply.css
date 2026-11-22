@@ -1727,12 +1727,29 @@
       padding-bottom: 0 !important;
     }
     .communities-looply .app-content,
-    .communities-looply .app-content > *:first-child,
+    .communities-looply .app-content > .section-pad:first-child,
+    .communities-looply .tab-panel.active > .section-pad:first-child,
+    .communities-looply .tab-panel.active > .inline-composer-wrap:first-child,
     .communities-looply .tab-panel.active > *:first-child,
     .communities-looply .inline-composer-wrap {
       margin-top: 0 !important;
       border-top: 0 !important;
+      padding-top: 0 !important;
+    }
+    .communities-looply .section-pad {
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
     }
     .communities-looply .inline-composer-wrap {
+      padding-bottom: 0 !important;
+    }
+    .communities-looply .feed-post {
       padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+
+    /* Account header flush helper (used when communities page is active) */
+    .account-shell .communities-flush-header.appbar {
+      margin-bottom: 0 !important;
+      border-bottom: 0 !important;
     }

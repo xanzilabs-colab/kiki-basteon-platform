@@ -396,7 +396,7 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
       </aside>
 
       <div inert={sosOpen || Boolean(sosSent)} className="min-w-0 pb-[76px] md:min-h-0 md:overflow-y-auto md:pb-0">
-        <header className="appbar account-mobile-appbar px-4">
+        <header className={`appbar account-mobile-appbar px-4${isCommunitiesPage ? " communities-flush-header" : ""}`}>
           <Link className="account-user-summary" href="/account/profile" title="Open profile">
             <span className="account-user-avatar"><CachedProfileImage src={avatarUrl} alt={`${name}'s profile`} fallback={name.charAt(0).toUpperCase()} /><i /></span>
             <span className="account-user-copy"><span className="account-user-name">{name}</span></span>
