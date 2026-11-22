@@ -418,9 +418,10 @@ export function AccountShell({ name, children, initialDarkTheme = false, stoepEn
           key={pathname}
           className={
             isCommunitiesPage
-              ? "account-page-transition w-full max-w-none p-0"
+              ? "account-page-transition communities-page-main w-full max-w-none p-0 m-0"
               : "account-page-transition mx-auto max-w-4xl p-5 md:p-6"
           }
+          style={isCommunitiesPage ? { padding: 0, margin: 0, maxWidth: "none", width: "100%" } : undefined}
         >
           <AccountMenuFeatureContext.Provider value={{ stoepEnabled, calmEnabled }}>
             {children}

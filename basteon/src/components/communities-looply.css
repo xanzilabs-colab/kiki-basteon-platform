@@ -1709,43 +1709,49 @@
       padding-right: 0 !important;
     }
 
-    /* Flush layout overrides: no vertical gaps between header/top/content sections */
-    .communities-looply,
+    /* Flush layout overrides: no gaps between account header, communities top section, and body/content */
+    .communities-looply {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      max-width: none !important;
+    }
     .communities-looply .app-viewport,
     .communities-looply .app-shell,
     .communities-looply .app-content,
     .communities-looply .tab-panel,
     .communities-looply .tab-panel.active {
       margin-top: 0 !important;
+      margin-bottom: 0 !important;
       padding-top: 0 !important;
+      gap: 0 !important;
     }
+    .communities-looply .app-shell > :first-child:not(.toast-banner),
     .communities-looply .looply-nav-section {
       margin-top: 0 !important;
+    }
+    .communities-looply .looply-nav-section {
       margin-bottom: 0 !important;
       border-bottom: 0 !important;
       padding-top: 0 !important;
       padding-bottom: 0 !important;
     }
-    .communities-looply .app-content,
+    .communities-looply .app-content > *:first-child,
+    .communities-looply .tab-panel.active > *:first-child,
     .communities-looply .app-content > .section-pad:first-child,
     .communities-looply .tab-panel.active > .section-pad:first-child,
     .communities-looply .tab-panel.active > .inline-composer-wrap:first-child,
-    .communities-looply .tab-panel.active > *:first-child,
-    .communities-looply .inline-composer-wrap {
+    .communities-looply .inline-composer-wrap:first-child {
       margin-top: 0 !important;
       border-top: 0 !important;
       padding-top: 0 !important;
     }
     .communities-looply .section-pad {
       padding-top: 0 !important;
-      padding-bottom: 0 !important;
     }
     .communities-looply .inline-composer-wrap {
-      padding-bottom: 0 !important;
-    }
-    .communities-looply .feed-post {
+      margin-top: 0 !important;
       padding-top: 0 !important;
-      padding-bottom: 0 !important;
     }
 
     /* Account header flush helper (used when communities page is active) */
