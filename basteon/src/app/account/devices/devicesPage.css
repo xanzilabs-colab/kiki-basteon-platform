@@ -188,7 +188,7 @@
 .everyday-refresh,.everyday-sheet-text-button { display:inline-flex; min-height:42px; align-items:center; justify-content:center; gap:7px; border:0; background:transparent; color:var(--ed-muted); font:inherit; font-size:12px; font-weight:700; }
 .everyday-refresh { justify-self:center; }
 .everyday-footnote { margin:-9px 5px 0; color:var(--ed-muted); font-size:10px; line-height:1.45; text-align:center; }
-.everyday-sheet-backdrop { --ed-ink:#2a1536; --ed-muted:#6e5a7c; --ed-line:#e6dcf0; --ed-plum:#7a4f9a; --ed-deep:#522868; --ed-lav:#e9dcf0; --ed-ok:#2f7a4a; --ed-okbg:#e6f3ea; position:fixed; z-index:100; inset:0; display:grid; align-items:end; justify-items:center; background:rgba(42,21,54,.42); padding:0; }
+.everyday-sheet-backdrop { --ed-ink:#2a1536; --ed-muted:#6e5a7c; --ed-line:#e6dcf0; --ed-plum:#7a4f9a; --ed-deep:#522868; --ed-lav:#e9dcf0; --ed-ok:#2f7a4a; --ed-okbg:#e6f3ea; position:fixed; z-index:2000; inset:0; display:grid; align-items:end; justify-items:center; background:rgba(42,21,54,.42); padding:0; }
 .everyday-sheet { position:relative; width:min(100%,560px); max-height:92vh; max-height:92dvh; overflow:auto; overscroll-behavior:contain; border:1px solid rgba(230,220,240,.9); border-radius:28px 28px 0 0; background:#fff; padding:10px 20px max(24px,env(safe-area-inset-bottom)); color:var(--ed-ink); box-shadow:0 -12px 45px rgba(42,21,54,.15); animation:everyday-sheet-up .28s cubic-bezier(.22,1,.36,1); }
 .everyday-sheet.info { padding-top:40px; }
 .everyday-sheet-top { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
