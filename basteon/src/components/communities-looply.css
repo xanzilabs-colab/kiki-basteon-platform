@@ -1722,6 +1722,7 @@
     .communities-looply .tab-panel.active > *:first-child {
       margin-top: 0 !important;
       border-top: 0 !important;
+      padding-top: 0 !important;
     }
     /* Restore internal padding inside the top section and body containers */
     .communities-looply .looply-nav-section {
@@ -1729,6 +1730,14 @@
     }
     .communities-looply .section-pad {
       padding: 16px !important;
+    }
+    .communities-looply .app-content > .section-pad:first-child,
+    .communities-looply .tab-panel.active > .section-pad:first-child,
+    .communities-looply .tab-panel.active > .inline-composer-wrap:first-child,
+    .communities-looply .inline-composer-wrap:first-child {
+      padding-top: 0 !important;
+      margin-top: 0 !important;
+      border-top: 0 !important;
     }
     .communities-looply .inline-composer-wrap {
       padding: 12px 16px !important;
