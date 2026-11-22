@@ -452,27 +452,7 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
     <div className="communities-looply">
       <div className="app-viewport">
         <div className="app-shell">
-          <div className={`toast-banner${toast ? " show" : ""}`}>{toast || "Action saved"}</div>
-
-          <header className="kiki-header">
-            <div className="header-user">
-              <div className="user-avatar-wrap">
-                <div className="user-avatar" style={{ display: "grid", placeItems: "center", color: "var(--kiki-purple)", fontWeight: 700 }}>K</div>
-                <span className="online-dot" title="Online" />
-              </div>
-              <span className="user-name">Communities</span>
-            </div>
-            <div className="header-actions">
-              <button className="header-icon-btn" onClick={() => void refreshAll()} aria-label="Refresh">
-                <RefreshCw size={18} />
-              </button>
-              <button className="header-icon-btn info-circle" onClick={() => setTab("guard")} aria-label="Kiki Guard Info">
-                <Info size={16} />
-              </button>
-            </div>
-          </header>
-
-          <div className="looply-nav-section">
+          <div className={`toast-banner${toast ? " show" : ""}`}>{toast || "Action saved"}</div><div className="looply-nav-section">
             <div className="primary-pills no-scrollbar" role="tablist">
               {(["feed", "discover", "guard", "create"] as const).map((t) => (
                 <button key={t} className={`primary-pill${tab === t ? " active" : ""}`} data-tab={t} onClick={() => setTab(t)}>{t === "feed" ? "Feed" : t === "discover" ? "Discover" : t === "guard" ? "Kiki Guard" : "Create"}</button>
@@ -736,17 +716,7 @@ export default function CommunitiesHub({ initialSlug = null as string | null }) 
                 <button type="button" className="pill-btn-primary full-width" onClick={() => void createCommunity()} disabled={!createDraft.name.trim() || !createDraft.description.trim() || !createDraft.scope.trim()}>Run Kiki Guard &amp; Create</button>
               </section>
             )}
-          </main>
-
-          <nav className="kiki-bottom-nav" aria-label="Bottom Navigation">
-            <button className="nav-item active" onClick={() => setTab("feed")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg><span>Home</span></button>
-            <button className="nav-item" onClick={() => router.push("/account/trips")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg><span>Trips</span></button>
-            <div className="nav-center-wrap"><button className="kiki-center-fab" onClick={() => { setTab("feed"); setDraft(emptyDraft("post")); setComposerOpen(true); }} aria-label="Quick Post"><span className="device-pod-icon">+</span></button></div>
-            <button className="nav-item" onClick={() => router.push("/account/devices")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg><span>Devices</span></button>
-            <button className="nav-item" onClick={() => router.push("/account/profile")}><Users size={22} /><span>Account</span></button>
-          </nav>
-
-          <div className={`drawer-backdrop${replyFor ? " open" : ""}`} onClick={(e) => { if (e.target === e.currentTarget) setReplyFor(null); }}>
+          </main><div className={`drawer-backdrop${replyFor ? " open" : ""}`} onClick={(e) => { if (e.target === e.currentTarget) setReplyFor(null); }}>
             <div className="reply-drawer" onClick={(e) => e.stopPropagation()}>
               <div className="drawer-handle"></div>
               <div className="drawer-header">
