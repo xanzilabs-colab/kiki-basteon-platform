@@ -59,38 +59,42 @@
       scrollbar-width: none;
     }
 
-    /* ==========================================================================
-       Mobile Frame Shell
-       ========================================================================== */
-.communities-looply .app-viewport {
+    /* Full-bleed communities layout (flush to AccountShell header/content area) */
+    .communities-looply .app-viewport {
       min-height: 100%;
-width: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
       display: flex;
-justify-content: stretch;
-align-items: stretch;
+      justify-content: stretch;
+      align-items: stretch;
     }
 
-.communities-looply .app-shell {
+    .communities-looply .app-shell {
       width: 100%;
-max-width: none;
-min-height: 100%;
+      max-width: none;
+      min-height: 100%;
+      margin: 0;
       background-color: var(--bg-app);
       position: relative;
       display: flex;
       flex-direction: column;
-box-shadow: none;
+      box-shadow: none;
+      border: none;
+      border-radius: 0;
       overflow-x: hidden;
     }
 
     @media (min-width: 480px) {
-.communities-looply .app-viewport {
-  padding: 0;
+      .communities-looply .app-viewport {
+        padding: 0;
+        margin: 0;
       }
-.communities-looply .app-shell {
-  min-height: 100%;
-  max-height: none;
-  border-radius: 0;
-  border: none;
+      .communities-looply .app-shell {
+        min-height: 100%;
+        max-height: none;
+        border-radius: 0;
+        border: none;
         overflow: hidden;
       }
     }
