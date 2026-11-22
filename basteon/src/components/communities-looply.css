@@ -1,4 +1,4 @@
-.communities-looply { --bg-page:#F2F2F7;--bg-app:#FFFFFF;--bg-subtle:#F7F7F9;--bg-pill:#F4F4F6;--border-hairline:#F1F1F3;--border-input:#E5E5EA;--text-primary:#111111;--text-body:#1C1C1E;--text-secondary:#6E6E73;--text-muted:#8E8E93;--kiki-purple:#51257D;--kiki-purple-light:#F3ECF9;--kiki-purple-hover:#411C66;--looply-pink:#F4436C;--looply-blue:#4A80F0;--online-green:#22C55E;--badge-red:#EF4444;--mint-bg:#E8F7EE;--mint-text:#166534;--amber-bg:#FEF3C7;--amber-text:#92400E;--radius-card:16px;--radius-img:16px;--radius-pill:9999px;--font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--font-display:'Plus Jakarta Sans','Inter',sans-serif; font-family:var(--font-sans); background:var(--bg-page); color:var(--text-body); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; width:100%; }
+.communities-looply { --bg-page:#F2F2F7;--bg-app:#FFFFFF;--bg-subtle:#F7F7F9;--bg-pill:#F4F4F6;--border-hairline:#F1F1F3;--border-input:#E5E5EA;--text-primary:#111111;--text-body:#1C1C1E;--text-secondary:#6E6E73;--text-muted:#8E8E93;--kiki-purple:#51257D;--kiki-purple-light:#F3ECF9;--kiki-purple-hover:#411C66;--looply-pink:#F4436C;--looply-blue:#4A80F0;--online-green:#22C55E;--badge-red:#EF4444;--mint-bg:#E8F7EE;--mint-text:#166534;--amber-bg:#FEF3C7;--amber-text:#92400E;--radius-card:16px;--radius-img:16px;--radius-pill:9999px;--font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--font-display:'Plus Jakarta Sans','Inter',sans-serif; font-family:var(--font-sans); background:var(--bg-app); color:var(--text-body); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; width:100%; min-height:100%; margin:0; padding:0; }
 .communities-looply * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
 .communities-looply .app-viewport { min-height:100%; display:flex; justify-content:stretch; align-items:stretch; width:100%; }
 .communities-looply .app-shell { width:100%; max-width:none; min-height:100%; background-color:var(--bg-app); position:relative; display:flex; flex-direction:column; overflow-x:hidden; }
@@ -216,6 +216,8 @@ box-shadow: none;
       background: #FFFFFF;
       padding: 11px 16px 10px;
       border-bottom: 1px solid var(--border-hairline);
+  margin-top: 0;
+      margin-top: 0;
     }
 
 .communities-looply .primary-pills {
@@ -322,6 +324,9 @@ box-shadow: none;
 .communities-looply .app-content {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
+      padding-top: 0;
+      margin-top: 0;
       padding-bottom: 92px;
       background-color: #FFFFFF;
     }
