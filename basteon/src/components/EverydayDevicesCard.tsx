@@ -297,10 +297,14 @@ export default function EverydayDevicesCard() {
             <h2>Phone accessories</h2>
             <p>Add and pair Bluetooth accessories in the Kiki Android app on this phone. Once added, their connection and practice status can appear here.</p>
           </div>
-          <button className="everyday-primary-button full" type="button" disabled aria-disabled="true">
+          <button
+            className="everyday-primary-button full"
+            type="button"
+            onClick={() => window.alert("To add phone accessories, open this Devices screen in the Kiki Android app on this phone. Bluetooth pairing and device practice can only be set up in the app.")}
+          >
             <Plus size={19} /><span>Add device</span>
           </button>
-          <p className="everyday-native-hint">Open the Kiki app on Android to add everyday devices.</p>
+          <p className="everyday-native-hint">Phone accessory setup requires the Kiki Android app.</p>
         </div>
       </section>
     );
@@ -319,7 +323,7 @@ export default function EverydayDevicesCard() {
             <p>Track connections and check that an accessory can trigger Kiki.</p>
           </div>
         </div>
-        <button className="everyday-primary-button" type="button" disabled={busy || devices.length >= 10} onClick={() => {
+        <button className="everyday-primary-button" type="button" disabled={devices.length >= 10} onClick={() => {
           setFlowStep(1);
           setSelected(null);
           setName("");
@@ -372,7 +376,7 @@ export default function EverydayDevicesCard() {
           <button
             className="everyday-primary-button full"
             type="button"
-            disabled={busy || devices.length >= 10}
+            disabled={devices.length >= 10}
             onClick={() => {
               setFlowStep(1);
               setSelected(null);
@@ -392,7 +396,7 @@ export default function EverydayDevicesCard() {
             <span className="everyday-simple-copy"><b>Wired headset</b><small>Track its connection on this phone</small></span>
             {devices.some((device) => device.kind === "wired")
               ? <span className="everyday-status-chip connected">Added</span>
-              : <button className="everyday-row-add" type="button" disabled={busy || devices.length >= 10} onClick={() => { setKind("wired"); setName("Wired headphones"); setFlowStep(3); }}><Plus size={16} />Add</button>}
+              : <button className="everyday-row-add" type="button" disabled={devices.length >= 10} onClick={() => { setKind("wired"); setName("Wired headphones"); setFlowStep(3); }}><Plus size={16} />Add</button>}
           </div>
         </div>
       </section>
