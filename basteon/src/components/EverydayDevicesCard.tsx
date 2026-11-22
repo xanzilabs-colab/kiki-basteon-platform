@@ -293,8 +293,14 @@ export default function EverydayDevicesCard() {
       <section className="everyday-devices-card">
         <div className="everyday-empty-card">
           <span className="everyday-empty-icon"><Bluetooth size={27} /></span>
-          <h2>Manage phone accessories in Kiki for Android</h2>
-          <p>Pair and verify everyday Bluetooth devices from the Kiki Android app.</p>
+          <div>
+            <h2>Phone accessories</h2>
+            <p>Add and pair Bluetooth accessories in the Kiki Android app on this phone. Once added, their connection and practice status can appear here.</p>
+          </div>
+          <button className="everyday-primary-button full" type="button" disabled aria-disabled="true">
+            <Plus size={19} /><span>Add device</span>
+          </button>
+          <p className="everyday-native-hint">Open the Kiki app on Android to add everyday devices.</p>
         </div>
       </section>
     );
@@ -363,6 +369,18 @@ export default function EverydayDevicesCard() {
             <h3>No everyday devices yet</h3>
             <p>Add earbuds or a headset to track its connection and practice triggering Kiki.</p>
           </div>
+          <button
+            className="everyday-primary-button full"
+            type="button"
+            disabled={busy || devices.length >= 10}
+            onClick={() => {
+              setFlowStep(1);
+              setSelected(null);
+              setName("");
+              setPairingMessage("");
+              setError("");
+            }}
+          ><Plus size={19} /><span>Add device</span></button>
         </div>
       )}
 

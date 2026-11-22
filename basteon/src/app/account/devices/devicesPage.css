@@ -254,3 +254,5 @@
 @media(prefers-reduced-motion:reduce) {
   .kiki-devices-redesign *, .kiki-devices-redesign *::before, .kiki-devices-redesign *::after { animation:none!important; transition:none!important; }
 }
+
+.everyday-native-hint { grid-column:1/-1; margin:0; color:var(--ed-muted); font-size:11px; line-height:1.45; text-align:center; }
