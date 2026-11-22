@@ -2135,6 +2135,11 @@ body:has(.account-shell) {
   .account-shell main {
     padding: 0 16px calc(112px + env(safe-area-inset-bottom));
   }
+  .account-shell main.communities-page-main,
+  .account-shell main:has(.communities-looply) {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
 }
 
 .account-shell .appbar {
@@ -4060,7 +4065,9 @@ body:has(.account-shell) {
 }
 
 .account-shell main:has(.kiki-map-home),
-.account-shell main:has(.safe-spots-page) {
+.account-shell main:has(.safe-spots-page),
+.account-shell main.communities-page-main,
+.account-shell main:has(.communities-looply) {
   padding: 0 !important;
 }
 
@@ -4436,6 +4443,13 @@ body:has(.account-shell) {
 @media (min-width: 768px) {
   .account-shell main {
     padding: 32px 24px 32px !important;
+  }
+  .account-shell main.communities-page-main,
+  .account-shell main:has(.communities-looply) {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
   }
 
   .account-shell .safe-spots-page .account-bottom-sheet {
